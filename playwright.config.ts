@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { BASE_URL, IS_CI } from './config/env';
+import { storageStateFor } from './config/roles';
 
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
@@ -38,9 +39,23 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   projects: [
+    // Auth setup project (AXI-1264): authenticates each role once and persists a
+    // storageState the test project consumes (FR12).
+    {
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+    },
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // Default to the admin role; a spec needing another role overrides with
+        // `test.use({ storageState: storageStateFor('user') })`, and one testing
+        // the login flow itself opts out with an empty storageState.
+        storageState: storageStateFor('admin'),
+      },
+      dependencies: ['setup'],
+      testIgnore: /.*\.setup\.ts/,
     },
   ],
 });
