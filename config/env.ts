@@ -34,4 +34,18 @@ export const OBJECT_PUBLIC_URL = normalizeOrigin(fromEnv('OBJECT_PUBLIC_URL', 'h
 /** True when running under CI (used for retry/artifact policy). */
 export const IS_CI = /^(1|true)$/i.test(process.env.CI ?? '');
 
+/** Join an API path onto {@link API_BASE_URL} (leading slash optional). */
+export function apiUrl(path: string): string {
+  return `${API_BASE_URL}/${path.replace(/^\/+/, '')}`;
+}
+
+/**
+ * Build a browser-facing object-storage URL from the **public** endpoint
+ * (FR8). Specs must reach uploads/downloads/presigned objects through this,
+ * never the service-internal endpoint, which the browser cannot resolve.
+ */
+export function objectUrl(path: string): string {
+  return `${OBJECT_PUBLIC_URL}/${path.replace(/^\/+/, '')}`;
+}
+
 export const env = { BASE_URL, API_BASE_URL, OBJECT_PUBLIC_URL, IS_CI };
