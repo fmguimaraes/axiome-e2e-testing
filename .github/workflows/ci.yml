@@ -84,4 +84,5 @@ jobs:
           path: |
             playwright-report/
             test-results/
-          retention-days: 30
+          # Retained as qualification evidence for the release line (NFR9).
+          retention-days: 90

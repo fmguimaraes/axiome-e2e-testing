@@ -24,8 +24,10 @@ export default defineConfig({
   // rather than hidden (FR40, formalized by AXI-1268).
   retries: IS_CI ? 1 : 0,
   workers: undefined,
-  // Reporters: list for the console, JUnit XML for the CI gate, HTML for humans
-  // (baseline here; artifact retention detailed by AXI-1268 / FR26-FR27).
+  // Reporters (FR27): list for the console, JUnit XML for the CI gate, HTML for
+  // humans. Both JUnit and HTML are emitted on every run and published as CI
+  // artifacts (AXI-1267 upload step); retained 90 days as qualification evidence
+  // for the release line (NFR9).
   reporter: [
     ['list'],
     ['junit', { outputFile: 'test-results/junit.xml' }],
@@ -33,8 +35,10 @@ export default defineConfig({
   ],
   use: {
     baseURL: BASE_URL,
-    // Debug artifacts on failure/first-retry (baseline; AXI-1268 owns FR26).
-    trace: 'on-first-retry',
+    // A trace, screenshot, and video are retained for every FAILING test — kept
+    // on failure regardless of retry, so a first-and-only failure still has full
+    // artifacts (FR26/AC14). Passing tests keep nothing (cost).
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
