@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Playwright run outputs & artifacts
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Auth storage state (per-role storageState — never committed; NFR6)
+.auth/
+storage-state*.json
+
+# Local environment overrides (secrets never committed; NFR6)
+.env
+.env.local
