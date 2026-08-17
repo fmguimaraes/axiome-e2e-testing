@@ -54,7 +54,9 @@ export function gateReport(epic: string, story: string, exitCode: number, docsDi
 // ---- CLI ---------------------------------------------------------------
 
 function run(epic: string, story: string): number {
-  const res = spawnSync('npx', ['playwright', 'test', `tests/${epic}/${story}-`], {
+  // The merge gate excludes @flaky-quarantined specs (FR38, AXI-1271); they stay
+  // visible via `npm run quarantine`, they just never block the gate.
+  const res = spawnSync('npx', ['playwright', 'test', `tests/${epic}/${story}-`, '--grep-invert=@flaky'], {
     stdio: 'inherit',
     cwd: process.cwd(),
   });

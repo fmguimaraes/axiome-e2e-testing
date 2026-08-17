@@ -39,3 +39,22 @@ npm run lint:specs      # exits non-zero on any error-severity violation
 `scripts/lint-specs.ts` exposes `lintSource(file, source)` and
 `lintSpecs(testsDir)` for programmatic use; the coverage report (AXI-1266) maps
 the AC IDs in titles to specs and flags gaps/orphans.
+
+## Flake quarantine (`@flaky`)
+
+A spec that fails intermittently across unchanged commits is quarantined by
+adding `@flaky <AXI-BUG>` to its `test()` title (and `{ tag: '@flaky' }`):
+
+```ts
+test('AC7 — upload preview renders @flaky AXI-1273', { tag: '@flaky' }, async ({ page }) => { … });
+```
+
+- **Excluded from the merge gate** — `npm run gate` (and the CI e2e job and the
+  step-g `story-gate`) run `--grep-invert=@flaky`, so a flake never blocks a merge
+  (FR38).
+- **Never silent** — `npm run quarantine` lists every quarantined test in every
+  run, and **fails** if any `@flaky` test has no linked Jira bug (FR39). The bug
+  keeps the flake tracked; quarantine is temporary, not a hiding place.
+- Flake rate is a tracked KPI (< 2% of executions over 30 days; quarantined specs
+  < 5% of the suite — NFR2). A full `npm test` still runs the quarantined specs so
+  their behaviour stays visible; only the *gate* run excludes them.

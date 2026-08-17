@@ -15,7 +15,9 @@
     "lint:specs": "tsx scripts/lint-specs.ts",
     "coverage": "tsx scripts/coverage-report.ts",
     "story-gate": "tsx scripts/story-e2e-gate.ts",
-    "epic-acceptance": "tsx scripts/epic-acceptance.ts"
+    "epic-acceptance": "tsx scripts/epic-acceptance.ts",
+    "quarantine": "tsx scripts/quarantine-report.ts",
+    "gate": "playwright test --grep-invert=@flaky"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
