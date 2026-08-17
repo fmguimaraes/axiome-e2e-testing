@@ -13,7 +13,8 @@
     "install:browsers": "playwright install chromium",
     "typecheck": "tsc --noEmit",
     "lint:specs": "tsx scripts/lint-specs.ts",
-    "coverage": "tsx scripts/coverage-report.ts"
+    "coverage": "tsx scripts/coverage-report.ts",
+    "story-gate": "tsx scripts/story-e2e-gate.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
