@@ -1,0 +1,87 @@
+# CI for axiome-e2e-testing (AXI-1267 — FR22/FR23/FR24/FR25, NFR1, AC12/AC13).
+#
+# Two jobs:
+#  - `checks`  — stack-independent gates that run on every push and PR:
+#                typecheck, the spec-convention linter (AXI-1265), and the
+#                coverage report (AXI-1266). These never need a running platform.
+#  - `e2e`     — the browser suite. It needs a reachable Axiome stack, so it runs
+#                against `vars.BASE_URL` / `vars.API_BASE_URL` (a deployed
+#                environment) when configured, or on-demand via workflow_dispatch
+#                / repository_dispatch (the cross-repo trigger a service-repo PR
+#                fires, FR23). A path filter (`inputs.filter`) runs only the
+#                relevant subset to keep PR runtime bounded (NFR1).
+#
+# The fail-closed preflight (AXI-1263) aborts with exit 78 if the target is
+# down, surfaced here as an environment fault distinct from a test failure (FR28).
+
+name: E2E Suite CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: "Path filter (e.g. tests/AXI-1260/ or a story prefix)"
+        required: false
+        default: ""
+  repository_dispatch:
+    types: [e2e-subset]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks (typecheck · lint · coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint:specs
+      - run: npm run coverage
+        env:
+          # The scenario library + feature docs live in axiome-docs; point the
+          # report at a checkout of it when available, else it maps specs only.
+          E2E_DOCS_DIR: ${{ vars.E2E_DOCS_DIR }}
+
+  e2e:
+    name: E2E suite (browser)
+    runs-on: ubuntu-latest
+    # Only run when a target environment is configured (a deployed BASE_URL) or
+    # explicitly dispatched; a normal push with no target skips rather than fails.
+    if: ${{ vars.BASE_URL != '' || github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch' }}
+    env:
+      BASE_URL: ${{ vars.BASE_URL }}
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      OBJECT_PUBLIC_URL: ${{ vars.OBJECT_PUBLIC_URL }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+      E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run install:browsers
+      - name: Run suite (subset when a filter is dispatched)
+        run: npx playwright test ${{ github.event.inputs.filter || github.event.client_payload.filter || '' }}
+      - name: Publish reports and failure artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 30
