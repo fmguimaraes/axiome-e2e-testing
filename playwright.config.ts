@@ -12,6 +12,9 @@ import { BASE_URL, IS_CI } from './config/env';
  */
 export default defineConfig({
   testDir: './tests',
+  // Fail-closed preflight (AXI-1263): verifies front-end/API reachability and the
+  // seed baseline before any test; aborts with the reserved infra-fault code (FR9/FR10).
+  globalSetup: './preflight/global-setup.ts',
   // One folder per epic (tests/<EPIC-KEY>/); path filter runs full suite, a single
   // epic, or a single story with no config change (AC2, FR4).
   fullyParallel: true,
