@@ -1,5 +1,9 @@
 # Dependencies
-node_modules/
+# No trailing slash: a Workflow-4 worktree symlinks node_modules into the
+# primary checkout's install, and git sees a symlink as a FILE, which a
+# directory-only "node_modules/" rule does not match (it would then be staged
+# by `git add -A`). Matching the bare name covers the directory and the symlink.
+node_modules
 
 # Playwright run outputs & artifacts
 test-results/
