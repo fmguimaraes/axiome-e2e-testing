@@ -5,6 +5,8 @@ import {
   EXPORT_HEADER,
   provisionSubjectDownloadFixture,
   newRoleRequestContext,
+  roleTokens,
+  seedBrowserSession,
   type SubjectDownloadFixture,
 } from './subject-fixtures';
 
@@ -24,10 +26,12 @@ import {
 
 let fixture: SubjectDownloadFixture;
 let adminApi: APIRequestContext;
+let adminTokens: { accessToken: string; refreshToken: string };
 
 test.beforeAll(async () => {
   fixture = await provisionSubjectDownloadFixture();
   adminApi = await newRoleRequestContext('admin');
+  adminTokens = await roleTokens('admin');
 });
 
 test.afterAll(async () => {
@@ -42,14 +46,7 @@ function exportGet(path: string, workspaceId: string) {
 /** Point the authenticated SPA at the fixture workspace (the app reads the
  *  active workspace from localStorage), then open the Subjects list. */
 async function openSubjects(page: Page): Promise<void> {
-  const { schemaWorkspaceId, orgId } = fixture;
-  await page.addInitScript(
-    ([ws, org]) => {
-      localStorage.setItem('axiome-active-workspace', ws);
-      localStorage.setItem('axiome-top-org', org);
-    },
-    [schemaWorkspaceId, orgId] as const,
-  );
+  await seedBrowserSession(page, adminTokens, fixture.schemaWorkspaceId, fixture.orgId);
   await page.goto('/subjects');
   await expect(page.getByRole('heading', { name: 'Subjects' })).toBeVisible();
 }
@@ -174,13 +171,7 @@ test.describe('AXI-1319 — subject CSV download (FR41/AC25)', () => {
 
   test('AC25 — the subject detail page downloads that subject CSV', async ({ page }) => {
     const { subjectA, schemaWorkspaceId, orgId } = fixture;
-    await page.addInitScript(
-      ([ws, org]) => {
-        localStorage.setItem('axiome-active-workspace', ws);
-        localStorage.setItem('axiome-top-org', org);
-      },
-      [schemaWorkspaceId, orgId] as const,
-    );
+    await seedBrowserSession(page, adminTokens, schemaWorkspaceId, orgId);
     await page.goto(`/subjects/${subjectA.id}`);
 
     const button = page.getByRole('button', { name: 'Download CSV' });
