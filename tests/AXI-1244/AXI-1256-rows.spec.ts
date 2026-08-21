@@ -311,8 +311,8 @@ test.describe('AXI-1256 — subject data rows & missing states (§4.8)', () => {
     await expect(week4Cell()).toHaveText('60');
   });
 
-  test('FR11 — an out-of-range value staged in the grid is rejected by the server and never persisted', async ({ page }) => {
-    const subject = await createSubject(adminApi, ws, subjectCode('ui-reject'));
+  test('FR8 — an out-of-range value staged in the grid is blocked inline: Save is disabled and the invalid field flagged before any write (AXI-1321)', async ({ page }) => {
+    const subject = await createSubject(adminApi, ws, subjectCode('ui-block'));
     await putRow(adminApi, ws, subject.id, baseline, cells(50, 'A'));
 
     await seedBrowserSession(page, adminTokens, ws, orgId);
@@ -321,18 +321,24 @@ test.describe('AXI-1256 — subject data rows & missing states (§4.8)', () => {
     const baselineCell = () => dataGrid(page).getByRole('row', { name: /Baseline/ }).getByRole('cell').nth(AGE_CELL);
     await expect(baselineCell()).toHaveText('50');
 
-    // Stage an out-of-range age (max 120) over the existing row and save.
+    // Stage an out-of-range age (schema max 120).
     await baselineCell().dblclick();
-    const number = page.getByRole('spinbutton');
-    await number.fill('130');
-    await number.press('Enter');
-    await page.getByRole('button', { name: 'Save changes' }).click();
-    await page.getByPlaceholder('Why is this data being recorded or changed?').fill('AXI-1256 E2E out of range');
-    await page.getByRole('button', { name: 'Save change', exact: true }).click();
+    await page.getByRole('spinbutton').fill('130');
+    await page.getByRole('spinbutton').press('Enter');
 
-    // The server is authoritative: the surfaced error names the violated bound.
-    await expect(page.getByText(/maximum/i)).toBeVisible();
-    // Nothing was persisted — a reload from the API restores the original value.
+    // FR8 mirror: the invalid value is blocked BEFORE any submission — the Save
+    // button is disabled and the bar names the invalid field (no server round-trip).
+    const saveButton = page.getByRole('button', { name: 'Save changes' });
+    await expect(saveButton).toBeDisabled();
+    await expect(page.getByText(/fix invalid value/i)).toBeVisible();
+
+    // Correcting to an in-range value releases the gate.
+    await baselineCell().dblclick();
+    await page.getByRole('spinbutton').fill('60');
+    await page.getByRole('spinbutton').press('Enter');
+    await expect(saveButton).toBeEnabled();
+
+    // The invalid value was never written: discarding (reload) restores the original.
     await page.reload();
     await expect(baselineCell()).toHaveText('50');
   });
