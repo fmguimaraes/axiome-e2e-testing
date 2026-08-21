@@ -70,12 +70,29 @@ export async function send(
  * `user` role is a non-member of any fixture workspace — the deny-by-default
  * negative. The caller disposes the returned context.
  */
+// Log in at most ONCE per role per worker process. The whole AXI-1244 suite
+// provisions heavily and would otherwise fire dozens of concurrent /auth/login
+// calls and trip the login rate limit (100/60s); a run finishes well inside a
+// token's lifetime, so caching the tokens for the run is safe and keeps the
+// suite comfortably under the limit at any worker count.
+const tokenCache: Partial<Record<'admin' | 'user', Promise<{ accessToken: string; refreshToken: string }>>> = {};
+
+function cachedTokens(roleName: 'admin' | 'user'): Promise<{ accessToken: string; refreshToken: string }> {
+  if (!tokenCache[roleName]) {
+    tokenCache[roleName] = (async () => {
+      const bootstrap = await apiRequest.newContext();
+      const role = ROLES.find((r) => r.name === roleName);
+      if (!role) throw new Error(`role ${roleName} missing from ROLES registry`);
+      const tokens = await ensureAuthTokens(bootstrap, role);
+      await bootstrap.dispose();
+      return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
+    })();
+  }
+  return tokenCache[roleName]!;
+}
+
 export async function newRoleRequestContext(roleName: 'admin' | 'user'): Promise<APIRequestContext> {
-  const bootstrap = await apiRequest.newContext();
-  const role = ROLES.find((r) => r.name === roleName);
-  if (!role) throw new Error(`role ${roleName} missing from ROLES registry`);
-  const tokens = await ensureAuthTokens(bootstrap, role);
-  await bootstrap.dispose();
+  const tokens = await cachedTokens(roleName);
   return apiRequest.newContext({
     extraHTTPHeaders: { Authorization: `Bearer ${tokens.accessToken}` },
   });
@@ -90,12 +107,7 @@ export async function newRoleRequestContext(roleName: 'admin' | 'user'): Promise
  * pattern for these specs.
  */
 export async function roleTokens(roleName: 'admin' | 'user'): Promise<{ accessToken: string; refreshToken: string }> {
-  const bootstrap = await apiRequest.newContext();
-  const role = ROLES.find((r) => r.name === roleName);
-  if (!role) throw new Error(`role ${roleName} missing from ROLES registry`);
-  const tokens = await ensureAuthTokens(bootstrap, role);
-  await bootstrap.dispose();
-  return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
+  return cachedTokens(roleName);
 }
 
 /** Seed a page (before app scripts run) with fresh auth tokens and the active
@@ -121,13 +133,18 @@ export async function seedBrowserSession(
  * Authenticate as the seed admin and return a bearer-token context plus the
  * identity/org needed to own a fixture workspace. The caller disposes `api`.
  */
+let adminIdentity: { userId: string; orgId: string } | undefined;
+
 export async function adminContext(): Promise<{ api: APIRequestContext; userId: string; orgId: string }> {
   const api = await newRoleRequestContext('admin');
-  const me = await send(api, 'get', '/api/v1/auth/me', null);
-  const orgs = await send(api, 'get', '/api/v1/organizations', null);
-  const orgId = orgs?.data?.[0]?.id;
-  if (!orgId) throw new Error('no organization available to own the fixture workspace');
-  return { api, userId: me.id, orgId };
+  if (!adminIdentity) {
+    const me = await send(api, 'get', '/api/v1/auth/me', null);
+    const orgs = await send(api, 'get', '/api/v1/organizations', null);
+    const orgId = orgs?.data?.[0]?.id;
+    if (!orgId) throw new Error('no organization available to own the fixture workspace');
+    adminIdentity = { userId: me.id, orgId };
+  }
+  return { api, ...adminIdentity };
 }
 
 // ── Provisioning builders ────────────────────────────────────────────
