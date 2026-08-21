@@ -167,10 +167,9 @@ test.describe('AXI-1251 — upload subject-link integration (FR17/FR31)', () => 
       subjectId: '11111111-1111-1111-1111-111111111111',
     });
 
-    // Intended contract is 404 (workspace-scoped "not found"); the datasets
-    // gateway currently masks it as 500 — either way the request is refused.
-    expect(res.ok()).toBeFalsy();
-    expect([404, 500]).toContain(res.status());
+    // FR17 contract: an unknown subject is a workspace-scoped 404 (AXI-1320
+    // maps the service's NotFound onto the RPC envelope instead of a blanket 500).
+    expect(res.status()).toBe(404);
     // No orphan: the registry is unchanged and no presigned URL was issued.
     expect(await datasetTotal(schemaWs)).toBe(before);
     expect((await res.json()).presignedUrl).toBeUndefined();
@@ -184,10 +183,9 @@ test.describe('AXI-1251 — upload subject-link integration (FR17/FR31)', () => 
       subjectId: subjectDeadId,
     });
 
-    // Intended contract is 409 (tombstoned accepts no attachments); masked as 500
-    // by the datasets gateway. The refusal + absence of an orphan is the invariant.
-    expect(res.ok()).toBeFalsy();
-    expect([409, 500]).toContain(res.status());
+    // FR17/FR15 contract: a tombstoned subject accepts no attachments → 409
+    // (AXI-1320 maps the service's Conflict onto the RPC envelope, not a 500).
+    expect(res.status()).toBe(409);
     expect(await datasetTotal(schemaWs)).toBe(before);
     expect((await res.json()).presignedUrl).toBeUndefined();
   });

@@ -141,13 +141,10 @@ test.describe('AXI-1257 — batch metadata & panel vocabulary (FR19/EC7)', () =>
       const body: Record<string, unknown> = fullUploadBody(panelId);
       delete body[field];
       const res = await wsPost(datasetsPath(), body);
-      // FR19: the metadata gate refuses the subject-linked upload. (The server
-      // logs name the missing field; the field name is not surfaced to the
-      // client because the gateway currently maps the service BadRequest to 500
-      // — see the residue note in the file footer. The refusal itself is the
-      // deterministic, pre-file guarantee this asserts.)
-      expect(res.status(), `omitting ${field} must refuse the upload, not accept it`).not.toBe(201);
-      expect(res.status()).toBeGreaterThanOrEqual(400);
+      // FR19: the metadata gate refuses the subject-linked upload with a 400 that
+      // names the missing field (AXI-1320 maps the service BadRequest onto the RPC
+      // envelope instead of a blanket 500). The gate runs before any file lands.
+      expect(res.status(), `omitting ${field} must refuse the upload with 400`).toBe(400);
     }
 
     // No orphan: the metadata gate runs before S3, so no Dataset row exists
