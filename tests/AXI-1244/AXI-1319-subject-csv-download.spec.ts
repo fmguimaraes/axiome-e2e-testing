@@ -20,8 +20,9 @@ import {
  * workspace-mismatch 403, non-member 403), and the three UI affordances that
  * trigger it (subject-list row action, list "Download all", subject-detail
  * "Download CSV"). Data is provisioned through the public API per run
- * (self-contained, no seed dependence — NFR3); the browser is authenticated
- * from the admin storageState (AXI-1264) and pointed at the fixture workspace.
+ * (self-contained, no seed dependence — NFR3); the browser is authenticated by
+ * injecting fresh admin tokens into localStorage (`seedBrowserSession`, the
+ * fixtures' canonical pattern) and pointed at the fixture workspace.
  */
 
 let fixture: SubjectDownloadFixture;
@@ -63,7 +64,7 @@ test.describe('AXI-1319 — subject CSV download (FR41/AC25)', () => {
     expect(res.headers()['content-disposition']).toContain(`filename="subject_${subjectA.code}.csv"`);
 
     const body = await res.text();
-    const lines = body.trim().split('\n');
+    const lines = body.trim().split(/\r?\n/);
     // Header is the promotion shape; the biological `bmi` column is excluded (FR41).
     expect(lines[0]).toBe(EXPORT_HEADER);
     expect(lines[0]).not.toContain('bmi');
@@ -80,7 +81,7 @@ test.describe('AXI-1319 — subject CSV download (FR41/AC25)', () => {
     expect(res.headers()['content-disposition']).toContain('filename="subjects.csv"');
 
     const body = await res.text();
-    expect(body.split('\n')[0]).toBe(EXPORT_HEADER);
+    expect(body.split(/\r?\n/)[0]).toBe(EXPORT_HEADER);
     // Both subjects contribute (SUBJ-0001 across two timepoints, SUBJ-0002 once).
     expect(body).toMatch(/^SUBJ-0001,Baseline,/m);
     expect(body).toMatch(/^SUBJ-0001,Week 4,/m);
@@ -151,7 +152,7 @@ test.describe('AXI-1319 — subject CSV download (FR41/AC25)', () => {
     expect(download.suggestedFilename()).toBe(`subject_${subjectA.code}.csv`);
 
     const csv = readFileSync(await download.path(), 'utf8');
-    expect(csv.split('\n')[0]).toBe(EXPORT_HEADER);
+    expect(csv.split(/\r?\n/)[0]).toBe(EXPORT_HEADER);
     expect(csv).toMatch(/^SUBJ-0001,Baseline,[^,\n]+,54,A,/m);
   });
 
@@ -165,7 +166,7 @@ test.describe('AXI-1319 — subject CSV download (FR41/AC25)', () => {
     expect(download.suggestedFilename()).toBe('subjects.csv');
 
     const csv = readFileSync(await download.path(), 'utf8');
-    expect(csv.split('\n')[0]).toBe(EXPORT_HEADER);
+    expect(csv.split(/\r?\n/)[0]).toBe(EXPORT_HEADER);
     expect(csv).toMatch(/^SUBJ-0002,Baseline,/m);
   });
 

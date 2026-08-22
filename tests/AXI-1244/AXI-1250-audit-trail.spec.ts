@@ -104,10 +104,20 @@ function expectMetadataOnly(changes: Record<string, any>): void {
   for (const key of Object.keys(changes)) {
     expect(ALLOWED_CHANGE_KEYS.has(key)).toBe(true);
   }
-  const columns = changes.draftColumns?.new ?? changes.draftColumns?.old ?? [];
-  for (const column of columns ?? []) {
-    for (const key of Object.keys(column)) {
-      expect(ALLOWED_COLUMN_KEYS.has(key)).toBe(true);
+  // Column definitions live directly under draftColumns.{new,old} (draft saves)
+  // and nested under activeVersion.{new,old}.columns (publishes). Walk BOTH so a
+  // leaked value hiding inside the published version's columns is not a blind spot.
+  const columnArrays = [
+    changes.draftColumns?.new,
+    changes.draftColumns?.old,
+    changes.activeVersion?.new?.columns,
+    changes.activeVersion?.old?.columns,
+  ];
+  for (const columns of columnArrays) {
+    for (const column of columns ?? []) {
+      for (const key of Object.keys(column)) {
+        expect(ALLOWED_COLUMN_KEYS.has(key)).toBe(true);
+      }
     }
   }
 }

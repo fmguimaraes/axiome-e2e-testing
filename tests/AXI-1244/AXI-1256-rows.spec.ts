@@ -113,7 +113,9 @@ test.describe('AXI-1256 — subject data rows & missing states (§4.8)', () => {
 
     // No data yet — an empty, well-shaped list.
     const empty = await (await get(`/api/v1/workspaces/${ws}/subjects/${subject.id}/rows`, ws)).json();
-    expect(empty).toEqual({ rows: [], total: 0 });
+    // Assert the contract (empty page), not the exact envelope shape, so an added
+    // field (pagination/meta) never fails a correct empty result.
+    expect(empty).toMatchObject({ rows: [], total: 0 });
 
     // A required column (treatment_arm) is satisfied by an explicit missing
     // state, never by silence (FR11/AC5).

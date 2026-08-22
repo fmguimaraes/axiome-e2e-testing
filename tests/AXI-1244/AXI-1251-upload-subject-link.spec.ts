@@ -38,13 +38,11 @@ import {
  * residue (see the story's residue notes): it depends on MinIO object writes and
  * RabbitMQ materialization that are non-deterministic to assert inline.
  *
- * NOTE on status codes: the datasets initiate handler forwards the microservice
- * result with a raw `firstValueFrom` and no RPC→HTTP mapping, so the semantic
- * 404 (unknown) / 409 (tombstoned) thrown by the subject guard currently surface
- * at the gateway as HTTP 500. The refusal itself (no dataset, no URL) is the
- * FR17 invariant and is asserted durably; the status assertions accept both the
- * intended code and the observed masking so the spec stays green whether or not
- * that gateway mapping is later fixed.
+ * NOTE on status codes: AXI-1320 fixed the datasets initiate handler to map the
+ * microservice's exceptions onto the RPC envelope, so the subject guard's refusals
+ * now surface with their real status — unknown → 404, tombstoned → 409 — which
+ * these assertions demand exactly. (Before that fix they were masked as HTTP 500;
+ * the assertions were tightened from the both-codes tolerance in the same change.)
  */
 
 // ── Fixture state ─────────────────────────────────────────────────────

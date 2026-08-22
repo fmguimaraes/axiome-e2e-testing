@@ -86,7 +86,13 @@ function cachedTokens(roleName: 'admin' | 'user'): Promise<{ accessToken: string
       const tokens = await ensureAuthTokens(bootstrap, role);
       await bootstrap.dispose();
       return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
-    })();
+    })().catch((err) => {
+      // Never memoize a REJECTED login — a single transient blip would otherwise
+      // poison the cache and fail every test in the worker. Drop it so the next
+      // caller re-attempts (the whole point of the throttle-resilience memo).
+      delete tokenCache[roleName];
+      throw err;
+    });
   }
   return tokenCache[roleName]!;
 }
