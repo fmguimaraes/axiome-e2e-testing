@@ -31,6 +31,14 @@ export const API_BASE_URL = normalizeOrigin(fromEnv('API_BASE_URL', 'http://loca
  */
 export const OBJECT_PUBLIC_URL = normalizeOrigin(fromEnv('OBJECT_PUBLIC_URL', 'http://localhost:9000'));
 
+/**
+ * Metabase origin for the Behavior Tracking read layer (AXI-1048). Default: the
+ * local `make analytics-up` overlay port. Metabase is an optional overlay, not
+ * part of the base `make local-up` stack — read-layer specs probe it and skip
+ * when it is unreachable rather than failing the suite.
+ */
+export const METABASE_BASE_URL = normalizeOrigin(fromEnv('METABASE_BASE_URL', 'http://localhost:3001'));
+
 /** True when running under CI (used for retry/artifact policy). */
 export const IS_CI = /^(1|true)$/i.test(process.env.CI ?? '');
 
@@ -48,4 +56,4 @@ export function objectUrl(path: string): string {
   return `${OBJECT_PUBLIC_URL}/${path.replace(/^\/+/, '')}`;
 }
 
-export const env = { BASE_URL, API_BASE_URL, OBJECT_PUBLIC_URL, IS_CI };
+export const env = { BASE_URL, API_BASE_URL, OBJECT_PUBLIC_URL, METABASE_BASE_URL, IS_CI };

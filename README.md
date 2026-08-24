@@ -51,6 +51,11 @@ changing only these values — no spec, selector, or config edit:
 | `BASE_URL` | `http://localhost:5173` | front-end origin the browser drives |
 | `API_BASE_URL` | `http://localhost:3000` | backend API (setup/teardown, API-only specs) |
 | `OBJECT_PUBLIC_URL` | `http://localhost:9000` | public, browser-reachable object storage (MinIO/S3) |
+| `METABASE_BASE_URL` | `http://localhost:3001` | Behavior Tracking read layer (AXI-1048); the `make analytics-up` overlay. Read-layer specs skip when it is unreachable. |
+
+The Behavior Tracking read-layer round-trip (`tests/AXI-1043/`) additionally
+reads back through Metabase's query API; it skips unless a Metabase admin is
+supplied via `METABASE_USER` / `METABASE_PASSWORD` (optionally `METABASE_DATABASE_ID`).
 
 Copy `.env.example` to `.env` to override locally. **Never commit a secret** —
 role credentials are supplied at run time (env vars or the platform secret store).
