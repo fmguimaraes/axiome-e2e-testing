@@ -8,16 +8,15 @@ import { ROLES } from '../../config/roles';
  * (epic AXI-1354, Onboarding Content Corpus).
  * Manual-E2E §AXI-1354-Onboarding-Content-Corpus §4.2/§5.2.
  *
- * *** SKELETON, BLOCKED ***: same constraint as AXI-1360's own spec in this
- * directory — bringing up the full local stack (`axiome-infra` `make
- * local-up`) plus a French-locale (or non-EN/FR-locale) browser session was
- * not feasible in this story's environment. Both tests are written against
- * the real `orientation` tour, the real checklist/runner UI contract
- * (AXI-1324/1328/1330) and the real `src/locales/onboarding/{en,fr}.ts`
- * resource files this story added — they SHOULD work once run against a
- * live app, but neither has actually been executed. Do not trust a green
- * run of this file until someone removes the `test.skip` and confirms it
- * against the running stack (Testing/W5).
+ * *** AC11/EC3 UN-SKIPPED as of AXI-1362 ***: both drive `orientation`'s step
+ * 0, anchored to `app-shell.nav-sidebar`, now attached to the desktop nav
+ * `<nav>` in `Layout.tsx`. They are written against the real checklist/runner
+ * UI contract (AXI-1324/1328/1330) and the real
+ * `src/locales/onboarding/{en,fr}.ts` resource files AXI-1361 added — they
+ * SHOULD work once run against a live app, but have NOT actually been
+ * executed in this environment (no `make local-up`, no Playwright browser
+ * available here). Do not trust a green run of this file until someone
+ * confirms it against the running stack (Testing/W5).
  *
  * Locale emulation: Playwright's `locale` context option sets
  * `navigator.language`, which is exactly what `useHelpLocale()`
@@ -55,7 +54,7 @@ async function pageInLocale(browser: Browser, locale: string): Promise<Page> {
   return context.newPage();
 }
 
-test.describe.skip('AXI-1361 — locale resources (AC11/AC13) — SKELETON, not yet run against a live stack', () => {
+test.describe('AXI-1361 — locale resources (AC11/AC13)', () => {
   test('AC11 — a French-locale user sees French throughout, zero fallback, no badge', { tag: ['@SI-038'] }, async ({ browser, request }) => {
     const token = await tokenFor(request, 'user');
     await clearOnboardingState(request, token, ['orientation']);
@@ -100,12 +99,12 @@ test.describe.skip('AXI-1361 — locale resources (AC11/AC13) — SKELETON, not 
     await expect(tooltip.getByText('EN', { exact: true })).toBeVisible(); // the fallback badge (EC3)
   });
 
-  test('AC13 — deleting the onboarding module leaves no onboarding locale resource', { tag: ['@SI-038'] }, async () => {
+  test.skip('AC13 — deleting the onboarding module leaves no onboarding locale resource', { tag: ['@SI-038'] }, async () => {
     // This AC is verified at the filesystem/build level (manual-e2e §5.2:
     // delete src/onboarding + src/locales/onboarding + the vite hook, then
     // tsc/build clean and grep for leaked tour.* keys elsewhere in src/) —
     // not a browser flow, so there is nothing for Playwright to drive here.
-    // Tracked as a manual check; see the manual-e2e doc for the actual steps.
-    expect(true).toBe(true);
+    // Left `skip` honestly rather than a vacuous pass; tracked as a manual
+    // check — see the manual-e2e doc for the actual steps.
   });
 });
