@@ -7,10 +7,15 @@ import { ROLES } from '../../config/roles';
  * AXI-1329 / AXI-1331 — Onboarding eligibility & accessibility (epic AXI-1324).
  * Manual-E2E §AXI-1324-Onboarding §8b/§8c.
  *
- * Uses the real `welcome` first-visit tour. Autostart is deterministic because
- * each test seeds the admin user's stored status via the API first: `not_started`
- * → the tour autostarts on load; a terminal status → it does not. Escape closes
- * the tour AND records a skip (FR32/AC18), which the API then confirms.
+ * Used the placeholder `welcome` first-visit tour.
+ *
+ * *** SKIPPED as of AXI-1360 (epic AXI-1354) ***: `welcome` no longer exists —
+ * FR1 retired the placeholder in favour of the real ten-tour set (see
+ * `axiome-docs/05 - product/features/axiome-onboarding-content-v1.md`). The
+ * `WELCOME_BODY` copy this file asserts on no longer renders from any
+ * registered tour. Re-point at a real tour/route pairing (`orientation` on
+ * `/`) once AXI-1362 attaches that tour's `data-tour` targets to real
+ * controls, and un-skip.
  *
  * @SI-030. ACs: AC7/AC8 (complete/skip suppresses re-autostart for the version),
  * AC18 (keyboard-operable; Escape closes with a recorded skip, FR30/FR32).
@@ -41,7 +46,7 @@ async function waitForShell(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: 'Getting started' })).toBeVisible();
 }
 
-test.describe('AXI-1331 — eligibility & accessibility (AC7/AC8/AC18)', () => {
+test.describe.skip('AXI-1331 — eligibility & accessibility (AC7/AC8/AC18) — blocked by AXI-1360 registry change, see file header', () => {
   test('FR18/FR19 — a first-visit tour autostarts when its status is not_started', { tag: ['@SI-030'] }, async ({ page, request }) => {
     const token = await adminToken(request);
     await seedStatus(request, token, 'not_started');

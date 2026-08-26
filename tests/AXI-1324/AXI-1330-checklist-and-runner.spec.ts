@@ -7,11 +7,18 @@ import { ROLES } from '../../config/roles';
  * AXI-1330 / AXI-1328 — Onboarding checklist + runner (epic AXI-1324).
  * Manual-E2E §AXI-1324-Onboarding §8/§8d.
  *
- * Drives the real, code-registered `welcome` tour (title "Welcome to Axiome",
- * one step "Need a hand?" anchored to the header Help button via
- * `data-tour="header.help-button"`). The checklist lists offered tours and a
- * manual restart launches the controlled react-joyride runner. The default
- * project runs authenticated as admin.
+ * Drove the placeholder `welcome` tour (title "Welcome to Axiome", one step
+ * anchored to the header Help button via `data-tour="header.help-button"`).
+ *
+ * *** SKIPPED as of AXI-1360 (epic AXI-1354) ***: the registry no longer
+ * carries a `welcome` placeholder — FR1 retired it in favour of the real
+ * ten-tour set (see `axiome-docs/05 - product/features/axiome-onboarding-content-v1.md`).
+ * None of the ten tours' OWN targets are attached to real controls yet (that
+ * placement is AXI-1362); the only pre-existing attached target is
+ * `header.help-button`, and every new tour reaches it only after 1-2 EC1
+ * readiness-timeout skips (~5s each) — not a meaningful, non-flaky smoke test.
+ * Re-point this spec at a real tour (e.g. `orientation`) and un-skip once
+ * AXI-1362 attaches `data-tour` to the app-shell controls it needs.
  *
  * @SI-030. ACs: AC1 (registered tour appears in the checklist), FR26/FR27
  * (header entry + manual restart), FR11-14 (controlled runner presents the
@@ -43,7 +50,7 @@ async function gotoAuthed(page: Page, path: string): Promise<void> {
   await expect(page.getByRole('button', { name: 'Getting started' })).toBeVisible();
 }
 
-test.describe('AXI-1330 — onboarding checklist & runner (AC1/FR26/FR27)', () => {
+test.describe.skip('AXI-1330 — onboarding checklist & runner (AC1/FR26/FR27) — blocked by AXI-1360 registry change, see file header', () => {
   test('AC1/FR26 — the header checklist lists the registered welcome tour with its status', { tag: ['@SI-030'] }, async ({ page, request }) => {
     await putWelcome(request, await adminToken(request), 'completed');
     await gotoAuthed(page, '/subjects');
