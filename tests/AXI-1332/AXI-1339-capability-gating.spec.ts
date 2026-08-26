@@ -46,11 +46,11 @@ test.describe('AXI-1339 — capability gating @SI-037 @SI-030', () => {
     test('@SI-037 FR45 — the gated doc is reachable in browse and by direct link', async ({ page }) => {
       await gotoAuthed(page, '/help');
       await expect(page.getByTestId('help-browse-tree')).toBeVisible();
-      // The admin sees the gated doc in the Subjects browse group.
+      // The admin sees the gated doc in the Subjects & cohorts browse group.
       await expect(page.locator(`[data-help-browse-doc="${GATED_ID}"]`)).toBeVisible();
 
       // A direct link renders the document (its title is disclosed to the admin).
-      await page.goto(`/help/${GATED_ID}`);
+      await page.goto('/help/subjects-and-cohorts/managing-the-subject-schema');
       await expect(page.getByRole('heading', { level: 1, name: GATED_TITLE })).toBeVisible();
       await expect(page.getByTestId('help-doc-not-found')).toHaveCount(0);
     });

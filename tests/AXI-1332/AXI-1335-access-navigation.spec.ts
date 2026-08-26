@@ -54,7 +54,7 @@ test.describe('AXI-1335 — help access & navigation (FR10-19/NFR8/AC4-6/AC18/EC
     await expect(dialog).toHaveAttribute('aria-modal', 'true');
     // The browse root renders inside the drawer (FR16), and the URL is unchanged
     // — the drawer overlays the page, it does not navigate (FR11/EC8).
-    await expect(dialog.getByText('Getting Started')).toBeVisible();
+    await expect(dialog.getByText('Getting started')).toBeVisible();
     expect(page.url()).toBe(urlBefore);
   });
 
@@ -71,18 +71,19 @@ test.describe('AXI-1335 — help access & navigation (FR10-19/NFR8/AC4-6/AC18/EC
     await expect(helpButton).toBeFocused();
   });
 
-  // ─── Full-page browse root grouped by section (FR12/FR16) ────────────
-  test('@SI-030 @SI-037 FR12/FR16 — /help renders the browse root grouped by section', async ({ page }) => {
+  // ─── Full-page browse root grouped by category (FR12/FR16/FR14) ──────
+  test('@SI-030 @SI-037 FR12/FR16/FR14 — /help renders the browse root grouped by category, headers link to the landing', async ({ page }) => {
     await page.goto('/help');
     const tree = page.getByTestId('help-browse-tree');
     await expect(tree).toBeVisible();
-    await expect(tree.getByRole('heading', { name: 'Getting Started' })).toBeVisible();
+    // Category headers are now clickable buttons that navigate to /help/:category (FR14).
+    await expect(tree.locator('[data-help-browse-category="getting-started"]')).toBeVisible();
     await expect(tree.getByRole('button', { name: new RegExp(WELCOME_TITLE) })).toBeVisible();
   });
 
   // ─── Deep link renders the doc + scrolls to the heading (FR13/AC5) ───
-  test('@SI-030 @SI-037 FR13/AC5 — /help/{id}#{anchor} opens the document and scrolls to the heading', async ({ page }) => {
-    await page.goto(`/help/welcome#${WELCOME_HEADING_ANCHOR}`);
+  test('@SI-030 @SI-037 FR13/AC5 — /help/{category}/{slug}#{anchor} opens the document and scrolls to the heading', async ({ page }) => {
+    await page.goto(`/help/getting-started/welcome#${WELCOME_HEADING_ANCHOR}`);
 
     await expect(page.getByRole('heading', { name: WELCOME_TITLE, level: 1 })).toBeVisible();
     const heading = page.locator(`#${WELCOME_HEADING_ANCHOR}`);
@@ -93,17 +94,18 @@ test.describe('AXI-1335 — help access & navigation (FR10-19/NFR8/AC4-6/AC18/EC
 
   // ─── `doc:` link resolves through the router, no full load (FR17) ────
   test('@SI-030 @SI-037 FR17 — an in-doc `doc:` link navigates within the app (no full page load)', async ({ page }) => {
-    await page.goto('/help/welcome');
+    await page.goto('/help/getting-started/welcome');
     await expect(page.getByRole('heading', { name: WELCOME_TITLE, level: 1 })).toBeVisible();
 
     // Prove no full document load happened: tag the current document, click the
     // in-app doc link, and confirm the same document object handled the route.
     await page.evaluate(() => ((window as unknown as { __helpNoReload?: boolean }).__helpNoReload = true));
     const docLink = page.locator('a[data-doc-link="subject-schema-versioning"]').first();
-    await expect(docLink).toHaveAttribute('href', new RegExp(`/help/subject-schema-versioning#${SCHEMA_LINK_ANCHOR}`));
+    // `doc:` links now resolve to the canonical /help/:category/:slug URL.
+    await expect(docLink).toHaveAttribute('href', new RegExp(`/help/subjects-and-cohorts/subject-schema-versioning#${SCHEMA_LINK_ANCHOR}`));
     await docLink.click();
 
-    await expect(page).toHaveURL(new RegExp(`/help/subject-schema-versioning#${SCHEMA_LINK_ANCHOR}`));
+    await expect(page).toHaveURL(new RegExp(`/help/subjects-and-cohorts/subject-schema-versioning#${SCHEMA_LINK_ANCHOR}`));
     const preserved = await page.evaluate(
       () => (window as unknown as { __helpNoReload?: boolean }).__helpNoReload === true,
     );
@@ -121,12 +123,12 @@ test.describe('AXI-1335 — help access & navigation (FR10-19/NFR8/AC4-6/AC18/EC
 
   // ─── Copy-link produces an absolute /help/{id}#{anchor} URL (FR18/AC6) ─
   test('@SI-030 @SI-037 FR18/AC6 — a heading copy-link resolves to an absolute /help/{id}#{anchor} URL', async ({ page }) => {
-    await page.goto('/help/welcome');
+    await page.goto('/help/getting-started/welcome');
     const copyLink = page.locator(`[data-help-copy-link="${WELCOME_HEADING_ANCHOR}"]`);
-    await expect(copyLink).toHaveAttribute('href', `/help/welcome#${WELCOME_HEADING_ANCHOR}`);
+    await expect(copyLink).toHaveAttribute('href', `/help/getting-started/welcome#${WELCOME_HEADING_ANCHOR}`);
 
     // Following the copy-link lands on the deep link it advertises (AC6 → AC5).
     await copyLink.click();
-    await expect(page).toHaveURL(new RegExp(`/help/welcome#${WELCOME_HEADING_ANCHOR}$`));
+    await expect(page).toHaveURL(new RegExp(`/help/getting-started/welcome#${WELCOME_HEADING_ANCHOR}$`));
   });
 });

@@ -131,7 +131,7 @@ test.describe('AXI-1336 — help client-side search (FR20-26/NFR3/AC7-9/AC16/AC1
     await expect(page.getByTestId('help-search')).toBeHidden();
     const drawer = page.getByTestId('help-drawer');
     await expect(drawer).toBeVisible();
-    await expect(drawer.getByText('Getting Started')).toBeVisible();
+    await expect(drawer.getByText('Getting started')).toBeVisible();
   });
 
   // ─── No history: empty on reopen, nothing persisted (FR25/AC9) ───────

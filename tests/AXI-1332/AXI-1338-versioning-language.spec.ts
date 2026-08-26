@@ -26,7 +26,7 @@ import { test, expect } from '@playwright/test';
  */
 test.describe('AXI-1338 — versioning, freshness & language @SI-037 @SI-030', () => {
   test('@SI-037 AC12/FR33 — footer stamps app version + build date; a doc shows its reviewed date', async ({ page }) => {
-    await page.goto('/help/welcome');
+    await page.goto('/help/getting-started/welcome');
     await expect(page).not.toHaveURL(/\/login/);
 
     const footer = page.getByTestId('help-footer');
@@ -42,7 +42,7 @@ test.describe('AXI-1338 — versioning, freshness & language @SI-037 @SI-030', (
     await expect(page.getByTestId('help-browse-tree')).toBeVisible();
     await expect(page.locator('[data-help-browse-doc="legacy-import"]')).toHaveCount(0);
 
-    await page.goto('/help/legacy-import');
+    await page.goto('/help/getting-started/legacy-import');
     await expect(page.getByTestId('help-version-notice')).toBeVisible();
   });
 
@@ -50,7 +50,7 @@ test.describe('AXI-1338 — versioning, freshness & language @SI-037 @SI-030', (
     test.use({ locale: 'fr-FR' });
 
     test('@SI-030 AC14 — an English-only doc falls back to the default language with a badge', async ({ page }) => {
-      await page.goto('/help/subject-schema-versioning');
+      await page.goto('/help/subjects-and-cohorts/subject-schema-versioning');
       await expect(page).not.toHaveURL(/\/login/);
       const badge = page.getByTestId('help-lang-badge');
       await expect(badge).toBeVisible();
@@ -58,7 +58,7 @@ test.describe('AXI-1338 — versioning, freshness & language @SI-037 @SI-030', (
     });
 
     test('@SI-030 AC14 — a translated doc renders in the active locale with no fallback badge', async ({ page }) => {
-      await page.goto('/help/welcome');
+      await page.goto('/help/getting-started/welcome');
       await expect(page.getByTestId('help-doc-reviewed')).toBeVisible();
       await expect(page.getByTestId('help-lang-badge')).toHaveCount(0);
     });
