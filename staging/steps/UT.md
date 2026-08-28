@@ -48,6 +48,27 @@ create-body mapping; and the FR8 "no duplicate titles" fixture check.
 | UT-STAGE-038 | `checkChartTitlesUnique` passes on the live `TENANT_FIXTURE` (6 distinct titles) | Pass |
 | UT-STAGE-039 | `checkChartTitlesUnique` flags a duplicated title | Pass |
 
+## commentStaging.spec.ts
+
+FR10/AC9 (Capture Spec §7, AXI-1375) — the internal analysis-level thread
+(`/api/v1/snapshot-comments`, `anchorType: 'view_analysis'`), the four
+chart-anchored comments (`/api/v1/comments`, via a `ProjectDashboard` +
+`DashboardVisualization` link), and the external stakeholder thread
+(`client-exploration` artifacts/comments). AC9-shape checks against the live
+`TENANT_FIXTURE` plus the idempotency guards each staging loop depends on
+(NFR1).
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-040 | AC9: `TENANT_FIXTURE` declares >= 3 distinct internal-thread authors, >= 1 reply, >= 1 resolved | Pass |
+| UT-STAGE-041 | AC9: `TENANT_FIXTURE` declares exactly 4 chart-anchored comments, each targeting a real chart title | Pass |
+| UT-STAGE-042 | AC9: `TENANT_FIXTURE` declares a non-zero external thread authored solely by the external stakeholder on the client side | Pass |
+| UT-STAGE-043 | `resolveCommentAuthorHandles` collects every internal-side author (top-level + replies + chart-anchored + internal external-thread posters), excluding the external stakeholder | Pass |
+| UT-STAGE-044 | `alreadyStagedInternalComment` matches on (type, text) and ignores unrelated entries (NFR1) | Pass |
+| UT-STAGE-045 | `alreadyStagedReply` matches on text alone within the parent's existing replies (NFR1) | Pass |
+| UT-STAGE-046 | `alreadyStagedChartComment` matches on content alone (NFR1) | Pass |
+| UT-STAGE-047 | `alreadyStagedExternalMessage` matches on (content, authorType) — a client message and an internal reply with the same text are distinct (NFR1) | Pass |
+
 ## AXI-1372-dataset-ingestion.spec.ts (Playwright, `tests/AXI-1368/`)
 
 FR7/AC5, widened AXI-1374 to "one corpus, one-or-more dataset versions" —

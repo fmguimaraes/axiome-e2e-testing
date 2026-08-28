@@ -168,6 +168,81 @@ export interface ChartSpecFixture {
 }
 
 /**
+ * Type badge on an internal-thread comment (AXI-1375, FR10, Capture Spec
+ * §7.1). Byte-identical to the backend's `SnapshotCommentType` enum
+ * (`libs/contracts/src/snapshot-comment/snapshot-comment.patterns.ts`) —
+ * `commentStaging.ts` stages this thread on `/api/v1/snapshot-comments`
+ * (`anchorType: 'view_analysis'`), the type that actually backs the
+ * Discussion tab's type badges — confirmed against
+ * `SnapshotDiscussionPanel.tsx` (axiome-front), NOT `/api/v1/comments`
+ * (chart-comments), despite the AXI-1369 audit catalog labeling the latter
+ * "analysis-level" (a mislabel corrected in `staging/audit/actionCatalog.ts`
+ * by this same story).
+ */
+export type InternalCommentType = 'question' | 'interpretation_note' | 'qc_concern' | 'assumption' | 'action_item';
+
+/** One reply nested under an {@link InternalCommentFixture} or an
+ *  {@link ExternalThreadMessageFixture} (Capture Spec §7.1's "↳ MO reply:",
+ *  §7.3's "CN · reply"). */
+export interface CommentReplyFixture {
+  authorHandle: string;
+  text: string;
+}
+
+/**
+ * One comment in the internal analysis-level thread (Capture Spec §7.1,
+ * AC9: "≥ 3 distinct authors, ≥ 1 reply, ≥ 1 resolved"). `resolved: true`
+ * marks the one entry `commentStaging.ts` resolves live via
+ * `PATCH /api/v1/snapshot-comments/:id/resolve` after staging it — the
+ * LF "Volcano y-axis" QC concern, per spec.
+ */
+export interface InternalCommentFixture {
+  type: InternalCommentType;
+  authorHandle: string;
+  text: string;
+  resolved?: boolean;
+  replies?: CommentReplyFixture[];
+}
+
+/**
+ * One chart-anchored comment (Capture Spec §7.2, AC9: "four chart-anchored
+ * comments exist"). `chartTitle` matches a {@link ChartSpecFixture.title}
+ * verbatim — `commentStaging.ts` resolves it to that chart's
+ * `dashboardVisualizationId` (via a dashboard link, see that file's module
+ * doc) rather than carrying an id here, so this fixture stays pure content
+ * (FR6) with no dependency on staging-run-specific ids.
+ */
+export interface ChartAnchoredCommentFixture {
+  chartTitle: string;
+  authorHandle: string;
+  text: string;
+}
+
+/**
+ * One message in the external stakeholder thread (Capture Spec §7.3, AC9:
+ * "non-zero count, authored solely by the external stakeholder" — on the
+ * EXTERNAL side; an internal reply within the same thread does not violate
+ * this, see `commentStaging.ts`'s module doc). `authorType` is the
+ * `ClientExplorationComment` field the backend actually keys visibility on
+ * (`client` vs `internal`) — declared per-message here rather than derived
+ * from `authorHandle`, since the fixture is content and the mapping from
+ * "which handle" to "which side of the boundary" is exactly the fact this
+ * thread is staged to demonstrate.
+ */
+export interface ExternalThreadMessageFixture {
+  authorHandle: string;
+  authorType: 'client' | 'internal';
+  text: string;
+}
+
+/** The full §7 comment set (AXI-1375, FR10). */
+export interface CommentsFixture {
+  internalThread: InternalCommentFixture[];
+  chartAnchored: ChartAnchoredCommentFixture[];
+  externalThread: ExternalThreadMessageFixture[];
+}
+
+/**
  * Slots for content later stories fill (FR6's fuller list: the scientific
  * question, assumption bodies, chart titles/specs, threshold values, comment
  * bodies, interpretation statements, evidence records, event-feed entries).
@@ -195,7 +270,7 @@ export interface ContentSlots {
   assumptions: AssumptionFixture[];
   chartSpecs: ChartSpecFixture[];
   thresholds: unknown[];
-  comments: unknown[];
+  comments: CommentsFixture;
   interpretations: unknown[];
   evidence: unknown[];
   events: unknown[];

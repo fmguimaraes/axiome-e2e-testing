@@ -4,10 +4,10 @@ import type { TenantFixture } from '../fixtures/types';
 /** One entity the provisioning run created, reused or renamed — the record
  *  AC4's `findForbiddenNames` checks, and what the story report cites. */
 export interface TouchedEntity {
-  kind: 'organization' | 'workspace' | 'project' | 'dataset' | 'membership' | 'analysis' | 'assumption' | 'chart';
+  kind: 'organization' | 'workspace' | 'project' | 'dataset' | 'membership' | 'analysis' | 'assumption' | 'chart' | 'dashboard' | 'comment' | 'client-exploration';
   name: string;
   id: string;
-  action: 'created' | 'reused' | 'renamed' | 'retired' | 'linked' | 'granted' | 'withheld';
+  action: 'created' | 'reused' | 'renamed' | 'retired' | 'linked' | 'granted' | 'withheld' | 'resolved';
 }
 
 /**

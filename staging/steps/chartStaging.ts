@@ -81,7 +81,9 @@ export const ensureChartsStep: Step<ProvisioningContext> = {
   },
 };
 
-interface ExistingSpec {
+/** Exported for reuse by `commentStaging.ts` (AXI-1375) — the chart-anchored
+ *  comments need to resolve a chart's title to its candidate/spec id. */
+export interface ExistingSpec {
   id: string;
   title: string | null;
   origin: 'auto' | 'user';
@@ -123,7 +125,8 @@ export function toCreateBody(spec: ChartSpecFixture, viewAnalysisId: string): Re
   };
 }
 
-async function requireAnalysisId(ctx: ProvisioningContext, workspaceId: string, projectId: string, datasetId: string): Promise<string> {
+/** Exported for reuse by `commentStaging.ts` (AXI-1375) — same lookup. */
+export async function requireAnalysisId(ctx: ProvisioningContext, workspaceId: string, projectId: string, datasetId: string): Promise<string> {
   const analysis = await findExistingAnalysis(ctx, workspaceId, projectId, datasetId);
   if (!analysis) throw new Error(`view-analysis not found for dataset ${datasetId} — ensure-analysis-framing must run first`);
   return analysis.id;
@@ -155,7 +158,8 @@ async function fetchAllExistingSpecs(
   return perDataset.flat();
 }
 
-async function fetchExistingSpecs(ctx: ProvisioningContext, workspaceId: string, datasetId: string, analysisId: string): Promise<ExistingSpec[]> {
+/** Exported for reuse by `commentStaging.ts` (AXI-1375) — same lookup, one dataset. */
+export async function fetchExistingSpecs(ctx: ProvisioningContext, workspaceId: string, datasetId: string, analysisId: string): Promise<ExistingSpec[]> {
   const res = await ctx.client.as<{ data: ExistingSpec[] } | ExistingSpec[]>(
     SERVICE_HANDLE,
     'GET',

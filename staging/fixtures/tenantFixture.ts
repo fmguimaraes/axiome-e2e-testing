@@ -243,7 +243,103 @@ export const TENANT_FIXTURE: TenantFixture = {
       },
     ],
     thresholds: [],
-    comments: [],
+    // AXI-1375 (FR10, Capture Spec §7). Handle -> cast mapping (see `cast`
+    // above): cast-biologist = Marc Ottavi/MO, cast-bioinformatician = Léa
+    // Fontaine/LF, cast-clinician = Claire Ngo/CN, external-stakeholder =
+    // Daniel Reiss/DR.
+    comments: {
+      // §7.1 — internal thread, analysis level (AC9: >= 3 distinct authors,
+      // >= 1 reply, >= 1 resolved). Staged on `/api/v1/snapshot-comments`
+      // (anchorType: 'view_analysis') — see `commentStaging.ts`'s module doc
+      // for why that surface, not `/api/v1/comments`, backs this thread.
+      internalThread: [
+        {
+          type: 'assumption',
+          authorHandle: 'cast-biologist',
+          text: 'Contrast direction assumed positive log2FC = higher in responders. Not yet confirmed against the design matrix; flag before any direction-dependent claim.',
+        },
+        {
+          type: 'assumption',
+          authorHandle: 'cast-biologist',
+          text: 'baseMean ≥ 10 prefilter declared before the contrast was run, not chosen after looking at the result. Recorded so the p-values are not read as optimistic.',
+        },
+        {
+          type: 'qc_concern',
+          authorHandle: 'cast-bioinformatician',
+          text: 'NULL padj genes are DESeq2 independent-filtering drops at low baseMean, not an upstream join failure. The quarantine snapshot makes this unambiguous.',
+        },
+        {
+          type: 'qc_concern',
+          authorHandle: 'cast-bioinformatician',
+          text: 'Volcano y-axis was raw p-value in the first draft, so the significant cloud sat at the bottom and read inverted. Now −log10(p), colour by significance category.',
+          resolved: true,
+          replies: [{ authorHandle: 'cast-biologist', text: 'Confirmed on v1. Threshold lines redrawn.' }],
+        },
+        {
+          type: 'question',
+          authorHandle: 'cast-clinician',
+          text: 'Should the contrast run within the ipilimumab-naive and ipilimumab-progressed strata before pooling? The pooled result may be averaging two different biologies.',
+          replies: [
+            {
+              authorHandle: 'cast-biologist',
+              text: 'Ran both. Stratified contrasts are in snapshot v2; direction holds in the naive arm, N is too small in the progressed arm to say anything.',
+            },
+          ],
+        },
+        {
+          type: 'interpretation_note',
+          authorHandle: 'cast-clinician',
+          text: 'Negative-at-baseline is consistent with the on-treatment signal being the discriminating one. Worth stating explicitly so a reviewer does not read the small significant set as a failed analysis.',
+        },
+      ],
+      // §7.2 — chart-anchored comments (AC9: 4 exist). `chartTitle` matches a
+      // `chartSpecs[].title` above verbatim; staged on `/api/v1/comments`
+      // (chart-comments), anchored to that chart's `dashboardVisualizationId`.
+      chartAnchored: [
+        {
+          chartTitle: 'Significant differential expression — FDR < 0.05, |log2FC| ≥ 1',
+          authorHandle: 'cast-biologist',
+          text: '|log2FC| ≥ 1 is the published cutoff, not fitted on this cohort. Keeping it external means the p-values here are not inflated by having chosen the threshold from the same data.',
+        },
+        {
+          chartTitle: 'P-value distribution — tested universe',
+          authorHandle: 'cast-bioinformatician',
+          text: 'Uniform with a spike near zero is what we want. A U-shape would say the model is misspecified and nothing downstream is safe.',
+        },
+        {
+          chartTitle: 'Independent-filtering exclusions — padj not reported',
+          authorHandle: 'cast-bioinformatician',
+          text: 'These are the low-baseMean genes dropped by independent filtering. They are excluded, not lost.',
+        },
+        {
+          chartTitle: 'Volcano — pre-therapy responders vs non-responders (baseMean ≥ 10)',
+          authorHandle: 'cast-clinician',
+          text: 'Pre-therapy separation is weak here, and that is the finding, not a failure. Do not let this figure travel without that sentence attached.',
+        },
+      ],
+      // §7.3 — external thread. DR asks and follows up (`authorType: 'client'`);
+      // CN's reply is `authorType: 'internal'` on the SAME artifact thread —
+      // AC9's "authored solely by the external stakeholder" scopes to the
+      // EXTERNAL side of the boundary, not to every message in the thread
+      // (see `commentStaging.ts`'s module doc).
+      externalThread: [
+        {
+          authorHandle: 'external-stakeholder',
+          authorType: 'client',
+          text: 'Can we see this contrast restricted to the ipilimumab-naive arm before it goes to our team?',
+        },
+        {
+          authorHandle: 'cast-clinician',
+          authorType: 'internal',
+          text: 'Snapshot v2 has it. Direction holds in the naive arm; the progressed arm is underpowered and we have said so on the record rather than reporting it.',
+        },
+        {
+          authorHandle: 'external-stakeholder',
+          authorType: 'client',
+          text: 'Good. The point my group will press on is whether the fold-change cutoff was fitted here. Useful that it is written down as the published one.',
+        },
+      ],
+    },
     interpretations: [],
     evidence: [],
     events: [],

@@ -55,37 +55,42 @@ export const STAGING_ACTIONS: StagingAction[] = [
   { id: 'archive-threshold', description: 'archive a threshold', fr: 'FR11', method: 'POST', pathTemplate: '/api/v1/thresholds/:thresholdId/archive' },
 
   // --- Comments (FR10) ---
-  { id: 'create-analysis-comment', description: 'create an internal analysis-level comment', fr: 'FR10', method: 'POST', pathTemplate: '/api/v1/comments' },
-  { id: 'update-analysis-comment', description: 'edit an analysis-level comment', fr: 'FR10', method: 'PATCH', pathTemplate: '/api/v1/comments/:commentId' },
+  // AXI-1375 CORRECTION: the AXI-1369 audit labeled `/api/v1/comments` as the
+  // "analysis-level" surface and `/api/v1/snapshot-comments` as the
+  // "chart-anchored/snapshot" one — backwards from what the frontend
+  // actually wires. Confirmed against `axiome-front/src/components/
+  // SnapshotDiscussionPanel.tsx` (Discussion tab, type-badged, calls
+  // `/api/v1/snapshot-comments` with `anchorType: 'view_analysis'`) and
+  // `ChartComments.tsx` (chart detail drawer, calls `/api/v1/comments`
+  // keyed on `dashboardVisualizationId`). Descriptions corrected below; ids
+  // and path templates are unchanged (still correct, just mislabeled).
+  { id: 'create-analysis-comment', description: 'create a chart-anchored comment (Capture Spec §7.2) — despite the id, this is /api/v1/comments, the CHART surface, not the analysis-level thread; see the AXI-1375 correction note above', fr: 'FR10', method: 'POST', pathTemplate: '/api/v1/comments' },
+  { id: 'update-analysis-comment', description: 'edit a chart-anchored comment', fr: 'FR10', method: 'PATCH', pathTemplate: '/api/v1/comments/:commentId' },
   {
     id: 'resolve-analysis-comment',
-    description: 'resolve an analysis-level comment thread',
+    description: 'resolve a chart-anchored comment thread — CLOSED by AXI-1375 (SI-019): chart-comments.controller.ts now exposes /comments/:id/resolve, mirroring snapshot-comments/review-threads',
     fr: 'FR16',
     method: 'PATCH',
     pathTemplate: '/api/v1/comments/:commentId/resolve',
-    knownGap: {
-      reason: '`chart-comments.controller.ts` (@Controller path "comments") exposes create/update/delete only — no resolve route exists, unlike snapshot-comments and review-threads which both have one.',
-      closesInStory: 'AXI-1375',
-    },
   },
   {
     id: 'reopen-analysis-comment',
-    description: 'reopen a resolved analysis-level comment thread',
+    description: 'reopen a resolved chart-anchored comment thread — CLOSED by AXI-1375 (SI-019), same controller as resolve',
     fr: 'FR16',
     method: 'PATCH',
     pathTemplate: '/api/v1/comments/:commentId/reopen',
-    knownGap: {
-      reason: 'Same controller as resolve — no reopen route exists either.',
-      closesInStory: 'AXI-1375',
-    },
   },
-  { id: 'create-snapshot-comment', description: 'create a chart-anchored/snapshot comment', fr: 'FR10', method: 'POST', pathTemplate: '/api/v1/snapshot-comments' },
-  { id: 'resolve-snapshot-comment', description: 'resolve a snapshot comment', fr: 'FR10', method: 'PATCH', pathTemplate: '/api/v1/snapshot-comments/:commentId/resolve' },
-  { id: 'reopen-snapshot-comment', description: 'reopen a snapshot comment', fr: 'FR10', method: 'PATCH', pathTemplate: '/api/v1/snapshot-comments/:commentId/reopen' },
+  { id: 'create-snapshot-comment', description: 'create an internal analysis-level thread comment (Capture Spec §7.1) — despite the id, this is /api/v1/snapshot-comments with anchorType:view_analysis, the type-badged Discussion-tab surface; see the AXI-1375 correction note above', fr: 'FR10', method: 'POST', pathTemplate: '/api/v1/snapshot-comments' },
+  { id: 'resolve-snapshot-comment', description: 'resolve an internal analysis-level comment thread (already existed pre-AXI-1375 — the precedent that made the /comments gap read as an omission)', fr: 'FR10', method: 'PATCH', pathTemplate: '/api/v1/snapshot-comments/:commentId/resolve' },
+  { id: 'reopen-snapshot-comment', description: 'reopen an internal analysis-level comment thread', fr: 'FR10', method: 'PATCH', pathTemplate: '/api/v1/snapshot-comments/:commentId/reopen' },
   { id: 'create-review-thread', description: 'create a review thread', fr: 'FR10', method: 'POST', pathTemplate: '/api/v1/review-threads' },
   { id: 'resolve-review-thread', description: 'resolve a review thread (the external thread → v2 precondition)', fr: 'FR10', method: 'PATCH', pathTemplate: '/api/v1/review-threads/:threadId/resolve' },
   { id: 'list-mentionable-members', description: 'list mentionable project members', fr: 'FR10', method: 'GET', pathTemplate: '/api/v1/mention-comments/projects/:projectId/members' },
-  { id: 'create-external-comment', description: 'create the external stakeholder thread comment', fr: 'FR10', method: 'POST', pathTemplate: '/api/v1/projects/:projectId/client-exploration/artifacts/:artifactId/comments' },
+  { id: 'create-dashboard', description: 'AXI-1375: create the dashboard chart-anchored comments link onto', fr: 'FR10', method: 'POST', pathTemplate: '/api/v1/dashboards' },
+  { id: 'link-dashboard-visualization', description: 'AXI-1375: link a chart candidate to a dashboard, producing the dashboardVisualizationId a chart comment anchors to', fr: 'FR10', method: 'POST', pathTemplate: '/api/v1/dashboards/:dashboardId/visualizations' },
+  { id: 'enable-client-exploration-for-comments', description: 'AXI-1375: enable client exploration (external thread precondition, idempotent alongside AXI-1371/1378\'s own enable call)', fr: 'FR10', method: 'POST', pathTemplate: '/api/v1/projects/:projectId/client-exploration/enable' },
+  { id: 'publish-client-exploration-artifact', description: 'AXI-1375: publish the view-analysis as a client-exploration artifact so the external thread has a valid artifactId to anchor to', fr: 'FR10', method: 'POST', pathTemplate: '/api/v1/projects/:projectId/client-exploration/published-artifacts' },
+  { id: 'create-external-comment', description: 'create the external stakeholder thread comment — both the external stakeholder (authorType:client) and an internal cast reply (authorType:internal) post through this SAME route (AuthGuard only, no role check)', fr: 'FR10', method: 'POST', pathTemplate: '/api/v1/projects/:projectId/client-exploration/artifacts/:artifactId/comments' },
 
   // --- Snapshots (FR11, EC7) ---
   { id: 'create-snapshot', description: 'create snapshot v1/v2', fr: 'FR11', method: 'POST', pathTemplate: '/api/v1/view-analyses/snapshots' },
