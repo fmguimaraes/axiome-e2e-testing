@@ -115,8 +115,8 @@ export function checkThresholdChartsDeclared(fixture: TenantFixture): FixtureVio
 }
 
 /** AXI-1376 (AC10) — snapshot `name`s must be distinct, so
- *  `snapshotStaging.ts`'s version-ordinal-to-name pairing never assigns the
- *  same displayed name to two different versions. */
+ *  `snapshotStaging.ts`'s name-keyed lookup never treats two declared
+ *  versions as the same live row. */
 export function checkSnapshotNamesUnique(fixture: TenantFixture): FixtureViolation[] {
   const seen = new Set<string>();
   const violations: FixtureViolation[] = [];
@@ -125,6 +125,17 @@ export function checkSnapshotNamesUnique(fixture: TenantFixture): FixtureViolati
     seen.add(snapshot.name);
   }
   return violations;
+}
+
+/** AXI-1376 OQ6 follow-up — a snapshot's `datasetRole` (when declared) must
+ *  match a declared `content.datasets[]` role, or `snapshotStaging.ts` fails
+ *  deep inside a live run instead of here (same shape as
+ *  `checkThresholdChartsDeclared`). */
+export function checkSnapshotDatasetRolesDeclared(fixture: TenantFixture): FixtureViolation[] {
+  const roles = new Set(fixture.content.datasets.map((d) => d.role));
+  return fixture.content.snapshots
+    .filter((s) => s.datasetRole !== undefined && !roles.has(s.datasetRole))
+    .map((s) => ({ rule: 'FR6', detail: `snapshot "${s.name}" declares datasetRole "${s.datasetRole}", which is not a declared dataset role` }));
 }
 
 function collectDeclaredNames(fixture: TenantFixture): string[] {
@@ -150,6 +161,7 @@ export function validateFixture(fixture: TenantFixture): FixtureViolation[] {
     ...checkChartTitlesUnique(fixture),
     ...checkThresholdChartsDeclared(fixture),
     ...checkSnapshotNamesUnique(fixture),
+    ...checkSnapshotDatasetRolesDeclared(fixture),
   ];
 }
 

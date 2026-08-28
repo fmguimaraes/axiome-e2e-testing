@@ -95,24 +95,27 @@ FR/AC" note.
 
 ## snapshotStaging.spec.ts
 
-FR11/AC10 (Capture Spec §4, AXI-1376) — snapshot v1 (pooled) and v2
-(stratified label), the version-ordinal count/naming idempotency logic, and
-the EC7 bounded-poll / route-choice findings documented in the module doc
-(the "stratified" contrast cannot be a real data-level filter on this
-dataset — no per-patient exposure column exists — so v2 is honestly staged
-as a labeled version of the same slice, not a fabricated result).
+FR11/AC10 (Capture Spec §4, AXI-1376; OQ6 follow-up) — snapshot v1 (pooled)
+and v2 (now a REAL stratified contrast, linked to the offline per-arm DE
+dataset via `origin: 'linked'`), the name-keyed reconciliation logic that
+resolves a declared snapshot's target dataset and detects/supersedes a stale
+prior row bound to the wrong one, and the EC7 bounded-poll / route-choice
+findings documented in the module doc.
 
 | ID | Description | Status |
 |----|-------------|--------|
-| UT-STAGE-060 | `snapshotsToCreate` is the full target count against an empty tenant | Pass |
-| UT-STAGE-061 | `snapshotsToCreate` is the shortfall when some already exist | Pass |
-| UT-STAGE-062 | `snapshotsToCreate` is zero once at or past target — re-run creates nothing new (NFR1) | Pass |
-| UT-STAGE-063 | `pairSnapshotsToNames` binds by array position, not id — caller pre-sorts by version | Pass |
-| UT-STAGE-064 | `pairSnapshotsToNames` (sorted input) binds v1 fixture to version 1, v2 fixture to version 2 | Pass |
-| UT-STAGE-065 | `pairSnapshotsToNames` drops a declared entry with no matching live snapshot yet (NFR1) | Pass |
-| UT-STAGE-066 | `checkSnapshotNamesUnique` passes on the live `TENANT_FIXTURE` | Pass |
-| UT-STAGE-067 | `checkSnapshotNamesUnique` flags a duplicated snapshot name | Pass |
-| UT-STAGE-068 | `TENANT_FIXTURE` declares v1 (pooled) then v2 (stratified label) in order (FR11/AC10) | Pass |
+| UT-STAGE-060 | `resolveDatasetIdForSnapshot` returns the root dataset for a snapshot with no `datasetRole` | Pass |
+| UT-STAGE-061 | `resolveDatasetIdForSnapshot` resolves a declared `datasetRole` to its live dataset id (OQ6) | Pass |
+| UT-STAGE-062 | `resolveDatasetIdForSnapshot` throws loudly when the declared role has no live dataset yet (OQ6) | Pass |
+| UT-STAGE-063 | `findSnapshotByName` matches on name, not position (NFR1) | Pass |
+| UT-STAGE-064 | `findSnapshotByName` is undefined when no declared name has a live match yet (NFR1) | Pass |
+| UT-STAGE-065 | `snapshotIsStale` is false once the live `datasetId` already matches the declared target (OQ6) | Pass |
+| UT-STAGE-066 | `snapshotIsStale` is true for a v2 row still bound to the old (pooled) root dataset (OQ6) | Pass |
+| UT-STAGE-067 | `checkSnapshotNamesUnique` passes on the live `TENANT_FIXTURE` | Pass |
+| UT-STAGE-068 | `checkSnapshotNamesUnique` flags a duplicated snapshot name | Pass |
+| UT-STAGE-069 | `TENANT_FIXTURE` declares v1 (pooled, no `datasetRole`) then v2 (real stratified, `datasetRole` set) in order (FR11/AC10) | Pass |
+| UT-STAGE-070 | `checkSnapshotDatasetRolesDeclared` passes on the live `TENANT_FIXTURE` (OQ6) | Pass |
+| UT-STAGE-071 | `checkSnapshotDatasetRolesDeclared` flags a snapshot pointing at an undeclared dataset role (OQ6) | Pass |
 
 ## AXI-1372-dataset-ingestion.spec.ts (Playwright, `tests/AXI-1368/`)
 

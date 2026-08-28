@@ -75,8 +75,16 @@ export interface OrganizationFixture {
  * {@link ChartSpecFixture.dataRequirement} so a chart's requirement and a
  * dataset's role are checked against the same closed vocabulary — no string
  * that means "de_table" in one field and "deTable" in the other.
+ *
+ * `stratified_de_table` (AXI-1376 OQ6 follow-up) names the real per-arm
+ * (ipilimumab-naive vs -progressed) DESeq2 re-run of the pre-therapy
+ * responder-vs-non-responder contrast, produced offline by
+ * `riaz_de/run_de_stratified.py` — the same class of artifact as the
+ * `de_table` role, computed per stratum instead of pooled. No chart declares
+ * this as a `dataRequirement`; it exists to be the dataset a snapshot
+ * {@link SnapshotFixture.datasetRole} links to.
  */
-export type DataRequirement = 'de_table' | 'count_matrix';
+export type DataRequirement = 'de_table' | 'count_matrix' | 'stratified_de_table';
 
 /**
  * One dataset version the tenant carries (AXI-1372 FR7/AC5, widened by
@@ -278,15 +286,28 @@ export interface ThresholdFixture {
 
 /**
  * One versioned snapshot of the analysis (AXI-1376, FR11/AC10, Capture Spec
- * §4). `name` is set post-creation via `PATCH .../snapshots/:id` and doubles
- * as this fixture's idempotent identity marker — see `snapshotStaging.ts`'s
- * module doc for why a real per-stratum data slice could not be built for
- * v2 (the bound dataset carries no patient-level ipilimumab-exposure
- * column) and why v2 is honestly staged as a labeled version rather than a
- * fabricated stratified result.
+ * §4; `datasetRole` added by the OQ6 follow-up). `name` is set post-creation
+ * via `PATCH .../snapshots/:id` and doubles as this fixture's idempotent
+ * identity marker — `snapshotStaging.ts` looks up "the snapshot named this"
+ * rather than relying on array position, because a stale prior version bound
+ * to the wrong dataset must be superseded (renamed out of the way), not
+ * silently treated as done.
+ *
+ * `datasetRole` (optional) is the {@link DataRequirement} this snapshot
+ * version resolves against, by declared dataset role rather than a live id
+ * (FR6: content is words). Omitted means "the analysis's own root dataset"
+ * (a plain filter-origin snapshot — what every snapshot was before this
+ * field existed). When set, `snapshotStaging.ts` creates the snapshot with
+ * `origin: 'linked'` and an explicit `datasetId` resolved from the matching
+ * `content.datasets[]` entry — the backend's `linked` origin exists
+ * precisely for "a snapshot pointing at an append-only-attached dataset
+ * unrelated to the analysis root" (`view-analyses.service.ts
+ * assertOriginInvariant`), which is exactly what a real per-arm stratified
+ * DE result is relative to the pooled root dataset.
  */
 export interface SnapshotFixture {
   name: string;
+  datasetRole?: DataRequirement;
 }
 
 /**

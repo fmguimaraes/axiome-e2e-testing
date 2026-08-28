@@ -132,6 +132,27 @@ export const TENANT_FIXTURE: TenantFixture = {
         localPathEnv: 'STAGING_RIAZ_COUNT_MATRIX_CSV_PATH',
         defaultLocalPath: '/home/felipe/dev/axiome/riaz_de/riaz2017_counts_by_response_timepoint.csv',
       },
+      // AXI-1376 OQ6 follow-up: the real per-arm stratified DE result —
+      // `riaz_de/run_de_stratified.py` re-runs the SAME pre-therapy
+      // responder-vs-non-responder DESeq2 contrast SEPARATELY within the
+      // ipilimumab-naive and ipilimumab-progressed arms (Cohort column),
+      // instead of pooling them the way the `de_table` role does. Same 6
+      // DE columns as `de_table` plus `stratum` (`ipi_naive`/
+      // `ipi_progressed`) — both arms' rows are kept (EC3: the progressed
+      // arm is real, underpowered evidence, not something to drop). Bound
+      // to the SAME workspace/project as the corpus (`checkDatasetsShareCorpus`).
+      // Snapshot v2 below links to this dataset (`datasetRole`), which is
+      // what makes v2 a genuinely different, real stratified contrast
+      // rather than a same-data label.
+      {
+        role: 'stratified_de_table',
+        originalFilename: 'riaz2017_stratified_de_by_prior_ipi.csv',
+        contentType: 'text/csv',
+        workspaceName: 'Translational Immuno-Oncology',
+        projectName: 'Melanoma IO cohort, paired timepoints',
+        localPathEnv: 'STAGING_RIAZ_STRATIFIED_DE_CSV_PATH',
+        defaultLocalPath: '/home/felipe/dev/axiome/riaz_de/riaz_stratified_pre_R_vs_NR_by_prior_ipi.csv',
+      },
     ],
     // AXI-1373 (FR9, Capture Spec §5). All four assumption BODIES are
     // declared here (words); whether the fourth is actually staged is a
@@ -271,16 +292,19 @@ export const TENANT_FIXTURE: TenantFixture = {
         authorHandle: 'cast-biologist',
       },
     ],
-    // AXI-1376 (FR11/AC10, Capture Spec §4). Array order is version order —
-    // see `types.ts`'s `ContentSlots.snapshots` doc. v2's name carries the
-    // "stratified" wording verbatim from the spec; `snapshotStaging.ts`
-    // documents why the underlying data slice is honestly identical to v1
-    // (no per-patient ipilimumab-exposure column exists in either ingested
-    // dataset — a real stratified contrast would require a new offline DE
-    // re-run per arm, out of this REST-only story's scope).
+    // AXI-1376 (FR11/AC10, Capture Spec §4; OQ6 follow-up). Array order is
+    // version order — see `types.ts`'s `ContentSlots.snapshots` doc. v1
+    // carries no `datasetRole`, so it resolves to the analysis's own root
+    // dataset (the pooled DE table) exactly as before. v2 declares
+    // `datasetRole: 'stratified_de_table'`, which `snapshotStaging.ts`
+    // resolves to the real per-arm DE dataset declared above and links via
+    // `origin: 'linked'` — so v2 is now a genuinely different, real
+    // stratified contrast, not a same-data label. v2's name is unchanged
+    // from the original staging (Capture Spec wording) — it is now true of
+    // the data it points at.
     snapshots: [
       { name: 'Snapshot v1' },
-      { name: 'Snapshot v2 — stratified by prior ipilimumab exposure (naive vs progressed)' },
+      { name: 'Snapshot v2 — stratified by prior ipilimumab exposure (naive vs progressed)', datasetRole: 'stratified_de_table' },
     ],
     // AXI-1375 (FR10, Capture Spec §7). Handle -> cast mapping (see `cast`
     // above): cast-biologist = Marc Ottavi/MO, cast-bioinformatician = Léa

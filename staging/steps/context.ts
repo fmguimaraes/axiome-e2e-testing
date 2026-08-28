@@ -7,7 +7,7 @@ export interface TouchedEntity {
   kind: 'organization' | 'workspace' | 'project' | 'dataset' | 'membership' | 'analysis' | 'assumption' | 'chart' | 'dashboard' | 'comment' | 'client-exploration' | 'threshold' | 'annotation' | 'snapshot';
   name: string;
   id: string;
-  action: 'created' | 'reused' | 'renamed' | 'retired' | 'linked' | 'granted' | 'withheld' | 'resolved';
+  action: 'created' | 'reused' | 'renamed' | 'retired' | 'linked' | 'granted' | 'withheld' | 'resolved' | 'superseded';
 }
 
 /**

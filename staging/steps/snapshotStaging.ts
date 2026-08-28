@@ -1,39 +1,62 @@
 import { SERVICE_HANDLE, recordTouched } from './context';
-import { requireWorkspaceId, requireProjectId } from './datasetIngestion';
+import { findExistingDataset, requireWorkspaceId, requireProjectId } from './datasetIngestion';
 import { requireDatasetId } from './analysisFraming';
 import { requireAnalysisId } from './chartStaging';
 import { projectHeaders } from './projectProvisioning';
 import type { ProvisioningContext } from './context';
-import type { SnapshotFixture } from '../fixtures/types';
+import type { DatasetFixture, SnapshotFixture } from '../fixtures/types';
 import type { Step } from './types';
 
 const POLL_ATTEMPTS = 5;
 const POLL_DELAY_MS = 200;
 
 /**
- * FR11/AC10 (Capture Spec §4) — stages snapshot v1 (pooled) and v2
- * (stratified label) on the analysis. Depends on `ensure-comments`: Capture
- * Spec §20's declared order is comments before v2, because the external
- * thread (already staged, AXI-1375) resolves to v2.
+ * FR11/AC10 (Capture Spec §4) — stages snapshot v1 (pooled) and v2 (real
+ * stratified contrast). Depends on `ensure-comments`: Capture Spec §20's
+ * declared order is comments before v2, because the external thread
+ * (already staged, AXI-1375) resolves to v2.
  *
- * STRATIFICATION FINDING: "stratified by prior ipilimumab exposure" cannot
- * be a real data-level contrast here. The analysis's bound dataset (the DE
- * table, `94b0bd10`) has exactly six columns — gene/baseMean/log2FoldChange/
- * lfcSE/pvalue/padj (verified against the live CSV header) — no per-patient
- * or per-arm column exists to filter on. The Riaz sample metadata DOES carry
- * a naive/progressed label (`SampleTableCorrected.9.19.16.csv`'s
- * `NIV3-NAIVE`/`NIV3-PROG` column), but turning that into a real stratified
- * DE result requires re-running the differential-expression contrast per arm
- * offline (the same class of work `riaz_de/build_count_matrix_dataset.py`
- * did for AXI-1374's charts 5-6) — a bioinformatics pipeline task, not a
- * REST staging call, and out of SI-044's "no backend change expected" scope.
- * Per the story's own instruction, v2 is honestly staged as a LABELED
- * version — the same underlying (unfiltered) slice as v1, distinguished only
- * by its `name` — rather than fabricating a stratified result that does not
- * exist. This is disclosed, not hidden: EC3's "progressed arm is
- * underpowered" finding already lives as staged CONTENT in the AXI-1375
- * internal/external comment threads, which is where a reader actually sees
- * it; it is not something this step needs to compute or gate on.
+ * OQ6 FOLLOW-UP (real stratified v2, superseding the AXI-1376 "labeled v2"
+ * finding): the original story found the analysis's bound dataset (the DE
+ * table, `94b0bd10`) has no per-patient exposure column, so it staged v2 as
+ * a same-data LABEL. That is fixed here by computing the real per-arm DE
+ * result offline — `riaz_de/run_de_stratified.py` re-runs the pre-therapy
+ * responder-vs-non-responder DESeq2 contrast SEPARATELY within the
+ * ipilimumab-naive and -progressed arms (same offline-DE precedent as v1's
+ * own `run_de.py`, and as `build_count_matrix_dataset.py` for AXI-1374's
+ * charts 5-6) — and ingesting it as its own dataset
+ * (`content.datasets[role='stratified_de_table']`).
+ *
+ * PLATFORM MECHANISM (why this is REST-feasible with no backend change):
+ * `ViewAnalysisSnapshot.datasetId` is resolved PER SNAPSHOT
+ * (`resolveSnapshotDatasetId`, `view-analyses.service.ts`), not fixed to the
+ * analysis's root dataset. `CreateViewAnalysisSnapshotDto` already accepts
+ * an explicit `datasetId` + `origin`, and `SnapshotOrigin.linked` exists
+ * precisely for "a snapshot that points at an append-only-attached dataset
+ * that is unrelated to the analysis root" (`assertOriginInvariant`'s own
+ * comment) — exempt from the "must match root" invariant that `rule_derived`
+ * enforces, and requiring no `RuleRun` (the platform's live "Stratification
+ * Rule" feature, `IN-PROGRESS-Stratification-Rule.md`, is a separate,
+ * unbuilt MVP — not needed here). The only server-side constraint is that
+ * the linked dataset share the analysis's workspace
+ * (`assertDatasetSharesWorkspace`), which the fixture's `checkDatasetsShareCorpus`
+ * already guarantees. So: ingest the real per-arm result as an ordinary
+ * dataset (same route as v1's dataset and AXI-1374's count-matrix dataset),
+ * then `POST /view-analyses/snapshots` with `{ datasetId, origin: 'linked' }`
+ * for v2. No product/backend change needed.
+ *
+ * SUPERSEDING A STALE PRIOR v2: the earlier story run already created a v2
+ * row bound to the (wrong) root dataset. A snapshot's `datasetId` is
+ * immutable once created (no PATCH field for it) and there is no DELETE
+ * route for a snapshot, so a stale row can't be fixed or removed — it is
+ * renamed out of the way (suffixed, see {@link SUPERSEDED_SUFFIX}) and a
+ * fresh, correctly-linked snapshot is minted and given the canonical v2
+ * name. This mirrors the "rename leaked artifacts rather than delete them"
+ * precedent AXI-1371 already established for pre-existing tenant state.
+ * Reconciliation is therefore NAME-keyed (a declared snapshot's `name` is
+ * its idempotent identity, per `types.ts`), not version-ordinal-keyed —
+ * version-ordinal pairing breaks the moment a superseded row exists between
+ * two live backend versions.
  *
  * ROUTE FINDING (why plain `/snapshots`, not `/snapshots/materialize`): the
  * dev-epic-context route table pairs `POST /view-analyses/snapshots` with
@@ -41,13 +64,12 @@ const POLL_DELAY_MS = 200;
  * (`view-analyses.service.ts materializeSnapshot()`) shows `/materialize` is
  * a GET-OR-REUSE-by-filter-signature route ("snapshot-on-consumption"): it
  * returns an EXISTING snapshot when one already matches
- * (datasetId, filters, filterCombinator). Since v1 and v2 both resolve
- * against the same dataset with the same (empty) filters — no real
- * stratification filter exists, see above — calling `/materialize` twice
- * would collapse v2 into v1's row (`created: false`), violating AC10's "two
- * distinct" requirement. Plain `POST /view-analyses/snapshots` has no such
- * dedup — `createSnapshot()` always inserts a new row at `version = count +
- * 1` — so it is the correct route for minting two DISTINCT versions here.
+ * (datasetId, filters, filterCombinator). Since v1 and v2 now resolve
+ * against DIFFERENT datasets, `/materialize` would actually be safe for
+ * them individually — but plain `POST /view-analyses/snapshots` (no dedup,
+ * `createSnapshot()` always inserts a new row) is still the correct choice
+ * for superseding a stale row, since minting the replacement must not
+ * silently resolve back to whatever the dedup signature already matches.
  *
  * EC7 FINDING: `createSnapshot()` → `persistSnapshot()` →
  * `materializeSnapshotNode()` is a synchronous chain of Prisma calls (no
@@ -60,9 +82,10 @@ const POLL_DELAY_MS = 200;
  * (synchronous) behavior; it exists to satisfy the written requirement and
  * guard against a future async rework, not because the current code needs it.
  *
- * Idempotent (NFR1): re-run counts existing snapshots and creates only the
- * shortfall, then (re)asserts each declared name onto the version it belongs
- * to — a no-op PATCH once names already match.
+ * Idempotent (NFR1): re-run finds each declared snapshot by name; a match
+ * whose live `datasetId` already equals the declared target is a no-op; a
+ * mismatch (stale) is superseded-then-recreated; a name with no live match
+ * is created fresh.
  */
 export const ensureSnapshotsStep: Step<ProvisioningContext> = {
   id: 'ensure-snapshots',
@@ -73,13 +96,14 @@ export const ensureSnapshotsStep: Step<ProvisioningContext> = {
     if (!primary || content.snapshots.length === 0) return;
     const workspaceId = requireWorkspaceId(ctx, primary.workspaceName);
     const projectId = await requireProjectId(ctx, workspaceId, primary.projectName);
-    const datasetId = await requireDatasetId(ctx, workspaceId, primary.originalFilename);
-    const analysisId = await requireAnalysisId(ctx, workspaceId, projectId, datasetId);
+    const rootDatasetId = await requireDatasetId(ctx, workspaceId, primary.originalFilename);
+    const analysisId = await requireAnalysisId(ctx, workspaceId, projectId, rootDatasetId);
+    const datasetIdByRole = await resolveDatasetIdsByRole(ctx, workspaceId, content.datasets);
 
-    const existingCount = (await fetchSnapshots(ctx, workspaceId, analysisId)).length;
-    await ensureSnapshotCount(ctx, workspaceId, analysisId, existingCount, content.snapshots.length);
-    const current = await fetchSnapshots(ctx, workspaceId, analysisId);
-    await ensureSnapshotNames(ctx, workspaceId, analysisId, current, content.snapshots);
+    for (const fixture of content.snapshots) {
+      const targetDatasetId = resolveDatasetIdForSnapshot(fixture, datasetIdByRole, rootDatasetId);
+      await ensureOneDeclaredSnapshot(ctx, workspaceId, analysisId, fixture, targetDatasetId, rootDatasetId);
+    }
   },
 };
 
@@ -87,18 +111,54 @@ export interface SnapshotSummary {
   id: string;
   version: number;
   name: string | null;
+  datasetId: string;
 }
 
-/** Exported for unit testing — pure, no network (NFR1: how many creates a
- *  given existing count still needs). */
-export function snapshotsToCreate(existingCount: number, targetCount: number): number {
-  return Math.max(0, targetCount - existingCount);
+/** Exported for unit testing — pure, no network. Resolves which live
+ *  dataset id a declared snapshot must point at: its declared
+ *  `datasetRole` if it has one, else the analysis's own root dataset. */
+export function resolveDatasetIdForSnapshot(fixture: SnapshotFixture, datasetIdByRole: Record<string, string>, rootDatasetId: string): string {
+  if (!fixture.datasetRole) return rootDatasetId;
+  const id = datasetIdByRole[fixture.datasetRole];
+  if (!id) throw new Error(`snapshot "${fixture.name}" declares datasetRole "${fixture.datasetRole}", but no dataset with that role is live yet`);
+  return id;
 }
 
-/** Exported for unit testing — pure, no network. `declared[i]` binds to the
- *  version-ascending snapshot at index `i` (array order = version order). */
-export function pairSnapshotsToNames(byVersionAsc: SnapshotSummary[], declared: SnapshotFixture[]): { snapshot: SnapshotSummary; fixture: SnapshotFixture }[] {
-  return declared.map((fixture, i) => ({ snapshot: byVersionAsc[i], fixture })).filter((pair) => pair.snapshot !== undefined);
+/** Exported for unit testing — pure, no network. */
+export function findSnapshotByName(current: SnapshotSummary[], name: string): SnapshotSummary | undefined {
+  return current.find((s) => s.name === name);
+}
+
+/** Exported for unit testing — pure, no network. A live snapshot is stale
+ *  relative to a declared target when it already exists under that name but
+ *  resolves against a different dataset (immutable once created). */
+export function snapshotIsStale(existing: SnapshotSummary, targetDatasetId: string): boolean {
+  return existing.datasetId !== targetDatasetId;
+}
+
+async function resolveDatasetIdsByRole(ctx: ProvisioningContext, workspaceId: string, datasets: DatasetFixture[]): Promise<Record<string, string>> {
+  const map: Record<string, string> = {};
+  for (const d of datasets) {
+    const found = await findExistingDataset(ctx, workspaceId, d.originalFilename);
+    if (found) map[d.role] = found.id;
+  }
+  return map;
+}
+
+async function ensureOneDeclaredSnapshot(
+  ctx: ProvisioningContext,
+  workspaceId: string,
+  analysisId: string,
+  fixture: SnapshotFixture,
+  targetDatasetId: string,
+  rootDatasetId: string,
+): Promise<void> {
+  const current = await fetchSnapshots(ctx, workspaceId, analysisId);
+  const existing = findSnapshotByName(current, fixture.name);
+  if (existing && !snapshotIsStale(existing, targetDatasetId)) return; // already correct (NFR1 no-op)
+  if (existing) await supersedeSnapshot(ctx, workspaceId, analysisId, existing);
+  const created = await createSnapshot(ctx, workspaceId, analysisId, targetDatasetId, rootDatasetId);
+  await nameSnapshot(ctx, workspaceId, analysisId, created, fixture.name);
 }
 
 /**
@@ -127,17 +187,22 @@ async function fetchSnapshots(ctx: ProvisioningContext, workspaceId: string, ana
   return (res.body?.data ?? []).slice().sort((a, b) => a.version - b.version);
 }
 
-async function ensureSnapshotCount(ctx: ProvisioningContext, workspaceId: string, analysisId: string, existingCount: number, targetCount: number): Promise<void> {
-  const shortfall = snapshotsToCreate(existingCount, targetCount);
-  for (let i = 0; i < shortfall; i++) await createSnapshot(ctx, workspaceId, analysisId);
-}
-
-async function createSnapshot(ctx: ProvisioningContext, workspaceId: string, analysisId: string): Promise<void> {
-  const body = { viewAnalysisId: analysisId, filters: [] };
+/** Mints a fresh snapshot bound to `targetDatasetId`. When that differs from
+ *  the analysis's own root dataset, it is sent as an explicit
+ *  `{ datasetId, origin: 'linked' }` — see the module doc for why `linked`
+ *  is the correct origin for an unrelated, pre-computed real dataset. */
+async function createSnapshot(ctx: ProvisioningContext, workspaceId: string, analysisId: string, targetDatasetId: string, rootDatasetId: string): Promise<SnapshotSummary> {
+  const isLinked = targetDatasetId !== rootDatasetId;
+  const body: Record<string, unknown> = { viewAnalysisId: analysisId, filters: [] };
+  if (isLinked) {
+    body.datasetId = targetDatasetId;
+    body.origin = 'linked';
+  }
   const res = await ctx.client.as<SnapshotSummary>(SERVICE_HANDLE, 'POST', '/api/v1/view-analyses/snapshots', body, projectHeaders(workspaceId));
   if (!res.ok || !res.body) throw new Error(`creating a snapshot for analysis ${analysisId} failed (status ${res.status})`);
   await awaitSnapshotVisible(ctx, workspaceId, analysisId, res.body.id); // EC7
   recordTouched(ctx, { kind: 'snapshot', name: `v${res.body.version}`, id: res.body.id, action: 'created' });
+  return res.body;
 }
 
 /** EC7 — bounded read-after-write poll. See module doc for why this
@@ -155,8 +220,19 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function ensureSnapshotNames(ctx: ProvisioningContext, workspaceId: string, analysisId: string, current: SnapshotSummary[], declared: SnapshotFixture[]): Promise<void> {
-  for (const pair of pairSnapshotsToNames(current, declared)) await ensureOneSnapshotName(ctx, workspaceId, analysisId, pair.snapshot, pair.fixture);
+const SUPERSEDED_SUFFIX = ' (superseded — bound to a stale dataset)';
+
+/** Renames a stale prior snapshot out of the way so its name stops
+ *  colliding with the declared identity marker — see module doc ("SUPERSEDING
+ *  A STALE PRIOR v2") for why a rename, not a delete, is the only REST-
+ *  available move. Idempotent: if the row was already renamed on a prior
+ *  run, `nameSnapshot`'s no-op guard on the ordinary path stays correct;
+ *  this function itself always fires once for a detected mismatch, which is
+ *  fine because a superseded row is never looked up by name again. */
+async function supersedeSnapshot(ctx: ProvisioningContext, workspaceId: string, analysisId: string, existing: SnapshotSummary): Promise<void> {
+  const name = `${existing.name ?? `Snapshot v${existing.version}`}${SUPERSEDED_SUFFIX}`;
+  await nameSnapshot(ctx, workspaceId, analysisId, existing, name);
+  recordTouched(ctx, { kind: 'snapshot', name, id: existing.id, action: 'superseded' });
 }
 
 /**
@@ -174,10 +250,10 @@ async function ensureSnapshotNames(ctx: ProvisioningContext, workspaceId: string
  * `performedBy` the server discards and replaces — logged for a future fix
  * story, not fixed in this one (SI-044 is REST-only / no backend change).
  */
-async function ensureOneSnapshotName(ctx: ProvisioningContext, workspaceId: string, analysisId: string, snapshot: SnapshotSummary, fixture: SnapshotFixture): Promise<void> {
-  if (snapshot.name === fixture.name) return;
-  const body = { name: fixture.name, performedBy: 'server-derived-from-actor-id' };
+async function nameSnapshot(ctx: ProvisioningContext, workspaceId: string, analysisId: string, snapshot: SnapshotSummary, name: string): Promise<void> {
+  if (snapshot.name === name) return;
+  const body = { name, performedBy: 'server-derived-from-actor-id' };
   const res = await ctx.client.as(SERVICE_HANDLE, 'PATCH', `/api/v1/view-analyses/${analysisId}/snapshots/${snapshot.id}`, body, projectHeaders(workspaceId));
-  if (!res.ok) throw new Error(`naming snapshot ${snapshot.id} "${fixture.name}" failed (status ${res.status})`);
-  recordTouched(ctx, { kind: 'snapshot', name: fixture.name, id: snapshot.id, action: 'renamed' });
+  if (!res.ok) throw new Error(`naming snapshot ${snapshot.id} "${name}" failed (status ${res.status})`);
+  recordTouched(ctx, { kind: 'snapshot', name, id: snapshot.id, action: 'renamed' });
 }
