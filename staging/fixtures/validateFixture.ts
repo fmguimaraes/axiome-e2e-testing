@@ -57,6 +57,19 @@ export function checkDatasetBindsToDeclaredProject(fixture: TenantFixture): Fixt
   return [];
 }
 
+/** FR8 (Capture Spec §6.2: "no duplicates") — chart titles must be unique;
+ *  a duplicate would silently collapse two distinct charts under the same
+ *  re-run idempotency key (`alreadyStagedChart` keys on title). */
+export function checkChartTitlesUnique(fixture: TenantFixture): FixtureViolation[] {
+  const seen = new Set<string>();
+  const violations: FixtureViolation[] = [];
+  for (const spec of fixture.content.chartSpecs) {
+    if (seen.has(spec.title)) violations.push({ rule: 'FR8', detail: `duplicate chart title "${spec.title}"` });
+    seen.add(spec.title);
+  }
+  return violations;
+}
+
 function collectDeclaredNames(fixture: TenantFixture): string[] {
   const workspaceNames = fixture.workspaces.flatMap(collectWorkspaceNames);
   return [fixture.org.name, ...workspaceNames];
@@ -75,6 +88,7 @@ export function validateFixture(fixture: TenantFixture): FixtureViolation[] {
     ...checkNoEmptyNames(fixture),
     ...checkCastHandlesUnique(fixture),
     ...checkDatasetBindsToDeclaredProject(fixture),
+    ...checkChartTitlesUnique(fixture),
   ];
 }
 

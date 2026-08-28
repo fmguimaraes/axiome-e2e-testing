@@ -45,7 +45,9 @@ const ANALYSIS_WORKSPACE_ROLE = 'editor';
 
 type BackendAssumptionType = 'cohort_definition' | 'data_filter' | 'methodological_choice' | 'domain_assumption' | 'other';
 
-interface AnalysisSummary {
+/** Exported for reuse by `chartStaging.ts` (AXI-1374) — the chart step needs
+ *  this same view-analysis id to scope every chart's `viewAnalysisId`. */
+export interface AnalysisSummary {
   id: string;
   name: string;
   status: string;
@@ -85,7 +87,9 @@ export const THRESHOLD_WITHHELD_REASON =
   'claim not true of this run — the Riaz DE contrast (riaz_de/run_de.py, pydeseq2 0.5.2) was pre-computed; ' +
   'no threshold was declared before it ran (FR9)';
 
-async function requireDatasetId(ctx: ProvisioningContext, workspaceId: string, filename: string): Promise<string> {
+/** Exported for reuse by `chartStaging.ts` (AXI-1374) — same lookup, same
+ *  "must already exist, ensure-dataset ran first" guard. */
+export async function requireDatasetId(ctx: ProvisioningContext, workspaceId: string, filename: string): Promise<string> {
   const found = await findExistingDataset(ctx, workspaceId, filename);
   if (!found) throw new Error(`dataset "${filename}" not found in workspace ${workspaceId} — ensure-dataset must run first`);
   return found.id;
@@ -141,8 +145,9 @@ async function renameAnalysis(ctx: ProvisioningContext, workspaceId: string, ana
 
 /** Earliest-created match, deterministically, in case more than one
  *  user_created analysis is already bound to this dataset (AXI-1372 flagged
- *  stale dataset links on this project — see dev-epic-context). */
-async function findExistingAnalysis(ctx: ProvisioningContext, workspaceId: string, projectId: string, datasetId: string): Promise<AnalysisSummary | undefined> {
+ *  stale dataset links on this project — see dev-epic-context). Exported
+ *  for reuse by `chartStaging.ts` (AXI-1374). */
+export async function findExistingAnalysis(ctx: ProvisioningContext, workspaceId: string, projectId: string, datasetId: string): Promise<AnalysisSummary | undefined> {
   const res = await ctx.client.as<{ data: AnalysisSummary[] }>(
     SERVICE_HANDLE,
     'GET',

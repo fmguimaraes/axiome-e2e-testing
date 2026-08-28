@@ -122,7 +122,82 @@ export const TENANT_FIXTURE: TenantFixture = {
         authorHandle: 'cast-biologist',
       },
     ],
-    chartSpecs: [],
+    // AXI-1374 (FR8/FR23, Capture Spec §6.2): the six user-created charts.
+    // Charts 1-4 bind `dataRequirement: 'de_table'` — satisfied by the one
+    // dataset this tenant carries (`94b0bd10`, AC5). Charts 5-6 declare
+    // `'count_matrix'`: that requirement is NOT satisfied by the DE-table
+    // dataset, so `chartStaging.ts` withholds them (same shape as FR9's
+    // conditional 4th assumption) rather than building them from data that
+    // isn't there. Titles are human-authored, no duplicates, no `TEST` card
+    // (Capture Spec §6.2's own wording).
+    chartSpecs: [
+      {
+        title: 'Volcano — pre-therapy responders vs non-responders (baseMean ≥ 10)',
+        templateId: 'volcano_v1',
+        templateVersion: '1.0.0',
+        dataRequirement: 'de_table',
+        bindings: { x: 'log2FoldChange', y: 'pvalue' },
+        // FR23 — the saved, persisted fix: -log10(p) y-axis + colour by
+        // significance category. `pval_threshold` is in the TRANSFORMED
+        // (-log10) scale — -log10(0.05) ≈ 1.301 — overriding the backend
+        // template's own seeded default of 0.05 (`specialized.templates.ts`),
+        // which is calibrated for a raw p-value axis and is itself the
+        // upstream source of the "unshippable" volcano bug this story fixes.
+        params: { yAxisTransform: 'neg_log10', colorBy: 'significance', fc_threshold: 1, pval_threshold: 1.301 },
+        filters: [{ column: 'baseMean', operator: 'gte', value: 10 }],
+      },
+      {
+        title: 'Significant differential expression — FDR < 0.05, |log2FC| ≥ 1',
+        templateId: 'table_preview_v1',
+        templateVersion: '1.0.0',
+        dataRequirement: 'de_table',
+        bindings: {},
+        filters: [
+          { column: 'padj', operator: 'lt', value: 0.05 },
+          { column: 'log2FoldChange', operator: 'gte', value: 1 },
+          { column: 'log2FoldChange', operator: 'lte', value: -1 },
+        ],
+        combinator: 'AND',
+        // The two log2FoldChange conditions OR together (|x| >= 1); padj < 0.05
+        // ANDs against that pair — same AXI-1136 combinator/columnCombinators
+        // shape the data table's own filter UI uses.
+        columnCombinators: { log2FoldChange: 'OR' },
+      },
+      {
+        title: 'P-value distribution — tested universe',
+        templateId: 'histogram_v1',
+        templateVersion: '1.0.0',
+        dataRequirement: 'de_table',
+        bindings: { x: 'pvalue' },
+        params: { bin_count: 30 },
+      },
+      {
+        title: 'Independent-filtering exclusions — padj not reported',
+        templateId: 'table_preview_v1',
+        templateVersion: '1.0.0',
+        dataRequirement: 'de_table',
+        bindings: {},
+        filters: [{ column: 'padj', operator: 'is_null' }],
+      },
+      {
+        // Capture Spec §6.2 #5: box/violin by response group, needs
+        // PER-SAMPLE expression — see the withheld-chart note above.
+        title: 'Expression by response group — top discriminating genes',
+        templateId: 'boxplot_v1',
+        templateVersion: '1.0.0',
+        dataRequirement: 'count_matrix',
+        bindings: { y: 'expression', group: 'response' },
+      },
+      {
+        // Capture Spec §6.2 #6: paired pre/on-treatment delta, needs
+        // PER-SAMPLE, PER-TIMEPOINT expression — see the withheld-chart note.
+        title: 'Paired timepoint delta — pre vs on-treatment',
+        templateId: 'paired_timepoint_scatter_v1',
+        templateVersion: '1.0.0',
+        dataRequirement: 'count_matrix',
+        bindings: { x: 'pre_expression', y: 'on_treatment_expression', group: 'response' },
+      },
+    ],
     thresholds: [],
     comments: [],
     interpretations: [],

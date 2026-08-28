@@ -122,6 +122,35 @@ export interface AssumptionFixture {
 }
 
 /**
+ * A chart the tenant must carry (AXI-1374, FR8/FR23, Capture Spec §6.2).
+ * `templateId`/`templateVersion` match the backend's seeded template
+ * registry verbatim (`apps/organization-service/src/templates/
+ * seed-templates/*.templates.ts`) — the create route 404s on a mismatch.
+ * `bindings` are plain source-column names (the Riaz DE table's own header
+ * row: gene/baseMean/log2FoldChange/lfcSE/pvalue/padj), which is what the
+ * frontend's `resolveBinding` accepts directly (see
+ * `axiome-front/src/lib/charts/builders/shared.ts`).
+ *
+ * `dataRequirement` is content (a fact about what the chart needs), but
+ * whether that requirement is actually SATISFIED by the one dataset this
+ * tenant carries (AC5, `94b0bd10` — the DE table only, no per-sample count
+ * matrix) is a toolkit-level TRUTH judgment, same shape as FR9's threshold
+ * guard — see `COUNT_MATRIX_INGESTED` in `chartStaging.ts`. A chart whose
+ * requirement isn't met is withheld, never fabricated.
+ */
+export interface ChartSpecFixture {
+  title: string;
+  templateId: string;
+  templateVersion: string;
+  dataRequirement: 'de_table' | 'count_matrix';
+  bindings: Record<string, string>;
+  params?: Record<string, unknown>;
+  filters?: { column: string; operator: string; value?: unknown }[];
+  combinator?: 'AND' | 'OR';
+  columnCombinators?: Record<string, 'AND' | 'OR'>;
+}
+
+/**
  * Slots for content later stories fill (FR6's fuller list: the scientific
  * question, assumption bodies, chart titles/specs, threshold values, comment
  * bodies, interpretation statements, evidence records, event-feed entries).
@@ -140,7 +169,7 @@ export interface ContentSlots {
   scientificQuestion?: string;
   dataset?: DatasetFixture;
   assumptions: AssumptionFixture[];
-  chartSpecs: unknown[];
+  chartSpecs: ChartSpecFixture[];
   thresholds: unknown[];
   comments: unknown[];
   interpretations: unknown[];
