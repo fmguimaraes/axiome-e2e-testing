@@ -9,6 +9,8 @@ import { ensureCommentsStep } from './commentStaging';
 import { SERVICE_HANDLE } from './context';
 import { ensureDatasetStep } from './datasetIngestion';
 import { ensureOrganizationStep } from './ensureOrganization';
+import { ensureSnapshotsStep } from './snapshotStaging';
+import { ensureThresholdsStep } from './thresholdStaging';
 import { ensureWorkspacesStep } from './ensureWorkspacesStep';
 import { runSteps } from './runSteps';
 import { verifyNoForbiddenNamesStep } from './verifyNoForbiddenNamesStep';
@@ -18,11 +20,13 @@ import type { TenantFixture } from '../fixtures/types';
 /**
  * `stage` (FR5/FR6/NFR1/NFR8/AC4/EC1, AXI-1371; FR7/AC5 dataset step added
  * AXI-1372; FR9/AC8 analysis-framing step added AXI-1373; FR8/FR23/AC6/AC7
- * chart step added AXI-1374; FR10/AC9 comment step added AXI-1375) —
- * provisions the demo tenant (org -> workspaces -> dataset -> analysis
- * framing -> charts -> comments) from the content fixture, over REST only,
+ * chart step added AXI-1374; FR10/AC9 comment step added AXI-1375; FR11/AC10
+ * threshold + snapshot steps added AXI-1376) — provisions the demo tenant
+ * (org -> workspaces -> dataset -> analysis framing -> charts -> thresholds
+ * -> comments -> snapshots) from the content fixture, over REST only,
  * converging idempotently on re-run. Ordering is the declared step graph in
- * `STEPS`, not call sequence (dev-epic-context).
+ * `STEPS`, not call sequence (dev-epic-context). Snapshots depend on
+ * comments per Capture Spec §20 (the external thread resolves to v2).
  */
 const STEPS = [
   ensureOrganizationStep,
@@ -30,7 +34,9 @@ const STEPS = [
   ensureDatasetStep,
   ensureAnalysisFramingStep,
   ensureChartsStep,
+  ensureThresholdsStep,
   ensureCommentsStep,
+  ensureSnapshotsStep,
   applyCastNamesStep,
   verifyNoForbiddenNamesStep,
 ];

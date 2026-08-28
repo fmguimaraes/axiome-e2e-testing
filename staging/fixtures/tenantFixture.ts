@@ -242,7 +242,46 @@ export const TENANT_FIXTURE: TenantFixture = {
         bindings: { x: 'pre_expression', y: 'on_expression', group: 'response' },
       },
     ],
-    thresholds: [],
+    // AXI-1376 (FR11, Capture Spec §8): both thresholds target the chart
+    // that is literally about these two cutoffs ("Significant differential
+    // expression — FDR < 0.05, |log2FC| ≥ 1"), authored by Marc Ottavi/MO
+    // (Capture Spec §3 owns thresholds). `provenance` and `rationale` are
+    // folded into the threshold's `label` and a threshold-targeted
+    // Annotation respectively — see `types.ts`'s `ThresholdFixture` doc for
+    // why (no structured provenance field exists on the backend entity).
+    thresholds: [
+      {
+        chartTitle: 'Significant differential expression — FDR < 0.05, |log2FC| ≥ 1',
+        field: 'log2FoldChange',
+        operator: '>=',
+        value: 1,
+        label: '|log2FC| ≥ 1 — published cutoff (external)',
+        provenance: 'external',
+        rationale: '|log2FC| ≥ 1 is the published cutoff, taken from prior literature rather than fitted on this cohort — keeping it external means these p-values are not inflated by having chosen the threshold from the same data.',
+        authorHandle: 'cast-biologist',
+      },
+      {
+        chartTitle: 'Significant differential expression — FDR < 0.05, |log2FC| ≥ 1',
+        field: 'padj',
+        operator: '<',
+        value: 0.05,
+        label: 'FDR < 0.05 — prespecified',
+        provenance: 'prespecified',
+        rationale: 'FDR < 0.05 was declared before the contrast was run, not chosen after seeing which genes cleared it.',
+        authorHandle: 'cast-biologist',
+      },
+    ],
+    // AXI-1376 (FR11/AC10, Capture Spec §4). Array order is version order —
+    // see `types.ts`'s `ContentSlots.snapshots` doc. v2's name carries the
+    // "stratified" wording verbatim from the spec; `snapshotStaging.ts`
+    // documents why the underlying data slice is honestly identical to v1
+    // (no per-patient ipilimumab-exposure column exists in either ingested
+    // dataset — a real stratified contrast would require a new offline DE
+    // re-run per arm, out of this REST-only story's scope).
+    snapshots: [
+      { name: 'Snapshot v1' },
+      { name: 'Snapshot v2 — stratified by prior ipilimumab exposure (naive vs progressed)' },
+    ],
     // AXI-1375 (FR10, Capture Spec §7). Handle -> cast mapping (see `cast`
     // above): cast-biologist = Marc Ottavi/MO, cast-bioinformatician = Léa
     // Fontaine/LF, cast-clinician = Claire Ngo/CN, external-stakeholder =

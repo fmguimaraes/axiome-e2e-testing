@@ -69,6 +69,51 @@ chart-anchored comments (`/api/v1/comments`, via a `ProjectDashboard` +
 | UT-STAGE-046 | `alreadyStagedChartComment` matches on content alone (NFR1) | Pass |
 | UT-STAGE-047 | `alreadyStagedExternalMessage` matches on (content, authorType) — a client message and an internal reply with the same text are distinct (NFR1) | Pass |
 
+## thresholdStaging.spec.ts
+
+FR6/Capture Spec §8 (AXI-1376) — the two governance thresholds staged on
+"Significant differential expression — FDR < 0.05, |log2FC| ≥ 1", provenance
+folded into `label` + a threshold-targeted `Annotation` rationale (no
+structured provenance field exists on the backend `Threshold` entity — see
+the module doc), plus the idempotency guards the staging loop depends on
+(NFR1). No dedicated FR/AC number is pinned to thresholds in the feature doc
+(FR10=comments, FR11=snapshots) — see `thresholdStaging.ts`'s "NO DEDICATED
+FR/AC" note.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-050 | `alreadyStagedThreshold` matches an active threshold with the same field/operator/value | Pass |
+| UT-STAGE-051 | `alreadyStagedThreshold` ignores an archived/superseded threshold | Pass |
+| UT-STAGE-052 | `alreadyStagedThreshold` is false when the value differs — an edited cutoff re-stages | Pass |
+| UT-STAGE-053 | `alreadyStagedRationale` matches an active threshold-targeted annotation with the same text | Pass |
+| UT-STAGE-054 | `alreadyStagedRationale` ignores a chart-targeted annotation and a different threshold id | Pass |
+| UT-STAGE-055 | `resolveCastDisplayName` resolves a fixture handle to its real display name | Pass |
+| UT-STAGE-056 | `resolveCastDisplayName` throws loudly for an undeclared handle | Pass |
+| UT-STAGE-057 | `checkThresholdChartsDeclared` passes on the live `TENANT_FIXTURE` | Pass |
+| UT-STAGE-058 | `checkThresholdChartsDeclared` flags a threshold targeting an undeclared chart | Pass |
+| UT-STAGE-059 | `TENANT_FIXTURE` declares exactly 2 thresholds, provenance external + prespecified, no third "failed" threshold (OQ2) | Pass |
+
+## snapshotStaging.spec.ts
+
+FR11/AC10 (Capture Spec §4, AXI-1376) — snapshot v1 (pooled) and v2
+(stratified label), the version-ordinal count/naming idempotency logic, and
+the EC7 bounded-poll / route-choice findings documented in the module doc
+(the "stratified" contrast cannot be a real data-level filter on this
+dataset — no per-patient exposure column exists — so v2 is honestly staged
+as a labeled version of the same slice, not a fabricated result).
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-060 | `snapshotsToCreate` is the full target count against an empty tenant | Pass |
+| UT-STAGE-061 | `snapshotsToCreate` is the shortfall when some already exist | Pass |
+| UT-STAGE-062 | `snapshotsToCreate` is zero once at or past target — re-run creates nothing new (NFR1) | Pass |
+| UT-STAGE-063 | `pairSnapshotsToNames` binds by array position, not id — caller pre-sorts by version | Pass |
+| UT-STAGE-064 | `pairSnapshotsToNames` (sorted input) binds v1 fixture to version 1, v2 fixture to version 2 | Pass |
+| UT-STAGE-065 | `pairSnapshotsToNames` drops a declared entry with no matching live snapshot yet (NFR1) | Pass |
+| UT-STAGE-066 | `checkSnapshotNamesUnique` passes on the live `TENANT_FIXTURE` | Pass |
+| UT-STAGE-067 | `checkSnapshotNamesUnique` flags a duplicated snapshot name | Pass |
+| UT-STAGE-068 | `TENANT_FIXTURE` declares v1 (pooled) then v2 (stratified label) in order (FR11/AC10) | Pass |
+
 ## AXI-1372-dataset-ingestion.spec.ts (Playwright, `tests/AXI-1368/`)
 
 FR7/AC5, widened AXI-1374 to "one corpus, one-or-more dataset versions" —

@@ -243,6 +243,53 @@ export interface CommentsFixture {
 }
 
 /**
+ * How a threshold's cutoff was arrived at (AXI-1376, Capture Spec §8). The
+ * backend `Threshold` entity (`apps/organization-service/src/thresholds/`)
+ * has NO structured provenance/rationale field at all — only
+ * `field`/`operator`/`value`/`label`/`consumers`/`status`/`createdBy`
+ * (confirmed against `libs/contracts/src/threshold/threshold.patterns.ts`
+ * and the Prisma model). `provenance` here is fixture-level content that
+ * `thresholdStaging.ts` folds into the threshold's `label` (a short marker)
+ * and into a threshold-targeted `Annotation`'s `text` (the one-line
+ * rationale Capture Spec §8 requires) — the closest real, honest mapping
+ * this schema supports. See `thresholdStaging.ts`'s module doc for the full
+ * investigation.
+ */
+export type ThresholdProvenance = 'external' | 'prespecified';
+
+/**
+ * One threshold the tenant must carry (Capture Spec §8: "author, value,
+ * rationale and cutoff provenance visible"). `operator` is restricted to the
+ * backend's `ThresholdOperator` scalar comparisons (`>=`/`<=`/`>`/`<`) —
+ * `between` is excluded here because neither of this story's two thresholds
+ * needs a range. `chartTitle` matches a {@link ChartSpecFixture.title}
+ * verbatim, same binding convention as {@link ChartAnchoredCommentFixture}.
+ */
+export interface ThresholdFixture {
+  chartTitle: string;
+  field: string;
+  operator: '>=' | '<=' | '>' | '<';
+  value: number;
+  label: string;
+  provenance: ThresholdProvenance;
+  rationale: string;
+  authorHandle: string;
+}
+
+/**
+ * One versioned snapshot of the analysis (AXI-1376, FR11/AC10, Capture Spec
+ * §4). `name` is set post-creation via `PATCH .../snapshots/:id` and doubles
+ * as this fixture's idempotent identity marker — see `snapshotStaging.ts`'s
+ * module doc for why a real per-stratum data slice could not be built for
+ * v2 (the bound dataset carries no patient-level ipilimumab-exposure
+ * column) and why v2 is honestly staged as a labeled version rather than a
+ * fabricated stratified result.
+ */
+export interface SnapshotFixture {
+  name: string;
+}
+
+/**
  * Slots for content later stories fill (FR6's fuller list: the scientific
  * question, assumption bodies, chart titles/specs, threshold values, comment
  * bodies, interpretation statements, evidence records, event-feed entries).
@@ -269,8 +316,13 @@ export interface ContentSlots {
   datasets: DatasetFixture[];
   assumptions: AssumptionFixture[];
   chartSpecs: ChartSpecFixture[];
-  thresholds: unknown[];
+  thresholds: ThresholdFixture[];
   comments: CommentsFixture;
+  /** AXI-1376 (FR11/AC10, Capture Spec §4): declared in fixture ORDER —
+   *  index 0 is v1 (pooled), index 1 is v2 (stratified label). Version
+   *  numbers are assigned by the backend on creation (`version = count + 1`),
+   *  so array order is the source of truth for "which is v1 / which is v2". */
+  snapshots: SnapshotFixture[];
   interpretations: unknown[];
   evidence: unknown[];
   events: unknown[];

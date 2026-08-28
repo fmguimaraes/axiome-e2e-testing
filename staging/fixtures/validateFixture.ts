@@ -105,6 +105,28 @@ export function checkChartTitlesUnique(fixture: TenantFixture): FixtureViolation
   return violations;
 }
 
+/** AXI-1376 — a threshold's `chartTitle` must match a declared chart, or
+ *  `thresholdStaging.ts` fails deep inside a live call instead of here. */
+export function checkThresholdChartsDeclared(fixture: TenantFixture): FixtureViolation[] {
+  const titles = new Set(fixture.content.chartSpecs.map((c) => c.title));
+  return fixture.content.thresholds
+    .filter((t) => !titles.has(t.chartTitle))
+    .map((t) => ({ rule: 'FR6', detail: `threshold "${t.label}" targets chartTitle "${t.chartTitle}", which is not a declared chartSpec` }));
+}
+
+/** AXI-1376 (AC10) — snapshot `name`s must be distinct, so
+ *  `snapshotStaging.ts`'s version-ordinal-to-name pairing never assigns the
+ *  same displayed name to two different versions. */
+export function checkSnapshotNamesUnique(fixture: TenantFixture): FixtureViolation[] {
+  const seen = new Set<string>();
+  const violations: FixtureViolation[] = [];
+  for (const snapshot of fixture.content.snapshots) {
+    if (seen.has(snapshot.name)) violations.push({ rule: 'AC10', detail: `duplicate snapshot name "${snapshot.name}"` });
+    seen.add(snapshot.name);
+  }
+  return violations;
+}
+
 function collectDeclaredNames(fixture: TenantFixture): string[] {
   const workspaceNames = fixture.workspaces.flatMap(collectWorkspaceNames);
   return [fixture.org.name, ...workspaceNames];
@@ -126,6 +148,8 @@ export function validateFixture(fixture: TenantFixture): FixtureViolation[] {
     ...checkDatasetsShareCorpus(fixture),
     ...checkDatasetRolesUnique(fixture),
     ...checkChartTitlesUnique(fixture),
+    ...checkThresholdChartsDeclared(fixture),
+    ...checkSnapshotNamesUnique(fixture),
   ];
 }
 
