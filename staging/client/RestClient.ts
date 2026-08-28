@@ -41,12 +41,24 @@ export class RestClient {
     this.tokens.set(identity, { accessToken, refreshToken });
   }
 
-  /** Authenticated call as `identity` — throws if that identity has no token yet. */
-  async as<T = unknown>(identity: IdentityKey, method: HttpMethod, path: string, body?: unknown): Promise<RestResult<T>> {
+  /**
+   * Authenticated call as `identity` — throws if that identity has no token
+   * yet. `extraHeaders` covers gateway routes that read tenant-scope from a
+   * header rather than the path — e.g. `/api/v1/projects/*` requires
+   * `X-Workspace-Id` (AXI-1371 finding) — without widening every call site's
+   * signature for a need only a few routes have.
+   */
+  async as<T = unknown>(
+    identity: IdentityKey,
+    method: HttpMethod,
+    path: string,
+    body?: unknown,
+    extraHeaders?: Record<string, string>,
+  ): Promise<RestResult<T>> {
     if (!this.tokens.has(identity)) {
       throw new Error(`no token for identity "${identity}" — call login() first`);
     }
-    return this.call<T>(method, path, { identity, body });
+    return this.call<T>(method, path, { identity, body, extraHeaders });
   }
 
   /**
@@ -58,8 +70,12 @@ export class RestClient {
     return this.call(method, path, { identity, body: undefined });
   }
 
-  private async call<T>(method: HttpMethod, path: string, opts: { identity: IdentityKey; body?: unknown }): Promise<RestResult<T>> {
-    const headers = this.headersFor(opts.identity);
+  private async call<T>(
+    method: HttpMethod,
+    path: string,
+    opts: { identity: IdentityKey; body?: unknown; extraHeaders?: Record<string, string> },
+  ): Promise<RestResult<T>> {
+    const headers = { ...this.headersFor(opts.identity), ...opts.extraHeaders };
     const res = await fetch(this.baseUrl + path, {
       method,
       headers,
