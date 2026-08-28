@@ -1,46 +1,53 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import {
-  alreadyStagedChart,
-  isChartStageable,
-  toCreateBody,
-  COUNT_MATRIX_INGESTED,
-} from './chartStaging';
+import { alreadyStagedChart, isChartStageable, toCreateBody } from './chartStaging';
 import { checkChartTitlesUnique } from '../fixtures/validateFixture';
 import { TENANT_FIXTURE } from '../fixtures/tenantFixture';
-import type { ChartSpecFixture } from '../fixtures/types';
+import type { ChartSpecFixture, DataRequirement } from '../fixtures/types';
 
 /**
  * UT-STAGE-030..039 (SI-044) — FR8/FR23/AC6's chart-staging truth guard
- * (charts 5-6 stay withheld while the count matrix isn't ingested, same
- * shape as FR9's threshold guard) and the idempotency check the re-stage
- * loop depends on (NFR1). See `staging/steps/UT.md`.
+ * (a chart stages only once its required dataset role is LIVE-available —
+ * `isChartStageable` takes the caller's real-state snapshot, not a
+ * hard-coded constant, since AXI-1374 ingests the count-matrix dataset) and
+ * the idempotency check the re-stage loop depends on (NFR1). See
+ * `staging/steps/UT.md`.
  */
+
+const DE_TABLE_ONLY: ReadonlySet<DataRequirement> = new Set(['de_table']);
+const BOTH_ROLES: ReadonlySet<DataRequirement> = new Set(['de_table', 'count_matrix']);
+const NEITHER_ROLE: ReadonlySet<DataRequirement> = new Set();
 
 function deTableChart(title = 'irrelevant for this check'): ChartSpecFixture {
   return { title, templateId: 'histogram_v1', templateVersion: '1.0.0', dataRequirement: 'de_table', bindings: { x: 'pvalue' } };
 }
 
 function countMatrixChart(title = 'irrelevant for this check'): ChartSpecFixture {
-  return { title, templateId: 'boxplot_v1', templateVersion: '1.0.0', dataRequirement: 'count_matrix', bindings: { y: 'expression', group: 'response' } };
+  return { title, templateId: 'boxplot_v1', templateVersion: '1.0.0', dataRequirement: 'count_matrix', bindings: { y: 'pre_expression', group: 'response' } };
 }
 
-test('UT-STAGE-030: a de_table chart is always stageable', () => {
-  assert.equal(isChartStageable(deTableChart()), true);
+test('UT-STAGE-030: a de_table chart is stageable once the de_table role is live-available', () => {
+  assert.equal(isChartStageable(deTableChart(), DE_TABLE_ONLY), true);
 });
 
-test('UT-STAGE-031: a count_matrix chart is withheld while COUNT_MATRIX_INGESTED is false (the default)', () => {
-  assert.equal(COUNT_MATRIX_INGESTED, false);
-  assert.equal(isChartStageable(countMatrixChart()), false);
+test('UT-STAGE-031: a count_matrix chart is withheld while the count_matrix role is NOT live-available', () => {
+  assert.equal(isChartStageable(countMatrixChart(), DE_TABLE_ONLY), false);
+  assert.equal(isChartStageable(countMatrixChart(), NEITHER_ROLE), false);
 });
 
-test('UT-STAGE-032 (AC6): TENANT_FIXTURE declares 6 chart titles (Capture Spec §6.2), but exactly 4 pass the AC5 data-feasibility guard', () => {
+test('UT-STAGE-032 (AC6, AXI-1374): once BOTH dataset roles are live-available, all 6 declared charts pass the guard', () => {
   const declared = TENANT_FIXTURE.content.chartSpecs;
   assert.equal(declared.length, 6, 'the fixture holds all 6 chart titles (FR6: words, not a feasibility decision)');
-  const stageable = declared.filter(isChartStageable);
-  assert.equal(stageable.length, 4, 'charts 5-6 need per-sample expression not present in the ingested DE-table dataset');
+  const stageable = declared.filter((spec) => isChartStageable(spec, BOTH_ROLES));
+  assert.equal(stageable.length, 6, 'both datasets ingested (AC5 amended) — nothing stays withheld');
+});
+
+test('UT-STAGE-032b (real-state guard): with only de_table available, exactly the 4 de_table charts pass', () => {
+  const declared = TENANT_FIXTURE.content.chartSpecs;
+  const stageable = declared.filter((spec) => isChartStageable(spec, DE_TABLE_ONLY));
+  assert.equal(stageable.length, 4);
   assert.deepEqual(
-    declared.filter((c) => !isChartStageable(c)).map((c) => c.dataRequirement),
+    declared.filter((c) => !isChartStageable(c, DE_TABLE_ONLY)).map((c) => c.dataRequirement),
     ['count_matrix', 'count_matrix'],
   );
 });

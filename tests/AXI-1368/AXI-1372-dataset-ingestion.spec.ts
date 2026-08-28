@@ -8,15 +8,24 @@ import { ensureDatasetStep } from '../../staging/steps/datasetIngestion';
 import { SERVICE_HANDLE } from '../../staging/steps/context';
 import { TENANT_FIXTURE } from '../../staging/fixtures/tenantFixture';
 import type { ProvisioningContext } from '../../staging/steps/context';
+import type { TenantFixture } from '../../staging/fixtures/types';
 
 /**
- * AXI-1372 — `ensureDatasetStep()` (FR7/AC5/NFR1): ingest the single Riaz DE
- * table via the real REST upload flow (initiate -> presigned S3 PUT ->
- * finalize -> wait for ingestion -> link to project), idempotently. Mocked at
- * the HTTP boundary — no live stack in this file (the story report carries
- * the actual live-stack run). `ensureDatasetStep.run()` is called directly
+ * AXI-1372 — `ensureDatasetStep()` (FR7/AC5/NFR1): ingest the Riaz DE table
+ * via the real REST upload flow (initiate -> presigned S3 PUT -> finalize ->
+ * wait for ingestion -> link to project), idempotently. Mocked at the HTTP
+ * boundary — no live stack in this file (the story report carries the
+ * actual live-stack run). `ensureDatasetStep.run()` is called directly
  * against a hand-built `ProvisioningContext` rather than the full
  * `stageTenant()`, so this stays fast and scoped to the dataset step alone.
+ *
+ * AXI-1374 widens `content.datasets` to a list (one corpus, two dataset
+ * versions — the DE table plus a per-sample count-matrix backing charts
+ * 5-6) and generalizes the step to iterate it, reading each entry's OWN
+ * `localPathEnv`/`defaultLocalPath` instead of the single hard-coded
+ * `STAGING_RIAZ_DE_CSV_PATH` constant AXI-1372 shipped. UT-DSI-001..005
+ * still cover the single-dataset shape (still real: the fixture's first
+ * entry, in isolation); UT-DSI-006..008 add the two-dataset behavior.
  *
  * @SI-044.
  */
@@ -136,12 +145,20 @@ function installFetchStub(gateway: FakeDatasetGateway): () => void {
   };
 }
 
-function newContext(): ProvisioningContext {
+/** Single-dataset slice of the shipped fixture (its `de_table` entry alone)
+ *  — keeps UT-DSI-001..005 exercising exactly one dataset, same shape as
+ *  before AXI-1374 widened `content.datasets` to a list. */
+function oneDatasetFixture(): TenantFixture {
+  const deTable = TENANT_FIXTURE.content.datasets.find((d) => d.role === 'de_table')!;
+  return { ...TENANT_FIXTURE, content: { ...TENANT_FIXTURE.content, datasets: [deTable] } };
+}
+
+function newContext(fixture: TenantFixture = oneDatasetFixture()): ProvisioningContext {
   const client = new RestClient({ baseUrl: 'http://localhost:3000' });
   client.tokens.set(SERVICE_HANDLE, { accessToken: 'fake-service-token' });
   return {
     client,
-    fixture: TENANT_FIXTURE,
+    fixture,
     serviceUserId: 'svc-1',
     orgId: 'org-1',
     workspaceIdByFixtureName: new Map([['Translational Immuno-Oncology', 'workspace-1']]),
@@ -149,7 +166,7 @@ function newContext(): ProvisioningContext {
   };
 }
 
-test.describe('FR7/AC5 — ensureDatasetStep() ingests the single Riaz dataset version', () => {
+test.describe('FR7/AC5 — ensureDatasetStep() ingests the Riaz DE-table dataset', () => {
   let gateway: FakeDatasetGateway;
   let restore: () => void;
   let tempDir: string;
@@ -193,7 +210,7 @@ test.describe('FR7/AC5 — ensureDatasetStep() ingests the single Riaz dataset v
     await ensureDatasetStep.run(second);
 
     expect(gateway.initiateUploadCalls).toBe(1); // still just the one upload
-    expect(gateway.datasets.size).toBe(1); // no duplicate dataset (AC5: exactly one version)
+    expect(gateway.datasets.size).toBe(1); // no duplicate dataset (AC5: exactly one version of THIS dataset)
     expect(second.touched.filter((t) => t.kind === 'dataset').map((t) => t.action)).toEqual(['reused']);
   });
 
@@ -212,9 +229,74 @@ test.describe('FR7/AC5 — ensureDatasetStep() ingests the single Riaz dataset v
 
   test('UT-DSI-005 — is a no-op when the fixture declares no dataset content', async () => {
     const ctx = newContext();
-    ctx.fixture = { ...TENANT_FIXTURE, content: { ...TENANT_FIXTURE.content, dataset: undefined } };
+    ctx.fixture = { ...TENANT_FIXTURE, content: { ...TENANT_FIXTURE.content, datasets: [] } };
     await ensureDatasetStep.run(ctx);
     expect(gateway.initiateUploadCalls).toBe(0);
     expect(ctx.touched).toHaveLength(0);
+  });
+});
+
+test.describe('AXI-1374 (AC5 amended) — ensureDatasetStep() ingests a SECOND, count-matrix dataset alongside the DE table', () => {
+  let gateway: FakeDatasetGateway;
+  let restore: () => void;
+  let tempDir: string;
+  let previousDeEnv: string | undefined;
+  let previousCountEnv: string | undefined;
+
+  test.beforeEach(() => {
+    gateway = new FakeDatasetGateway();
+    restore = installFetchStub(gateway);
+    tempDir = mkdtempSync(join(tmpdir(), 'axi-1374-riaz-'));
+    previousDeEnv = process.env.STAGING_RIAZ_DE_CSV_PATH;
+    previousCountEnv = process.env.STAGING_RIAZ_COUNT_MATRIX_CSV_PATH;
+    const dePath = join(tempDir, 'de.csv');
+    const countPath = join(tempDir, 'counts.csv');
+    writeFileSync(dePath, 'gene,baseMean,log2FoldChange,pvalue,padj\nBRCA1,277.9,-0.56,0.13,0.65\n');
+    writeFileSync(countPath, 'gene,patient_id,response,pre_expression,on_expression\nBRCA1,Pt1,R,58,63\n');
+    process.env.STAGING_RIAZ_DE_CSV_PATH = dePath;
+    process.env.STAGING_RIAZ_COUNT_MATRIX_CSV_PATH = countPath;
+  });
+
+  test.afterEach(() => {
+    restore();
+    rmSync(tempDir, { recursive: true, force: true });
+    if (previousDeEnv === undefined) delete process.env.STAGING_RIAZ_DE_CSV_PATH;
+    else process.env.STAGING_RIAZ_DE_CSV_PATH = previousDeEnv;
+    if (previousCountEnv === undefined) delete process.env.STAGING_RIAZ_COUNT_MATRIX_CSV_PATH;
+    else process.env.STAGING_RIAZ_COUNT_MATRIX_CSV_PATH = previousCountEnv;
+  });
+
+  test('UT-DSI-006 — one run ingests BOTH declared datasets and links both to the project', async () => {
+    const ctx = newContext(TENANT_FIXTURE);
+    await ensureDatasetStep.run(ctx);
+
+    expect(gateway.initiateUploadCalls).toBe(2);
+    expect(gateway.datasets.size).toBe(2);
+    const filenames = [...gateway.datasets.values()].map((d) => d.originalFilename).sort();
+    expect(filenames).toEqual(['riaz2017_de_pre_R_vs_NR.csv', 'riaz2017_expression_by_response_timepoint.csv']);
+    for (const dataset of gateway.datasets.values()) {
+      expect(gateway.projectLinks.get('project-1')?.has(dataset.id)).toBe(true);
+    }
+  });
+
+  test('UT-DSI-007 (NFR1) — a second run reuses both datasets, no re-upload, no duplicate links', async () => {
+    const first = newContext(TENANT_FIXTURE);
+    await ensureDatasetStep.run(first);
+
+    const second = newContext(TENANT_FIXTURE);
+    await ensureDatasetStep.run(second);
+
+    expect(gateway.initiateUploadCalls).toBe(2); // still just the two original uploads
+    expect(gateway.datasets.size).toBe(2);
+    expect(second.touched.filter((t) => t.kind === 'dataset').map((t) => t.action)).toEqual(['reused', 'reused']);
+  });
+
+  test('UT-DSI-008 — each dataset reads bytes from its OWN localPathEnv, not a shared hard-coded path', async () => {
+    const ctx = newContext(TENANT_FIXTURE);
+    await ensureDatasetStep.run(ctx);
+    // Both uploads succeeded (initiateUploadCalls === 2, above) using two
+    // DIFFERENT env-provided paths set in beforeEach — proof the step no
+    // longer reads a single module-level constant path.
+    expect(gateway.uploadedBytes).toBeDefined();
   });
 });

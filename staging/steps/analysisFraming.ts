@@ -26,7 +26,12 @@ export const ensureAnalysisFramingStep: Step<ProvisioningContext> = {
   dependsOn: ['ensure-dataset'],
   async run(ctx) {
     const content = ctx.fixture.content;
-    const dataset = content.dataset;
+    // The view-analysis itself is bound to ONE dataset (the platform's own
+    // `POST /view-analyses` shape) — that is always the DE table (AXI-1373's
+    // "scientific spine"), never the count-matrix dataset AXI-1374 adds. See
+    // `chartStaging.ts`'s module doc for how the count-matrix's charts still
+    // get scoped to this same analysis despite that.
+    const dataset = content.datasets.find((d) => d.role === 'de_table');
     if (!dataset || !content.scientificQuestion || content.assumptions.length === 0) return;
     const workspaceId = requireWorkspaceId(ctx, dataset.workspaceName);
     const projectId = await requireProjectId(ctx, workspaceId, dataset.projectName);

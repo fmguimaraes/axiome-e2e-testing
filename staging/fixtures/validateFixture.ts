@@ -41,20 +41,55 @@ export function checkCastHandlesUnique(fixture: TenantFixture): FixtureViolation
   return violations;
 }
 
-/** FR7 — `content.dataset`, when declared, must bind to a workspace/project
+/** FR7 — every `content.datasets[]` entry must bind to a workspace/project
  *  this same fixture actually provisions; a typo'd name would otherwise only
  *  surface as a confusing 404 deep inside the dataset-ingestion step. */
 export function checkDatasetBindsToDeclaredProject(fixture: TenantFixture): FixtureViolation[] {
-  const dataset = fixture.content.dataset;
-  if (!dataset) return [];
+  return fixture.content.datasets.flatMap((dataset) => checkOneDatasetBinding(fixture, dataset));
+}
+
+function checkOneDatasetBinding(fixture: TenantFixture, dataset: TenantFixture['content']['datasets'][number]): FixtureViolation[] {
   const workspace = fixture.workspaces.find((w) => w.name === dataset.workspaceName);
   if (!workspace) {
-    return [{ rule: 'FR7', detail: `content.dataset.workspaceName "${dataset.workspaceName}" is not a declared workspace` }];
+    return [{ rule: 'FR7', detail: `content.datasets[role=${dataset.role}].workspaceName "${dataset.workspaceName}" is not a declared workspace` }];
   }
   if (!workspace.projects.some((p) => p.name === dataset.projectName)) {
-    return [{ rule: 'FR7', detail: `content.dataset.projectName "${dataset.projectName}" is not a declared project in workspace "${workspace.name}"` }];
+    return [{ rule: 'FR7', detail: `content.datasets[role=${dataset.role}].projectName "${dataset.projectName}" is not a declared project in workspace "${workspace.name}"` }];
   }
   return [];
+}
+
+/**
+ * AC5 (amended, AXI-1374) — "one corpus, one-or-more dataset versions": every
+ * declared dataset must bind to the SAME (workspace, project) pair. A second
+ * dataset for a genuinely different corpus is a real product decision, not
+ * something the fixture format should be able to represent by accident —
+ * this is the structural guard that keeps that decision deliberate.
+ */
+export function checkDatasetsShareCorpus(fixture: TenantFixture): FixtureViolation[] {
+  const datasets = fixture.content.datasets;
+  if (datasets.length <= 1) return [];
+  const [first, ...rest] = datasets;
+  const mismatch = rest.find((d) => d.workspaceName !== first.workspaceName || d.projectName !== first.projectName);
+  if (!mismatch) return [];
+  return [{
+    rule: 'AC5',
+    detail: `content.datasets[role=${mismatch.role}] binds to "${mismatch.workspaceName}/${mismatch.projectName}", ` +
+      `not the corpus's "${first.workspaceName}/${first.projectName}" — every dataset in one tenant must share one corpus`,
+  }];
+}
+
+/** FR7/AC5 — a dataset `role` must be unique so "the de_table dataset" and
+ *  "the count_matrix dataset" are well-defined lookups, never an ambiguous
+ *  pick-the-first among duplicates. */
+export function checkDatasetRolesUnique(fixture: TenantFixture): FixtureViolation[] {
+  const seen = new Set<string>();
+  const violations: FixtureViolation[] = [];
+  for (const dataset of fixture.content.datasets) {
+    if (seen.has(dataset.role)) violations.push({ rule: 'FR7', detail: `duplicate dataset role "${dataset.role}"` });
+    seen.add(dataset.role);
+  }
+  return violations;
 }
 
 /** FR8 (Capture Spec §6.2: "no duplicates") — chart titles must be unique;
@@ -88,6 +123,8 @@ export function validateFixture(fixture: TenantFixture): FixtureViolation[] {
     ...checkNoEmptyNames(fixture),
     ...checkCastHandlesUnique(fixture),
     ...checkDatasetBindsToDeclaredProject(fixture),
+    ...checkDatasetsShareCorpus(fixture),
+    ...checkDatasetRolesUnique(fixture),
     ...checkChartTitlesUnique(fixture),
   ];
 }

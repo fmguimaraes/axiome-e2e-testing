@@ -325,13 +325,13 @@ function normalizeHeaders(headers: Record<string, string>): Record<string, strin
 
 /** A small fixture with one workspace/one project, legacy-named, plus one
  *  retired project — enough to exercise create/rename/retire without the
- *  full two-workspace shipped fixture's noise. `content.dataset` is cleared
- *  (AXI-1372): this file's `FakeGateway` deliberately scopes to org/workspace/
- *  project routes only ("not a gateway re-implementation", see its doc
- *  comment above) and has no dataset/S3 surface — `ensureDatasetStep` no-ops
- *  when `content.dataset` is undefined, so `stageTenant()` here stays scoped
- *  to what this file actually tests. Dataset-step coverage lives in
- *  `AXI-1372-dataset-ingestion.spec.ts`. */
+ *  full two-workspace shipped fixture's noise. `content.datasets` is cleared
+ *  (AXI-1372, widened AXI-1374): this file's `FakeGateway` deliberately
+ *  scopes to org/workspace/project routes only ("not a gateway
+ *  re-implementation", see its doc comment above) and has no dataset/S3
+ *  surface — `ensureDatasetStep` no-ops when `content.datasets` is empty, so
+ *  `stageTenant()` here stays scoped to what this file actually tests.
+ *  Dataset-step coverage lives in `AXI-1372-dataset-ingestion.spec.ts`. */
 function testFixture(): TenantFixture {
   return {
     ...TENANT_FIXTURE,
@@ -344,7 +344,7 @@ function testFixture(): TenantFixture {
         retiredProjects: [{ legacyName: 'E2E Testing', retiredName: 'Retired duplicate (do not use for capture)' }],
       },
     ],
-    content: { ...TENANT_FIXTURE.content, dataset: undefined },
+    content: { ...TENANT_FIXTURE.content, datasets: [] },
   };
 }
 

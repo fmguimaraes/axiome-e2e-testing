@@ -30,15 +30,16 @@ DE table was built, plus the idempotency check the re-stage loop depends on
 
 FR8/FR23/AC6 (Capture Spec §6.1-6.2) — the six user-created charts, scoped
 to the AXI-1373 analysis, all `origin: 'user'` by construction; the data-
-feasibility guard that withholds charts 5-6 (same shape as FR9's threshold
-guard); the create-body mapping; and the FR8 "no duplicate titles" fixture
-check.
+feasibility guard (AXI-1374: reflects LIVE dataset-role availability, not a
+hard-coded constant — `isChartStageable(spec, availableRoles)`); the
+create-body mapping; and the FR8 "no duplicate titles" fixture check.
 
 | ID | Description | Status |
 |----|-------------|--------|
-| UT-STAGE-030 | a de_table chart is always stageable | Pass |
-| UT-STAGE-031 | a count_matrix chart is withheld while `COUNT_MATRIX_INGESTED` is false (the default) | Pass |
-| UT-STAGE-032 | AC6 at fixture level: `TENANT_FIXTURE` declares 6 chart titles (Capture Spec §6.2), but exactly 4 pass the AC5 data-feasibility guard | Pass |
+| UT-STAGE-030 | a de_table chart is stageable once the de_table role is live-available | Pass |
+| UT-STAGE-031 | a count_matrix chart is withheld while the count_matrix role is NOT live-available | Pass |
+| UT-STAGE-032 | AC6 (AXI-1374): once BOTH dataset roles are live-available, all 6 declared charts pass the guard | Pass |
+| UT-STAGE-032b | real-state guard: with only de_table available, exactly the 4 de_table charts pass | Pass |
 | UT-STAGE-033 | `alreadyStagedChart` is true for a matching user-origin title — re-run does not duplicate (NFR1) | Pass |
 | UT-STAGE-034 | `alreadyStagedChart` is false when no title matches — an edited fixture title re-stages | Pass |
 | UT-STAGE-035 | `alreadyStagedChart` ignores an auto-origin spec with the same title (AC6) | Pass |
@@ -47,4 +48,21 @@ check.
 | UT-STAGE-038 | `checkChartTitlesUnique` passes on the live `TENANT_FIXTURE` (6 distinct titles) | Pass |
 | UT-STAGE-039 | `checkChartTitlesUnique` flags a duplicated title | Pass |
 
-Run: `npm run stage:unit` (20/20 passing as of 2026-08-28).
+## AXI-1372-dataset-ingestion.spec.ts (Playwright, `tests/AXI-1368/`)
+
+FR7/AC5, widened AXI-1374 to "one corpus, one-or-more dataset versions" —
+`ensureDatasetStep()` generalized to iterate `content.datasets[]`, each
+entry reading bytes from its OWN `localPathEnv`/`defaultLocalPath` instead
+of a single hard-coded path.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-DSI-001..005 | single-dataset behavior (upload/finalize/wait/link, NFR1 reuse, content-type, missing-workspace failure, no-op on empty `datasets`) | Pass |
+| UT-DSI-006 | one run ingests BOTH declared datasets and links both to the project | Pass |
+| UT-DSI-007 | NFR1 — a second run reuses both datasets, no re-upload, no duplicate links | Pass |
+| UT-DSI-008 | each dataset reads bytes from its OWN `localPathEnv`, not a shared constant | Pass |
+
+Run: `npm run stage:unit` (21/21 `staging/**` node:test cases) +
+`npx playwright test tests/AXI-1368/AXI-1372-dataset-ingestion.spec.ts
+tests/AXI-1368/AXI-1371-tenant-provisioning.spec.ts` (18/18) — both green as
+of 2026-08-28 (AXI-1374).

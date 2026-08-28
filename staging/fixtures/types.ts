@@ -69,24 +69,41 @@ export interface OrganizationFixture {
 }
 
 /**
- * The single Riaz 2017 dataset version (AXI-1372, FR7/AC5). Names WHERE it
+ * What a chart (or a dataset backing one) needs to exist: the Riaz DE table
+ * (one row per gene, AXI-1372's `94b0bd10`) or the per-sample count matrix
+ * (AXI-1374 charts 5-6). Shared between {@link DatasetFixture.role} and
+ * {@link ChartSpecFixture.dataRequirement} so a chart's requirement and a
+ * dataset's role are checked against the same closed vocabulary — no string
+ * that means "de_table" in one field and "deTable" in the other.
+ */
+export type DataRequirement = 'de_table' | 'count_matrix';
+
+/**
+ * One dataset version the tenant carries (AXI-1372 FR7/AC5, widened by
+ * AXI-1374 to "one corpus, two dataset versions" — Capture Spec §6.2 charts
+ * 5-6 need per-sample expression the DE table doesn't have). Names WHERE it
  * binds (workspace/project, by the same fixture names `staging/steps/**`
- * already provisions) and WHAT it is declared as (filename/content type) —
- * everything a reader would call "words", not code. Deliberately has no
- * `cohort` field of its own: there is exactly one cohort per tenant today
- * (`TenantFixture.publicCohort`, already NFR8-checked), so duplicating it
- * here would just be a second place the same fact could drift.
+ * already provisions) and WHAT it is declared as (filename/content type/
+ * `role`) — everything a reader would call "words", not code. Every dataset
+ * in `ContentSlots.datasets` MUST bind to the SAME workspace/project (one
+ * corpus) — `checkDatasetsShareCorpus` (NFR8-adjacent) enforces this; a
+ * dataset for a genuinely different corpus is a product decision, not
+ * something this fixture shape can represent by accident.
  *
- * No local filesystem path here on purpose — a machine-specific file
- * location is not staged "content" any more than the admin bootstrap
- * credential is (FR4's env-sourcing precedent); see
- * `staging/steps/datasetIngestion.ts`'s `STAGING_RIAZ_DE_CSV_PATH`.
+ * `localPathEnv`/`defaultLocalPath` replace what AXI-1372 hard-coded as a
+ * module constant in `datasetIngestion.ts` — every dataset entry carries its
+ * OWN operator-machine file location (FR4's env-sourcing precedent: a real,
+ * usable default, never a credential), so the ingestion step reads from the
+ * fixture entry instead of a single hard-coded path.
  */
 export interface DatasetFixture {
+  role: DataRequirement;
   originalFilename: string;
   contentType: string;
   workspaceName: string;
   projectName: string;
+  localPathEnv: string;
+  defaultLocalPath: string;
 }
 
 /**
@@ -132,17 +149,17 @@ export interface AssumptionFixture {
  * `axiome-front/src/lib/charts/builders/shared.ts`).
  *
  * `dataRequirement` is content (a fact about what the chart needs), but
- * whether that requirement is actually SATISFIED by the one dataset this
- * tenant carries (AC5, `94b0bd10` — the DE table only, no per-sample count
- * matrix) is a toolkit-level TRUTH judgment, same shape as FR9's threshold
- * guard — see `COUNT_MATRIX_INGESTED` in `chartStaging.ts`. A chart whose
+ * whether that requirement is actually SATISFIED is a toolkit-level TRUTH
+ * judgment checked against the LIVE platform state (which `DatasetFixture`
+ * roles are actually ingested and available), same shape as FR9's threshold
+ * guard — see `isChartStageable` in `chartStaging.ts`. A chart whose
  * requirement isn't met is withheld, never fabricated.
  */
 export interface ChartSpecFixture {
   title: string;
   templateId: string;
   templateVersion: string;
-  dataRequirement: 'de_table' | 'count_matrix';
+  dataRequirement: DataRequirement;
   bindings: Record<string, string>;
   params?: Record<string, unknown>;
   filters?: { column: string; operator: string; value?: unknown }[];
@@ -167,7 +184,14 @@ export interface ContentSlots {
    * question to drift apart.
    */
   scientificQuestion?: string;
-  dataset?: DatasetFixture;
+  /**
+   * AXI-1372 FR7/AC5, widened AXI-1374: one corpus, one-or-more dataset
+   * versions. `checkDatasetsShareCorpus` (`validateFixture.ts`) enforces the
+   * "one corpus" half; `role` uniqueness within the list is what makes
+   * "the de_table dataset" / "the count_matrix dataset" well-defined lookups
+   * for `staging/steps/**`.
+   */
+  datasets: DatasetFixture[];
   assumptions: AssumptionFixture[];
   chartSpecs: ChartSpecFixture[];
   thresholds: unknown[];

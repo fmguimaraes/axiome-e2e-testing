@@ -87,12 +87,52 @@ export const TENANT_FIXTURE: TenantFixture = {
     // scientific spine" question lives on this workspace/project) — not the
     // separate "Riaz 2017 — Nivolumab Melanoma" benchmark-catalog project,
     // which Capture Spec §2.1 marks "Keep" as-is and this epic does not touch.
-    dataset: {
-      originalFilename: 'riaz2017_de_pre_R_vs_NR.csv',
-      contentType: 'text/csv',
-      workspaceName: 'Translational Immuno-Oncology',
-      projectName: 'Melanoma IO cohort, paired timepoints',
-    },
+    //
+    // AXI-1374 widens this to TWO dataset versions, one corpus (AC5 amended
+    // 2026-08-28, founder-approved): the DE table (one row per gene) backs
+    // charts 1-4; a second, per-sample count-matrix dataset backs charts 5-6
+    // (Capture Spec §6.2 #5/#6 need per-sample expression the DE table
+    // collapses away). Both bind to the SAME workspace/project —
+    // `checkDatasetsShareCorpus` (validateFixture.ts) enforces that.
+    //
+    // The count-matrix file is NOT the raw `CountData.BMS038.txt` wide
+    // matrix — investigation (AXI-1374) confirmed the platform's chart
+    // engine binds strictly to literal columns in the ingested CSV; there is
+    // no wide->long reshape or external sample-metadata join at ingestion or
+    // query time (`datasets.service.ts:queryData` runs DuckDB directly over
+    // the raw parquet's own columns; `CellStorageService`'s wide->long melt
+    // is a DIFFERENT feature, AXI-1179's cell-merge, never read by
+    // candidates/chart code). So the join happens BEFORE upload, offline,
+    // the same way `riaz_de/run_de.py` produced the DE table before AXI-1372
+    // ever uploaded it: `riaz_de/build_count_matrix_dataset.py` melts
+    // `CountData.BMS038.txt` + `SampleTableCorrected.9.19.16.csv` into one
+    // row per (gene, patient) — columns `gene,patient_id,response,
+    // pre_expression,on_expression` — restricted to the top 20
+    // lowest-padj genes from the DE table and the 27 patients who have BOTH
+    // a Pre and an On-treatment sample AND a clean RECIST R/NR call
+    // (PRCR/PD; SD/NE/NA excluded, same rule as the staged cohort_definition
+    // assumption). See the AXI-1374 design-note Jira comment for the full
+    // writeup.
+    datasets: [
+      {
+        role: 'de_table',
+        originalFilename: 'riaz2017_de_pre_R_vs_NR.csv',
+        contentType: 'text/csv',
+        workspaceName: 'Translational Immuno-Oncology',
+        projectName: 'Melanoma IO cohort, paired timepoints',
+        localPathEnv: 'STAGING_RIAZ_DE_CSV_PATH',
+        defaultLocalPath: '/home/felipe/dev/axiome/riaz_de/riaz_pre_therapy_responders_vs_nonresponders.csv',
+      },
+      {
+        role: 'count_matrix',
+        originalFilename: 'riaz2017_expression_by_response_timepoint.csv',
+        contentType: 'text/csv',
+        workspaceName: 'Translational Immuno-Oncology',
+        projectName: 'Melanoma IO cohort, paired timepoints',
+        localPathEnv: 'STAGING_RIAZ_COUNT_MATRIX_CSV_PATH',
+        defaultLocalPath: '/home/felipe/dev/axiome/riaz_de/riaz2017_counts_by_response_timepoint.csv',
+      },
+    ],
     // AXI-1373 (FR9, Capture Spec §5). All four assumption BODIES are
     // declared here (words); whether the fourth is actually staged is a
     // toolkit-level TRUTH guard, not a fixture switch — see
@@ -123,12 +163,13 @@ export const TENANT_FIXTURE: TenantFixture = {
       },
     ],
     // AXI-1374 (FR8/FR23, Capture Spec §6.2): the six user-created charts.
-    // Charts 1-4 bind `dataRequirement: 'de_table'` — satisfied by the one
-    // dataset this tenant carries (`94b0bd10`, AC5). Charts 5-6 declare
-    // `'count_matrix'`: that requirement is NOT satisfied by the DE-table
-    // dataset, so `chartStaging.ts` withholds them (same shape as FR9's
-    // conditional 4th assumption) rather than building them from data that
-    // isn't there. Titles are human-authored, no duplicates, no `TEST` card
+    // Charts 1-4 bind `dataRequirement: 'de_table'` — satisfied by the DE
+    // table dataset (`94b0bd10`). Charts 5-6 declare `'count_matrix'`,
+    // satisfied by the second dataset above (AC5 amended) — `chartStaging.ts`
+    // checks LIVE platform state (which dataset roles are actually ingested)
+    // before staging any `count_matrix` chart, same shape as FR9's truth
+    // guard: a chart whose requirement isn't ACTUALLY met is withheld, never
+    // fabricated. Titles are human-authored, no duplicates, no `TEST` card
     // (Capture Spec §6.2's own wording).
     chartSpecs: [
       {
@@ -180,22 +221,25 @@ export const TENANT_FIXTURE: TenantFixture = {
         filters: [{ column: 'padj', operator: 'is_null' }],
       },
       {
-        // Capture Spec §6.2 #5: box/violin by response group, needs
-        // PER-SAMPLE expression — see the withheld-chart note above.
+        // Capture Spec §6.2 #5: box/violin by response group, over the top
+        // 20 lowest-padj genes' pre-therapy expression — `pre_expression`
+        // is the count-matrix dataset's own literal column (see the
+        // `content.datasets` doc above for how it was built).
         title: 'Expression by response group — top discriminating genes',
         templateId: 'boxplot_v1',
         templateVersion: '1.0.0',
         dataRequirement: 'count_matrix',
-        bindings: { y: 'expression', group: 'response' },
+        bindings: { y: 'pre_expression', group: 'response' },
       },
       {
-        // Capture Spec §6.2 #6: paired pre/on-treatment delta, needs
-        // PER-SAMPLE, PER-TIMEPOINT expression — see the withheld-chart note.
+        // Capture Spec §6.2 #6: paired pre/on-treatment delta — restricted,
+        // at melt time, to the 27 patients with BOTH samples, so every row
+        // already has a real `on_expression` (no null-filter dependency).
         title: 'Paired timepoint delta — pre vs on-treatment',
         templateId: 'paired_timepoint_scatter_v1',
         templateVersion: '1.0.0',
         dataRequirement: 'count_matrix',
-        bindings: { x: 'pre_expression', y: 'on_treatment_expression', group: 'response' },
+        bindings: { x: 'pre_expression', y: 'on_expression', group: 'response' },
       },
     ],
     thresholds: [],

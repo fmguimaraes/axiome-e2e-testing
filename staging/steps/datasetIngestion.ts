@@ -6,10 +6,13 @@ import type { DatasetFixture } from '../fixtures/types';
 import type { Step } from './types';
 
 /**
- * FR7/AC5 (AXI-1372) — ingest the single Riaz 2017 dataset version and bind
- * it to the analysis project (Capture Spec §2.2/§4). The real upload flow,
- * traced from `apps/organization-service/src/datasets/datasets.service.ts`:
- * initiate (presigned S3 PUT URL) -> PUT the bytes directly to S3 -> finalize
+ * FR7/AC5 (AXI-1372; widened AXI-1374 to "one corpus, one-or-more dataset
+ * versions" — Capture Spec §6.2 charts 5-6 need per-sample expression the
+ * DE table doesn't carry) — ingests every `content.datasets[]` entry and
+ * binds each to the analysis project (Capture Spec §2.2/§4). The real upload
+ * flow, traced from
+ * `apps/organization-service/src/datasets/datasets.service.ts`: initiate
+ * (presigned S3 PUT URL) -> PUT the bytes directly to S3 -> finalize
  * (computes `rawFileHash`/`fileHash`, auto-triggers ingestion) -> link to the
  * project. `finalizeUpload` already awaits its own auto-triggered ingestion
  * creation, so this step does NOT also call `POST .../ingestions` — doing so
@@ -19,7 +22,7 @@ import type { Step } from './types';
  * spec applies it to snapshot materialisation), so the row count this step
  * reports is real.
  *
- * Idempotent (NFR1): a second run finds the dataset by filename and reuses
+ * Idempotent (NFR1): a second run finds each dataset by filename and reuses
  * it — no re-upload, no duplicate. The PUT to the presigned URL is the one
  * network call in this file that bypasses `RestClient` — a presigned S3 URL
  * is self-authenticating and is not a gateway route, so there is nothing for
@@ -30,21 +33,16 @@ export const ensureDatasetStep: Step<ProvisioningContext> = {
   id: 'ensure-dataset',
   dependsOn: ['ensure-workspaces'],
   async run(ctx) {
-    const fixture = ctx.fixture.content.dataset;
-    if (!fixture) return;
-    const workspaceId = requireWorkspaceId(ctx, fixture.workspaceName);
-    const projectId = await requireProjectId(ctx, workspaceId, fixture.projectName);
-    const datasetId = await ensureDataset(ctx, workspaceId, fixture);
-    await ensureProjectLink(ctx, workspaceId, projectId, datasetId);
+    for (const fixture of ctx.fixture.content.datasets) await ensureOneDataset(ctx, fixture);
   },
 };
 
-const RIAZ_DE_CSV_PATH_ENV = 'STAGING_RIAZ_DE_CSV_PATH';
-// The operator-machine default this epic's runbook expects (FR21) — override
-// via STAGING_RIAZ_DE_CSV_PATH for any other layout. Same env-sourcing
-// precedent as STAGING_ADMIN_EMAIL/PASSWORD (FR4): a real, usable default,
-// never a credential.
-const DEFAULT_RIAZ_DE_CSV_PATH = '/home/felipe/dev/axiome/riaz_de/riaz_pre_therapy_responders_vs_nonresponders.csv';
+async function ensureOneDataset(ctx: ProvisioningContext, fixture: DatasetFixture): Promise<void> {
+  const workspaceId = requireWorkspaceId(ctx, fixture.workspaceName);
+  const projectId = await requireProjectId(ctx, workspaceId, fixture.projectName);
+  const datasetId = await ensureDataset(ctx, workspaceId, fixture);
+  await ensureProjectLink(ctx, workspaceId, projectId, datasetId);
+}
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 60000;
@@ -103,7 +101,7 @@ async function reuseDataset(ctx: ProvisioningContext, workspaceId: string, exist
 }
 
 async function createDataset(ctx: ProvisioningContext, workspaceId: string, fixture: DatasetFixture): Promise<string> {
-  const bytes = readDatasetBytes();
+  const bytes = readDatasetBytes(fixture);
   const { id, presignedUrl } = await initiateUpload(ctx, workspaceId, fixture);
   await uploadBytes(presignedUrl, bytes, fixture.contentType);
   await finalizeDataset(ctx, workspaceId, id);
@@ -112,10 +110,13 @@ async function createDataset(ctx: ProvisioningContext, workspaceId: string, fixt
   return id;
 }
 
-function readDatasetBytes(): Buffer {
-  const path = process.env[RIAZ_DE_CSV_PATH_ENV]?.trim() || DEFAULT_RIAZ_DE_CSV_PATH;
+/** Reads the fixture entry's own operator-machine file (env override, else
+ *  its declared default) — generalized from AXI-1372's single hard-coded
+ *  path so every `content.datasets[]` entry supplies its own location. */
+function readDatasetBytes(fixture: DatasetFixture): Buffer {
+  const path = process.env[fixture.localPathEnv]?.trim() || fixture.defaultLocalPath;
   if (!existsSync(path)) {
-    throw new Error(`Riaz DE table not found at "${path}" — set ${RIAZ_DE_CSV_PATH_ENV} to its location`);
+    throw new Error(`dataset "${fixture.originalFilename}" not found at "${path}" — set ${fixture.localPathEnv} to its location`);
   }
   return readFileSync(path);
 }
