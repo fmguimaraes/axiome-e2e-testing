@@ -20,7 +20,8 @@
     "gate": "playwright test --grep-invert=@flaky",
     "migration-status": "tsx scripts/migration-status.ts",
     "stage:audit": "tsx staging/audit/runAudit.ts",
-    "stage:no-backdoor": "tsx staging/checks/noBackdoor.ts"
+    "stage:no-backdoor": "tsx staging/checks/noBackdoor.ts",
+    "stage:identities": "tsx staging/identities/ensureIdentities.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
