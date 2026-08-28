@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { IdentityHandle } from './types';
 
@@ -11,15 +12,33 @@ import type { IdentityHandle } from './types';
  * fixture." Two sources, in order:
  *
  *  1. `STAGING_PASSWORD_<HANDLE>` env var, if set.
- *  2. A generated value persisted under `.auth/` — already gitignored here
- *     for exactly this reason (AXI-1264's per-role storageState). Generated
- *     once per handle so a second `ensureIdentities()` run logs in with the
- *     same credential instead of minting a new user every time (NFR1).
+ *  2. A generated value persisted under a stable local store, generated once
+ *     per handle so a second `ensureIdentities()` run logs in with the same
+ *     credential instead of minting a new user every time (NFR1).
  *
  * Never logged: nothing in this module calls `console.*` on a password value.
+ *
+ * **Risk B fix (AXI-1371 handover, done in AXI-1372):** the store used to live
+ * at a repo-relative `.auth/identities.local.json`. That path resolves INSIDE
+ * whichever worktree the story that ran `stage`/`ensureIdentities` happened to
+ * use — and a worktree is destroyed at merge (see the root CLAUDE.md checkout
+ * convention). The next story's fresh worktree then found no store, generated
+ * BRAND NEW passwords for identities that already existed on the server from
+ * the previous run, and every subsequent `login()` 401'd. The store must live
+ * somewhere that outlives any single worktree: `STAGING_AUTH_DIR` if set,
+ * otherwise `~/.axiome/staging` — outside every repo entirely, so no git
+ * operation on any checkout can ever touch it.
  */
 
-const LOCAL_STORE_PATH = join('.auth', 'identities.local.json');
+/** Pure — where the credential store lives by default. Injectable `env` keeps
+ *  this testable without touching the real environment or `os.homedir()`. */
+export function defaultStoreDir(env: NodeJS.ProcessEnv = process.env): string {
+  return env.STAGING_AUTH_DIR?.trim() || join(homedir(), '.axiome', 'staging');
+}
+
+export function defaultStorePath(env: NodeJS.ProcessEnv = process.env): string {
+  return join(defaultStoreDir(env), 'identities.local.json');
+}
 
 export function envVarName(handle: IdentityHandle): string {
   return `STAGING_PASSWORD_${handle.toUpperCase().replace(/-/g, '_')}`;
@@ -60,12 +79,16 @@ function writeLocalStore(path: string, store: Record<string, string>): void {
 /**
  * Resolve `handle`'s password, persisting a generated value so repeat runs
  * are idempotent (NFR1). `storePath` is injectable for tests; production
- * callers use the default `.auth/identities.local.json`.
+ * callers get the default computed from `env` at CALL time (not at module
+ * load) — every default parameter here is evaluated per-call, so a test that
+ * sets `STAGING_AUTH_DIR` (or passes its own `env`) before calling never
+ * touches the real `~/.axiome/staging` store (Risk B fix must not leak into
+ * unit tests writing real files under the developer's home directory).
  */
 export function resolvePassword(
   handle: IdentityHandle,
   env: NodeJS.ProcessEnv = process.env,
-  storePath: string = LOCAL_STORE_PATH,
+  storePath: string = defaultStorePath(env),
 ): string {
   const store = readLocalStore(storePath);
   const selected = selectPassword(env[envVarName(handle)], store[handle], generatePassword);

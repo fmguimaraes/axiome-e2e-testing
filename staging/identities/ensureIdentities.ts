@@ -46,9 +46,36 @@ function findService(): IdentityDefinition {
 async function ensureUser(client: RestClient, actingAs: IdentityHandle, def: IdentityDefinition): Promise<{ userId: string; created: boolean }> {
   const password = resolvePassword(def.handle);
   const createdUser = await tryCreateUser(client, actingAs, def, password);
-  await client.login(def.handle, def.email, password);
-  if (createdUser) return { userId: createdUser.id, created: true };
+  if (createdUser) {
+    await client.login(def.handle, def.email, password);
+    return { userId: createdUser.id, created: true };
+  }
+  await loginExistingOrFailLoudly(client, def, password);
   return { userId: await selfLookupId(client, def.handle), created: false };
+}
+
+/**
+ * Risk B (AXI-1371 handover): a pre-existing identity's login can fail
+ * because the credential store that minted its password was lost (e.g. a
+ * worktree destroyed at merge — see `credentials.ts`) and `resolvePassword`
+ * has just silently generated a NEW, wrong password in its place. Left alone
+ * that reads as an ordinary 401 with no hint of the real cause. Fail loudly
+ * with a targeted diagnosis and the concrete fix, instead of letting the
+ * generic `RestClient.login()` error stand in for it.
+ */
+async function loginExistingOrFailLoudly(client: RestClient, def: IdentityDefinition, password: string): Promise<void> {
+  try {
+    await client.login(def.handle, def.email, password);
+  } catch (err) {
+    throw new Error(
+      `identity "${def.handle}" (${def.email}) already exists on the server, but the credential store's ` +
+        `password did not authenticate it. This is very likely a STALE or LOST credential store — it minted a ` +
+        `new password because it does not remember the one the server already has (Risk B). Refusing to proceed ` +
+        `on a mismatched credential. Fix: reset this account's password to match the store, e.g. an admin ` +
+        `"PATCH /api/v1/users/:id { password }" call for this identity, then re-run. ` +
+        `Underlying error: ${(err as Error).message}`,
+    );
+  }
 }
 
 async function tryCreateUser(

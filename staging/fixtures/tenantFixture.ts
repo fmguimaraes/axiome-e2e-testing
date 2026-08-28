@@ -77,6 +77,18 @@ export const TENANT_FIXTURE: TenantFixture = {
 
   content: {
     scientificQuestion: undefined,
+    // AXI-1372 (FR7/AC5, Capture Spec §2.1/§2.2): the leaked build filename
+    // `axi50-e2e-race.csv` replaced with the real name, real gene symbols,
+    // bound to the ANALYSIS project — confirmed against Capture Spec §4 ("the
+    // scientific spine" question lives on this workspace/project) — not the
+    // separate "Riaz 2017 — Nivolumab Melanoma" benchmark-catalog project,
+    // which Capture Spec §2.1 marks "Keep" as-is and this epic does not touch.
+    dataset: {
+      originalFilename: 'riaz2017_de_pre_R_vs_NR.csv',
+      contentType: 'text/csv',
+      workspaceName: 'Translational Immuno-Oncology',
+      projectName: 'Melanoma IO cohort, paired timepoints',
+    },
     assumptions: [],
     chartSpecs: [],
     thresholds: [],

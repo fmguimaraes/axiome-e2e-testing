@@ -41,6 +41,22 @@ export function checkCastHandlesUnique(fixture: TenantFixture): FixtureViolation
   return violations;
 }
 
+/** FR7 — `content.dataset`, when declared, must bind to a workspace/project
+ *  this same fixture actually provisions; a typo'd name would otherwise only
+ *  surface as a confusing 404 deep inside the dataset-ingestion step. */
+export function checkDatasetBindsToDeclaredProject(fixture: TenantFixture): FixtureViolation[] {
+  const dataset = fixture.content.dataset;
+  if (!dataset) return [];
+  const workspace = fixture.workspaces.find((w) => w.name === dataset.workspaceName);
+  if (!workspace) {
+    return [{ rule: 'FR7', detail: `content.dataset.workspaceName "${dataset.workspaceName}" is not a declared workspace` }];
+  }
+  if (!workspace.projects.some((p) => p.name === dataset.projectName)) {
+    return [{ rule: 'FR7', detail: `content.dataset.projectName "${dataset.projectName}" is not a declared project in workspace "${workspace.name}"` }];
+  }
+  return [];
+}
+
 function collectDeclaredNames(fixture: TenantFixture): string[] {
   const workspaceNames = fixture.workspaces.flatMap(collectWorkspaceNames);
   return [fixture.org.name, ...workspaceNames];
@@ -54,7 +70,12 @@ function collectWorkspaceNames(ws: WorkspaceFixture): string[] {
 
 /** Runs every fixture-format check; empty result = the fixture is valid. */
 export function validateFixture(fixture: TenantFixture): FixtureViolation[] {
-  return [...checkPublicCohort(fixture), ...checkNoEmptyNames(fixture), ...checkCastHandlesUnique(fixture)];
+  return [
+    ...checkPublicCohort(fixture),
+    ...checkNoEmptyNames(fixture),
+    ...checkCastHandlesUnique(fixture),
+    ...checkDatasetBindsToDeclaredProject(fixture),
+  ];
 }
 
 /** Throws with every violation listed — the entry point for a caller that

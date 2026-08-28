@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
 import { RestClient } from '../../staging/client/RestClient';
 import { ensureIdentities, smokeCheckIdentities, verifySmokeResults } from '../../staging/identities/ensureIdentities';
@@ -45,6 +48,14 @@ class FakeGateway {
   seedAdmin(email: string, password: string): void {
     const id = randomUUID();
     this.users.set(email, { id, email, password, firstName: 'Admin', lastName: 'Bootstrap' });
+  }
+
+  /** Risk B repro: a user that already exists on the "server" with a password
+   *  the credential store no longer remembers (e.g. the store was destroyed
+   *  and just generated a fresh one). */
+  seedExisting(email: string, password: string, firstName: string, lastName: string): void {
+    const id = randomUUID();
+    this.users.set(email, { id, email, password, firstName, lastName });
   }
 
   private login(rawBody?: string): Response {
@@ -115,6 +126,29 @@ function installFetchStub(gateway: FakeGateway): () => void {
 const ADMIN_EMAIL = 'admin@axiome.local';
 const ADMIN_PASSWORD = 'admin';
 
+// `ensureIdentities` -> `ensureUser` -> `resolvePassword(handle)` reads/writes
+// the REAL credential store when called with no overrides, and that store now
+// defaults to `~/.axiome/staging` (Risk B fix) — a path that outlives every
+// worktree ON PURPOSE, including a real live `stage:identities` run against
+// this developer's machine. Without isolating it here, these mocked tests
+// would read and write that same real file, corrupting both the tests and any
+// live run. Point `STAGING_AUTH_DIR` at a throwaway temp dir for every test in
+// this file and restore whatever was there before.
+let previousAuthDir: string | undefined;
+let tempAuthDir: string;
+
+test.beforeEach(() => {
+  previousAuthDir = process.env.STAGING_AUTH_DIR;
+  tempAuthDir = mkdtempSync(join(tmpdir(), 'axi-1370-ensure-identities-'));
+  process.env.STAGING_AUTH_DIR = tempAuthDir;
+});
+
+test.afterEach(() => {
+  rmSync(tempAuthDir, { recursive: true, force: true });
+  if (previousAuthDir === undefined) delete process.env.STAGING_AUTH_DIR;
+  else process.env.STAGING_AUTH_DIR = previousAuthDir;
+});
+
 test.describe('FR1 FR2 — ensureIdentities() is idempotent and bounds bootstrap-admin usage', () => {
   let gateway: FakeGateway;
   let restore: () => void;
@@ -173,5 +207,30 @@ test.describe('FR1 FR2 — ensureIdentities() is idempotent and bounds bootstrap
   test('FR3 — verifySmokeResults flags an identity whose observed email does not match the registry', () => {
     const bad = [{ handle: 'service', ok: true, status: 200, observedEmail: 'someone-else@axiome.local' }];
     expect(verifySmokeResults(bad)).toEqual(['service']);
+  });
+});
+
+test.describe('Risk B (AXI-1371 handover) — a pre-existing identity with a mismatched password fails loudly', () => {
+  let gateway: FakeGateway;
+  let restore: () => void;
+
+  test.beforeEach(() => {
+    gateway = new FakeGateway();
+    gateway.seedAdmin(ADMIN_EMAIL, ADMIN_PASSWORD);
+    restore = installFetchStub(gateway);
+  });
+
+  test.afterEach(() => restore());
+
+  test('rejects with a targeted diagnosis instead of silently drifting past a stale-store 401', async () => {
+    // Simulate the exact drift: the server already has "service" from a prior
+    // run, at a password the (now-destroyed) store no longer remembers —
+    // resolvePassword() with no env/store override generates a fresh, WRONG one.
+    gateway.seedExisting('staging-service@axiome.local', 'password-the-server-actually-has', 'Staging', 'Service');
+    const client = new RestClient({ baseUrl: 'http://localhost:3000' });
+
+    await expect(ensureIdentities(client, ADMIN_EMAIL, ADMIN_PASSWORD)).rejects.toThrow(
+      /identity "service".*already exists on the server.*Risk B.*PATCH \/api\/v1\/users\/:id/s,
+    );
   });
 });

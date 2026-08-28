@@ -69,6 +69,27 @@ export interface OrganizationFixture {
 }
 
 /**
+ * The single Riaz 2017 dataset version (AXI-1372, FR7/AC5). Names WHERE it
+ * binds (workspace/project, by the same fixture names `staging/steps/**`
+ * already provisions) and WHAT it is declared as (filename/content type) —
+ * everything a reader would call "words", not code. Deliberately has no
+ * `cohort` field of its own: there is exactly one cohort per tenant today
+ * (`TenantFixture.publicCohort`, already NFR8-checked), so duplicating it
+ * here would just be a second place the same fact could drift.
+ *
+ * No local filesystem path here on purpose — a machine-specific file
+ * location is not staged "content" any more than the admin bootstrap
+ * credential is (FR4's env-sourcing precedent); see
+ * `staging/steps/datasetIngestion.ts`'s `STAGING_RIAZ_DE_CSV_PATH`.
+ */
+export interface DatasetFixture {
+  originalFilename: string;
+  contentType: string;
+  workspaceName: string;
+  projectName: string;
+}
+
+/**
  * Slots for content later stories fill (FR6's fuller list: the scientific
  * question, assumption bodies, chart titles/specs, threshold values, comment
  * bodies, interpretation statements, evidence records, event-feed entries).
@@ -77,6 +98,7 @@ export interface OrganizationFixture {
  */
 export interface ContentSlots {
   scientificQuestion?: string;
+  dataset?: DatasetFixture;
   assumptions: unknown[];
   chartSpecs: unknown[];
   thresholds: unknown[];
