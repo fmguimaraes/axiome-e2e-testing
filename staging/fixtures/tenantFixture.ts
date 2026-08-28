@@ -403,8 +403,97 @@ export const TENANT_FIXTURE: TenantFixture = {
         },
       ],
     },
-    interpretations: [],
-    evidence: [],
+    // AXI-1377 (FR12/AC11, Capture Spec §9). 6 evidence, mixed kinds (see
+    // `types.ts`'s `EvidenceKind` doc for why these three values, not the
+    // spec's prose "chart-derived/statistical/computed", are the honest
+    // mapping onto real backend citation shapes — no such enum exists
+    // server-side). 3 chart-derived on Snapshot v1 (pooled), 2 statistical
+    // (live-queried DE rows, pooled + stratified-naive-arm), 1 computed
+    // (derived from the first statistical entry). Order matters: the
+    // computed entry's `parentEvidenceTitle` must name an entry above it.
+    evidence: [
+      {
+        kind: 'chart-derived',
+        title: 'Volcano plot, pre-therapy R vs NR (pooled) — weak separation',
+        text: 'Pooled pre-therapy volcano (baseMean >= 10, snapshot v1). The significant cloud is small relative to the tested universe; separation between responders and non-responders is weak at baseline.',
+        chartTitle: 'Volcano — pre-therapy responders vs non-responders (baseMean ≥ 10)',
+        snapshotName: 'Snapshot v1',
+      },
+      {
+        kind: 'chart-derived',
+        title: 'Genes clearing FDR<0.05 and |log2FC|>=1 (pooled contrast)',
+        text: 'Genes passing both the prespecified FDR<0.05 cutoff and the external |log2FC|>=1 cutoff, pooled pre-therapy contrast (snapshot v1).',
+        chartTitle: 'Significant differential expression — FDR < 0.05, |log2FC| ≥ 1',
+        snapshotName: 'Snapshot v1',
+      },
+      {
+        kind: 'chart-derived',
+        title: 'P-value histogram, model calibration check (pooled)',
+        text: 'Uniform distribution with a spike near zero across the tested universe — consistent with a well-specified model, not an inflated significant set.',
+        chartTitle: 'P-value distribution — tested universe',
+        snapshotName: 'Snapshot v1',
+      },
+      {
+        kind: 'statistical',
+        title: 'Top discriminating genes, pre-therapy pooled contrast',
+        text: 'The genes with the lowest adjusted p-values in the pooled pre-therapy R vs NR contrast, cited row-by-row from the live DE table.',
+        datasetRole: 'de_table',
+        citedGeneCount: 3,
+      },
+      {
+        kind: 'statistical',
+        title: 'Naive-arm direction check, stratified contrast (ipilimumab-naive)',
+        text: 'Top genes in the ipilimumab-naive stratum of the per-arm contrast (snapshot v2) — direction is checked against the pooled result to confirm the pooled signal is not an artifact of pooling (EC3: the progressed arm is underpowered and reported as such, not cited here).',
+        datasetRole: 'stratified_de_table',
+        citedGeneCount: 2,
+        strataFilter: { column: 'stratum', value: 'ipi_naive' },
+      },
+      {
+        kind: 'computed',
+        title: 'Significant-gene count under the published + prespecified cutoffs (computed)',
+        text: 'Count of genes clearing both |log2FC|>=1 (external) and FDR<0.05 (prespecified), computed from the top-discriminating-genes list; cross-referenced against the Significant DE chart.',
+        chartTitle: 'Significant differential expression — FDR < 0.05, |log2FC| ≥ 1',
+        snapshotName: 'Snapshot v1',
+        parentEvidenceTitle: 'Top discriminating genes, pre-therapy pooled contrast',
+      },
+    ],
+    // AXI-1377 (FR12/AC11, Capture Spec §9). 3 interpretations (= DecisionDrafts,
+    // dev-epic-context naming note). CN (Claire Ngo) authors the EC4 finding
+    // verbatim from Capture Spec §7.2 ("Pre-therapy separation is weak here,
+    // and that is the finding, not a failure") and explicitly cites the
+    // "Top discriminating genes" evidence above. That same evidence is ALSO
+    // cited by the third interpretation — two interpretations citing one
+    // evidence record is the AC11 provenance fork (confirmed live: the
+    // Evidence provenance node ends up with 2 incoming INFORMED edges).
+    interpretations: [
+      {
+        label: 'Contrast direction holds in the ipilimumab-naive arm; progressed arm underpowered',
+        type: 'cohort_stratification',
+        confidence: 'medium',
+        authorHandle: 'cast-biologist',
+        citations: [{ snapshotName: 'Snapshot v2 — stratified by prior ipilimumab exposure (naive vs progressed)' }],
+        targetStatus: 'reviewed',
+      },
+      {
+        label: 'Pre-therapy separation is weak, and that is the finding, not a failure',
+        type: 'biomarker_threshold',
+        confidence: 'medium',
+        authorHandle: 'cast-clinician',
+        citations: [{ evidenceTitle: 'Top discriminating genes, pre-therapy pooled contrast' }],
+        targetStatus: 'approved',
+      },
+      {
+        label: 'Model calibration and significant-gene count are consistent with the pooled contrast',
+        type: 'qc_assessment',
+        confidence: 'medium',
+        authorHandle: 'cast-bioinformatician',
+        citations: [
+          { evidenceTitle: 'Top discriminating genes, pre-therapy pooled contrast' },
+          { evidenceTitle: 'Significant-gene count under the published + prespecified cutoffs (computed)' },
+        ],
+        targetStatus: 'reviewed',
+      },
+    ],
     events: [],
   },
 };

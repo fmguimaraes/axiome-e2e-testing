@@ -176,7 +176,11 @@ async function ensureOneDeclaredSnapshot(
  * to THIS route in the epic. Worked around here by always passing `page=1`
  * explicitly — logged for a future fix story, not fixed in this one.
  */
-async function fetchSnapshots(ctx: ProvisioningContext, workspaceId: string, analysisId: string): Promise<SnapshotSummary[]> {
+/** Exported for reuse by `interpretationsEvidenceStaging.ts` (AXI-1377) —
+ *  same name-keyed snapshot lookup, needed to resolve a snapshot fixture
+ *  name (e.g. "Snapshot v2 — ...") to its live id for evidence/interpretation
+ *  citations. */
+export async function fetchSnapshots(ctx: ProvisioningContext, workspaceId: string, analysisId: string): Promise<SnapshotSummary[]> {
   const res = await ctx.client.as<{ data: SnapshotSummary[] }>(
     SERVICE_HANDLE,
     'GET',

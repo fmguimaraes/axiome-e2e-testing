@@ -9,6 +9,7 @@ import { ensureCommentsStep } from './commentStaging';
 import { SERVICE_HANDLE } from './context';
 import { ensureDatasetStep } from './datasetIngestion';
 import { ensureOrganizationStep } from './ensureOrganization';
+import { ensureInterpretationsEvidencePublishStep } from './interpretationsEvidenceStaging';
 import { ensureSnapshotsStep } from './snapshotStaging';
 import { ensureThresholdsStep } from './thresholdStaging';
 import { ensureWorkspacesStep } from './ensureWorkspacesStep';
@@ -23,10 +24,12 @@ import type { TenantFixture } from '../fixtures/types';
  * chart step added AXI-1374; FR10/AC9 comment step added AXI-1375; FR11/AC10
  * threshold + snapshot steps added AXI-1376) — provisions the demo tenant
  * (org -> workspaces -> dataset -> analysis framing -> charts -> thresholds
- * -> comments -> snapshots) from the content fixture, over REST only,
- * converging idempotently on re-run. Ordering is the declared step graph in
- * `STEPS`, not call sequence (dev-epic-context). Snapshots depend on
- * comments per Capture Spec §20 (the external thread resolves to v2).
+ * -> comments -> snapshots -> interpretations/evidence/publish) from the
+ * content fixture, over REST only, converging idempotently on re-run.
+ * Ordering is the declared step graph in `STEPS`, not call sequence
+ * (dev-epic-context). Snapshots depend on comments per Capture Spec §20 (the
+ * external thread resolves to v2); interpretations/evidence/publish (FR12/
+ * AC11, AXI-1377) depend on both snapshots and thresholds.
  */
 const STEPS = [
   ensureOrganizationStep,
@@ -37,6 +40,7 @@ const STEPS = [
   ensureThresholdsStep,
   ensureCommentsStep,
   ensureSnapshotsStep,
+  ensureInterpretationsEvidencePublishStep,
   applyCastNamesStep,
   verifyNoForbiddenNamesStep,
 ];

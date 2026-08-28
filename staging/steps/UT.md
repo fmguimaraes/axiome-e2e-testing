@@ -117,6 +117,49 @@ findings documented in the module doc.
 | UT-STAGE-070 | `checkSnapshotDatasetRolesDeclared` passes on the live `TENANT_FIXTURE` (OQ6) | Pass |
 | UT-STAGE-071 | `checkSnapshotDatasetRolesDeclared` flags a snapshot pointing at an undeclared dataset role (OQ6) | Pass |
 
+## interpretationsEvidenceStaging.spec.ts
+
+FR12/AC11 (Capture Spec §9, AXI-1377) — 6 evidence of mixed kinds (chart-derived /
+statistical / computed — see the module doc for why no literal `kind` enum exists
+server-side and what honest 3-way mapping this stages onto instead), 3
+interpretations (= DecisionDrafts), and the "publish exactly one" rule. Covers the
+DE-citation-context builder (`buildDeCitationContext`), the citation-resolution
+logic that produces the AC11 provenance fork (`resolveEvidenceLinks`), and the 6
+new fixture-level shape/reference validators.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-072 | `buildDeCitationContext` cites each row with the dataset id/version as the opaque evidence_id/evidence_version reference | Pass |
+| UT-STAGE-073 | `buildDeCitationContext` defaults the view_state filter to padj<0.05 when no strata filter is given | Pass |
+| UT-STAGE-074 | `buildDeCitationContext` uses the declared strata filter in view_state when given | Pass |
+| UT-STAGE-075 | `buildDeCitationContext` truncate_n tracks the actual cited row count | Pass |
+| UT-STAGE-076 | `resolveEvidenceLinks` resolves an evidenceTitle citation to `{evidenceId}` — the AC11 fork mechanism | Pass |
+| UT-STAGE-077 | `resolveEvidenceLinks` resolves a snapshotName citation to `{snapshotId}` by NAME, not a hard-coded id | Pass |
+| UT-STAGE-078 | `resolveEvidenceLinks` throws loudly on a citation naming an undeclared/unstaged evidence title | Pass |
+| UT-STAGE-079 | `resolveEvidenceLinks` throws loudly on a citation naming an undeclared/unstaged snapshot name | Pass |
+| UT-STAGE-080 | `resolveEvidenceLinks` resolves multiple citations on one interpretation in order (the fork on the shared evidence) | Pass |
+| UT-STAGE-081 | (AC11) `checkEvidenceTitlesUnique` passes on the live `TENANT_FIXTURE` | Pass |
+| UT-STAGE-082 | (AC11) `checkEvidenceReferencesDeclared` passes on the live `TENANT_FIXTURE` | Pass |
+| UT-STAGE-083 | `checkComputedEvidenceParentDeclaredEarlier` passes on the live `TENANT_FIXTURE` | Pass |
+| UT-STAGE-084 | `checkComputedEvidenceParentDeclaredEarlier` flags a computed entry whose parent is declared later (or not at all) | Pass |
+| UT-STAGE-085 | (AC11) `checkInterpretationCitationsDeclared` passes on the live `TENANT_FIXTURE` | Pass |
+| UT-STAGE-086 | (AC11) `checkInterpretationsShape` passes on the live `TENANT_FIXTURE` — 3 interpretations, >=1 by CN, >=1 citing evidence explicitly | Pass |
+| UT-STAGE-087 | (AC11) `checkInterpretationsShape` flags a fixture with no cast-clinician (CN) author | Pass |
+| UT-STAGE-088 | (AC11) `checkEvidenceShape` passes on the live `TENANT_FIXTURE` — 6 evidence, all 3 kinds represented | Pass |
+| UT-STAGE-089 | (AC11) `checkEvidenceShape` flags a fixture missing one of the 3 kinds ("mixed kinds" violated) | Pass |
+
+Live (invoked `ensureInterpretationsEvidencePublishStep` directly, analysis `cf17e1ea`,
+2026-08-28): Interpretations=3 (MO/CN/LF, CN's states the EC4 weak-separation finding
+and cites evidence explicitly), Evidence=6 canonical (mixed kinds), Published=1
+(`229924ad-90c2-44c2-a088-1bf286d0e13b`), provenance fork confirmed by reading the
+graph back (the cited evidence node has 2 incoming `INFORMED` edges). Re-run created 0
+new entities. **Incident (disclosed, fixed):** an early run hit a missing-header bug
+in the evidence idempotency check and created 6 duplicate Evidence records before the
+fix; no REST delete/archive route exists for Evidence, so those 6 are marked
+`unapproved` (best-effort signal) but remain live — the dev tenant currently shows
+Evidence=12, not 6, pending a future cleanup. The code itself is fixed and verified
+idempotent going forward.
+
 ## AXI-1372-dataset-ingestion.spec.ts (Playwright, `tests/AXI-1368/`)
 
 FR7/AC5, widened AXI-1374 to "one corpus, one-or-more dataset versions" —

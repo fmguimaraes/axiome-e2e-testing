@@ -311,6 +311,114 @@ export interface SnapshotFixture {
 }
 
 /**
+ * Evidence "kind" (AXI-1377, Capture Spec §9: "6, mixed kinds — chart-derived,
+ * statistical, computed"). INVESTIGATION FINDING: no literal `kind` enum
+ * exists on the backend `Evidence`/`EvidenceVersion` entity at all (confirmed
+ * against `libs/contracts/src/view-analysis/**`, the Prisma schema, and
+ * `citation-context.types.ts` — the only real discriminator is
+ * `citationContext.kind: 'de' | 'flow' | 'table'`, a DIFFERENT axis: whether
+ * a tabular row/population is cited, not "what kind of evidence this is").
+ * This type is fixture-level bookkeeping ONLY — it drives which REST shape
+ * `interpretationsEvidenceStaging.ts` builds, never a field sent to the
+ * backend (`CreateEvidenceDto` would 400 on an unknown property).
+ *
+ * The three values map onto three genuinely distinct, real backend code
+ * paths, honestly representing "mixed kinds" without fabricating a field:
+ * - `chart-derived`: `chartEntries` only (cites a chart + snapshot directly).
+ * - `statistical`: `citationContext.kind: 'de'` only (cites specific DE rows
+ *   with p-values/log2FC — a numeric/statistical claim), no chart entries.
+ * - `computed`: `chartEntries` + `parentEvidenceId` set — a roll-up derived
+ *   FROM another Evidence (AXI-995/FR8's derived-evidence lineage,
+ *   materializes a `DERIVED_FROM` edge distinct from a raw chart citation).
+ */
+export type EvidenceKind = 'chart-derived' | 'statistical' | 'computed';
+
+interface EvidenceFixtureBase {
+  title: string;
+  text: string;
+}
+
+/** Cites a chart directly (`POST /view-analyses/evidences` `chartEntries`).
+ *  `chartTitle`/`snapshotName` resolve to live ids the same way
+ *  {@link ThresholdFixture.chartTitle} and {@link SnapshotFixture.name} do. */
+export interface ChartDerivedEvidenceFixture extends EvidenceFixtureBase {
+  kind: 'chart-derived';
+  chartTitle: string;
+  snapshotName: string;
+}
+
+/**
+ * Cites specific rows of a DE dataset via `citationContext: {kind: 'de', ...}`.
+ * `citedGeneCount` (not a literal gene list) is deliberate: which genes are
+ * "top" by padj is LIVE query-time truth, not a fixture word (same
+ * live-state-over-fixture-constant precedent as `isChartStageable`'s dataset-
+ * role availability check) — the step queries the real dataset (lowest padj
+ * first, optionally filtered) rather than hard-coding gene symbols that could
+ * drift from a re-ingested dataset.
+ */
+export interface StatisticalEvidenceFixture extends EvidenceFixtureBase {
+  kind: 'statistical';
+  datasetRole: DataRequirement;
+  citedGeneCount: number;
+  strataFilter?: { column: string; value: string };
+}
+
+/** A computed roll-up derived from an earlier-declared evidence entry
+ *  (`parentEvidenceTitle` must match another {@link EvidenceFixture.title}
+ *  declared earlier in the array — `validateFixture.ts` enforces both the
+ *  existence and the ordering, since a forward reference would need the not-
+ *  yet-created evidence's live id). */
+export interface ComputedEvidenceFixture extends EvidenceFixtureBase {
+  kind: 'computed';
+  chartTitle: string;
+  snapshotName: string;
+  parentEvidenceTitle: string;
+}
+
+export type EvidenceFixture = ChartDerivedEvidenceFixture | StatisticalEvidenceFixture | ComputedEvidenceFixture;
+
+/** Byte-identical to the backend `DecisionDraftType` enum
+ *  (`libs/contracts/src/decision-draft/decision-draft.patterns.ts`). */
+export type InterpretationType =
+  | 'phenotype_classification'
+  | 'qc_assessment'
+  | 'cohort_stratification'
+  | 'biomarker_threshold'
+  | 'assay_qualification';
+
+/** Byte-identical to the backend `DecisionDraftConfidence` enum. */
+export type InterpretationConfidence = 'low' | 'medium' | 'high';
+
+/**
+ * One citation on an interpretation's `evidenceLinks[]` (AXI-1377). Exactly
+ * one of `snapshotName`/`evidenceTitle` is set — a decision counts toward an
+ * analysis's Interpretations tab if EITHER matches one of that analysis's own
+ * snapshots or evidence (`decision-drafts.service.ts findAllByViewAnalysis`,
+ * confirmed live) — but only an `evidenceTitle` citation counts as "citing
+ * evidence explicitly" (Capture Spec §9 / FR12).
+ */
+export interface InterpretationCitation {
+  snapshotName?: string;
+  evidenceTitle?: string;
+}
+
+/**
+ * One interpretation (= DecisionDraft, see the dev-epic-context's naming
+ * note) the tenant must carry (AXI-1377, FR12/AC11, Capture Spec §9).
+ * `targetStatus` is the transition target after create — 'draft' is never
+ * valid here because §9 requires "a validated interpretation"; the step
+ * transitions every declared interpretation at least to 'reviewed'.
+ */
+export interface InterpretationFixture {
+  label: string;
+  type: InterpretationType;
+  confidence: InterpretationConfidence;
+  authorHandle: string;
+  citations: InterpretationCitation[];
+  targetStatus: 'reviewed' | 'approved';
+}
+
+/**
  * Slots for content later stories fill (FR6's fuller list: the scientific
  * question, assumption bodies, chart titles/specs, threshold values, comment
  * bodies, interpretation statements, evidence records, event-feed entries).
@@ -344,8 +452,16 @@ export interface ContentSlots {
    *  numbers are assigned by the backend on creation (`version = count + 1`),
    *  so array order is the source of truth for "which is v1 / which is v2". */
   snapshots: SnapshotFixture[];
-  interpretations: unknown[];
-  evidence: unknown[];
+  /** AXI-1377 (FR12/AC11, Capture Spec §9). Declared AFTER `evidence` in the
+   *  object literal is not required by TS, but every interpretation's
+   *  `citations[].evidenceTitle` must reference a `evidence[]` entry —
+   *  `checkInterpretationCitationsDeclared` enforces this at fixture level. */
+  interpretations: InterpretationFixture[];
+  /** AXI-1377 (FR12/AC11, Capture Spec §9). Array order matters for
+   *  `kind: 'computed'` entries — `parentEvidenceTitle` must name an entry
+   *  declared EARLIER in this same array (its live id must already exist by
+   *  the time the computed entry is staged). */
+  evidence: EvidenceFixture[];
   events: unknown[];
 }
 

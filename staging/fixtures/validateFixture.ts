@@ -138,6 +138,111 @@ export function checkSnapshotDatasetRolesDeclared(fixture: TenantFixture): Fixtu
     .map((s) => ({ rule: 'FR6', detail: `snapshot "${s.name}" declares datasetRole "${s.datasetRole}", which is not a declared dataset role` }));
 }
 
+/** AXI-1377 — evidence titles are this fixture's idempotent identity marker
+ *  (mirrors `checkChartTitlesUnique`/`checkSnapshotNamesUnique`); a duplicate
+ *  would collapse two distinct evidence records under one lookup. */
+export function checkEvidenceTitlesUnique(fixture: TenantFixture): FixtureViolation[] {
+  const seen = new Set<string>();
+  const violations: FixtureViolation[] = [];
+  for (const evidence of fixture.content.evidence) {
+    if (seen.has(evidence.title)) violations.push({ rule: 'FR6', detail: `duplicate evidence title "${evidence.title}"` });
+    seen.add(evidence.title);
+  }
+  return violations;
+}
+
+/** AXI-1377 — a `chart-derived`/`computed` evidence's `chartTitle`/
+ *  `snapshotName` must match a declared chart/snapshot, or the staging step
+ *  fails deep inside a live call instead of here (same shape as
+ *  `checkThresholdChartsDeclared`). */
+export function checkEvidenceReferencesDeclared(fixture: TenantFixture): FixtureViolation[] {
+  const chartTitles = new Set(fixture.content.chartSpecs.map((c) => c.title));
+  const snapshotNames = new Set(fixture.content.snapshots.map((s) => s.name));
+  const violations: FixtureViolation[] = [];
+  for (const evidence of fixture.content.evidence) {
+    if (evidence.kind === 'statistical') continue;
+    if (!chartTitles.has(evidence.chartTitle)) {
+      violations.push({ rule: 'FR6', detail: `evidence "${evidence.title}" targets chartTitle "${evidence.chartTitle}", which is not a declared chartSpec` });
+    }
+    if (!snapshotNames.has(evidence.snapshotName)) {
+      violations.push({ rule: 'FR6', detail: `evidence "${evidence.title}" targets snapshotName "${evidence.snapshotName}", which is not a declared snapshot` });
+    }
+  }
+  return violations;
+}
+
+/** AXI-1377 — a `computed` evidence's `parentEvidenceTitle` must name
+ *  another evidence entry declared EARLIER in the same array (its live id
+ *  must already exist by the time the computed entry is staged — see
+ *  `types.ts`'s `ContentSlots.evidence` doc). */
+export function checkComputedEvidenceParentDeclaredEarlier(fixture: TenantFixture): FixtureViolation[] {
+  const violations: FixtureViolation[] = [];
+  const seenTitles = new Set<string>();
+  for (const evidence of fixture.content.evidence) {
+    if (evidence.kind === 'computed' && !seenTitles.has(evidence.parentEvidenceTitle)) {
+      violations.push({
+        rule: 'FR6',
+        detail: `computed evidence "${evidence.title}" declares parentEvidenceTitle "${evidence.parentEvidenceTitle}", which is not an earlier-declared evidence entry`,
+      });
+    }
+    seenTitles.add(evidence.title);
+  }
+  return violations;
+}
+
+/** AXI-1377 — an interpretation's citation must name a declared snapshot or
+ *  evidence entry, same shape as `checkEvidenceReferencesDeclared`. */
+export function checkInterpretationCitationsDeclared(fixture: TenantFixture): FixtureViolation[] {
+  const snapshotNames = new Set(fixture.content.snapshots.map((s) => s.name));
+  const evidenceTitles = new Set(fixture.content.evidence.map((e) => e.title));
+  const violations: FixtureViolation[] = [];
+  for (const interpretation of fixture.content.interpretations) {
+    for (const citation of interpretation.citations) {
+      if (citation.snapshotName && !snapshotNames.has(citation.snapshotName)) {
+        violations.push({ rule: 'FR6', detail: `interpretation "${interpretation.label}" cites snapshotName "${citation.snapshotName}", which is not a declared snapshot` });
+      }
+      if (citation.evidenceTitle && !evidenceTitles.has(citation.evidenceTitle)) {
+        violations.push({ rule: 'FR6', detail: `interpretation "${interpretation.label}" cites evidenceTitle "${citation.evidenceTitle}", which is not a declared evidence entry` });
+      }
+    }
+  }
+  return violations;
+}
+
+/** AC11 (Capture Spec §9) — fixture-level shape check: exactly 3
+ *  interpretations, at least one authored by Claire Ngo (`cast-clinician`),
+ *  at least one citing evidence explicitly (an `evidenceTitle` citation, not
+ *  just a `snapshotName` one). */
+export function checkInterpretationsShape(fixture: TenantFixture): FixtureViolation[] {
+  const violations: FixtureViolation[] = [];
+  const declared = fixture.content.interpretations;
+  if (declared.length !== 3) {
+    violations.push({ rule: 'AC11', detail: `expected exactly 3 declared interpretations, found ${declared.length}` });
+  }
+  if (!declared.some((i) => i.authorHandle === 'cast-clinician')) {
+    violations.push({ rule: 'AC11', detail: 'no declared interpretation is authored by "cast-clinician" (Claire Ngo)' });
+  }
+  if (!declared.some((i) => i.citations.some((c) => c.evidenceTitle))) {
+    violations.push({ rule: 'AC11', detail: 'no declared interpretation cites evidence explicitly (an evidenceTitle citation)' });
+  }
+  return violations;
+}
+
+/** AC11 (Capture Spec §9) — fixture-level shape check: exactly 6 evidence
+ *  entries, all three kinds represented ("mixed kinds"). */
+export function checkEvidenceShape(fixture: TenantFixture): FixtureViolation[] {
+  const declared = fixture.content.evidence;
+  const violations: FixtureViolation[] = [];
+  if (declared.length !== 6) {
+    violations.push({ rule: 'AC11', detail: `expected exactly 6 declared evidence entries, found ${declared.length}` });
+  }
+  const kinds = new Set(declared.map((e) => e.kind));
+  for (const kind of ['chart-derived', 'statistical', 'computed'] as const) {
+    if (!kinds.has(kind)) violations.push({ rule: 'AC11', detail: `no declared evidence entry has kind "${kind}" — evidence is not "mixed kinds"` });
+  }
+  return violations;
+}
+
 function collectDeclaredNames(fixture: TenantFixture): string[] {
   const workspaceNames = fixture.workspaces.flatMap(collectWorkspaceNames);
   return [fixture.org.name, ...workspaceNames];
@@ -162,6 +267,12 @@ export function validateFixture(fixture: TenantFixture): FixtureViolation[] {
     ...checkThresholdChartsDeclared(fixture),
     ...checkSnapshotNamesUnique(fixture),
     ...checkSnapshotDatasetRolesDeclared(fixture),
+    ...checkEvidenceTitlesUnique(fixture),
+    ...checkEvidenceReferencesDeclared(fixture),
+    ...checkComputedEvidenceParentDeclaredEarlier(fixture),
+    ...checkInterpretationCitationsDeclared(fixture),
+    ...checkInterpretationsShape(fixture),
+    ...checkEvidenceShape(fixture),
   ];
 }
 
