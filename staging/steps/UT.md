@@ -160,6 +160,49 @@ fix; no REST delete/archive route exists for Evidence, so those 6 are marked
 Evidence=12, not 6, pending a future cleanup. The code itself is fixed and verified
 idempotent going forward.
 
+## externalScopingVerification.spec.ts
+
+FR13/AC12/EC5/EC6 (Capture Spec §11/§12/§21, AXI-1378) — the §21 "whole
+feature" verification: an authenticated request AS `external-stakeholder`
+against the two client-exploration surfaces it should reach (published
+record, external thread) and the six internal, workspace-scoped surfaces it
+must not (analysis discussion thread, chart-anchored comments, decisions
+incl. drafts, evidence, unpublished snapshots). Covers the status-code
+classifier (EC6: any 2xx is 'visible' regardless of body content — hiding
+means the route never resolves for this caller, not a disabled flag on real
+data), the probe-vs-expectation evaluator, the probe-set shape, and the §21
+leak/genuine-scoping/blocked-from-published/error determination.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-090 | (EC6) classifyOutcome treats any 2xx as visible regardless of status within the range | Pass |
+| UT-STAGE-091 | classifyOutcome treats 400/401/403/404 as hidden — the guard denied before data resolution | Pass |
+| UT-STAGE-092 | classifyOutcome treats anything else (5xx) as error, not scoping evidence | Pass |
+| UT-STAGE-093 | evaluateProbe marks matchesExpectation true when outcome equals expectation | Pass |
+| UT-STAGE-094 | (EC5) evaluateProbe marks matchesExpectation false when an internal surface unexpectedly answers 200 | Pass |
+| UT-STAGE-095 | (FR13) buildScopingProbes returns exactly 2 visible + 6 hidden probes, all hard | Pass |
+| UT-STAGE-096 | buildScopingProbes targets the real workspace/project/analysis ids, in the path or (for workspace) the X-Workspace-Id header | Pass |
+| UT-STAGE-097 | buildScopingProbes attaches an X-Workspace-Id header to every internal probe except the deliberate no-header variant | Pass |
+| UT-STAGE-098 | (§21) summarizeScoping reports genuineScoping=true when every hard probe matches its expectation | Pass |
+| UT-STAGE-099 | (EC5) summarizeScoping reports a leak when an internal (hidden) probe comes back visible | Pass |
+| UT-STAGE-100 | (FR13) summarizeScoping reports blockedFromPublished when a visible probe comes back hidden | Pass |
+| UT-STAGE-101 | summarizeScoping surfaces a 5xx as an error, not silently absorbed into either bucket | Pass |
+
+Live (invoked `verifyExternalScopingStep` directly against the running local
+stack, analysis `cf17e1ea`, 2026-08-28): **§21 ANSWERED — GENUINE SCOPING.**
+All 6 internal probes returned 403 (5, with `X-Workspace-Id`) or 400 (1, the
+deliberate no-header variant) — never 200. Both visible probes returned 200
+(published-artifacts list; external thread surface reachable). Root cause
+confirmed by source read: `ClientExplorationService.inviteMember` creates
+only a `ClientExplorationMembership` row, never a `WorkspaceMember` row, so
+`WorkspaceGuard`'s membership RPC genuinely rejects the external stakeholder
+on every internal, workspace-scoped route — the same guard every other
+internal surface already relies on, not a UI-only affordance. **DEFERRED:**
+the external thread's message *content* — 0 messages live (the known
+`ensure-comments` external-message POST 500, blocked on the operational-phase
+stack reconcile / AXI-1375 `authorType` fix, see dev-epic-context) — logged,
+not hard-asserted; re-run after the reconcile to confirm non-zero content.
+
 ## AXI-1372-dataset-ingestion.spec.ts (Playwright, `tests/AXI-1368/`)
 
 FR7/AC5, widened AXI-1374 to "one corpus, one-or-more dataset versions" —

@@ -21,7 +21,8 @@ export interface TouchedEntity {
     | 'snapshot'
     | 'evidence'
     | 'interpretation'
-    | 'published-version';
+    | 'published-version'
+    | 'external-scoping-verification';
   name: string;
   id: string;
   action: 'created' | 'reused' | 'renamed' | 'retired' | 'linked' | 'granted' | 'withheld' | 'resolved' | 'superseded';
