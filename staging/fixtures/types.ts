@@ -90,6 +90,38 @@ export interface DatasetFixture {
 }
 
 /**
+ * Assumption categories, named after the Capture Spec §5 popover section
+ * labels (AXI-1373, FR9). Three of these (`cohort_definition`,
+ * `data_filter`, `methodological_choice`) are byte-identical to the
+ * backend's `AssumptionType` enum (`libs/contracts/src/framing/
+ * framing.patterns.ts`) on purpose — no translation needed for the ones
+ * this story actually stages. `threshold_provenance` has no backend
+ * counterpart (the closest is `domain_assumption`); see
+ * `staging/steps/analysisFraming.ts` for the mapping and why it is never
+ * exercised while the FR9 guard stays closed.
+ */
+export type AssumptionCategory = 'cohort_definition' | 'data_filter' | 'methodological_choice' | 'threshold_provenance';
+
+/**
+ * One assumption the demo tenant should carry (Capture Spec §5). `text` is
+ * the exact popover body; `authorHandle` is the AXI-1370 identity that must
+ * author it (Capture Spec §3: Marc Ottavi/MO owns assumptions, thresholds,
+ * contrast choices — mapped onto the `cast-biologist` handle, see the note
+ * in `tenantFixture.ts`'s `cast` array).
+ *
+ * Declaring all four here (words) is correct even though FR9 forbids
+ * staging the fourth unconditionally — the TRUTH judgment that withholds it
+ * is a toolkit-level guard (`analysisFraming.ts`), not a fixture flag,
+ * because whether the claim is true of this run is a verified fact about
+ * how the DE table was built, not a matter of demo wording.
+ */
+export interface AssumptionFixture {
+  category: AssumptionCategory;
+  text: string;
+  authorHandle: string;
+}
+
+/**
  * Slots for content later stories fill (FR6's fuller list: the scientific
  * question, assumption bodies, chart titles/specs, threshold values, comment
  * bodies, interpretation statements, evidence records, event-feed entries).
@@ -97,9 +129,17 @@ export interface DatasetFixture {
  * widen the fixture's shape.
  */
 export interface ContentSlots {
+  /**
+   * AXI-1373 (FR9, Capture Spec §4): "This sentence ... appears in frame on
+   * most captures and becomes alt text" — the analysis header/title AND the
+   * framed Review Question are the SAME string, verbatim (per the story's
+   * own acceptance criterion: "the title is the scientific question
+   * verbatim"). One field, not two, so there is nowhere for title and
+   * question to drift apart.
+   */
   scientificQuestion?: string;
   dataset?: DatasetFixture;
-  assumptions: unknown[];
+  assumptions: AssumptionFixture[];
   chartSpecs: unknown[];
   thresholds: unknown[];
   comments: unknown[];

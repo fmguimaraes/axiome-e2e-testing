@@ -56,13 +56,15 @@ interface DatasetSummary {
   latestIngestion?: { status: string; rowCount?: number | null } | null;
 }
 
-function requireWorkspaceId(ctx: ProvisioningContext, workspaceName: string): string {
+/** Exported for reuse by `analysisFraming.ts` (AXI-1373) — the analysis step
+ *  needs the same fixture-name lookups this step already does. */
+export function requireWorkspaceId(ctx: ProvisioningContext, workspaceName: string): string {
   const id = ctx.workspaceIdByFixtureName.get(workspaceName);
   if (!id) throw new Error(`workspace "${workspaceName}" not found in context — ensure-workspaces must run first`);
   return id;
 }
 
-async function requireProjectId(ctx: ProvisioningContext, workspaceId: string, projectName: string): Promise<string> {
+export async function requireProjectId(ctx: ProvisioningContext, workspaceId: string, projectName: string): Promise<string> {
   const projects = await listProjects(ctx, workspaceId);
   const found = projects.find((p) => p.name === projectName);
   if (!found) throw new Error(`project "${projectName}" not found in workspace ${workspaceId} — ensure-workspaces must run first`);
@@ -77,7 +79,10 @@ async function ensureDataset(ctx: ProvisioningContext, workspaceId: string, fixt
   return createDataset(ctx, workspaceId, fixture);
 }
 
-async function findExistingDataset(ctx: ProvisioningContext, workspaceId: string, filename: string): Promise<DatasetSummary | undefined> {
+/** Exported for reuse by `analysisFraming.ts` (AXI-1373) — resolving the
+ *  bound dataset id by its declared filename, the same idempotent lookup
+ *  this step uses before deciding to reuse vs. create. */
+export async function findExistingDataset(ctx: ProvisioningContext, workspaceId: string, filename: string): Promise<DatasetSummary | undefined> {
   const res = await ctx.client.as<{ data: DatasetSummary[] }>(
     SERVICE_HANDLE,
     'GET',

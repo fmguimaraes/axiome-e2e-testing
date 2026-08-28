@@ -22,6 +22,7 @@
     "stage:audit": "tsx staging/audit/runAudit.ts",
     "stage:no-backdoor": "tsx staging/checks/noBackdoor.ts",
     "stage:identities": "tsx staging/identities/ensureIdentities.ts",
+    "stage:unit": "tsx --test $(find staging -name '*.spec.ts')",
     "stage": "tsx staging/steps/stage.ts"
   },
   "devDependencies": {

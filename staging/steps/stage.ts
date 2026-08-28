@@ -2,6 +2,7 @@ import { RestClient } from '../client/RestClient';
 import { assertFixtureValid } from '../fixtures/validateFixture';
 import { TENANT_FIXTURE } from '../fixtures/tenantFixture';
 import { ensureIdentities } from '../identities/ensureIdentities';
+import { ensureAnalysisFramingStep } from './analysisFraming';
 import { applyCastNamesStep } from './applyCastNamesStep';
 import { SERVICE_HANDLE } from './context';
 import { ensureDatasetStep } from './datasetIngestion';
@@ -14,12 +15,20 @@ import type { TenantFixture } from '../fixtures/types';
 
 /**
  * `stage` (FR5/FR6/NFR1/NFR8/AC4/EC1, AXI-1371; FR7/AC5 dataset step added
- * AXI-1372) — provisions the demo tenant (org -> workspaces -> projects ->
- * dataset) from the content fixture, over REST only, converging idempotently
- * on re-run. Ordering is the declared step graph in `STEPS`, not call
- * sequence (dev-epic-context).
+ * AXI-1372; FR9/AC8 analysis-framing step added AXI-1373) — provisions the
+ * demo tenant (org -> workspaces -> projects -> dataset -> analysis framing)
+ * from the content fixture, over REST only, converging idempotently on
+ * re-run. Ordering is the declared step graph in `STEPS`, not call sequence
+ * (dev-epic-context).
  */
-const STEPS = [ensureOrganizationStep, ensureWorkspacesStep, ensureDatasetStep, applyCastNamesStep, verifyNoForbiddenNamesStep];
+const STEPS = [
+  ensureOrganizationStep,
+  ensureWorkspacesStep,
+  ensureDatasetStep,
+  ensureAnalysisFramingStep,
+  applyCastNamesStep,
+  verifyNoForbiddenNamesStep,
+];
 
 export async function stageTenant(client: RestClient, fixture: TenantFixture, adminEmail: string, adminPassword: string): Promise<TouchedEntity[]> {
   assertFixtureValid(fixture);

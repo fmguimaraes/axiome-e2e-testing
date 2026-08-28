@@ -76,7 +76,11 @@ export const TENANT_FIXTURE: TenantFixture = {
   ],
 
   content: {
-    scientificQuestion: undefined,
+    // AXI-1373 (FR9, Capture Spec §4): "the scientific spine" — one question
+    // carried consistently across every capture. Verbatim from the spec's
+    // "Workspace title" line. Doubles as the view-analysis's `name` (its
+    // header/title) — see the `scientificQuestion` doc in `types.ts`.
+    scientificQuestion: 'Does the pre-therapy transcriptional profile separate nivolumab responders from non-responders?',
     // AXI-1372 (FR7/AC5, Capture Spec §2.1/§2.2): the leaked build filename
     // `axi50-e2e-race.csv` replaced with the real name, real gene symbols,
     // bound to the ANALYSIS project — confirmed against Capture Spec §4 ("the
@@ -89,7 +93,35 @@ export const TENANT_FIXTURE: TenantFixture = {
       workspaceName: 'Translational Immuno-Oncology',
       projectName: 'Melanoma IO cohort, paired timepoints',
     },
-    assumptions: [],
+    // AXI-1373 (FR9, Capture Spec §5). All four assumption BODIES are
+    // declared here (words); whether the fourth is actually staged is a
+    // toolkit-level TRUTH guard, not a fixture switch — see
+    // `staging/steps/analysisFraming.ts`'s `THRESHOLD_DECLARED_BEFORE_CONTRAST`.
+    // `authorHandle: 'cast-biologist'` is Marc Ottavi/MO (Capture Spec §3
+    // owns assumptions/thresholds/contrast choices) — same best-fit mapping
+    // note as the `cast` array above, not a name match.
+    assumptions: [
+      {
+        category: 'cohort_definition',
+        text: 'Responders = RECIST CR/PR; non-responders = RECIST PD. Pre-therapy timepoint only.',
+        authorHandle: 'cast-biologist',
+      },
+      {
+        category: 'data_filter',
+        text: 'Genes with low counts excluded by DESeq2 independent filtering; padj reported as NULL for filtered genes (expected).',
+        authorHandle: 'cast-biologist',
+      },
+      {
+        category: 'methodological_choice',
+        text: 'Differential expression run with DESeq2 (pydeseq2 0.5.2) rather than edgeR or limma-voom.',
+        authorHandle: 'cast-biologist',
+      },
+      {
+        category: 'threshold_provenance',
+        text: '|log2FC| ≥ 1 taken from the published cutoff, not fitted on this cohort. Declared before the contrast was run.',
+        authorHandle: 'cast-biologist',
+      },
+    ],
     chartSpecs: [],
     thresholds: [],
     comments: [],
