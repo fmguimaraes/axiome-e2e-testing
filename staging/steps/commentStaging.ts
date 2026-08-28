@@ -219,7 +219,10 @@ interface ExistingChartComment {
   content: string;
 }
 
-const COMMENT_DASHBOARD_NAME = 'Discussion charts (AXI-1375)';
+// No Jira key in a staged entity name (AC4). Surfaced by the clean stage-from-empty
+// rebuild (AXI-1368 validation): the AC4 forbidden-name gate correctly rejected the
+// prior "Discussion charts (AXI-1375)" name.
+const COMMENT_DASHBOARD_NAME = 'Chart discussion anchors';
 
 /** Exported for unit testing — pure, no network. */
 export function alreadyStagedChartComment(existing: ExistingChartComment[], text: string): boolean {
