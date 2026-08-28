@@ -333,10 +333,50 @@ of a single hard-coded path.
 | UT-DSI-007 | NFR1 — a second run reuses both datasets, no re-upload, no duplicate links | Pass |
 | UT-DSI-008 | each dataset reads bytes from its OWN `localPathEnv`, not a shared constant | Pass |
 
-Run: `npm run stage:unit` (102/102 `staging/**` node:test cases, AXI-1379 —
-this count grew story-over-story past the 21/21 recorded at AXI-1374; see
-each section above for its own story's addition) + `npx playwright test
-tests/AXI-1368/AXI-1372-dataset-ingestion.spec.ts
+## `staging/verify/**` (AXI-1380 — FR18/AC1, Capture Spec §18)
+
+The `verify` gate: 8 independent, read-only rule checks aggregated by
+`verify/verify.ts` into one `RuleResult[]` report, `npm run verify` exits
+non-zero on any `pass:false`. Each rule module keeps its network-calling
+wrapper thin and exports a pure `evaluate*`/`has*`/`describe*` function for
+testing — same convention every prior story's spec file already follows
+(mocked DATA, never a mocked `RestClient`).
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-118..120 | `corpusConsistency.ts` — missing-live-dataset-role detection, placeholder-gene-symbol detection (Capture Spec §2.2/AC5) | Pass |
+| UT-STAGE-121..124 | `nonZeroCounters.ts` — reuses `governanceEventsStaging.assertGovernanceCounterNonZero`, widens to all 4 `/home/metrics` counters, reports every zero counter (Capture Spec §2.3/AC13) | Pass |
+| UT-STAGE-125..133 | `multiAuthorThreads.ts` — internal thread >=3 authors/reply/resolved (EC8), external thread single-client-author, chart-anchored tab count (Capture Spec §7/AC9) | Pass |
+| UT-STAGE-134..137 | `chartCountOrigin.ts` — 6 declared user-origin titles present, an auto-origin spec sharing a title does NOT satisfy it, a co-existing auto spec is reported not failed (Capture Spec §6.1/§6.2/AC6) | Pass |
+| UT-STAGE-138..143 | `governanceRecord.ts` — provenance-graph fork detection (>=2 incoming edges), interpretations=3/evidence=6/published=1 count checks (Capture Spec §9/AC11) | Pass |
+| UT-STAGE-144..150 | `thresholdsSnapshots.ts` — >=2 labeled thresholds + rationale annotation (§8), v1/v2 both materialized and bound to DIFFERENT datasets — OQ6's "genuinely different, not a same-data label" (Capture Spec §4/AC10) | Pass |
+| UT-STAGE-151..153 | `assumptionsCount.ts` — exactly 3 active assumptions, 4th correctly withheld per FR9 (Capture Spec §5/AC8) | Pass |
+| UT-STAGE-154..156 | `externalScoping.ts` — `describeFailure` composes leak/blocked/error probe messages (reuses `externalScopingVerification.ts`'s exported probe builder/classifier/summarizer verbatim, Capture Spec §21/AC12/EC5/EC6) | Pass |
+| UT-STAGE-157..159 | `verify.ts` — `allPass` is the fail-closed boundary `main()`'s `process.exit(1)` depends on: true only when EVERY rule passed | Pass |
+
+**Deliberately not asserted** (see `verify.ts`'s module doc): AC4 forbidden-
+names (already a hard gate at STAGE time over the in-memory touched-entity
+list; a live-only `verify` run doesn't have it) and Capture Spec §15.1's
+full 8-kind governance-FEED variety (`governanceEventsStaging.ts` already
+confirmed only 2/8 kinds are backend-projected — `verify` asserts the
+achievable non-zero-counter half, not feed variety the backend can't yet
+produce). Capture Spec §18's purely visual rules (2400px @2x, light theme,
+no browser chrome, no blur) are not REST-observable — they're AXI-1381
+capture-harness preconditions, not a `verify` concern.
+
+**Live (2026-08-28, against the clean, fully-staged tenant, twice in a
+row):** `npm run verify` exit 0 both times, byte-identical 8/8 PASS report
+(NFR1/NFR4 — deterministic, re-runnable). **Fail-closed proof:** a one-off
+script (not shipped) called `checkGovernanceRecord` live with a corrupted
+`analysisId` — the real gateway correctly returned `pass:false` with
+`"interpretations=0, expected 3; evidence=0, expected 6; published=0,
+expected 1; provenance graph has no fork"`, and `allPass([result])` was
+`false` — the exact condition `main()` uses to `process.exit(1)`.
+
+Run: `npm run stage:unit` (145/145 `staging/**` node:test cases — 102 through
+AXI-1379 + 43 new at AXI-1380) + `npm run stage:no-backdoor` (passed,
+`staging`+`capture` scanned) + `npm run typecheck` (clean) + `npm run verify`
+against the live tenant (exit 0, 8/8 rules PASS, confirmed twice) + `npx
+playwright test tests/AXI-1368/AXI-1372-dataset-ingestion.spec.ts
 tests/AXI-1368/AXI-1371-tenant-provisioning.spec.ts` (18/18, last confirmed
-2026-08-28 AXI-1374) — `npm run stage:no-backdoor` and `npm run typecheck`
-both green, 2026-08-28 (AXI-1379).
+2026-08-28 AXI-1374).

@@ -23,7 +23,8 @@
     "stage:no-backdoor": "tsx staging/checks/noBackdoor.ts",
     "stage:identities": "tsx staging/identities/ensureIdentities.ts",
     "stage:unit": "tsx --test $(find staging -name '*.spec.ts')",
-    "stage": "tsx staging/steps/stage.ts"
+    "stage": "tsx staging/steps/stage.ts",
+    "verify": "tsx staging/verify/verify.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
