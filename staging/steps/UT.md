@@ -203,6 +203,122 @@ the external thread's message *content* — 0 messages live (the known
 stack reconcile / AXI-1375 `authorType` fix, see dev-epic-context) — logged,
 not hard-asserted; re-run after the reconcile to confirm non-zero content.
 
+## attestationStaging.spec.ts
+
+Capture Spec §14 (AXI-1379) — the quality-attestation compute-body builder
+(`buildAttestationComputeBody`) and the fixture-level checks the step
+depends on. Find-or-compute network logic (passport lookup/compute,
+attestation lookup/compute) is covered live (see the note below), mirroring
+`interpretationsEvidenceStaging.ts`'s "publish exactly one" precedent.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-102 | `buildAttestationComputeBody` attests the analysis artifact against its bound dataset and project | Pass |
+| UT-STAGE-103 | `buildAttestationComputeBody` is a pure function of its inputs | Pass |
+| UT-STAGE-104 | `TENANT_FIXTURE` declares exactly one de_table dataset for the attestation step to target | Pass |
+
+Live (invoked `ensureAttestationStep` directly, analysis `cf17e1ea`, 2026-08-28):
+**passport `31f54ca3-408c-4ec9-9d91-a5f6eae94f32`** (metadataSufficiency=pass,
+qcVisibility=warn, provenanceCompletenessScore=65); **attestation
+`a6dcaf56-222c-4f1a-ba61-6e7217d074de`** (overallAttestationState=partial,
+eligibleForExportBadge=true, provenanceCompletenessScore=50, 6 component
+checks). **ROUTE-PATH FINDING:** the dev-epic-context's route-table shorthand
+("`/passports/compute`") is not a top-level path — `AttestationsProxyController`
+is `@Controller({path:'attestations'})`, so the real routes are
+`/api/v1/attestations/passports/compute` and `/api/v1/attestations/passports/
+:datasetId/:projectId` (confirmed live: the bare path 404s, the nested path
+succeeds). Re-run made 0 new computes (idempotent, NFR1).
+
+## sponsorExportStaging.spec.ts
+
+Capture Spec §14/EC11 (AXI-1379) — the provenance-stamp legibility check
+(`requiredProvenanceMarkers`/`assertProvenanceStampLegible`) against the real
+`sponsor-report-template.service.ts` HTML shape, the fictional-logo
+idempotency guard (`isOurFictionalLogo`), and the committed EC11 fixture
+asset itself.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-105 | `requiredProvenanceMarkers` finds nothing missing on the real template shape (stamp + co-branding + threshold figures + chart image) | Pass |
+| UT-STAGE-106 | `assertProvenanceStampLegible` does not throw when every marker is present | Pass |
+| UT-STAGE-107 | `requiredProvenanceMarkers` flags a missing Provenance Stamp heading | Pass |
+| UT-STAGE-108 | `requiredProvenanceMarkers` flags a missing co-branding "Shared by" line | Pass |
+| UT-STAGE-109 | `requiredProvenanceMarkers` flags a report with no chart figure (`<img`) | Pass |
+| UT-STAGE-109b | `requiredProvenanceMarkers` flags a report with neither `log2FC` nor `padj` text | Pass |
+| UT-STAGE-109c | `requiredProvenanceMarkers` accepts `padj` alone as legible threshold content | Pass |
+| UT-STAGE-109d (EC11) | `isOurFictionalLogo` is false for a stray pre-existing `.png` logo | Pass |
+| UT-STAGE-109e (EC11) | `isOurFictionalLogo` is true once our `.svg` is current, ignoring the presigned querystring | Pass |
+| UT-STAGE-109f | `isOurFictionalLogo` is false when no logo is set | Pass |
+| UT-STAGE-110 (EC11) | the fictional sponsor logo asset exists, is a plain SVG, names an invented sponsor, contains no real pharma trademark string | Pass |
+
+Live (invoked `ensureSponsorExportStep` directly, published version `229924ad`,
+2026-08-28): **LOGO FINDING (real, live):** the org already carried a STRAY
+pre-existing `.png` logo (unrelated leaked artifact, same class as AXI-1371's
+§2.1 name pollution) — a bare "skip if any logo exists" check would have left
+it in place and never applied the EC11 mark at all. Fixed via
+`isOurFictionalLogo` (checks the S3 key extension, not mere presence);
+uploaded/finalized `sponsor-logo-meridian-oncology.svg`
+(`organizations/f10207f9/logo/6771144c-3d7e-4102-9458-276864d567d2.svg`),
+confirmed rendering in the preview header in place of the old `.png`.
+**Sponsor export package `657198ab-a382-44f7-abaa-268ae5800791`, status
+`completed`, 500,382 bytes, checksum present.** Preview HTML (900KB) verified
+legible: `Provenance Stamp` heading, `Shared by Biotech One via Axiome`
+co-branding line, 5 chart `<img>` figures, `log2FC`/`padj` threshold text.
+**PROVENANCE-CONTENT FINDING (real, live):** `SponsorDecision.evidenceValues`
+is always `[]` (no staging step populates it — confirmed by reading
+`interpretationsEvidenceStaging.ts`'s `createDecision`), so the template's
+"Evidence Values" table never renders; the original marker set assumed it
+would and failed live on first run — corrected to check the real legible
+threshold content (chart title/evidence prose) instead. Re-run reused the
+completed export (self-caching, `findExistingCompletedExport`) — 0 new PDF
+renders (idempotent, NFR1).
+
+## governanceEventsStaging.spec.ts
+
+FR14/AC13 (Capture Spec §15.1, AXI-1379) — the AC13 hard gate
+(`assertGovernanceCounterNonZero`), the feed-coverage summarizer
+(`summarizeEventCoverage`), and the fixture-level 3-author/no-duplicate-kind
+shape check (`checkGovernanceEventsShape`).
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-111 (AC13) | `assertGovernanceCounterNonZero` does not throw when `governanceEventsCount` is positive | Pass |
+| UT-STAGE-112 (AC13) | `assertGovernanceCounterNonZero` throws loudly when `governanceEventsCount` is zero | Pass |
+| UT-STAGE-113 | `summarizeEventCoverage` counts distinct `performedBy` values from the live feed | Pass |
+| UT-STAGE-114 | `summarizeEventCoverage` reports `expectedAuthors` from the declared fixture list, not the live feed | Pass |
+| UT-STAGE-115 | `summarizeEventCoverage` is stable on an empty live feed | Pass |
+| UT-STAGE-116 (AC13) | `checkGovernanceEventsShape` passes on the live `TENANT_FIXTURE` — 8 declared kinds, >= 3 distinct authors | Pass |
+| UT-STAGE-117 (AC13) | `checkGovernanceEventsShape` flags a fixture whose declared events span fewer than 3 authors | Pass |
+
+Live (invoked `verifyGovernanceEventsStep` directly, 2026-08-28): **`GET
+/api/v1/home/metrics` -> `governanceEventsCount: 5`** (non-zero, AC13 hard
+gate PASSED — `activeProjectsCount: 1`, `ingestionJobsCount: 3`,
+`qcJobsCount: 3`, all also non-zero). **`GET /api/v1/home/events?workspaceId=
+...` -> 59 entries, 3 distinct authors.** **CONFIRMED BACKEND GAP (read-only
+investigation, no fix in this story — SI-044 is REST-only):** of this story's
+8 declared governance-event kinds, only `interpretation_published` (via
+`overview_events`'s cron projector, category `governance`) and
+`dataset_ingested` (via `home.service.ts`'s audit union, but category
+`operational`) are actually projected into any REST-readable feed. The other
+6 (`threshold_declared`, `snapshot_created`, `evidence_declared`,
+`external_member_invited`, `comment_resolved`, `attestation_computed`) each
+write a real, correctly-attributed audit entry (`thresholdAuditLog`, none for
+snapshots, `declarationDraftAuditLog`, `clientExplorationAuditLog`,
+event-service's separate log, `attestationAuditLog`) that neither
+`home.service.ts`'s 9-table union nor `EventNormalizationService`'s cron
+source list reads — closing this needs widening those two projectors'
+source lists in `axiome-back`, a follow-up story, not a toolkit workaround.
+`POST /api/v1/engagement/events` was investigated and rejected: ADMIN-gated,
+always attributes to the CALLER (can't produce cast-authored events), and its
+closed enums have no member for 5 of the 6 missing kinds regardless. Also
+found (deferred, not fixed): `commentStaging.ts`'s `ensureExternalMember`
+invites the external stakeholder as `SERVICE_HANDLE`, not a cast identity —
+the fixture declares `external_member_invited` authored by `cast-clinician`
+(Capture Spec §15.1), but the actual toolkit code (AXI-1375, unmodified here)
+attributes it to `service`; changing it would have zero live effect on this
+already-provisioned tenant (idempotent-skip on re-invite) so was not touched
+in this story — logged for the follow-up story that closes the projector gap.
+
 ## AXI-1372-dataset-ingestion.spec.ts (Playwright, `tests/AXI-1368/`)
 
 FR7/AC5, widened AXI-1374 to "one corpus, one-or-more dataset versions" —
@@ -217,7 +333,10 @@ of a single hard-coded path.
 | UT-DSI-007 | NFR1 — a second run reuses both datasets, no re-upload, no duplicate links | Pass |
 | UT-DSI-008 | each dataset reads bytes from its OWN `localPathEnv`, not a shared constant | Pass |
 
-Run: `npm run stage:unit` (21/21 `staging/**` node:test cases) +
-`npx playwright test tests/AXI-1368/AXI-1372-dataset-ingestion.spec.ts
-tests/AXI-1368/AXI-1371-tenant-provisioning.spec.ts` (18/18) — both green as
-of 2026-08-28 (AXI-1374).
+Run: `npm run stage:unit` (102/102 `staging/**` node:test cases, AXI-1379 —
+this count grew story-over-story past the 21/21 recorded at AXI-1374; see
+each section above for its own story's addition) + `npx playwright test
+tests/AXI-1368/AXI-1372-dataset-ingestion.spec.ts
+tests/AXI-1368/AXI-1371-tenant-provisioning.spec.ts` (18/18, last confirmed
+2026-08-28 AXI-1374) — `npm run stage:no-backdoor` and `npm run typecheck`
+both green, 2026-08-28 (AXI-1379).

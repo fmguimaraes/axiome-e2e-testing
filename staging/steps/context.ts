@@ -22,7 +22,12 @@ export interface TouchedEntity {
     | 'evidence'
     | 'interpretation'
     | 'published-version'
-    | 'external-scoping-verification';
+    | 'external-scoping-verification'
+    | 'passport'
+    | 'attestation'
+    | 'logo'
+    | 'sponsor-export'
+    | 'governance-events-verification';
   name: string;
   id: string;
   action: 'created' | 'reused' | 'renamed' | 'retired' | 'linked' | 'granted' | 'withheld' | 'resolved' | 'superseded';

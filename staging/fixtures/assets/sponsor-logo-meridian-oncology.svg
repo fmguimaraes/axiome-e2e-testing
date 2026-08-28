@@ -1,0 +1,20 @@
+<!--
+  AXI-1379 (Capture Spec §14, EC11) — the co-branded sponsor export's org
+  logo. "Meridian Oncology" is an INVENTED, plainly fictional sponsor name —
+  it names no real company, product, or organization, living or historical.
+  The mark itself is a plain geometric monogram (three concentric arcs
+  suggesting an orbit/meridian line, no pictograms, no color palette or
+  wordmark style borrowed from any real pharmaceutical or biotech brand) so
+  it reads as an illustrative placeholder, not a reference-customer claim.
+  See the AXI-1379 design note (Jira) and `sponsorExportStaging.ts`'s module
+  doc for the full EC11 rationale.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64" width="240" height="64" role="img" aria-label="Meridian Oncology (fictional sponsor mark, for illustration only)">
+  <g fill="none" stroke="#3A5A7A" stroke-width="3">
+    <path d="M14 44 A 22 22 0 0 1 14 20" />
+    <path d="M22 48 A 28 28 0 0 1 22 16" />
+    <path d="M30 52 A 34 34 0 0 1 30 12" />
+  </g>
+  <text x="46" y="30" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#1F2937">Meridian</text>
+  <text x="46" y="48" font-family="Helvetica, Arial, sans-serif" font-size="12" letter-spacing="2" fill="#6B7280">ONCOLOGY</text>
+</svg>

@@ -429,7 +429,10 @@ async function ensurePublished(ctx: ProvisioningContext, workspaceId: string, an
   await publish(ctx, workspaceId, analysisId, evidenceVersionIds, decisionIds);
 }
 
-async function fetchPublishedVersions(ctx: ProvisioningContext, workspaceId: string, analysisId: string): Promise<{ id: string }[]> {
+/** Exported for reuse by `sponsorExportStaging.ts` (AXI-1379) — the sponsor
+ *  export needs the same "the one published version" resolution this step
+ *  already performs, by real live id rather than a hard-coded one. */
+export async function fetchPublishedVersions(ctx: ProvisioningContext, workspaceId: string, analysisId: string): Promise<{ id: string }[]> {
   const res = await ctx.client.as<{ data: { id: string }[] }>(SERVICE_HANDLE, 'GET', `/api/v1/view-analyses/${analysisId}/published-versions`, undefined, projectHeaders(workspaceId));
   if (!res.ok) {
     throw new Error(`fetchPublishedVersions failed (${res.status}) — refusing to default to empty (would publish a duplicate version on re-run)`);

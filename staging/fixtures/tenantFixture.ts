@@ -494,6 +494,27 @@ export const TENANT_FIXTURE: TenantFixture = {
         targetStatus: 'reviewed',
       },
     ],
-    events: [],
+    /**
+     * AXI-1379 (FR14/AC13, Capture Spec §15.1): the 8-event, 3-author spread
+     * that replaces the pre-existing "8 identical Dataset query executed"
+     * rows. `authorHandle: 'service'` stands in for the spec's "system" —
+     * there is no separate "system" identity in the AXI-1370 registry, and
+     * `service` is already this toolkit's non-cast, non-human actor (see
+     * `identities/registry.ts`). Every kind here maps to a real action a
+     * DIFFERENT step already performs for its own reason — see
+     * `GovernanceEventExpectation`'s doc for why this array does not create
+     * anything itself, and `governanceEventsStaging.ts` for the confirmed
+     * gap in which kinds a REST reader can actually see back today.
+     */
+    events: [
+      { kind: 'interpretation_published', authorHandle: 'cast-clinician', description: 'CN publishes the biomarker-threshold interpretation (AXI-1377)' },
+      { kind: 'threshold_declared', authorHandle: 'cast-biologist', description: 'MO declares the |log2FC| >= 1 threshold (AXI-1376)' },
+      { kind: 'snapshot_created', authorHandle: 'cast-bioinformatician', description: 'LF creates the stratified snapshot v2 (AXI-1376)' },
+      { kind: 'evidence_declared', authorHandle: 'cast-bioinformatician', description: 'LF declares the top-discriminating-genes evidence (AXI-1377)' },
+      { kind: 'external_member_invited', authorHandle: 'cast-clinician', description: 'CN invites the external stakeholder (Capture Spec §12)' },
+      { kind: 'comment_resolved', authorHandle: 'cast-biologist', description: 'MO resolves the volcano y-axis QC concern (AXI-1375)' },
+      { kind: 'dataset_ingested', authorHandle: 'cast-bioinformatician', description: 'LF ingests the Riaz DE table (AXI-1372)' },
+      { kind: 'attestation_computed', authorHandle: 'service', description: 'system computes the quality attestation for the published analysis (AXI-1379)' },
+    ],
   },
 };

@@ -419,6 +419,46 @@ export interface InterpretationFixture {
 }
 
 /**
+ * One governance action the demo tenant's history should contain (AXI-1379,
+ * FR14/AC13, Capture Spec §15.1: "replace the 8 identical 'Dataset query
+ * executed' rows with varied governance events across 3 authors"). This is
+ * NOT a creation instruction — every kind here is the byproduct of a REST
+ * action an earlier step already performs for its own reason (publishing an
+ * interpretation, declaring a threshold, ...); `governanceEventsStaging.ts`
+ * never POSTs a synthetic "event" row. It exists so the readback/verify step
+ * has a declared expectation to check live feed/audit output against,
+ * instead of a bare magic number, and so a reviewer can see the intended
+ * 3-author spread as content (FR6), not buried in code.
+ *
+ * INVESTIGATION FINDING (this story, confirmed by reading `home.service.ts`'s
+ * 9-table audit union and `event-normalization.service.ts`'s cron projector
+ * source list): only 2 of these 8 kinds (`interpretation_published`,
+ * `dataset_ingested`) are actually projected into any REST-readable feed
+ * today (`/api/v1/home/events`, `/api/v1/overview/events`). The other 6 each
+ * write to their own real, correctly-attributed audit table
+ * (`thresholdAuditLog`, `declarationDraftAuditLog`,
+ * `clientExplorationAuditLog`, event-service's generic log for comment
+ * resolution, `attestationAuditLog`, and — for the snapshot — no audit trail
+ * at all) that no existing projector reads. This is a confirmed backend gap,
+ * not a toolkit limitation; see `governanceEventsStaging.ts`'s module doc.
+ */
+export type GovernanceEventKind =
+  | 'interpretation_published'
+  | 'threshold_declared'
+  | 'snapshot_created'
+  | 'evidence_declared'
+  | 'external_member_invited'
+  | 'comment_resolved'
+  | 'dataset_ingested'
+  | 'attestation_computed';
+
+export interface GovernanceEventExpectation {
+  kind: GovernanceEventKind;
+  authorHandle: string;
+  description: string;
+}
+
+/**
  * Slots for content later stories fill (FR6's fuller list: the scientific
  * question, assumption bodies, chart titles/specs, threshold values, comment
  * bodies, interpretation statements, evidence records, event-feed entries).
@@ -462,7 +502,8 @@ export interface ContentSlots {
    *  declared EARLIER in this same array (its live id must already exist by
    *  the time the computed entry is staged). */
   evidence: EvidenceFixture[];
-  events: unknown[];
+  /** AXI-1379 (FR14/AC13, Capture Spec §15.1). See {@link GovernanceEventExpectation}. */
+  events: GovernanceEventExpectation[];
 }
 
 export interface TenantFixture {

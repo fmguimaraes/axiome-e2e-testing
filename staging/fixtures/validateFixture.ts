@@ -243,6 +243,26 @@ export function checkEvidenceShape(fixture: TenantFixture): FixtureViolation[] {
   return violations;
 }
 
+/** AC13 (Capture Spec §15.1, AXI-1379) — fixture-level shape check: the
+ *  declared governance-event expectations must span >= 3 distinct authors
+ *  and every one of the 8 declared kinds is unique (a duplicate kind would
+ *  make "which action does this row describe" ambiguous). Does not assert
+ *  anything about what a live feed actually returns — see
+ *  `governanceEventsStaging.ts` for the confirmed gap there. */
+export function checkGovernanceEventsShape(fixture: TenantFixture): FixtureViolation[] {
+  const declared = fixture.content.events;
+  const violations: FixtureViolation[] = [];
+  const authors = new Set(declared.map((e) => e.authorHandle));
+  if (authors.size < 3) {
+    violations.push({ rule: 'AC13', detail: `declared governance events span only ${authors.size} distinct author(s), need >= 3` });
+  }
+  const kinds = new Set(declared.map((e) => e.kind));
+  if (kinds.size !== declared.length) {
+    violations.push({ rule: 'FR6', detail: 'declared governance events contain a duplicate kind' });
+  }
+  return violations;
+}
+
 function collectDeclaredNames(fixture: TenantFixture): string[] {
   const workspaceNames = fixture.workspaces.flatMap(collectWorkspaceNames);
   return [fixture.org.name, ...workspaceNames];
@@ -273,6 +293,7 @@ export function validateFixture(fixture: TenantFixture): FixtureViolation[] {
     ...checkInterpretationCitationsDeclared(fixture),
     ...checkInterpretationsShape(fixture),
     ...checkEvidenceShape(fixture),
+    ...checkGovernanceEventsShape(fixture),
   ];
 }
 

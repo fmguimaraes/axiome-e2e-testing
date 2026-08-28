@@ -4,14 +4,17 @@ import { TENANT_FIXTURE } from '../fixtures/tenantFixture';
 import { ensureIdentities } from '../identities/ensureIdentities';
 import { ensureAnalysisFramingStep } from './analysisFraming';
 import { applyCastNamesStep } from './applyCastNamesStep';
+import { ensureAttestationStep } from './attestationStaging';
 import { ensureChartsStep } from './chartStaging';
 import { ensureCommentsStep } from './commentStaging';
 import { SERVICE_HANDLE } from './context';
 import { ensureDatasetStep } from './datasetIngestion';
 import { ensureOrganizationStep } from './ensureOrganization';
+import { verifyGovernanceEventsStep } from './governanceEventsStaging';
 import { ensureInterpretationsEvidencePublishStep } from './interpretationsEvidenceStaging';
 import { verifyExternalScopingStep } from './externalScopingVerification';
 import { ensureSnapshotsStep } from './snapshotStaging';
+import { ensureSponsorExportStep } from './sponsorExportStaging';
 import { ensureThresholdsStep } from './thresholdStaging';
 import { ensureWorkspacesStep } from './ensureWorkspacesStep';
 import { runSteps } from './runSteps';
@@ -32,7 +35,10 @@ import type { TenantFixture } from '../fixtures/types';
  * Spec §20 (the external thread resolves to v2); interpretations/evidence/
  * publish (FR12/AC11, AXI-1377) depend on both snapshots and thresholds;
  * external scoping verification (FR13/AC12, AXI-1378) depends on the
- * published record and the external thread existing.
+ * published record and the external thread existing; attestation/passport
+ * and the sponsor export (Capture Spec §14, AXI-1379) depend on the
+ * published record; the governance-events verification (FR14/AC13,
+ * AXI-1379) runs last, after every other content-producing step.
  */
 const STEPS = [
   ensureOrganizationStep,
@@ -45,6 +51,9 @@ const STEPS = [
   ensureSnapshotsStep,
   ensureInterpretationsEvidencePublishStep,
   verifyExternalScopingStep,
+  ensureAttestationStep,
+  ensureSponsorExportStep,
+  verifyGovernanceEventsStep,
   applyCastNamesStep,
   verifyNoForbiddenNamesStep,
 ];
