@@ -15,6 +15,7 @@ import { ensureInterpretationsEvidencePublishStep } from './interpretationsEvide
 import { verifyExternalScopingStep } from './externalScopingVerification';
 import { ensureSnapshotsStep } from './snapshotStaging';
 import { ensureSponsorExportStep } from './sponsorExportStaging';
+import { ensureSubjectPairedTimepointsStep } from './subjectStaging';
 import { ensureThresholdsStep } from './thresholdStaging';
 import { ensureWorkspacesStep } from './ensureWorkspacesStep';
 import { runSteps } from './runSteps';
@@ -54,6 +55,7 @@ const STEPS = [
   ensureAttestationStep,
   ensureSponsorExportStep,
   verifyGovernanceEventsStep,
+  ensureSubjectPairedTimepointsStep,
   applyCastNamesStep,
   verifyNoForbiddenNamesStep,
 ];
