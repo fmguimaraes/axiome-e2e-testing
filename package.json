@@ -24,7 +24,10 @@
     "stage:identities": "tsx staging/identities/ensureIdentities.ts",
     "stage:unit": "tsx --test $(find staging -name '*.spec.ts')",
     "stage": "tsx staging/steps/stage.ts",
-    "verify": "tsx staging/verify/verify.ts"
+    "verify": "tsx staging/verify/verify.ts",
+    "capture:unit": "tsx --test $(find capture -name '*.spec.ts')",
+    "capture:no-backdoor": "tsx staging/checks/noBackdoor.ts capture",
+    "capture": "tsx capture/runCapture.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
