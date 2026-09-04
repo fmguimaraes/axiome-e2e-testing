@@ -270,7 +270,7 @@ against the instance this guide's routes were checked against.
    Note: volcano render params like `yAxisTransform: "neg_log10"` / `colorBy: "significance"` are accepted by the untyped `params` blob but are **not** contract fields — the volcano renderer reads them via the saved spec on the front end; they do not round-trip through a typed API read. Do not rely on reading them back from a generic candidate GET.
 6. **Declare governance thresholds.**
    ```
-   POST /api/v1/thresholds   { visualizationSpecId, field: "log2FoldChange", operator: "gte", value: 1, label: "..." }
+   POST /api/v1/thresholds   { visualizationSpecId, field: "log2FoldChange", operator: ">=", value: 1, label: "..." }   // operator is the SYMBOL (>= <= > < between), not the db token "gte"
    POST /api/v1/annotations  { visualizationSpecId, text: "<rationale>", author: "Marc Ottavi", target: { type: "threshold", thresholdId } }
    ```
 7. **Stage collaboration.**
@@ -463,6 +463,17 @@ so it doesn't waste calls discovering these the hard way:
 - **No evaluative/breach threshold state.** `ThresholdStatus` is
   `active|superseded|archived` only — there is no "failed" or "breached"
   status to build alerting logic against.
+- **A rule run only appears in an analysis's provenance graph if it is rooted
+  on that analysis's snapshot.** `GET /view-analyses/:id/provenance-graph`
+  seeds exclusively from `ViewAnalysisSnapshot` nodes and walks `DERIVED_FROM`
+  outward. A DELTA/STRATIFY run launched with `datasetId` (no `snapshotId`)
+  roots its chain on the **Dataset**, which the analysis graph never seeds from
+  — so the run executes and materializes a node, but is **invisible** on the
+  analysis (and it raises the `whole_dataset_referent` WARN). Mint a snapshot on
+  the analysis and pass its `snapshotId` (plus `datasetId`, still required) so
+  the `MaterializedView` rule-run node surfaces. Executing rule runs, the
+  semantic-profile prerequisite, and this gotcha are documented in full in
+  [`REST-Rule-Runs-and-Semantic-Profile.md`](REST-Rule-Runs-and-Semantic-Profile.md).
 
 None of the above are secrets discovered by reading source no client could
 see; every one of them is directly observable over REST (a 500 where you
