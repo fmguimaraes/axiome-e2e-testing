@@ -26,7 +26,6 @@ export const NAMES = {
   org: 'Axiome E2E Org',
   workspace: 'AXI-1435 Statistical Trigger Surface',
   project: 'AXI-1435 Statistical Trigger Surface',
-  ruleCode: 'STATISTICAL-01',
   profileId: 'immuno_oncology',
 };
 
@@ -34,7 +33,8 @@ export interface Tenant {
   orgId: string;
   workspaceId: string;
   projectId: string;
-  ruleId: string;
+  /** operationId → seeded per-operation rule id (AXI-1456). */
+  ruleIds: Record<string, string>;
   headers: Record<string, string>;
 }
 
@@ -63,48 +63,58 @@ export async function ensureTenant(api: Api): Promise<Tenant> {
     projectId = res.body.id;
   }
 
-  const ruleId = await ensureStatisticalRule(api);
-  return { orgId, workspaceId: workspaceId!, projectId: projectId!, ruleId, headers };
+  const ruleIds = await ensureStatisticalRules(api);
+  return { orgId, workspaceId: workspaceId!, projectId: projectId!, ruleIds, headers };
+}
+
+/** `stats.paired_ttest` → `STAT-PAIRED-TTEST` (mirrors create-statistical-rule.ts). */
+export function ruleCodeFor(operationId: string): string {
+  const method = operationId.includes('.') ? operationId.slice(operationId.lastIndexOf('.') + 1) : operationId;
+  return `STAT-${method.toUpperCase().replace(/_/g, '-')}`;
 }
 
 /**
- * Reuse-or-create the "Statistical" relationship-rule-family member (FR40,
- * FR43) — a SYSTEM-scope rule, so it is visible from any workspace/project's
- * picker without further linking. Deliberately mirrors
- * `axiome-back/scripts/create-statistical-rule.ts` field-for-field: if that
- * seed already ran (fresh environment bootstrap, CI, or the demo), this finds
- * it by code and reuses it as-is; otherwise it creates the identical shape,
- * so the spec never depends on which one happened first.
+ * Reuse-or-create ONE SYSTEM-scope governed rule per registered STATISTICAL
+ * operation (AXI-1456 — FR40, FR41, FR43), descriptor-driven so the seed
+ * tracks the registry. Mirrors `axiome-back/scripts/create-statistical-rule.ts`:
+ * each rule carries an `op:<operationId>` tag and the FEATURE_RULE-compliant
+ * `feature_name`/`value` output contract. Returns operationId → ruleId.
  */
-async function ensureStatisticalRule(api: Api): Promise<string> {
-  const existing = await api.get(`/api/v1/rules?category=relationship_rule&search=${NAMES.ruleCode}`);
-  const found = asList(existing.body).find((r: any) => r.code === NAMES.ruleCode);
-  if (found) return found.id;
+async function ensureStatisticalRules(api: Api): Promise<Record<string, string>> {
+  const descriptors = await api.get('/api/v1/rule-runs/operations?runKind=STATISTICAL');
+  const ops = (asList(descriptors.body?.operations ?? descriptors.body) as any[]).filter(
+    (o) => (o.runKind ?? 'STATISTICAL') === 'STATISTICAL',
+  );
+  const existing = await api.get('/api/v1/rules?category=relationship_rule&search=STAT-');
+  const byCode = new Map<string, string>(asList(existing.body).map((r: any) => [r.code, r.id]));
 
-  const created = await api.post('/api/v1/rules', {
-    code: NAMES.ruleCode,
-    title: 'Statistical',
-    question: 'What does a governed statistical test say about this referent?',
-    logicSummary:
-      'Runs a registered statistical operation (e.g. paired t-test, Mann-Whitney U, correlation, '
-      + 'Kaplan-Meier, DESeq2) over a pinned referent, chosen per run — the operation, its '
-      + 'column-role bindings and its parameters are all selected at run time, never baked into '
-      + 'this rule.',
-    scope: 'system',
-    category: 'relationship_rule',
-    protocolType: 'FEATURE_RULE',
-    tags: ['relationship-rule', 'statistical'],
-  });
-  const ruleId = created.body.id;
-  await api.patch(`/api/v1/rules/${ruleId}`, {
-    outputFields: [
-      { key: 'operation_id', type: 'string', description: 'The specific registered statistical operation that ran' },
-      { key: 'result', type: 'json', description: 'Per-row statistical result — columns are declared by the operation itself' },
-    ],
-  });
-  const pub = await api.post(`/api/v1/rules/${ruleId}/publish`, {});
-  if (pub.status >= 300) throw new Error(`Statistical rule publish failed (${pub.status}): ${JSON.stringify(pub.body)}`);
-  return ruleId;
+  const ids: Record<string, string> = {};
+  for (const op of ops) {
+    const code = ruleCodeFor(op.operationId);
+    if (byCode.has(code)) { ids[op.operationId] = byCode.get(code)!; continue; }
+    const title = op.label ?? op.operationId;
+    const created = await api.post('/api/v1/rules', {
+      code,
+      title,
+      question: `What does a governed ${title} say about this referent?`,
+      logicSummary: `Runs the governed statistical operation ${op.operationId} over a pinned referent; role bindings and parameters are chosen per run.`,
+      scope: 'system',
+      category: 'relationship_rule',
+      protocolType: 'FEATURE_RULE',
+      tags: ['relationship-rule', 'statistical', `op:${op.operationId}`],
+    });
+    const ruleId = created.body.id;
+    await api.patch(`/api/v1/rules/${ruleId}`, {
+      outputFields: [
+        { key: 'feature_name', type: 'string', description: 'Name of the computed feature' },
+        { key: 'value', type: 'number', description: 'Numeric feature value per row' },
+      ],
+    });
+    const pub = await api.post(`/api/v1/rules/${ruleId}/publish`, {});
+    if (pub.status >= 300) throw new Error(`Statistical rule ${code} publish failed (${pub.status}): ${JSON.stringify(pub.body)}`);
+    ids[op.operationId] = ruleId;
+  }
+  return ids;
 }
 
 const INGEST_TIMEOUT_MS = 90_000;

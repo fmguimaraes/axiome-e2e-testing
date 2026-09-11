@@ -1,7 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 import { adminApi, asList, type Api } from './harness/api';
 import {
-  ensureTenant, ingestFixture, assignProfileAndVerify, ensureAnalysis, pollTerminal,
+  ensureTenant, ingestFixture, assignProfileAndVerify, ensureAnalysis, pollTerminal, ruleCodeFor,
   type Tenant, type Analysis,
 } from './harness/seed';
 
@@ -11,43 +11,31 @@ import {
  *
  * Unlike the AXI-1396..1399 epic's read-only "descriptor liveness" proxies,
  * this spec DRIVES THE REAL FRONTEND: the run-rule picker
- * (`DeltaRuleSelectionModal`, reused unchanged for every relationship-rule
- * family member per FR18), the seeded "Statistical" rule (code
- * `STATISTICAL-01`, tags `['relationship-rule','statistical']` —
+ * (`DeltaRuleSelectionModal`, reused for every relationship-rule family member),
+ * the per-operation statistical rules (AXI-1456 — one governed rule per
+ * registered operation, code `STAT-<METHOD>`, tags
+ * `['relationship-rule','statistical','op:<operationId>']`, seeded by
  * `axiome-back/scripts/create-statistical-rule.ts`), and the descriptor-driven
- * `StatisticalRunConfigModal` AXI-1433 added. It seeds its own additive
- * project/dataset via the REST API (mirroring the suite's established
- * seeding convention — see `tests/AXI-1400/harness/seed.ts`), then drives a
- * real browser through: open the picker → select the statistical rule → the
- * descriptor-driven config opens → configure a compatible operation → run it
- * → poll to a terminal status → assert the result renders.
+ * `StatisticalRunConfigModal`. It seeds its own additive project/dataset via
+ * the REST API (mirroring `tests/AXI-1400/harness/seed.ts`), then drives a real
+ * browser through: open the picker → select an operation's rule → the config
+ * opens PRE-BOUND to that operation → bind columns/params → run → poll to a
+ * terminal status → assert the result renders.
  *
  * FIXTURE DESIGN NOTE (load-bearing for AC22): `statistical-trigger.csv`
  * (patient_id, timepoint, score, score2, cohort) is DELIBERATELY all-numeric.
- * `DeltaRuleSelectionModal`'s referent-compatibility gate — reused unchanged
- * for every family member, including Statistical, since it gates on the
- * REFERENT alone, before any rule-specific logic runs — requires a numeric
- * field AND a mapped subject key/pairing axis (`patient_id`/`timepoint`) with
- * ≥2 levels (`compatibilityGate.ts`) before ANY config screen opens; and
- * `StatisticalRunConfigModal`'s own per-operation disable gate
- * (`evaluateStatisticalCompatibility` in `statisticalRunColumns.ts`) only
- * distinguishes 'numeric' vs. everything-else ('categorical'/'any' fold into
- * the same non-numeric bucket — see `candidateColumnsForShape`). Because the
- * referent gate above FORCES both a numeric column and (via patient_id/
- * timepoint) a non-numeric one to exist, no operation can ever appear
- * disabled on a referent that also clears the picker — UNLESS the referent
- * has NO non-numeric column at all. Hence: every column here is numeric
- * (including patient_id/timepoint, which the profiler classifies as
- * `numeric` purely from dtype — cardinality-independent,
- * `dataset_profiling.py::infer_logical_type`), so `stats.chi_square`
- * (rowColumn/columnColumn, both REQUIRED 'categorical') has zero candidates
- * and is genuinely, structurally disabled — while `stats.correlation`
+ * Statistical rules BYPASS the Delta pairing-compatibility gate (AXI-1453/1455)
+ * — they gate per-operation inside their own config
+ * (`evaluateStatisticalCompatibility` in `statisticalRunColumns.ts`, which
+ * distinguishes 'numeric' vs. everything-else). So `stats.chi_square`
+ * (rowColumn/columnColumn, both REQUIRED 'categorical') has zero candidates on
+ * an all-numeric referent → its PRE-BOUND config names the incompatible reason
+ * and disables Run (AC22 structural half), while `stats.correlation`
  * (xColumn/yColumn, both 'numeric') and `stats.kruskal_wallis`
- * (groupColumn 'any' + valueColumns 'numeric') remain compatible. `cohort`
- * carries one singleton value (row 20) so Kruskal-Wallis's own count-based
- * BLOCK precondition (`sufficient_group_members`, min 2 per group) still
- * refuses the run at execute time even though the operation itself is
- * selectable (AC22's second, server-side clause).
+ * (groupColumn 'any' + valueColumns 'numeric') are fillable. `cohort` carries
+ * one singleton value (row 20) so Kruskal-Wallis's count-based BLOCK
+ * precondition (`sufficient_group_members`, min 2 per group) still refuses the
+ * run at execute time (AC22's second, server-side clause).
  *
  * ACCESSIBILITY-GAP NOTE (load-bearing for the locators below): every
  * `Field` in `StatisticalRunConfigModal.tsx` renders `<label>{label}</label>`
@@ -99,15 +87,21 @@ async function seedWorkspaceScope(page: Page): Promise<void> {
  *  seeded Statistical rule, and wait for its descriptor-driven config to
  *  open (the picker auto-confirms once its referent-compatibility gate
  *  passes — `DeltaRuleSelectionModal`'s own `useEffect`, no separate click). */
-async function openStatisticalConfig(page: Page): Promise<void> {
+/** Open the run-rule picker on the analysis (AXI-1456: each statistical operation
+ *  is its own rule in the picker, so we select one by its `STAT-<METHOD>` code). */
+async function openRunRulePicker(page: Page): Promise<void> {
   await seedWorkspaceScope(page);
   await page.goto(`/projects/${tenant.projectId}/view-analyses/${analysis.analysisId}`);
-
   await page.getByRole('button', { name: 'Run rule' }).click();
-  const statisticalRow = page.getByRole('radio').filter({ hasText: 'STATISTICAL-01' });
-  await expect(statisticalRow).toBeVisible({ timeout: 15_000 });
-  await statisticalRow.click();
+  await expect(page.getByRole('heading', { name: /Run relationship rule/i })).toBeVisible({ timeout: 15_000 });
+}
 
+/** Select a per-operation statistical rule by its code and wait for the config,
+ *  which opens PRE-BOUND to that operation (no in-config method picker). */
+async function selectMethodRule(page: Page, ruleCode: string): Promise<void> {
+  const row = page.getByRole('radio').filter({ hasText: ruleCode });
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  await row.click();
   await expect(page.getByRole('heading', { name: /^Configure Statistical$/ })).toBeVisible({ timeout: 15_000 });
 }
 
@@ -127,22 +121,21 @@ test.describe('AXI-1435 — statistical trigger surface (picker → config → r
     const statisticalOps = (rawList as any[]).filter((op) => op.runKind === 'STATISTICAL');
     expect(statisticalOps.length, 'no STATISTICAL operations registered on this environment').toBeGreaterThan(0);
 
-    await openStatisticalConfig(page);
+    await openRunRulePicker(page);
 
-    // FR40/FR41 — the config surface offers a control per REGISTERED
-    // operation, read from the live descriptor set, not a hardcoded list.
+    // FR40 — each REGISTERED operation is its own selectable rule in the picker,
+    // one per live descriptor (not a hardcoded list, not a single rule).
     for (const op of statisticalOps) {
       await expect(
-        page.getByRole('radio', { name: new RegExp(escapeRegExp(op.label)) }),
-        `operation "${op.label}" (${op.operationId}) is not offered in the config surface`,
+        page.getByRole('radio').filter({ hasText: ruleCodeFor(op.operationId) }),
+        `operation "${op.label}" (${op.operationId}) has no rule in the picker`,
       ).toBeVisible();
     }
 
     // A compatible operation: correlation needs two NUMERIC columns
-    // (xColumn/yColumn) — both present on this all-numeric referent.
-    const correlationRadio = page.getByRole('radio', { name: /^Correlation$/ });
-    await expect(correlationRadio).toBeEnabled();
-    await correlationRadio.click();
+    // (xColumn/yColumn) — both present on this all-numeric referent. Selecting
+    // its rule opens the config PRE-BOUND to stats.correlation (FR41).
+    await selectMethodRule(page, ruleCodeFor('stats.correlation'));
 
     await selectAfterLabel(page, 'xColumn').selectOption('score');
     await selectAfterLabel(page, 'yColumn').selectOption('score2');
@@ -182,25 +175,21 @@ test.describe('AXI-1435 — statistical trigger surface (picker → config → r
   });
 
   test("AC22 — an operation whose required roles can't bind is shown disabled with a reason; a count-based BLOCK still refuses at execute time", async ({ page }) => {
-    await openStatisticalConfig(page);
-
-    // Structural half (FE, `evaluateStatisticalCompatibility`): chi-square
-    // needs two CATEGORICAL columns and this referent has none — disabled,
-    // not hidden, with the exact reason for its first declared role.
-    const chiSquareRadio = page.getByRole('radio', { name: /Chi-square/ });
-    await expect(chiSquareRadio).toBeVisible();
-    await expect(chiSquareRadio).toBeDisabled();
+    // Structural half (FE, `evaluateStatisticalCompatibility`): the Chi-square
+    // rule needs two CATEGORICAL columns and this referent has none — its config
+    // opens PRE-BOUND but names the incompatible reason for its first declared
+    // role, with Run disabled (not hidden).
+    await openRunRulePicker(page);
+    await selectMethodRule(page, ruleCodeFor('stats.chi_square'));
     await expect(page.getByText("No categorical column available for 'rowColumn'.")).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Run rule' }).last()).toBeDisabled();
+    await page.getByRole('button', { name: 'Cancel' }).click();
 
-    // Kruskal-Wallis's groupColumn is 'any'-shaped (structurally selectable
-    // on ANY dataset — see the module note above), so it is NOT disabled
-    // here: the insufficient-per-group precondition is a deliberately
-    // client-unevaluated, server-side, execute-time refusal
-    // (`statisticalRunColumns.ts`'s own doc comment on
-    // `evaluateStatisticalCompatibility`).
-    const kruskalRadio = page.getByRole('radio', { name: /^Kruskal-Wallis test$/ });
-    await expect(kruskalRadio).toBeEnabled();
-    await kruskalRadio.click();
+    // Kruskal-Wallis's groupColumn is 'any'-shaped (structurally bindable on ANY
+    // dataset), so its config is fillable; the insufficient-per-group precondition
+    // is a deliberately client-unevaluated, server-side, execute-time refusal.
+    await openRunRulePicker(page);
+    await selectMethodRule(page, ruleCodeFor('stats.kruskal_wallis'));
 
     await page.getByRole('checkbox', { name: 'score', exact: true }).check();
     await selectAfterLabel(page, 'groupColumn').selectOption('cohort');
@@ -216,7 +205,3 @@ test.describe('AXI-1435 — statistical trigger surface (picker → config → r
     await expect(page.getByText(/sufficient_group_members/)).toBeVisible({ timeout: 20_000 });
   });
 });
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
