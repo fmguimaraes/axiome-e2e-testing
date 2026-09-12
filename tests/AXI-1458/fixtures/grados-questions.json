@@ -1,0 +1,58 @@
+{
+  "questions": [
+    { "id": 1, "category": "group_comparison", "question": "Does T-cell polarization toward TH2/TFH2 and TH17/TFH17 separate IgG4-RD from healthy controls and from pSS?" },
+    { "id": 2, "category": "group_comparison", "question": "Are the major lymphocyte subsets (T, CD4+, CD8+, NK, B) abnormal in IgG4-RD, or is pSS the lymphopenic group?" },
+    { "id": 3, "category": "group_comparison", "question": "Does stimulated cytokine release (IL-4, IL-10, IL-17, IFNγ) differ between the three groups?" },
+    { "id": 4, "category": "group_comparison", "question": "Does IFNγ release differ between IgG4-RD, HC and pSS?" },
+    { "id": 5, "category": "group_comparison", "question": "Are circulating plasmablasts expanded in IgG4-RD relative to healthy controls, and is that expansion specific versus pSS?" },
+    { "id": 6, "category": "group_comparison", "question": "Are regulatory T cells (CD4+FoxP3+) increased in IgG4-RD?" },
+    { "id": 7, "category": "group_comparison", "question": "Is total PD1+ TFH increased in IgG4-RD, and do both representations agree?" },
+    { "id": 8, "category": "group_comparison", "question": "Is TFH2 expanded in IgG4-RD in both percentage of TFH and absolute count?" },
+
+    { "id": 9, "category": "representation", "question": "Is TFH1 reduced in IgG4-RD — and does the answer depend on whether it is read as a share of TFH or as an absolute count?" },
+    { "id": 10, "category": "representation", "question": "Is TFH17 raised in IgG4-RD — and does the representation flip the answer in the opposite direction to TFH1?" },
+    { "id": 11, "category": "representation", "question": "Across all populations measured in both representations, how many change their conclusion between percentage and absolute count?" },
+    { "id": 12, "category": "representation", "question": "Does the direction of the treatment response depend on whether TFH is read as a percentage or an absolute count?" },
+
+    { "id": 13, "category": "longitudinal", "question": "Does circulating PD1+ TFH fall from baseline to post-treatment in the treated patients?" },
+    { "id": 14, "category": "longitudinal", "question": "Does the direction of change differ between patients treated with rituximab and those on steroids alone?" },
+    { "id": 15, "category": "longitudinal", "question": "Is the observed fall in TFH consistent with regression to the mean given the baseline values?" },
+    { "id": 16, "category": "longitudinal", "question": "For a given patient, did circulating TFH actually fall after treatment?" },
+
+    { "id": 17, "category": "cohort_structure", "question": "What can be said about the patients who have no post-treatment timepoint?" },
+    { "id": 18, "category": "cohort_structure", "question": "Do the treated patients differ at baseline from the untreated ones?" },
+    { "id": 19, "category": "cohort_structure", "question": "How many patients have complete data across all four primary datasets?" },
+    { "id": 20, "category": "cohort_structure", "question": "Does age or sex confound the group comparisons, given that the three cohorts differ on both?" },
+
+    { "id": 21, "category": "correlation", "question": "Does circulating TFH2 correlate with serum IgG4?" },
+    { "id": 22, "category": "correlation", "question": "Does TFH17 correlate with IL-17 release?" },
+    { "id": 23, "category": "correlation", "question": "Does that correlation hold if the two most extreme points are removed?" },
+    { "id": 24, "category": "correlation", "question": "Does the IgG4-RD Responder Index correlate with any measured immunological variable?" },
+    { "id": 25, "category": "correlation", "question": "Of the nineteen correlations tested, how many survive correction for multiple testing?" },
+    { "id": 26, "category": "correlation", "question": "Does the IL-10 correlation reported in the figure agree with the value reported in the table?" },
+    { "id": 27, "category": "correlation", "question": "Which pairs entered the correction, and would a different set change which findings stand?" },
+
+    { "id": 28, "category": "stratification", "question": "Does serum IgG4 above 1.35 g/L identify a distinct immunological profile within IgG4-RD?" },
+    { "id": 29, "category": "stratification", "question": "Do patients with two or more organs involved show a different TFH2 profile from those with single-organ disease?" },
+    { "id": 30, "category": "stratification", "question": "Does the immunological profile differ between patients sampled at first flare and at relapse?" },
+
+    { "id": 31, "category": "pathology", "question": "Does the histological IgG4/IgG ratio relate to circulating TFH2 or plasmablasts?" },
+    { "id": 32, "category": "pathology", "question": "Which denominator was used for each reported IgG4 ratio, and does the choice change the answer?" },
+    { "id": 33, "category": "pathology", "question": "Do patients with storiform fibrosis differ immunologically from those without?" },
+
+    { "id": 34, "category": "data_quality", "question": "Do the three TFH subsets sum to the full TFH compartment, and what does the residual imply for the percentage readings?" },
+    { "id": 35, "category": "data_quality", "question": "Do measurements differ systematically between the recruiting sites?" },
+    { "id": 36, "category": "data_quality", "question": "How much of the variance in the immunological measures is explained by site or batch rather than by disease?" },
+    { "id": 37, "category": "data_quality", "question": "How many cytokine values fall below the limit of detection, and how are they handled?" },
+    { "id": 38, "category": "data_quality", "question": "Do any child populations exceed their parent in comparable units?" },
+    { "id": 39, "category": "data_quality", "question": "Do any numeric clinical columns contain values that fail to parse as numbers?" },
+    { "id": 40, "category": "data_quality", "question": "Does the recomputed mean serum IgG4 match the published value?" },
+    { "id": 41, "category": "data_quality", "question": "Does the proportion of patients with two or more organs involved depend on how the free-text organ field is parsed?" },
+    { "id": 42, "category": "data_quality", "question": "Which dispersion measure do the reported group values actually use?" },
+
+    { "id": 43, "category": "governance", "question": "Do the declared group values agree with the values recomputed from the data?" },
+    { "id": 44, "category": "governance", "question": "Would the same contrast reach the same conclusion under a different statistical engine?" },
+    { "id": 45, "category": "governance", "question": "How many analyses were run on this cohort before the reported one?" },
+    { "id": 46, "category": "governance", "question": "Given everything above, which findings would still stand in a national recommendation?" }
+  ]
+}
