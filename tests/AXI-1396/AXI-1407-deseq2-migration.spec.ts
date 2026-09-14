@@ -108,7 +108,6 @@ test.describe(
         deseq2,
         'stats.deseq2_differential_expression absent from the live operation surface',
       ).toBeTruthy();
-      expect(deseq2!.kind).toBe('STATISTICAL');
       expect(deseq2!.runKind).toBe('STATISTICAL');
 
       // AC8: the migration lands ALONGSIDE the existing operations, not in

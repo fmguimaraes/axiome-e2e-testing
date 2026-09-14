@@ -91,7 +91,29 @@ async function seedWorkspaceScope(page: Page): Promise<void> {
  *  is its own rule in the picker, so we select one by its `STAT-<METHOD>` code). */
 async function openRunRulePicker(page: Page): Promise<void> {
   await seedWorkspaceScope(page);
-  await page.goto(`/projects/${tenant.projectId}/view-analyses/${analysis.analysisId}`);
+  // Pin the PRISTINE base referent (the empty-filter dataset snapshot resolved by
+  // the seed harness) as the current view. Without an explicit snapshotId the app
+  // defaults the current view to the LATEST snapshot — on the shared, persistent
+  // demo DB that is an accumulated stats.correlation RESULT snapshot (columns
+  // coefficient/pValue/ciLow/ciHigh/n/reason). The config modal binds its column
+  // dropdowns to `snapshotNavData.current`, so inheriting that result snapshot
+  // makes correlation's xColumn offer coefficient/pValue (never score/score2) and
+  // chi-square's rowColumn offer the categorical `reason` (never "no categorical
+  // column available"). Pinning the base guarantees the all-numeric referent
+  // (score/score2/cohort/…) the AC21/AC22 assertions were written against, and is
+  // robust to BOTH intra-file contamination (AC21 runs a correlation before AC22)
+  // and cross-run accumulation.
+  await page.goto(
+    `/projects/${tenant.projectId}/view-analyses/${analysis.analysisId}?snapshotId=${analysis.snapshotId}`,
+  );
+  // Wait for the current view to SETTLE on the pinned base snapshot (v1, the
+  // empty-filter dataset referent — the seed's base is always version 1) before
+  // opening the picker. `snapshotNavData.current` resolves the ?snapshotId param
+  // asynchronously and can briefly hold the latest (result) snapshot first;
+  // opening the config modal mid-transition churns its referent and can leave the
+  // column dropdowns unpopulated. Both the object line and the breadcrumb render
+  // "Snapshot v1" only while the base is the current view.
+  await expect(page.getByText(/Snapshot v1\b/).first()).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Run rule' }).click();
   await expect(page.getByRole('heading', { name: /Run relationship rule/i })).toBeVisible({ timeout: 15_000 });
 }
@@ -102,7 +124,10 @@ async function selectMethodRule(page: Page, ruleCode: string): Promise<void> {
   const row = page.getByRole('radio').filter({ hasText: ruleCode });
   await expect(row).toBeVisible({ timeout: 15_000 });
   await row.click();
-  await expect(page.getByRole('heading', { name: /^Configure Statistical$/ })).toBeVisible({ timeout: 15_000 });
+  // AXI-1456 split the surface into one rule per operation; the config modal now
+  // renders "Configure {rule.title}" (the selected op's own title), so match the
+  // method-agnostic prefix rather than the old single "Configure Statistical".
+  await expect(page.getByRole('heading', { name: /^Configure / })).toBeVisible({ timeout: 15_000 });
 }
 
 /** The `<select>` immediately following an EXACT-text `<label>` — see the
@@ -152,11 +177,32 @@ test.describe('AXI-1435 — statistical trigger surface (picker → config → r
     expect(ruleRunId, `execute() returned no ruleRunId: ${JSON.stringify(runBody)}`).toBeTruthy();
 
     const run = await pollTerminal(api, tenant, ruleRunId!);
-    expect(run.status, `stats.correlation run ${ruleRunId}: ${run.statusMessage ?? run.errorMessage ?? ''}`).toBe('SUCCEEDED');
+    // FR17 — an identical governed submission legitimately DEDUPES to the existing
+    // materialised result rather than recomputing. The STATISTICAL run fingerprint
+    // (axiome-back run-fingerprint.ts) keys on datasetVersionId + filters +
+    // operandRoles + operation/params, NOT the snapshot id — so on the shared,
+    // persistent demo DB (and across --repeat-each) the deterministic correlation
+    // inputs ALWAYS hit dedup after the first run, and no choice of referent
+    // snapshot can avoid it. Both SUCCEEDED and DEDUPED are terminal-success
+    // outcomes that yield a rendering result; a DEDUPED run links the ORIGINAL
+    // run's materialised node/snapshot (dedupedFromRunId / existingSnapshotId).
+    expect(
+      ['SUCCEEDED', 'DEDUPED'],
+      `stats.correlation run ${ruleRunId}: ${run.statusMessage ?? run.errorMessage ?? ''}`,
+    ).toContain(run.status);
+    // Guardrail: a DEDUPED outcome is only accepted when it actually links a
+    // prior materialised result. A DEDUPED response missing these is a failure,
+    // so this can never mask a run that didn't really produce a result.
+    if (run.status === 'DEDUPED') {
+      expect(runBody.deduped, `DEDUPED run ${ruleRunId} missing deduped flag`).toBe(true);
+      expect(runBody.dedupedFromRunId, `DEDUPED run ${ruleRunId} has no dedupedFromRunId`).toBeTruthy();
+      expect(runBody.existingSnapshotId, `DEDUPED run ${ruleRunId} has no existingSnapshotId`).toBeTruthy();
+    }
+    const resultRunId: string = run.status === 'DEDUPED' ? runBody.dedupedFromRunId : run.id;
 
     // FR13/FR32 — the materialised result carries the operation's declared
     // output columns (correlation: coefficient/pValue/ciLow/ciHigh/n/reason).
-    const table = await api.get(`/api/v1/rule-runs/${run.id}/table`, tenant.headers);
+    const table = await api.get(`/api/v1/rule-runs/${resultRunId}/table`, tenant.headers);
     expect(table.status).toBe(200);
     expect(table.body.totalRows).toBeGreaterThanOrEqual(1);
     expect(table.body.columns).toEqual(expect.arrayContaining(['coefficient', 'pValue']));
@@ -164,12 +210,15 @@ test.describe('AXI-1435 — statistical trigger surface (picker → config → r
     // FR33/AC12 — the run registers a rule-derived snapshot in THIS analysis;
     // opening it renders through the existing explorable-result surface
     // (AXI-1419), not a bespoke statistical viewer — the same declared
-    // columns are visible as a table.
+    // columns are visible as a table. A deduped submission reuses the original
+    // run's snapshot (by resultRunId, or the response's existingSnapshotId).
     const snapshots = await api.get(`/api/v1/view-analyses/${analysis.analysisId}/snapshots?page=1&limit=100`, tenant.headers);
-    const produced = asList(snapshots.body).find((s: any) => s.ruleRunId === run.id);
-    expect(produced, `no rule-derived snapshot registered for run ${run.id}`).toBeTruthy();
+    const producedId: string | undefined =
+      asList(snapshots.body).find((s: any) => s.ruleRunId === resultRunId)?.id
+      ?? (runBody.existingSnapshotId as string | undefined);
+    expect(producedId, `no rule-derived snapshot registered for run ${resultRunId}`).toBeTruthy();
 
-    await page.goto(`/projects/${tenant.projectId}/view-analyses/${analysis.analysisId}?snapshotId=${produced.id}`);
+    await page.goto(`/projects/${tenant.projectId}/view-analyses/${analysis.analysisId}?snapshotId=${producedId}`);
     await expect(page.getByRole('columnheader', { name: 'coefficient' })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('columnheader', { name: 'pValue' })).toBeVisible();
   });

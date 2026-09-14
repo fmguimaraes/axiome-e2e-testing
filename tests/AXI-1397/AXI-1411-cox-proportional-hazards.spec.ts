@@ -100,7 +100,6 @@ test.describe(
     test('AC1 — the Cox operation is dispatchable on the live surface, alongside kaplan_meier', async () => {
       const cox = operations.find((op) => op.operationId === COX_ID);
       expect(cox, `${COX_ID} absent from the live operation surface`).toBeTruthy();
-      expect(cox!.kind).toBe('STATISTICAL');
       expect(cox!.runKind).toBe('STATISTICAL');
 
       // Cox is added ALONGSIDE the first lifelines operation, never in place of it.

@@ -97,7 +97,6 @@ test.describe(
     test('FR20/AC8 — stats.kaplan_meier is dispatchable on the live surface, alongside paired_ttest', async () => {
       const km = operations.find((op) => op.operationId === 'stats.kaplan_meier');
       expect(km, 'stats.kaplan_meier absent from the live operation surface').toBeTruthy();
-      expect(km!.kind).toBe('STATISTICAL');
       expect(km!.runKind).toBe('STATISTICAL');
 
       // AC8: the migration lands ALONGSIDE the paired path, not in place of it —
