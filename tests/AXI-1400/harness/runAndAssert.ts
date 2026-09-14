@@ -59,8 +59,16 @@ async function resolveMaterialisedRow(api: Api, t: Tenant, row: any): Promise<an
   if (row.status !== 'DEDUPED') return row;
   const originalId = row.dedupedFromRunId;
   expect(originalId, 'DEDUPED run must name its original').toBeTruthy();
-  const original = await api.get(`/api/v1/rule-runs/${originalId}`, t.headers);
-  return original.body;
+  // The dev/HMR stack can transiently 500 a single read under load; a non-2xx is
+  // a "real answer" the transport-level withRetry deliberately does not retry, so
+  // re-fetch the original run a few times until it resolves to a real row rather
+  // than failing the whole op on a transient blip (does not mask a missing run).
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const original = await api.get(`/api/v1/rule-runs/${originalId}`, t.headers);
+    if (original.status < 300 && original.body?.id) return original.body;
+    await sleep(1500);
+  }
+  throw new Error(`could not resolve deduped original run ${originalId}`);
 }
 
 /**
@@ -77,6 +85,7 @@ export async function runOperation(
   // surfacing as a transient "fetch failed"/reset in the executor. Retry a
   // transient FAILED a couple of times before treating it as a real failure.
   let submitted: any;
+  let submitBody: any;
   let lastDetail = '';
   for (let attempt = 0; attempt < 3; attempt++) {
     const submit = await api.post('/api/v1/rule-runs', runBody(t, a, datasetId, op), t.headers);
@@ -85,6 +94,7 @@ export async function runOperation(
       await sleep(3000);
       continue;
     }
+    submitBody = submit.body;
     const ruleRunId = submit.body.ruleRunId;
     expect(ruleRunId, `no ruleRunId for ${op.operationId}`).toBeTruthy();
     submitted = await pollTerminal(api, t, ruleRunId);
@@ -125,11 +135,22 @@ export async function runOperation(
   expect(d.defaultChart, `${op.operationId} defaultChart`).toBeTruthy();
   expect(d.defaultChart!.type, `${op.operationId} chart type`).toBeTruthy();
 
-  // FR33 — a rule-derived snapshot for this operation lands in the analysis.
-  const snaps = await api.get(`/api/v1/view-analyses/${a.analysisId}/snapshots?page=1&limit=50`, t.headers);
+  // FR33 — a rule-derived snapshot for this operation, named for the operation,
+  // exists in the analysis the run materialised into. On a DEDUPE (FR17) an
+  // identical prior submission already materialised the result in the ORIGINAL
+  // analysis (the run fingerprint keys on the referent's datasetVersionId + rule
+  // + operation/params + operandRoles, not the analysis — kernel/run-fingerprint.ts),
+  // so the fresh analysis legitimately holds no new snapshot. The submit response
+  // names that original analysis; assert the (real, op-named) snapshot THERE,
+  // tied to the canonical run — never skipping the check.
+  const snapshotAnalysisId: string =
+    submitBody?.deduped ? (submitBody.existingViewAnalysisId ?? a.analysisId) : a.analysisId;
+  const snaps = await api.get(`/api/v1/view-analyses/${snapshotAnalysisId}/snapshots?page=1&limit=200`, t.headers);
   const derived = asList(snaps.body).filter((s: any) => s.origin === 'rule_derived');
-  expect(derived.some((s: any) => String(s.name ?? '').includes(op.operationId)),
-    `${op.operationId} rule-derived snapshot`).toBeTruthy();
+  expect(
+    derived.some((s: any) => s.ruleRunId === canonicalRunId && String(s.name ?? '').includes(op.operationId)),
+    `${op.operationId} rule-derived snapshot (analysis ${snapshotAnalysisId}, run ${canonicalRunId})`,
+  ).toBeTruthy();
 
   return { ok: true };
 }
