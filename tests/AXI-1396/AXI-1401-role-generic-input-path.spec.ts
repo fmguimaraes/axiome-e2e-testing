@@ -87,7 +87,6 @@ test.describe('AXI-1401 — role-generic input path (§4.1)', { tag: ['@SI-017']
     const paired = operations.find((op) => op.operationId === 'stats.paired_ttest');
     expect(paired, 'stats.paired_ttest absent from the live operation surface').toBeTruthy();
     expect(paired!.runKind).toBe('STATISTICAL');
-    expect(paired!.kind).toBe('STATISTICAL');
   });
 
   test('FR6/AC4 — the descriptor exposes the declared role vocabulary the resolver reads off', async () => {

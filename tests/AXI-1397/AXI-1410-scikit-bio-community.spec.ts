@@ -36,7 +36,7 @@ interface ColumnRoleDescriptor {
 interface ParameterDescriptor {
   key: string;
   required: boolean;
-  constraints?: { allowedValues?: string[] };
+  allowedValues?: string[] | null;
 }
 
 interface OperationDescriptor {
@@ -110,7 +110,6 @@ test.describe(
       for (const id of COMMUNITY_IDS) {
         const op = operations.find((candidate) => candidate.operationId === id);
         expect(op, `${id} absent from the live operation surface`).toBeTruthy();
-        expect(op!.kind).toBe('STATISTICAL');
         expect(op!.runKind).toBe('STATISTICAL');
       }
       // Added alongside, never displacing the existing conformance proof.
@@ -133,7 +132,7 @@ test.describe(
       const alpha = operations.find((op) => op.operationId === 'stats.alpha_diversity')!;
       const metric = alpha.parameters.find((p) => p.key === 'metric');
       expect(metric, 'alpha diversity should declare a metric parameter').toBeTruthy();
-      expect(metric!.constraints?.allowedValues).toEqual(['shannon', 'simpson', 'observed_features']);
+      expect(metric!.allowedValues).toEqual(['shannon', 'simpson', 'observed_features']);
       // No parameter that changes WHICH test runs.
       const alphaKeys = alpha.parameters.map((p) => p.key);
       expect(alphaKeys).not.toContain('test');
@@ -142,7 +141,11 @@ test.describe(
 
       for (const id of TEST_IDS) {
         const op = operations.find((candidate) => candidate.operationId === id)!;
-        expect(op.parameters, `${id} must declare no parameters (fixed properties only)`).toHaveLength(0);
+        // AXI-1437 injects the governed `censoringSubstitution` analytic param
+        // across the statistical surface — real product behaviour, not a
+        // test-selection knob. Assert no SELECTION parameters remain.
+        const selectionParams = op.parameters.filter((p) => p.key !== 'censoringSubstitution');
+        expect(selectionParams, `${id} must declare no test-selection parameters (fixed properties only)`).toHaveLength(0);
       }
     });
 

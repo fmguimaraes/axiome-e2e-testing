@@ -100,7 +100,6 @@ test.describe(
     test('AC1 — the mixed model is dispatchable on the live surface, alongside the existing operations', async () => {
       const op = operations.find((candidate) => candidate.operationId === OPERATION_ID);
       expect(op, `${OPERATION_ID} absent from the live operation surface`).toBeTruthy();
-      expect(op!.kind).toBe('STATISTICAL');
       expect(op!.runKind).toBe('STATISTICAL');
 
       // Added ALONGSIDE the existing conformance proof, never in place of it.
