@@ -79,8 +79,11 @@ test('AC19 — a dataset-version QC run lands in the dataset default analysis', 
 test('AC19 — a dataset with no default analysis is refused, not accommodated', { tag: ['@SI-017'] }, async () => {
   const projectId = await ensureProject(api, t, NAMES.refusalProject);
   const analysisId = await ensureDefaultAnalysis(api, t, projectId, datasetId);
-  const archived = await api.patch(`/api/v1/view-analyses/${analysisId}/archive`, {}, t.headers);
-  expect(archived.status, `archive default analysis: ${JSON.stringify(archived.body)}`).toBeLessThan(300);
+  const current = await api.get(`/api/v1/view-analyses/${analysisId}`, t.headers);
+  if (current.body?.status !== 'archived') {
+    const archived = await api.patch(`/api/v1/view-analyses/${analysisId}/archive`, {}, t.headers);
+    expect(archived.status, `archive default analysis: ${JSON.stringify(archived.body)}`).toBeLessThan(300);
+  }
 
   const runsBefore = await api.get(`/api/v1/rule-runs?workspaceId=${t.workspaceId}&projectId=${projectId}&limit=100`, t.headers);
   const runCountBefore = (runsBefore.body.data ?? runsBefore.body._list ?? runsBefore.body ?? []).length ?? 0;
