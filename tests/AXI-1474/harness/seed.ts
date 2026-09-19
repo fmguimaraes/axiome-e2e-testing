@@ -23,6 +23,7 @@ export const NAMES = {
   workspace: 'Executable QC Validation',
   project: 'Executable QC Validation',
   refusalProject: 'Executable QC Validation — No Container',
+  stalenessProject: 'Executable QC Validation — Staleness',
   qcRuleCode: 'IMM-QC-01',
   fixture: 'qc_sample.csv',
 };
@@ -143,6 +144,33 @@ export async function resolveMaterialisedRow(api: Api, t: Tenant, row: any): Pro
     throw new Error(`could not resolve deduped original run ${row.dedupedFromRunId}`);
   }
   return original.body;
+}
+
+/**
+ * Trigger a new ingestion of an ALREADY-INGESTED dataset (§4.5/AC21) — the
+ * `.../ingestions` endpoint re-reads the dataset's existing `s3Key`, so a
+ * genuinely new `Ingestion`/version is minted with no file re-upload, and no
+ * new `Dataset` row is created (unlike `POST .../datasets`, which always
+ * makes a new dataset). This is what `IngestionsService.createIngestion`
+ * calls `markEarlierQcVerdictsStale` from.
+ */
+export async function triggerReingestion(api: Api, t: Tenant, datasetId: string): Promise<string> {
+  const submit = await api.post(
+    `/api/v1/workspaces/${t.workspaceId}/datasets/${datasetId}/ingestions`,
+    { organizationId: t.orgId },
+    t.headers,
+  );
+  if (submit.status >= 300) throw new Error(`re-ingestion submit failed (${submit.status}): ${JSON.stringify(submit.body)}`);
+
+  const deadline = Date.now() + INGEST_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const d = await api.get(`/api/v1/workspaces/${t.workspaceId}/datasets/${datasetId}`, t.headers);
+    const status = d.body?.latestIngestion?.status;
+    if (status === 'ready') return d.body.latestIngestion.id;
+    if (status === 'failed') throw new Error('re-ingestion failed');
+    await sleep(INGEST_POLL_MS);
+  }
+  throw new Error('re-ingestion timed out');
 }
 
 /**
