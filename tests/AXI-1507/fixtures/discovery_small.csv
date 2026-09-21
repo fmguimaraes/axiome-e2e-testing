@@ -1,0 +1,6 @@
+row_id,biomarker_x,biomarker_y,arm,response
+R000,3.43,5.072,A,CR
+R001,3.233,2.814,B,PD
+R002,2.878,3.287,A,CR
+R003,2.321,4.564,B,PD
+R004,4.101,5.439,A,SD
