@@ -355,9 +355,9 @@ async function approveInterpretation(client: RestClient, workspaceId: string, pr
   log(`approved interpretation node ${nodeId}`);
 }
 
-interface DecisionRow { id: string; status: string; label: string }
+export interface DecisionRow { id: string; status: string; label: string }
 
-async function recordDecision(
+export async function recordDecision(
   client: RestClient,
   serviceUserId: string,
   workspaceId: string,
