@@ -27,11 +27,14 @@ export default defineConfig({
   // Reporters (FR27): list for the console, JUnit XML for the CI gate, HTML for
   // humans. Both JUnit and HTML are emitted on every run and published as CI
   // artifacts (AXI-1267 upload step); retained 90 days as qualification evidence
-  // for the release line (NFR9).
+  // for the release line (NFR9). JSON carries the per-test step detail (incl.
+  // `page.goto` navigations) that `epic-acceptance.ts` reads to build the
+  // Feature/Description/Deeplink table in the acceptance report.
   reporter: [
     ['list'],
     ['junit', { outputFile: 'test-results/junit.xml' }],
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['json', { outputFile: 'test-results/results.json' }],
   ],
   use: {
     baseURL: BASE_URL,

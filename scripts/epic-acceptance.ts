@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { BASE_URL } from '../config/env';
 
 /**
  * Epic acceptance figure (AXI-1270 — FR34/FR35, AC17).
@@ -11,6 +12,11 @@ import path from 'node:path';
  * the cross-story flows executed. The human adds the walked `manual` residue.
  * A green figure against a deployed environment is the citable machine record
  * for Workflow 6 PQ (FR35).
+ *
+ * The figure is followed by a per-test Feature/Description/Deeplink table
+ * (verifiability for the human sign-off): built from the `json` reporter's
+ * step detail, so the deeplink is the *actual* last `page.goto` the test
+ * navigated to, not a guessed route.
  */
 
 export interface EpicFigure {
@@ -61,15 +67,91 @@ export function renderFigure(f: EpicFigure): string {
   ].join('\n');
 }
 
+export interface DeeplinkRow {
+  feature: string;
+  description: string;
+  deeplink: string;
+}
+
+/** Test titles lead with their AC/FR/NFR IDs (CONVENTIONS.md) — split those
+ *  off as the "Feature" column, the rest is the human description. */
+export function splitTitle(title: string): { feature: string; description: string } {
+  const m = /^((?:(?:AC|FR|NFR)\d+[,\s]*)+)[\s—-]*(.*)$/.exec(title.trim());
+  if (!m || !m[2]) return { feature: '(untagged)', description: title.trim() };
+  return { feature: m[1].trim(), description: m[2].trim() };
+}
+
+/** The last `page.goto(...)` step recorded for a test, i.e. the screen the
+ *  test actually finished exercising — searched depth-first in run order so
+ *  a later navigation always wins over an earlier one. */
+export function lastGotoPath(steps: unknown): string | undefined {
+  let found: string | undefined;
+  const walk = (list: unknown): void => {
+    if (!Array.isArray(list)) return;
+    for (const step of list) {
+      const s = step as { title?: string; steps?: unknown };
+      const m = /^page\.goto\(['"](.*)['"]\)$/.exec(s.title ?? '');
+      if (m) found = m[1];
+      walk(s.steps);
+    }
+  };
+  walk(steps);
+  return found;
+}
+
+/** Resolve a goto path against {@link BASE_URL} into a full, clickable deeplink. */
+export function toDeeplink(gotoPath: string | undefined): string {
+  if (!gotoPath) return BASE_URL;
+  return /^https?:\/\//.test(gotoPath) ? gotoPath : `${BASE_URL}/${gotoPath.replace(/^\/+/, '')}`;
+}
+
+/** Flatten the `json` reporter's suite tree into one row per executed test. */
+export function buildDeeplinkRows(report: unknown): DeeplinkRow[] {
+  const rows: DeeplinkRow[] = [];
+  const walkSuite = (suite: unknown): void => {
+    const s = suite as { specs?: unknown[]; suites?: unknown[] };
+    for (const spec of s.specs ?? []) {
+      const sp = spec as { title: string; tests?: unknown[] };
+      const { feature, description } = splitTitle(sp.title);
+      for (const test of sp.tests ?? []) {
+        for (const result of (test as { results?: unknown[] }).results ?? []) {
+          const deeplink = toDeeplink(lastGotoPath((result as { steps?: unknown }).steps));
+          rows.push({ feature, description, deeplink });
+        }
+      }
+    }
+    for (const child of s.suites ?? []) walkSuite(child);
+  };
+  const report_ = report as { suites?: unknown[] };
+  for (const suite of report_.suites ?? []) walkSuite(suite);
+  return rows;
+}
+
+/** Render the verifiability table — one clickable deeplink per executed test. */
+export function renderDeeplinkTable(rows: DeeplinkRow[]): string {
+  if (!rows.length) return '';
+  const lines = [
+    '| Feature | Description | Deeplink |',
+    '| --- | --- | --- |',
+    ...rows.map((r) => `| ${r.feature} | ${r.description} | [Open](${r.deeplink}) |`),
+  ];
+  return lines.join('\n');
+}
+
 function main(): void {
   const epic = process.env.EPIC || process.argv[2];
   if (!epic) { console.error('usage: epic-acceptance <EPIC-KEY>'); process.exit(2); }
   const testsDir = path.resolve(process.cwd(), 'tests', epic);
   const junit = path.resolve(process.cwd(), 'test-results/junit.xml');
+  const resultsJson = path.resolve(process.cwd(), 'test-results/results.json');
   const res = spawnSync('npx', ['playwright', 'test', `tests/${epic}/`], { stdio: 'inherit', cwd: process.cwd() });
   const xml = existsSync(junit) ? readFileSync(junit, 'utf8') : '';
   const figure = buildFigure(epic, xml, testsDir);
   console.log('\n' + renderFigure(figure));
+  if (existsSync(resultsJson)) {
+    const rows = buildDeeplinkRows(JSON.parse(readFileSync(resultsJson, 'utf8')));
+    console.log('\n' + renderDeeplinkTable(rows));
+  }
   process.exit(res.status ?? 1);
 }
 
