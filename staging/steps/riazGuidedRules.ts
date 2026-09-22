@@ -28,6 +28,9 @@
  * except the QC rule.
  */
 import type { DecisionDraftConfidence } from './stageRiazGuided';
+import type { RuleDraft } from '../rules/ensureRule';
+
+export type { RuleDraft };
 
 export const QC_RULE_CODE = 'RIAZ-QC-PAIRED-01';
 export const INT_CYTO_CODE = 'RIAZ-INT-CYTO-01';
@@ -39,11 +42,6 @@ export const CYTO_GENES = ['CD8A', 'PRF1', 'GZMB', 'IFNG', 'PDCD1', 'LAG3'] as c
 export const CYTO_DELTA_THRESHOLD = 0.5; // log2 CPM, Pre→On, paired mean
 export const CYTO_K_OF_N = 4;
 export const CYTO_P_THRESHOLD = 0.05;
-
-export interface RuleDraft {
-  create: Record<string, unknown>;
-  body: Record<string, unknown>;
-}
 
 const RUO = 'Research Use Only — not for diagnostic or treatment decisions.';
 

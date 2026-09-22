@@ -159,7 +159,7 @@ Trace ids (`docs/riaz-guided-trace.json`):
 | Beat | Link |
 |---|---|
 | Project overview | http://localhost:5173/biotech-one/public-datasets-io-benchmarks/riaz-2017-nivolumab-melanoma/overview |
-| Guided analyses history (the run GR-bef16bdd) | http://localhost:5173/projects/ba5d1363-a7d3-485f-8907-6e046dfce514/guided-analyses |
+| Guided analyses history — lists PLANNER sessions only (the LLM run PL-dc8414d3 below), NOT the direct run GR-bef16bdd | http://localhost:5173/projects/ba5d1363-a7d3-485f-8907-6e046dfce514/guided-analyses |
 | The analysis — QC + 3 paired-test snapshots | http://localhost:5173/projects/ba5d1363-a7d3-485f-8907-6e046dfce514/view-analyses/b511e309-de32-42dc-937d-7f9c5e3156ee |
 | Provenance graph (root → filters → rule-derived) | http://localhost:5173/projects/ba5d1363-a7d3-485f-8907-6e046dfce514/view-analyses/b511e309-de32-42dc-937d-7f9c5e3156ee/provenance |
 | Decisions list | http://localhost:5173/projects/ba5d1363-a7d3-485f-8907-6e046dfce514/view-analyses/b511e309-de32-42dc-937d-7f9c5e3156ee/decisions |
@@ -175,8 +175,42 @@ snapshots (27 / 9 / 18 pairs; PDCD1 and PRF1 rise; responders fire all six)
 → provenance → decision (RUO, medium, human-approved, linked to the four
 evidence snapshots).
 
+## The same question through the real guided-analysis UI (LLM planner, 2026-09-22)
+
+The run above submits a hand-authored plan. Asking the question in the guided
+page as Marc Ottavi (URL **must** carry `workspaceId`, see gotchas) produced an
+LLM plan that cited `RIAZ-QC-PAIRED-01` on its own and reproduced the same
+three paired contrasts:
+
+| Object | Id |
+|---|---|
+| Guided session | `cc07e3d7-5547-4802-bf78-59259ab7c6c7` |
+| Planner plan (anthropic, 2 attempts, no fallback) | `PL-dc8414d3` |
+| UI run — FAILED at the QC node (cited org rule not resolvable, no `organizationId` in the UI submit) | `GR-3415c38c` / analysis `9cd9151a-a2f7-41c5-8f6a-18d52968a470` |
+| Same plan resubmitted with `organizationId` — SUCCEEDED, interpretation approved | **`GR-7f7f965b`** / analysis **`0dc1183c-452f-4e0f-b65b-3511336a7f14`** |
+| Responders paired t-test (CD8A Δ +1.18, n 9, p 0.070, CI −0.12..2.48) | rule run `76a976cd-20bc-44d0-8811-5be34ed70a2e`, snapshot `5e73f2ec-0068-445d-b487-6453273691f2` |
+| Non-responders paired t-test (CD8A Δ +0.10, n 18, p 0.777) | rule run `99ca6413-a91a-4e53-9ceb-1b9bc9ad386b`, snapshot `ce7e785c-19d8-4fa3-a581-7a23e950d763` |
+| QC snapshot (deduped to run `4450c8e0`) | `56a21774-d299-4b34-804d-6abde4376666` |
+
+Deep links: guided history http://localhost:5173/projects/ba5d1363-a7d3-485f-8907-6e046dfce514/guided-analyses
+(PL-dc8414d3) · analysis http://localhost:5173/projects/ba5d1363-a7d3-485f-8907-6e046dfce514/view-analyses/0dc1183c-452f-4e0f-b65b-3511336a7f14
+
+Ten more questions, and the `stage:rules` library that publishes rules of
+every protocol for them: [Riaz-Guided-Questions.md](Riaz-Guided-Questions.md).
+
 ## Gotchas
 
+- **Guided page URL needs `workspaceId`** (`hasRealDataset = datasetId &&
+  workspaceId`); without it the page uses the spike sample dataset, the
+  planner envelope carries `datasets: []` and the fallback plan answers a
+  different question.
+- **UI Run omits `organizationId`** on `POST /governed-execution/submit`, and
+  the message controller reads `data.organizationId` only, so org-scoped QC
+  rules fail as "not resolvable" from the UI (GR-3415c38c). Resubmit via REST
+  with `organizationId`, or fix the backend to fall back to
+  `data.caller.organizationId`.
+- **`POST /governed-execution/resolve` needs `governed_execution:approve`**;
+  the presenter's role lacks it — approve as the service identity.
 - **Filter operators are bio-compute's vocabulary**: `eq`, `neq`, `in`, `gt`,
   `gte`, `lt`, `lte`, `is_null`. `==` fails the node with
   `Unsupported filter operator` (run GR-98873d46 on the project is that

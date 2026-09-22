@@ -18,8 +18,8 @@ import {
   evaluateDecision,
   evaluateResp,
   type PairedGeneStat,
-  type RuleDraft,
 } from './riazGuidedRules';
+import { asList, ensureRule, must } from '../rules/ensureRule';
 import type { ProvisioningContext } from './context';
 
 /**
@@ -86,21 +86,9 @@ function log(msg: string): void {
   console.log(`[stage:riaz-guided] ${msg}`);
 }
 
-function must<T>(res: { ok: boolean; status: number; body?: T }, what: string): T {
-  if (!res.ok || res.body === undefined) throw new Error(`${what} failed (status ${res.status}): ${JSON.stringify(res.body).slice(0, 400)}`);
-  return res.body;
-}
-
-function asList<T>(body: unknown): T[] {
-  if (Array.isArray(body)) return body as T[];
-  const rec = (body ?? {}) as Record<string, unknown>;
-  const data = rec.data ?? rec.ruleRuns ?? rec.items;
-  return Array.isArray(data) ? (data as T[]) : [];
-}
-
 // ── 1. tenant + profile ──────────────────────────────────────────────────────
 
-async function resolveTenant(client: RestClient): Promise<{ workspaceId: string; projectId: string; organizationId: string | null }> {
+export async function resolveTenant(client: RestClient): Promise<{ workspaceId: string; projectId: string; organizationId: string | null }> {
   const all: Array<{ id: string; name: string; ownerOrganizationId?: string | null }> = [];
   for (let page = 1; page <= 5; page++) {
     const res = must(await client.as<unknown>(ADMIN_HANDLE, 'GET', `/api/v1/workspaces?limit=100&page=${page}`), 'listing workspaces');
@@ -156,36 +144,7 @@ async function ensureDataset(client: RestClient, serviceUserId: string, workspac
   return { datasetId: ds.id, versionHash };
 }
 
-// ── 3. rules ─────────────────────────────────────────────────────────────────
-
-interface RuleRow { id: string; code: string; version: number; status: string; scope: string }
-
-async function ensureRule(client: RestClient, draft: RuleDraft, scope: { organizationId: string | null; workspaceId: string }): Promise<RuleRow> {
-  const code = draft.create.code as string;
-  const listed = asList<RuleRow>(must(await client.as<unknown>(ADMIN_HANDLE, 'GET', `/api/v1/rules?search=${encodeURIComponent(code)}&limit=50`), `listing rules ${code}`))
-    .filter((r) => r.code === code)
-    .sort((a, b) => b.version - a.version);
-  const published = listed.find((r) => r.status === 'published');
-  if (published) {
-    log(`rule ${code} v${published.version} already published (${published.id})`);
-    return published;
-  }
-  let draftRow = listed.find((r) => r.status === 'draft');
-  if (!draftRow) {
-    // `RuleScope` is system|workspace|project. A governed qc_check resolves its
-    // cited rule by `{scope:'system'} OR {organizationId}` (rule-runs-analysis-
-    // runner.ts `findCitedRule`), so a workspace-scoped rule STAMPED with the
-    // tenant's organizationId is what makes the citation land without minting
-    // a system rule. No org on the workspace → system scope (platform admin).
-    const stamp = scope.organizationId ? { scope: 'workspace', organizationId: scope.organizationId, workspaceId: scope.workspaceId } : { scope: 'system' };
-    draftRow = must(await client.as<RuleRow>(ADMIN_HANDLE, 'POST', '/api/v1/rules', { ...draft.create, ...stamp }), `creating rule ${code}`);
-    log(`created rule ${code} (${draftRow.id}, scope ${stamp.scope})`);
-  }
-  must(await client.as(ADMIN_HANDLE, 'PATCH', `/api/v1/rules/${draftRow.id}`, draft.body), `authoring rule ${code}`);
-  const pub = must(await client.as<RuleRow>(ADMIN_HANDLE, 'POST', `/api/v1/rules/${draftRow.id}/publish`, { justification: 'Riaz 2017 guided demo — rule library for the on-treatment induction question' }), `publishing rule ${code}`);
-  log(`published rule ${code} v${pub.version ?? '?'} (${draftRow.id})`);
-  return { ...draftRow, ...pub, id: draftRow.id };
-}
+// ── 3. rules — `rules/ensureRule.ts` (shared with `stage:rules`) ─────────────
 
 // ── 4. plan + governed run ───────────────────────────────────────────────────
 
@@ -455,7 +414,7 @@ export async function stageRiazGuided(client: RestClient, adminEmail: string, ad
   const rules: Trace['rules'] = {};
   for (const make of ALL_RULES) {
     const draft = make();
-    const row = await ensureRule(client, draft, { organizationId: tenant.organizationId, workspaceId: tenant.workspaceId });
+    const { row } = await ensureRule(client, draft, { organizationId: tenant.organizationId, workspaceId: tenant.workspaceId }, { log, justification: 'Riaz 2017 guided demo — rule library for the on-treatment induction question' });
     rules[draft.create.code as string] = { id: row.id, version: row.version, status: row.status };
   }
 
