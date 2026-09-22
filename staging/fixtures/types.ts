@@ -84,7 +84,7 @@ export interface OrganizationFixture {
  * this as a `dataRequirement`; it exists to be the dataset a snapshot
  * {@link SnapshotFixture.datasetRole} links to.
  */
-export type DataRequirement = 'de_table' | 'count_matrix' | 'stratified_de_table';
+export type DataRequirement = 'de_table' | 'count_matrix' | 'stratified_de_table' | 'paired_expression_long';
 
 /**
  * One dataset version the tenant carries (AXI-1372 FR7/AC5, widened by

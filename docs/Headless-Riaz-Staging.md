@@ -18,6 +18,11 @@ cd axiome-global/axiome-e2e-testing
 npm run stage:riaz
 ```
 
+A second pack, the guided rule-bound question ("does nivolumab induce an
+on-treatment cytotoxic program, and only in responders?"), builds on this one:
+see [Riaz-Guided-Rule-Workflow.md](Riaz-Guided-Rule-Workflow.md)
+(`npm run stage:riaz-guided`).
+
 Entry point: [`staging/steps/stageRiaz.ts`](../staging/steps/stageRiaz.ts). It
 reuses `stageTenant()` from `stage.ts` unchanged; the only differences are the
 fixture re-point (below) and a final system-role grant.
@@ -29,7 +34,7 @@ fixture re-point (below) and a final system-role grant.
 | Demo stack up | `make demo-up` in the superrepo | gateway :3000, front :5173, biocompute :8000, Postgres container `axiome-localhost` |
 | Platform admin | `admin@axiome.local` / `admin` | override with `STAGING_ADMIN_EMAIL` / `STAGING_ADMIN_PASSWORD` |
 | Identity passwords | `~/.axiome/staging/identities.local.json` | created by `npm run stage:identities`; `STAGING_PASSWORD_<HANDLE>` overrides |
-| Source CSVs | `staging/fixtures/tenantFixture.ts` `content.datasets[]` | de_table, count_matrix, stratified_de_table (Riaz 2017 derived files) |
+| Source CSVs | `staging/fixtures/tenantFixture.ts` `content.datasets[]` + `RIAZ_PAIRED_LONG_DATASET` | de_table, count_matrix, stratified_de_table, paired_expression_long (Riaz 2017 derived files; the last from `riaz_de/build_immune_paired_long_dataset.py`) |
 | Gateway URL | `STAGING_BASE_URL` | default `http://localhost:3000` |
 
 ## What it does

@@ -2,7 +2,7 @@ import { RestClient } from '../client/RestClient';
 import { TENANT_FIXTURE } from '../fixtures/tenantFixture';
 import { ADMIN_HANDLE } from './context';
 import { stageTenant } from './stage';
-import type { TenantFixture } from '../fixtures/types';
+import type { DatasetFixture, TenantFixture } from '../fixtures/types';
 
 /**
  * Headless staging of the Riaz 2017 demo project (the "Riaz RNA-Seq Volcano"
@@ -21,8 +21,26 @@ import type { TenantFixture } from '../fixtures/types';
  * Override the target with STAGING_RIAZ_WORKSPACE / STAGING_RIAZ_PROJECT
  * (both must be names the fixture declares).
  */
-const WORKSPACE = process.env.STAGING_RIAZ_WORKSPACE?.trim() || 'Public Datasets — IO Benchmarks';
-const PROJECT = process.env.STAGING_RIAZ_PROJECT?.trim() || 'Riaz 2017 — Nivolumab Melanoma';
+export const WORKSPACE = process.env.STAGING_RIAZ_WORKSPACE?.trim() || 'Public Datasets — IO Benchmarks';
+export const PROJECT = process.env.STAGING_RIAZ_PROJECT?.trim() || 'Riaz 2017 — Nivolumab Melanoma';
+
+/**
+ * The fourth dataset version of the Riaz pack — the LONG, one-row-per-measurement
+ * on-treatment immune panel `riaz_de/build_immune_paired_long_dataset.py`
+ * derives from the raw BMS038 count matrix (24 IFN-γ / cytotoxic / checkpoint
+ * genes × 27 fully-paired R/NR patients × Pre/On, log2 CPM). It is the referent
+ * of the guided, rule-bound workflow `stageRiazGuided.ts` runs; `patient_id` /
+ * `timepoint` are the canonical fields the `immuno_oncology` profile maps.
+ */
+export const RIAZ_PAIRED_LONG_DATASET: DatasetFixture = {
+  role: 'paired_expression_long',
+  originalFilename: 'riaz2017_immune_paired_log2cpm_long.csv',
+  contentType: 'text/csv',
+  workspaceName: WORKSPACE,
+  projectName: PROJECT,
+  localPathEnv: 'STAGING_RIAZ_PAIRED_LONG_CSV_PATH',
+  defaultLocalPath: '/home/felipe/dev/axiome/riaz_de/riaz2017_immune_paired_log2cpm_long.csv',
+};
 
 export function riazFixture(base: TenantFixture = TENANT_FIXTURE): TenantFixture {
   return {
@@ -30,7 +48,7 @@ export function riazFixture(base: TenantFixture = TENANT_FIXTURE): TenantFixture
     workspaces: base.workspaces.filter((w) => w.name === WORKSPACE).map((w) => ({ ...w, retiredProjects: [] })),
     content: {
       ...base.content,
-      datasets: base.content.datasets.map((d) => ({ ...d, workspaceName: WORKSPACE, projectName: PROJECT })),
+      datasets: [...base.content.datasets.map((d) => ({ ...d, workspaceName: WORKSPACE, projectName: PROJECT })), RIAZ_PAIRED_LONG_DATASET],
     },
   };
 }

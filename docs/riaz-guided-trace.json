@@ -1,0 +1,393 @@
+{
+  "question": "Does nivolumab induce an on-treatment cytotoxic / IFN-γ transcriptional program in melanoma, and is that induction confined to responders?",
+  "at": "2026-09-22T19:29:40.806Z",
+  "workspaceId": "81bc7740-7dd0-45d6-9b8e-b7fdef861078",
+  "projectId": "ba5d1363-a7d3-485f-8907-6e046dfce514",
+  "organizationId": "cea57e48-acf1-4639-9a79-35bc32ba260e",
+  "profileId": "immuno_oncology",
+  "fieldMappings": [
+    {
+      "sourceField": "gene",
+      "canonicalField": "gene_identifier",
+      "matchedAlias": "gene",
+      "status": "matched"
+    },
+    {
+      "sourceField": "subjectId",
+      "canonicalField": null,
+      "matchedAlias": null,
+      "status": "unmatched"
+    },
+    {
+      "sourceField": "T1",
+      "canonicalField": null,
+      "matchedAlias": null,
+      "status": "unmatched"
+    },
+    {
+      "sourceField": "T2",
+      "canonicalField": null,
+      "matchedAlias": null,
+      "status": "unmatched"
+    },
+    {
+      "sourceField": "gene",
+      "canonicalField": "gene_identifier",
+      "matchedAlias": "gene",
+      "status": "matched"
+    },
+    {
+      "sourceField": "log2_cpm",
+      "canonicalField": null,
+      "matchedAlias": null,
+      "status": "unmatched"
+    },
+    {
+      "sourceField": "patient_id",
+      "canonicalField": "patient_id",
+      "matchedAlias": "patient_id",
+      "status": "matched"
+    },
+    {
+      "sourceField": "prior_ipi",
+      "canonicalField": null,
+      "matchedAlias": null,
+      "status": "unmatched"
+    },
+    {
+      "sourceField": "response",
+      "canonicalField": "response_status",
+      "matchedAlias": "response",
+      "status": "matched"
+    },
+    {
+      "sourceField": "timepoint",
+      "canonicalField": "timepoint",
+      "matchedAlias": "timepoint",
+      "status": "matched"
+    },
+    {
+      "sourceField": "baseMean",
+      "canonicalField": "mean_expression",
+      "matchedAlias": "baseMean",
+      "status": "matched"
+    },
+    {
+      "sourceField": "gene",
+      "canonicalField": "gene_identifier",
+      "matchedAlias": "gene",
+      "status": "matched"
+    },
+    {
+      "sourceField": "lfcSE",
+      "canonicalField": "effect_size_se",
+      "matchedAlias": "lfcSE",
+      "status": "matched"
+    },
+    {
+      "sourceField": "log2FoldChange",
+      "canonicalField": "effect_size",
+      "matchedAlias": "log2FoldChange",
+      "status": "matched"
+    },
+    {
+      "sourceField": "padj",
+      "canonicalField": "padj",
+      "matchedAlias": "padj",
+      "status": "matched"
+    },
+    {
+      "sourceField": "pvalue",
+      "canonicalField": "pvalue",
+      "matchedAlias": "pvalue",
+      "status": "matched"
+    },
+    {
+      "sourceField": "gene",
+      "canonicalField": "gene_identifier",
+      "matchedAlias": "gene",
+      "status": "matched"
+    },
+    {
+      "sourceField": "on_expression",
+      "canonicalField": null,
+      "matchedAlias": null,
+      "status": "unmatched"
+    },
+    {
+      "sourceField": "patient_id",
+      "canonicalField": "patient_id",
+      "matchedAlias": "patient_id",
+      "status": "matched"
+    },
+    {
+      "sourceField": "pre_expression",
+      "canonicalField": null,
+      "matchedAlias": null,
+      "status": "unmatched"
+    },
+    {
+      "sourceField": "response",
+      "canonicalField": "response_status",
+      "matchedAlias": "response",
+      "status": "matched"
+    },
+    {
+      "sourceField": "baseMean",
+      "canonicalField": "mean_expression",
+      "matchedAlias": "baseMean",
+      "status": "matched"
+    },
+    {
+      "sourceField": "gene",
+      "canonicalField": "gene_identifier",
+      "matchedAlias": "gene",
+      "status": "matched"
+    },
+    {
+      "sourceField": "lfcSE",
+      "canonicalField": "effect_size_se",
+      "matchedAlias": "lfcSE",
+      "status": "matched"
+    },
+    {
+      "sourceField": "log2FoldChange",
+      "canonicalField": "effect_size",
+      "matchedAlias": "log2FoldChange",
+      "status": "matched"
+    },
+    {
+      "sourceField": "padj",
+      "canonicalField": "padj",
+      "matchedAlias": "padj",
+      "status": "matched"
+    },
+    {
+      "sourceField": "pvalue",
+      "canonicalField": "pvalue",
+      "matchedAlias": "pvalue",
+      "status": "matched"
+    },
+    {
+      "sourceField": "stratum",
+      "canonicalField": null,
+      "matchedAlias": null,
+      "status": "unmatched"
+    }
+  ],
+  "datasetId": "7703a6b4-db1e-4780-9936-778015eebf0a",
+  "datasetVersionHash": "sha256:f4c1476c6aa442b67bd9f3e40abf07434988ba1a0d340fb6e7fa74bb4c28c150",
+  "rules": {
+    "RIAZ-QC-PAIRED-01": {
+      "id": "40f34ddf-66af-4bc1-8d25-6ff6620acca7",
+      "version": 3,
+      "status": "published"
+    },
+    "RIAZ-INT-CYTO-01": {
+      "id": "e4b34821-9770-4c45-a91f-fc65cc73be86",
+      "version": 3,
+      "status": "published"
+    },
+    "RIAZ-INT-RESP-01": {
+      "id": "eb4a825e-7ef0-4a1f-9c35-13dc3c0a1e71",
+      "version": 3,
+      "status": "published"
+    },
+    "RIAZ-DEC-01": {
+      "id": "74b7818a-f85c-48af-a618-7729e696a449",
+      "version": 3,
+      "status": "published"
+    }
+  },
+  "planId": "riaz-guided-mud2ivms",
+  "runId": "GR-bef16bdd",
+  "viewAnalysisId": "b511e309-de32-42dc-937d-7f9c5e3156ee",
+  "runStatus": "ok",
+  "nodes": [
+    {
+      "nodeId": "GR-bef16bdd__qc_paired",
+      "status": "SUCCEEDED",
+      "error": null
+    },
+    {
+      "nodeId": "GR-bef16bdd__responders",
+      "status": "SUCCEEDED",
+      "error": null
+    },
+    {
+      "nodeId": "GR-bef16bdd__induction_non_responders",
+      "status": "SUCCEEDED",
+      "error": null
+    },
+    {
+      "nodeId": "GR-bef16bdd__induction_all",
+      "status": "SUCCEEDED",
+      "error": null
+    },
+    {
+      "nodeId": "GR-bef16bdd__non_responders",
+      "status": "SUCCEEDED",
+      "error": null
+    },
+    {
+      "nodeId": "GR-bef16bdd__interpretation",
+      "status": "SUCCEEDED",
+      "error": null
+    },
+    {
+      "nodeId": "GR-bef16bdd__induction_responders",
+      "status": "SUCCEEDED",
+      "error": null
+    }
+  ],
+  "ruleRuns": [
+    {
+      "id": "4450c8e0-3714-4d87-9a14-c3de6ae90093",
+      "kind": "QC",
+      "operationId": "qc.rule_gate",
+      "status": "SUCCEEDED",
+      "snapshotId": "4c182b68-85da-4045-b924-3a1adc87d1ae",
+      "producedSnapshotId": "09261a77-225f-4693-aaea-170eee093d22",
+      "planNode": "qc_paired"
+    },
+    {
+      "id": "6ff7d387-a1c2-44fc-a0a7-1fa989eb6ca6",
+      "kind": "STATISTICAL",
+      "operationId": "stats.paired_ttest",
+      "status": "SUCCEEDED",
+      "snapshotId": "4c182b68-85da-4045-b924-3a1adc87d1ae",
+      "producedSnapshotId": "1ed44734-305f-4519-9ad2-2d4a7a86aae6",
+      "planNode": "induction_all"
+    },
+    {
+      "id": "f3f77a04-d447-4d19-afdc-410e896b00be",
+      "kind": "STATISTICAL",
+      "operationId": "stats.paired_ttest",
+      "status": "SUCCEEDED",
+      "snapshotId": "ade02930-7ffc-46e5-88c6-a06b51656fae",
+      "producedSnapshotId": "387229d7-861c-4bf1-ace8-06befd4a6569",
+      "planNode": "induction_non_responders"
+    },
+    {
+      "id": "3d377096-4be8-478f-be0a-66b8fe41a5c2",
+      "kind": "STATISTICAL",
+      "operationId": "stats.paired_ttest",
+      "status": "SUCCEEDED",
+      "snapshotId": "72a91bca-5943-4d78-9d41-2520a86e51f1",
+      "producedSnapshotId": "5ce2733d-f541-46e9-b5ef-a251e0d3a1fd",
+      "planNode": "induction_responders"
+    }
+  ],
+  "snapshots": [
+    {
+      "id": "4c182b68-85da-4045-b924-3a1adc87d1ae",
+      "name": null,
+      "version": 1,
+      "origin": "filter",
+      "parentSnapshotId": null
+    },
+    {
+      "id": "72a91bca-5943-4d78-9d41-2520a86e51f1",
+      "name": null,
+      "version": 2,
+      "origin": "filter",
+      "parentSnapshotId": "4c182b68-85da-4045-b924-3a1adc87d1ae"
+    },
+    {
+      "id": "ade02930-7ffc-46e5-88c6-a06b51656fae",
+      "name": null,
+      "version": 3,
+      "origin": "filter",
+      "parentSnapshotId": "4c182b68-85da-4045-b924-3a1adc87d1ae"
+    },
+    {
+      "id": "09261a77-225f-4693-aaea-170eee093d22",
+      "name": "QC result: RIAZ-QC-PAIRED-01 v3",
+      "version": 4,
+      "origin": "rule_derived",
+      "parentSnapshotId": "4c182b68-85da-4045-b924-3a1adc87d1ae"
+    },
+    {
+      "id": "1ed44734-305f-4519-9ad2-2d4a7a86aae6",
+      "name": "Statistical result: stats.paired_ttest",
+      "version": 5,
+      "origin": "rule_derived",
+      "parentSnapshotId": "4c182b68-85da-4045-b924-3a1adc87d1ae"
+    },
+    {
+      "id": "387229d7-861c-4bf1-ace8-06befd4a6569",
+      "name": "Statistical result: stats.paired_ttest",
+      "version": 6,
+      "origin": "rule_derived",
+      "parentSnapshotId": "ade02930-7ffc-46e5-88c6-a06b51656fae"
+    },
+    {
+      "id": "5ce2733d-f541-46e9-b5ef-a251e0d3a1fd",
+      "name": "Statistical result: stats.paired_ttest",
+      "version": 7,
+      "origin": "rule_derived",
+      "parentSnapshotId": "72a91bca-5943-4d78-9d41-2520a86e51f1"
+    }
+  ],
+  "verdicts": {
+    "RIAZ-INT-CYTO-01": {
+      "all": {
+        "stateLabel": "cytotoxic_program_not_induced",
+        "genesFired": [
+          "PRF1",
+          "PDCD1",
+          "LAG3"
+        ],
+        "genesSignificant": [
+          "PRF1",
+          "PDCD1"
+        ],
+        "confidence": 0
+      },
+      "responders": {
+        "stateLabel": "cytotoxic_program_induced",
+        "genesFired": [
+          "CD8A",
+          "PRF1",
+          "GZMB",
+          "IFNG",
+          "PDCD1",
+          "LAG3"
+        ],
+        "genesSignificant": [
+          "PDCD1"
+        ],
+        "confidence": 0.3
+      },
+      "nonResponders": {
+        "stateLabel": "cytotoxic_program_not_induced",
+        "genesFired": [],
+        "genesSignificant": [],
+        "confidence": 0
+      }
+    },
+    "RIAZ-INT-RESP-01": {
+      "stateLabel": "responder_restricted",
+      "confidence": 0.55
+    },
+    "RIAZ-DEC-01": {
+      "verdict": "consistent_with_riaz_2017",
+      "confidence": 0.55,
+      "draftConfidence": "medium"
+    }
+  },
+  "decisionId": "7ee630ad-2bc4-4f9d-a4ff-e4225a6878e6",
+  "decisionStatus": "approved",
+  "deepLinks": {
+    "project": "http://localhost:5173/biotech-one/public-datasets-io-benchmarks/riaz-2017-nivolumab-melanoma/overview",
+    "guidedHistory": "http://localhost:5173/projects/ba5d1363-a7d3-485f-8907-6e046dfce514/guided-analyses",
+    "analysis": "http://localhost:5173/projects/ba5d1363-a7d3-485f-8907-6e046dfce514/view-analyses/b511e309-de32-42dc-937d-7f9c5e3156ee",
+    "provenance": "http://localhost:5173/projects/ba5d1363-a7d3-485f-8907-6e046dfce514/view-analyses/b511e309-de32-42dc-937d-7f9c5e3156ee/provenance",
+    "decisions": "http://localhost:5173/projects/ba5d1363-a7d3-485f-8907-6e046dfce514/view-analyses/b511e309-de32-42dc-937d-7f9c5e3156ee/decisions",
+    "decision": "http://localhost:5173/projects/ba5d1363-a7d3-485f-8907-6e046dfce514/view-analyses/b511e309-de32-42dc-937d-7f9c5e3156ee/decisions/7ee630ad-2bc4-4f9d-a4ff-e4225a6878e6",
+    "rule:RIAZ-QC-PAIRED-01": "http://localhost:5173/rules/40f34ddf-66af-4bc1-8d25-6ff6620acca7",
+    "rule:RIAZ-INT-CYTO-01": "http://localhost:5173/rules/e4b34821-9770-4c45-a91f-fc65cc73be86",
+    "rule:RIAZ-INT-RESP-01": "http://localhost:5173/rules/eb4a825e-7ef0-4a1f-9c35-13dc3c0a1e71",
+    "rule:RIAZ-DEC-01": "http://localhost:5173/rules/74b7818a-f85c-48af-a618-7729e696a449"
+  }
+}
