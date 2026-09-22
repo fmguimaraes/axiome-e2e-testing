@@ -24,6 +24,7 @@
     "stage:identities": "tsx staging/identities/ensureIdentities.ts",
     "stage:unit": "tsx --test $(find staging -name '*.spec.ts')",
     "stage": "tsx staging/steps/stage.ts",
+    "stage:riaz": "tsx staging/steps/stageRiaz.ts",
     "verify": "tsx staging/verify/verify.ts",
     "capture:unit": "tsx --test $(find capture -name '*.spec.ts')",
     "capture:no-backdoor": "tsx staging/checks/noBackdoor.ts capture",
