@@ -51,7 +51,7 @@ export function describeSection(questions: readonly QuestionTrace[]): string[] {
   return [
     '## Descriptive questions (Q12–Q21)',
     '',
-    'Ten chart-first, descriptive questions: one filter level, one aggregation, no p-value. Each one must end with a result table, the platform\'s own recommended chart, a connector-rule `match`, a deterministic sentence and a `descriptive_summary` Decision — every number asserted against a value derived from the source CSVs, never from the platform\'s own output (`staging/steps/riazDescribeExpectations.ts` carries the derivation per question).',
+    'Ten chart-first, descriptive questions: one filter level, one aggregation, no p-value. Each one must end with a result table, a connector-rule `match`, a deterministic sentence and a `descriptive_summary` Decision on the analysis surface, plus the platform\'s own recommended chart minted into the result dataset\'s governed gallery where the backend allows one (AXI-1573 removed the client-built chart panel from the result view; a withheld chart is the correct answer, not a gap) — every number asserted against a value derived from the source CSVs, never from the platform\'s own output (`staging/steps/riazDescribeExpectations.ts` carries the derivation per question).',
     '',
     '| Q | Connector cited | Connector bound (state) | n_groups | Recommended chart | Assertions |',
     '|---|---|---|---|---|---|',
