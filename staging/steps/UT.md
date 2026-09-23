@@ -457,6 +457,14 @@ and the 4 source-dataset filenames the mechanism resolves ids for
 | UT-STAGE-203 | `resolveWorkspaceMatch` REFUSES (throws `WorkspaceNameAmbiguousError`) when the any-org fallback finds the same name in two different orgs — never picks the first, order-independent | Pass |
 | UT-STAGE-204 | `WorkspaceNameAmbiguousError` message names every candidate workspace id and org id, for a human to disambiguate | Pass |
 
+## `riazEvidenceText.spec.ts` (AXI-1588 — Q12–Q21 userCharts[] plans)
+
+| UT-STAGE-205 | every Q12–Q21 question carries at least 3 `userCharts[]` plans (AC — recommended + ≥3 shows ≥4 charts total) | Pass |
+| UT-STAGE-206 | every Q12–Q21 plan has a unique title within its question (find-or-create-by-title depends on it) | Pass |
+| UT-STAGE-207 | every Q12–Q21 plan has a unique key within its question (the render-cache cohort discriminator depends on it) | Pass |
+| UT-STAGE-208 | every Q12–Q21 question carries exactly one `userCharts[]` interpretation, and every title starts with its own question id | Pass |
+| UT-STAGE-209 | Q12–Q21 recommended `bar_chart_v1` stays untouched — `userCharts[]` never plans a `bar_chart_v1` template | Pass |
+
 ## `riazQuestionVerdicts.spec.ts` (AXI-1553 review fix — Q1 guided-trace path)
 
 Review finding: `q1Context()`'s cwd-relative default (`../axiome-docs/...`)

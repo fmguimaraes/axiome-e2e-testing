@@ -83,3 +83,50 @@ test('UT-STAGE-167: confidence band maps the rule confidence — ≥0.75 high, �
   assert.equal(confidenceBand([{ ...q11Verdicts[2], confidence: 0.3 }]), 'low');
   assert.equal(confidenceBand([q11Verdicts[0]]), 'medium');
 });
+
+// ── AXI-1588 — Q12–Q21 userCharts[] plans (Chart-Enrichment-Brief §2) ────────
+// Structural checks on the plans this story adds: every question hits the
+// ≥3-chart AC, every plan's title/key is unique within its question (the
+// find-or-create-by-title mechanic in `riazUserCharts.ts` depends on it), and
+// every question carries exactly one `userCharts[]` interpretation.
+
+const Q12_TO_Q21 = ['Q12', 'Q13', 'Q14', 'Q15', 'Q16', 'Q17', 'Q18', 'Q19', 'Q20', 'Q21'];
+
+test('UT-STAGE-205: every Q12–Q21 question carries at least 3 userCharts[] plans (AC — recommended + ≥3 shows ≥4 charts total)', () => {
+  for (const qId of Q12_TO_Q21) {
+    const plans = configFor(qId).userCharts ?? [];
+    assert.ok(plans.length >= 3, `${qId} has only ${plans.length} userCharts[] plan(s)`);
+  }
+});
+
+test('UT-STAGE-206: every Q12–Q21 plan has a unique title within its question (find-or-create-by-title depends on it)', () => {
+  for (const qId of Q12_TO_Q21) {
+    const plans = configFor(qId).userCharts ?? [];
+    const titles = plans.map((p) => p.title);
+    assert.equal(new Set(titles).size, titles.length, `${qId} has duplicate userCharts[] titles`);
+  }
+});
+
+test('UT-STAGE-207: every Q12–Q21 plan has a unique key within its question (the render-cache cohort discriminator depends on it)', () => {
+  for (const qId of Q12_TO_Q21) {
+    const plans = configFor(qId).userCharts ?? [];
+    const keys = plans.map((p) => p.key);
+    assert.equal(new Set(keys).size, keys.length, `${qId} has duplicate userCharts[] keys`);
+  }
+});
+
+test('UT-STAGE-208: every Q12–Q21 question carries exactly one userCharts[] interpretation, and every title starts with its own question id', () => {
+  for (const qId of Q12_TO_Q21) {
+    const plans = configFor(qId).userCharts ?? [];
+    const interpretations = plans.filter((p) => p.interpretation);
+    assert.equal(interpretations.length, 1, `${qId} has ${interpretations.length} interpretation(s), expected 1`);
+    for (const p of plans) assert.ok(p.title.startsWith(`${qId} · `), `${qId} plan title "${p.title}" does not start with "${qId} · "`);
+  }
+});
+
+test('UT-STAGE-209: Q12–Q21 recommended bar_chart_v1 stays untouched — userCharts[] never plans a bar_chart_v1 template (that origin stays "recommended", never "user")', () => {
+  for (const qId of Q12_TO_Q21) {
+    const plans = configFor(qId).userCharts ?? [];
+    for (const p of plans) assert.notEqual(p.templateId, 'bar_chart_v1', `${qId} plan "${p.title}" would collide with the recommended bar_chart_v1`);
+  }
+});

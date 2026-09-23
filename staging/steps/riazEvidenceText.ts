@@ -198,6 +198,124 @@ const Q11_USER_CHARTS: UserChartPlan[] = [
   },
 ];
 
+// ── AXI-1588 — Q12–Q21 (Chart-Enrichment-Brief §2, describe questions) ──────
+// Q12–Q21 publish through `publishDescribeOne` (AXI-1565/AXI-1587), same as
+// Q22–Q31 below: the sentence evidence + `descriptive_summary` decision are
+// the platform's own; `userCharts` is the only field this config contributes.
+const RIAZ_24_PANEL_Q = ['CD27', 'CD274', 'CD3E', 'CD8A', 'CTLA4', 'CXCL10', 'CXCL11', 'CXCL9', 'GZMA', 'GZMB', 'HAVCR2', 'HLA-DRA', 'IDO1', 'IFNG', 'IL2RA', 'IRF1', 'LAG3', 'LCK', 'NKG7', 'PDCD1', 'PRF1', 'STAT1', 'TIGIT', 'TOX'];
+
+/** Chart-Enrichment-Brief §2 Q12 — baseline composition (all-panel ranking at Pre). */
+const Q12_USER_CHARTS: UserChartPlan[] = [
+  { key: 'dot', templateId: 'dot_plot_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'Pre'), inList('gene', RIAZ_24_PANEL_Q)], bindings: { x: 'log2_cpm', y: 'gene' }, title: 'Q12 · Baseline mean log2 CPM per gene, ranked (PAIRED, dot plot)', reading: 'Mean pre-treatment log2 CPM per gene across all 27 patients, ranked. HLA-DRA (9.76) and STAT1 (8.50) lead the panel; IFNG (1.14) sits lowest — the ranking this question reports as a chart.' },
+  { key: 'ridge', templateId: 'ridgeline_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'Pre'), inList('gene', RIAZ_24_PANEL_Q)], bindings: { y: 'log2_cpm', group: 'gene' }, title: 'Q12 · Baseline expression landscape, all genes (PAIRED, ridgeline)', reading: 'The full baseline distribution per gene, not just its mean — one ridge per gene. HLA-DRA\'s ridge sits well clear of the low end where IFNG\'s sits.' },
+  {
+    key: 'strip', templateId: 'strip_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'Pre'), inList('gene', RIAZ_24_PANEL_Q)], bindings: { y: 'log2_cpm', group: 'gene' }, title: 'Q12 · Baseline, every patient by gene (PAIRED, strip)',
+    reading: 'Every individual pre-treatment measurement across the 24-gene panel, no aggregation — the raw points the mean ranking is built from.',
+    interpretation: { label: 'a ranked mean can hide within-gene spread', text: 'HLA-DRA\'s rank-1 mean (9.76) sits on a wide spread of individual points in the strip chart, while several mid-panel genes show tighter distributions; ranking by mean alone treats a wide-spread gene and a tight-spread gene with the same central value as equivalent, which they are not for individual-patient interpretation.' },
+  },
+];
+
+/** Chart-Enrichment-Brief §2 Q13 — does the panel move Pre→On, full 48-cell cross-tab. */
+const Q13_USER_CHARTS: UserChartPlan[] = [
+  { key: 'facetLine', templateId: 'faceted_grouped_line_v1', dataset: 'PAIRED', filters: [], bindings: { facet: 'gene', x: 'timepoint', y: 'log2_cpm', color: 'response' }, title: 'Q13 · Full panel by timepoint, faceted by gene, coloured by response (PAIRED)', reading: 'Mean ± SE per gene, Pre vs On, one facet per gene, coloured by response — the 48-cell cross-tab as small multiples. Most facets rise Pre→On; a handful stay flat.' },
+  { key: 'slope', templateId: 'paired_slope_v1', dataset: 'WIDE', filters: [], bindings: { from: 'pre_expression', to: 'on_expression', group: 'gene' }, title: 'Q13 · Full panel pre→on slope by gene (WIDE)', reading: 'Per-patient, per-gene Pre→On slopes across the full 24-gene panel — the individual lines behind the 48 cell means the cross-tab reports.' },
+  {
+    key: 'means', templateId: 'bar_grouped_v1', dataset: 'PAIRED', filters: [], bindings: { x: 'gene', y: 'log2_cpm', color: 'timepoint' }, params: { aggregation: 'mean' }, title: 'Q13 · Full panel Pre vs On means, all genes (PAIRED)',
+    reading: 'Pre and On means side by side for all 24 genes — the panel-wide summary the cross-tab table lists cell by cell.',
+    interpretation: { label: 'the cross-tab reports magnitude, not consistency across patients', text: 'A gene can show a rising mean while its per-patient slopes are mixed — several genes here have a positive mean Pre→On move but a wide slope spread in the WIDE chart above, so a rising cell mean should not be read as "every patient rose".' },
+  },
+];
+
+/** Chart-Enrichment-Brief §2 Q14 — cohort composition (CD8A@Pre slice, response × prior_ipi). */
+const Q14_USER_CHARTS: UserChartPlan[] = [
+  { key: 'byResponse', templateId: 'bar_count_v1', dataset: 'PAIRED', filters: [eq('gene', 'CD8A'), eq('timepoint', 'Pre')], bindings: { x: 'response' }, title: 'Q14 · Patient count by response, CD8A@Pre slice (PAIRED)', reading: '18 non-responders vs 9 responders in the slice this question\'s four-cell breakdown is built from.' },
+  { key: 'sunburst', templateId: 'sunburst_v1', dataset: 'PAIRED', filters: [eq('gene', 'CD8A'), eq('timepoint', 'Pre')], bindings: { labels: 'prior_ipi', parents: 'response' }, title: 'Q14 · Response × prior ipilimumab exposure composition (PAIRED, sunburst)', reading: 'The same four cells as a hierarchy — response as the inner ring, prior ipilimumab exposure as the outer ring. Non-responders split evenly (9/9); responders skew slightly toward ipi-naive (5 vs 4).' },
+  {
+    key: 'byIpi', templateId: 'bar_count_v1', dataset: 'PAIRED', filters: [eq('gene', 'CD8A'), eq('timepoint', 'Pre')], bindings: { x: 'prior_ipi' }, title: 'Q14 · Patient count by prior ipilimumab exposure, CD8A@Pre slice (PAIRED)',
+    reading: 'The same slice counted the other way — 14 ipilimumab-naive vs 13 ipilimumab-progressed patients, a near-even split independent of response.',
+    interpretation: { label: 'the four-cell split is balanced enough not to confound Q5\'s stratified test', text: 'Q5\'s ipi-naive vs ipi-progressed induction comparison rests on a 14 vs 13 split with a similar response mix in each (5R/9NR vs 4R/9NR); this count composition confirms neither arm is response-enriched enough on its own to explain the induction difference Q5 reports.' },
+  },
+];
+
+/** Chart-Enrichment-Brief §2 Q15 — top-10 baseline DE genes by fold change, padj<0.05. */
+const Q15_USER_CHARTS: UserChartPlan[] = [
+  {
+    key: 'lollipop', templateId: 'lollipop_v1', dataset: 'DE', filters: [{ column: 'padj', operator: 'lt', value: 0.05 }], bindings: { x: 'gene', y: 'log2FoldChange' }, title: 'Q15 · Baseline DE genes ranked by fold change, padj<0.05 (DE, lollipop)',
+    reading: 'The padj<0.05 pool (58 genes), ranked by fold change — C20orf166-AS1 (13.92), LINC00890 (9.25), FCAMR (5.70) and VGF (5.24) lead; PRG4 (3.30) closes the top 10 this question names.',
+    interpretation: { label: 'the top fold-change ranking is dominated by low-expression genes — a candidate list, not a validated biomarker panel', text: 'C20orf166-AS1 and LINC00890, the two largest fold changes in this ranking, are lncRNAs at low baseline expression (the same low-baseMean pattern Q8\'s MA plot shows for the wider significant set); a large fold change on a low-expression gene is more sensitive to counting noise than the same fold change on a well-expressed gene, so this top-10 list should be read as a candidate list for follow-up, not a validated baseline biomarker panel.' },
+  },
+  { key: 'volcano', templateId: 'volcano_v1', dataset: 'DE', filters: [{ column: 'padj', operator: 'lt', value: 0.05 }], bindings: { x: 'log2FoldChange', y: 'pvalue' }, title: 'Q15 · Baseline DE volcano, padj<0.05 (DE)', reading: 'The 58 significant genes alone. The top-10 by fold change this question ranks sit at the far-right tail of this volcano.' },
+  { key: 'ma', templateId: 'ma_plot_v1', dataset: 'DE', filters: [{ column: 'padj', operator: 'lt', value: 0.05 }], bindings: { x: 'baseMean', y: 'log2FoldChange' }, title: 'Q15 · Baseline DE MA plot, padj<0.05 (DE)', reading: 'Mean expression vs fold-change for the 58 significant genes — the top-ranked genes (C20orf166-AS1, LINC00890) sit at low baseMean, the same low-expression pattern Q8 flags for the wider significant set.' },
+];
+
+/** Chart-Enrichment-Brief §2 Q16 — up vs down at padj<0.05 (25 up, 33 down of 58). */
+const Q16_USER_CHARTS: UserChartPlan[] = [
+  { key: 'hist', templateId: 'histogram_v1', dataset: 'DE', filters: [{ column: 'padj', operator: 'lt', value: 0.05 }], bindings: { x: 'log2FoldChange' }, title: 'Q16 · log2FC distribution, padj<0.05 (DE, histogram)', reading: 'The fold-change distribution of the 58 significant genes — visibly bimodal, one lobe positive (25 genes) and one negative (33 genes), the two counts this question reports as a single picture.' },
+  { key: 'upBar', templateId: 'bar_count_v1', dataset: 'DE', filters: [{ column: 'padj', operator: 'lt', value: 0.05 }, { column: 'log2FoldChange', operator: 'gt', value: 0 }], bindings: { x: 'gene' }, title: 'Q16 · Up-regulated genes, padj<0.05 (DE, bar count)', reading: 'Each of the 25 up-regulated genes (log2FC>0, padj<0.05) as its own bar — the "up" branch this question counts, enumerated one gene per bar.' },
+  {
+    key: 'downBar', templateId: 'bar_count_v1', dataset: 'DE', filters: [{ column: 'padj', operator: 'lt', value: 0.05 }, { column: 'log2FoldChange', operator: 'lt', value: 0 }], bindings: { x: 'gene' }, title: 'Q16 · Down-regulated genes, padj<0.05 (DE, bar count)',
+    reading: 'Each of the 33 down-regulated genes as its own bar — the "down" branch, the larger of the two this question counts.',
+    interpretation: { label: 'more genes fall than rise — but gene count is not the same as fold-change magnitude', text: 'The down branch (33 genes) outnumbers the up branch (25) at padj<0.05; that gene-count split says nothing about which direction carries the larger average fold change — a stratum-level fold-change mean (as Q30 reports for DE-STRATA) should be read alongside this count, not substituted for it.' },
+  },
+  { key: 'ecdf', templateId: 'ecdf_v1', dataset: 'DE', filters: [{ column: 'padj', operator: 'lt', value: 0.05 }], bindings: { x: 'log2FoldChange' }, title: 'Q16 · log2FC ECDF, padj<0.05 (DE)', reading: 'Empirical CDF of fold-change across the 58 significant genes — the step where the curve crosses zero marks the 25/33 up/down split this question counts directly.' },
+];
+
+/** Chart-Enrichment-Brief §2 Q17 — responder induction, full panel Pre→On in R only. */
+const Q17_USER_CHARTS: UserChartPlan[] = [
+  { key: 'slope', templateId: 'paired_slope_v1', dataset: 'WIDE', filters: [eq('response', 'R')], bindings: { from: 'pre_expression', to: 'on_expression', group: 'gene' }, title: 'Q17 · Full panel pre→on slope, responders (WIDE)', reading: 'Per-patient, per-gene Pre→On slopes in responders only — the individual lines behind this question\'s per-gene means (e.g. PDCD1 2.00→3.38, PRF1 3.53→4.91).' },
+  { key: 'facet', templateId: 'faceted_grouped_boxplot_v1', dataset: 'PAIRED', filters: [eq('response', 'R')], bindings: { facet: 'gene', x: 'timepoint', y: 'log2_cpm' }, title: 'Q17 · Full panel by timepoint, faceted by gene, responders (PAIRED)', reading: 'Pre vs On boxplots, one facet per gene, responders only. Most facets shift upward; CXCL11 is already high at On (mean 3.41, n=9).' },
+  {
+    key: 'onRank', templateId: 'bar_horizontal_v1', dataset: 'PAIRED', filters: [eq('response', 'R'), eq('timepoint', 'On')], bindings: { y: 'gene', x: 'log2_cpm' }, params: { aggregation: 'mean' }, title: 'Q17 · Full panel on-treatment mean, ranked, responders (PAIRED, bar horizontal)',
+    reading: 'On-treatment mean per gene in responders, ranked — the fallback ranking chart for the Pre→On magnitude this question\'s cross-tab lists cell by cell (a result-table waterfall is not available on the userCharts source datasets).',
+    interpretation: { label: 'on-treatment ranking mixes genes that rose with genes that started high', text: 'A gene can rank near the top of the on-treatment ranking either because it rose the most (like PDCD1) or because it started high and barely moved (like HLA-DRA, Q12); this ranked bar should be read together with the slope chart above, not as a standalone induction ranking.' },
+  },
+];
+
+/** Chart-Enrichment-Brief §2 Q18 — CXCL9 four groups (response × timepoint). */
+const Q18_USER_CHARTS: UserChartPlan[] = [
+  { key: 'facet', templateId: 'faceted_grouped_boxplot_v1', dataset: 'PAIRED', filters: [eq('gene', 'CXCL9')], bindings: { facet: 'response', x: 'timepoint', y: 'log2_cpm' }, title: 'Q18 · CXCL9 by timepoint, faceted by response (PAIRED)', reading: 'CXCL9 Pre vs On, one facet per response group. Responders start higher (7.24) and end higher (7.73); non-responders start lower (5.39) and rise to 6.23 without closing the gap.' },
+  { key: 'slope', templateId: 'paired_slope_v1', dataset: 'WIDE', filters: [eq('gene', 'CXCL9')], bindings: { from: 'pre_expression', to: 'on_expression', group: 'response' }, title: 'Q18 · CXCL9 pre→on slope by response (WIDE)', reading: 'Per-patient CXCL9 slopes, grouped by response — the individual lines behind the four group means.' },
+  { key: 'violin', templateId: 'violin_v1', dataset: 'PAIRED', filters: [eq('gene', 'CXCL9')], bindings: { y: 'log2_cpm', group: 'timepoint' }, title: 'Q18 · CXCL9 full distribution by timepoint (PAIRED, violin)', reading: 'The full CXCL9 distribution at each timepoint, both response groups pooled — the shape behind the four cell means.' },
+  {
+    key: 'ecdf', templateId: 'ecdf_v1', dataset: 'PAIRED', filters: [eq('gene', 'CXCL9')], bindings: { x: 'log2_cpm', color: 'response' }, title: 'Q18 · CXCL9 ECDF by response (PAIRED)',
+    reading: 'Empirical CDFs of CXCL9 by response, both timepoints pooled — the responder curve sits consistently to the right of the non-responder curve.',
+    interpretation: { label: 'CXCL9 separates responders from non-responders at both timepoints, not just after treatment', text: 'The ECDF curves are already separated before the Pre→On rise either group shows; CXCL9 reads as at least as much a baseline separator as a treatment-induced marker.' },
+  },
+];
+
+/** Chart-Enrichment-Brief §2 Q19 — on-treatment gap, full panel by response. */
+const Q19_USER_CHARTS: UserChartPlan[] = [
+  { key: 'facet', templateId: 'faceted_grouped_boxplot_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'On')], bindings: { facet: 'gene', x: 'response', y: 'log2_cpm' }, title: 'Q19 · Full panel at On, faceted by gene, by response (PAIRED)', reading: 'On-treatment expression, one facet per gene, responders vs non-responders. CD8A, LCK and CD3E show the widest separation (e.g. CD8A 6.10 vs 3.55).' },
+  { key: 'rank', templateId: 'dot_plot_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'On')], bindings: { x: 'log2_cpm', y: 'gene' }, title: 'Q19 · Full panel on-treatment mean, ranked (PAIRED, dot plot)', reading: 'Mean on-treatment expression per gene, pooled across response, ranked — the reference ranking the per-gene response gap sits against.' },
+  {
+    key: 'heatmap', templateId: 'heatmap_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'On')], bindings: { x: 'response', y: 'gene', z: 'log2_cpm' }, params: { aggregation: 'mean' }, title: 'Q19 · Full panel on-treatment, response × gene heatmap (PAIRED)',
+    reading: 'Mean on-treatment expression, response × gene, as one heatmap — the same cross-tab breakdown this question lists cell by cell, read by colour instead of by row.',
+    interpretation: { label: 'the gap concentrates in T-cell lineage genes, not the whole panel', text: 'The widest R-vs-NR gaps at On sit on T-cell lineage genes (CD8A, LCK, CD3E) rather than being spread evenly across the 24-gene panel; a lineage-composition explanation (more T cells infiltrating in responders) is at least as consistent with this heatmap as a per-gene transcriptional-induction story.' },
+  },
+];
+
+/** Chart-Enrichment-Brief §2 Q20 — baseline variability (population sd, ranked). */
+const Q20_USER_CHARTS: UserChartPlan[] = [
+  { key: 'ridge', templateId: 'ridgeline_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'Pre')], bindings: { y: 'log2_cpm', group: 'gene' }, title: 'Q20 · Baseline expression landscape, all genes (PAIRED, ridgeline)', reading: 'The full baseline distribution per gene — CXCL9\'s ridge is visibly wider than IFNG\'s, matching the population-sd ranking (CXCL9 2.76 highest, IFNG 0.96 lowest).' },
+  { key: 'strip', templateId: 'strip_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'Pre')], bindings: { y: 'log2_cpm', group: 'gene' }, title: 'Q20 · Baseline, every patient by gene (PAIRED, strip)', reading: 'Every individual baseline measurement, one gene column per position — the raw spread the sd ranking summarises into one number per gene.' },
+  {
+    key: 'violin', templateId: 'violin_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'Pre'), inList('gene', ['CXCL9', 'CXCL10', 'IFNG', 'PDCD1'])], bindings: { y: 'log2_cpm', group: 'gene' }, title: 'Q20 · Highest/lowest-variability genes, full distribution (PAIRED, violin)',
+    reading: 'CXCL9 and CXCL10 (widest baseline spread) against IFNG and PDCD1 (narrowest) — the two ends of the sd ranking as full distributions.',
+    interpretation: { label: 'a wide baseline spread is not the same signal as Q4\'s non-separating baseline', text: 'CXCL9\'s wide baseline spread (this question) and its lack of response-predictive power at baseline are two different properties — high patient-to-patient variability does not by itself mean a gene separates responders from non-responders; it just means individual baseline values vary a lot.' },
+  },
+];
+
+/** Chart-Enrichment-Brief §2 Q21 — the 24-gene immune panel within the baseline DE table. */
+const Q21_USER_CHARTS: UserChartPlan[] = [
+  { key: 'volcano', templateId: 'volcano_v1', dataset: 'DE', filters: [inList('gene', RIAZ_24_PANEL_Q)], bindings: { x: 'log2FoldChange', y: 'pvalue' }, title: 'Q21 · 24-gene immune panel in the baseline DE table (DE, volcano)', reading: 'The same volcano as Q8, restricted to the 24-gene immune panel. Every panel gene sits below the significance line — none of the 24 clears padj<0.05 in this baseline contrast (min padj 0.21, at IDO1).' },
+  { key: 'lollipop', templateId: 'lollipop_v1', dataset: 'DE', filters: [inList('gene', RIAZ_24_PANEL_Q)], bindings: { x: 'gene', y: 'log2FoldChange' }, title: 'Q21 · 24-gene immune panel ranked by baseline fold change (DE, lollipop)', reading: 'The panel ranked by fold change — IDO1 leads (2.21), HAVCR2 trails (0.067); every panel gene has a positive fold change at baseline, none reaching significance.' },
+  {
+    key: 'scatter', templateId: 'scatter_v1', dataset: 'DE', filters: [inList('gene', RIAZ_24_PANEL_Q)], bindings: { x: 'log2FoldChange', y: 'padj' }, title: 'Q21 · 24-gene immune panel, fold change vs adjusted p-value (DE, scatter)',
+    reading: 'Fold change against adjusted p-value for the panel alone — even IDO1, the largest mover, sits far from the padj<0.05 line the wider DE table\'s significant genes clear.',
+    interpretation: { label: 'all-positive baseline fold change without significance is consistent with, not contradictory to, Q8\'s composition-artefact reading', text: 'That every one of the 24 immune-panel genes trends positive at baseline (none negative) while none reaches significance is consistent with a small, correlated baseline shift across the whole panel rather than a real per-gene difference — the same non-immune, composition-driven explanation Q8 gives for the significant hits elsewhere in the table applies here in reverse: the panel moves together but not enough to individually clear the bar.' },
+  },
+];
+
 // ── AXI-1587 — Q22–Q31 (Chart-Enrichment-Brief §5, describe questions) ──────
 // Describe questions publish through `publishDescribeOne` (AXI-1565/AXI-1587):
 // the sentence evidence + `descriptive_summary` decision are the platform's
@@ -387,6 +505,18 @@ export const QUESTION_CONFIG: Record<string, QuestionConfig> = {
     decisionType: 'phenotype_classification',
     userCharts: Q11_USER_CHARTS,
   },
+  // AXI-1588 — Q12–Q21 describe questions: only `userCharts` and `decisionType`
+  // (for the userCharts[] interpretation decisions) are live on this path.
+  Q12: { focusGenes: RIAZ_24_PANEL_Q, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q12_USER_CHARTS },
+  Q13: { focusGenes: RIAZ_24_PANEL_Q, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q13_USER_CHARTS },
+  Q14: { focusGenes: ['CD8A'], cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'cohort_stratification', userCharts: Q14_USER_CHARTS },
+  Q15: { focusGenes: [], cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q15_USER_CHARTS },
+  Q16: { focusGenes: [], cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q16_USER_CHARTS },
+  Q17: { focusGenes: CYTOTOXIC_FOCUS, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q17_USER_CHARTS },
+  Q18: { focusGenes: ['CXCL9'], cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q18_USER_CHARTS },
+  Q19: { focusGenes: RIAZ_24_PANEL_Q, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q19_USER_CHARTS },
+  Q20: { focusGenes: RIAZ_24_PANEL_Q, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'biomarker_threshold', userCharts: Q20_USER_CHARTS },
+  Q21: { focusGenes: RIAZ_24_PANEL_Q, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q21_USER_CHARTS },
   // AXI-1587 — Q22–Q31 describe questions: only `userCharts` and `decisionType`
   // (for the userCharts[] interpretation decisions) are live on this path.
   Q22: { focusGenes: CYTOTOXIC_FOCUS, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q22_USER_CHARTS },
