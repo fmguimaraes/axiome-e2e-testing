@@ -30,6 +30,7 @@
     "stage:riaz-questions": "tsx staging/steps/runRiazQuestions.ts",
     "stage:riaz-report": "tsx staging/steps/reportRiazQuestions.ts",
     "stage:riaz-publish": "tsx staging/steps/publishRiazEvidence.ts",
+    "stage:riaz-wide-v2": "tsx staging/steps/ensureRiazWideV2.ts",
     "verify": "tsx staging/verify/verify.ts",
     "capture:unit": "tsx --test $(find capture -name '*.spec.ts')",
     "capture:no-backdoor": "tsx staging/checks/noBackdoor.ts capture",

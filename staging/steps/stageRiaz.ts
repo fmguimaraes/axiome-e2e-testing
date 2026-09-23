@@ -42,13 +42,36 @@ export const RIAZ_PAIRED_LONG_DATASET: DatasetFixture = {
   defaultLocalPath: '/home/felipe/dev/axiome/riaz_de/riaz2017_immune_paired_log2cpm_long.csv',
 };
 
+/**
+ * AXI-1586 — the panel-gene WIDE table §2 of the Chart-Enrichment-Brief needs
+ * (`paired_slope_v1`, `paired_timepoint_scatter_v1`: one row per gene×patient,
+ * `pre_expression`/`on_expression`/`delta`/`prior_ipi`). NOT a new version of
+ * `riaz2017_expression_by_response_timepoint.csv` (dataset `e814f75c-...`):
+ * that file is the AXI-1374 count-matrix, restricted to the 20 lowest-padj DE
+ * genes (LINC00890, KRT14, MYL1, ...) — a different gene universe than the
+ * 24-gene immune panel (PDCD1, CD8A, IFNG, ...) this brief's charts need.
+ * Re-versioning it would keep the wrong genes. This is its own dataset, built
+ * by `riaz_de/build_expression_wide_v2.py` from the SAME source the PAIRED
+ * long dataset was built from (pivoted wide, `delta` added) — see that
+ * script's docstring.
+ */
+export const RIAZ_WIDE_V2_DATASET: DatasetFixture = {
+  role: 'paired_expression_wide_v2',
+  originalFilename: 'riaz2017_expression_by_response_timepoint_v2.csv',
+  contentType: 'text/csv',
+  workspaceName: WORKSPACE,
+  projectName: PROJECT,
+  localPathEnv: 'STAGING_RIAZ_WIDE_V2_CSV_PATH',
+  defaultLocalPath: '/home/felipe/dev/axiome/riaz_de/riaz2017_expression_by_response_timepoint_v2.csv',
+};
+
 export function riazFixture(base: TenantFixture = TENANT_FIXTURE): TenantFixture {
   return {
     ...base,
     workspaces: base.workspaces.filter((w) => w.name === WORKSPACE).map((w) => ({ ...w, retiredProjects: [] })),
     content: {
       ...base.content,
-      datasets: [...base.content.datasets.map((d) => ({ ...d, workspaceName: WORKSPACE, projectName: PROJECT })), RIAZ_PAIRED_LONG_DATASET],
+      datasets: [...base.content.datasets.map((d) => ({ ...d, workspaceName: WORKSPACE, projectName: PROJECT })), RIAZ_PAIRED_LONG_DATASET, RIAZ_WIDE_V2_DATASET],
     },
   };
 }

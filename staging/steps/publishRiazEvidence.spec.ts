@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { findDescriptiveDecision, findSentenceEvidence, isHandBuiltUserChart, selectRecommended } from './publishRiazEvidence';
+import { findDescriptiveDecision, findSentenceEvidence, interpretationDecisionLabel, isHandBuiltUserChart, selectRecommended } from './publishRiazEvidence';
 
 /**
  * UT-STAGE-168..172 — the two pure selectors `stage:riaz-publish` uses
@@ -61,4 +61,14 @@ test('UT-E2E-DESC-018: the descriptive decision is the draft whose context names
   ] as unknown as Parameters<typeof findDescriptiveDecision>[0];
   assert.equal(findDescriptiveDecision(decisions, 'run-1')?.id, 'd2');
   assert.equal(findDescriptiveDecision(decisions, 'run-absent'), undefined);
+});
+
+test('UT-STAGE-193: interpretationDecisionLabel is "<questionId> — <reading> · interpretation" (AXI-1586)', () => {
+  assert.equal(interpretationDecisionLabel('Q2', 'pooled induction is a responder effect'), 'Q2 — pooled induction is a responder effect · interpretation');
+});
+
+test('UT-STAGE-194: interpretationDecisionLabel differs for two different plans of the same question — the Review Center lists both', () => {
+  const a = interpretationDecisionLabel('Q6', 'exhausted transcripts mark the hot tumour');
+  const b = interpretationDecisionLabel('Q6', 'CTLA4 is the outlier — checkpoint ≠ exhaustion');
+  assert.notEqual(a, b);
 });

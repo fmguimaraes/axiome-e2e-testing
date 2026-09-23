@@ -37,10 +37,21 @@ import { ensureIdentities } from '../identities/ensureIdentities';
 import { deriveEvidenceKind } from '../lib/evidenceKind';
 import { asList, must } from '../rules/ensureRule';
 import { SERVICE_HANDLE } from './context';
+import { findExistingDataset } from './datasetIngestion';
 import { projectHeaders } from './projectProvisioning';
 import { recordDecision, type DecisionRow } from './stageRiazGuided';
 import { isDescribeQuestion } from './riazDescribeExpectations';
 import { EVALUATORS, q1Context, statsOf, type Verdict } from './riazQuestionVerdicts';
+import {
+  ensureScopeSnapshot,
+  ensureUserChartEvidence,
+  ensureUserChartSpec,
+  USER_CHART_DATASET_FILES,
+  type EvidenceRow as UserChartEvidenceRow,
+  type UserChartDatasetHandle,
+  type UserChartEvidence,
+  type UserChartPlan,
+} from './riazUserCharts';
 import {
   TEXT_OVERRIDES,
   cohortName,
@@ -56,6 +67,7 @@ import {
   type QuestionConfig,
 } from './riazEvidenceText';
 import type { QuestionTrace } from './runRiazQuestions';
+import type { ProvisioningContext } from './context';
 
 const TRACE_PATH = process.env.STAGING_RIAZ_QUESTIONS_TRACE?.trim() || '../axiome-docs/demo/riaz-2017/riaz-questions-trace.json';
 const FRONT_URL = (process.env.STAGING_FRONT_URL?.trim() || 'http://localhost:5173').replace(/\/+$/, '');
@@ -73,6 +85,8 @@ export interface PublishedRecord {
   decisionStatus: string | null;
   decisionLink: string | null;
   supersededDecisionId?: string | null;
+  /** AXI-1586 — extra, non-exclusive readings of a `userCharts[]` chart: one `DecisionDraft` id/link per plan.interpretation. */
+  interpretationDecisions?: Array<{ id: string; label: string; link: string }>;
   verdicts: Array<{ rule: string; verdict: string }>;
   publishedVersionId: string | null;
   publishedVersionNumber: number | null;
@@ -134,6 +148,67 @@ async function listEvidence(client: RestClient, H: Record<string, string>, analy
 async function listSpecs(client: RestClient, H: Record<string, string>, workspaceId: string, datasetId: string, analysisId: string | null): Promise<SpecRow[]> {
   const qs = analysisId ? `?viewAnalysisId=${analysisId}` : '';
   return asList<SpecRow>(must(await client.as<unknown>(SERVICE_HANDLE, 'GET', `/api/v1/workspaces/${workspaceId}/datasets/${datasetId}/candidates${qs}`, undefined, H), `candidates of ${datasetId}`));
+}
+
+// ── userCharts[] (AXI-1586) — additional, question-scoped user charts ──────
+
+let datasetIdCache: Record<UserChartDatasetHandle, string> | null = null;
+
+/** Resolves the 4 source datasets by their declared filename (never hard-coded ids) — cached for the run. */
+async function resolveUserChartDatasetIds(client: RestClient, workspaceId: string): Promise<Record<UserChartDatasetHandle, string>> {
+  if (datasetIdCache) return datasetIdCache;
+  const ctx = { client } as ProvisioningContext;
+  const entries = await Promise.all(
+    (Object.entries(USER_CHART_DATASET_FILES) as Array<[UserChartDatasetHandle, string]>).map(async ([handle, filename]) => {
+      const ds = await findExistingDataset(ctx, workspaceId, filename);
+      if (!ds) throw new Error(`userCharts[]: dataset "${filename}" (${handle}) not found in workspace ${workspaceId} — run stage:riaz-wide-v2 first`);
+      return [handle, ds.id] as const;
+    }),
+  );
+  datasetIdCache = Object.fromEntries(entries) as Record<UserChartDatasetHandle, string>;
+  return datasetIdCache;
+}
+
+interface UserChartsResult { evidences: PublishedRecord['evidences']; interpretationDecisions: Array<{ id: string; label: string; link: string }> }
+
+/** The Review Center label for a `userCharts[]` plan's extra interpretation — exported for UT-STAGE-193. */
+export const interpretationDecisionLabel = (qId: string, interpretationLabel: string): string => `${qId} — ${interpretationLabel} · interpretation`;
+
+/** One `userCharts[]` plan → its spec, scope snapshot, evidence, and (if declared) an extra interpretation decision. */
+async function ensureOneUserChart(
+  client: RestClient, serviceUserId: string, H: Record<string, string>, t: Trace, q: PublishedTrace, cfg: QuestionConfig,
+  datasetIds: Record<UserChartDatasetHandle, string>, ownDatasetId: string, existing: readonly UserChartEvidenceRow[], plan: UserChartPlan, dryRun: boolean,
+): Promise<{ evidence: UserChartEvidence | null; interpretation: { id: string; label: string; link: string } | null }> {
+  const datasetId = datasetIds[plan.dataset];
+  const spec = await ensureUserChartSpec(client, H, t.workspaceId, datasetId, q.viewAnalysisId as string, q.id, plan, dryRun);
+  const snapshotId = await ensureScopeSnapshot(client, H, q.viewAnalysisId as string, ownDatasetId, datasetId, plan.filters, dryRun);
+  if (!spec || !snapshotId) { log(`${q.id}: would ensure user chart "${plan.title}"`); return { evidence: null, interpretation: null }; }
+  const link = (id: string) => `${FRONT_URL}/projects/${t.projectId}/view-analyses/${q.viewAnalysisId}/evidences/${id}`;
+  const evidence = await ensureUserChartEvidence(client, H, q.viewAnalysisId as string, existing, spec, snapshotId, datasetId, plan, link, dryRun);
+  if (!evidence) return { evidence: null, interpretation: null };
+  log(`${q.id}: user chart "${plan.title}" → evidence ${evidence.id}`);
+  if (!plan.interpretation || dryRun) return { evidence, interpretation: null };
+  const label = interpretationDecisionLabel(q.id, plan.interpretation.label);
+  const draft = await recordDecision(client, serviceUserId, t.workspaceId, q.viewAnalysisId as string, label, 'medium', [], { type: cfg.decisionType, evidenceIds: [evidence.id] });
+  const dLink = `${FRONT_URL}/projects/${t.projectId}/view-analyses/${q.viewAnalysisId}/decisions/${draft.id}`;
+  return { evidence, interpretation: { id: draft.id, label, link: dLink } };
+}
+
+/** Every `userCharts[]` plan of a question, in order — the mechanic §B of AXI-1586. */
+async function ensureUserCharts(client: RestClient, serviceUserId: string, H: Record<string, string>, t: Trace, q: PublishedTrace, cfg: QuestionConfig, dryRun: boolean): Promise<UserChartsResult> {
+  const plans = cfg.userCharts ?? [];
+  if (!plans.length) return { evidences: [], interpretationDecisions: [] };
+  const datasetIds = await resolveUserChartDatasetIds(client, t.workspaceId);
+  const ownDatasetId = datasetIds.PAIRED;
+  const existing = await listEvidence(client, H, q.viewAnalysisId as string);
+  const evidences: PublishedRecord['evidences'] = [];
+  const interpretationDecisions: Array<{ id: string; label: string; link: string }> = [];
+  for (const plan of plans) {
+    const { evidence, interpretation } = await ensureOneUserChart(client, serviceUserId, H, t, q, cfg, datasetIds, ownDatasetId, existing, plan, dryRun);
+    if (evidence) evidences.push({ id: evidence.id, versionId: evidence.versionId, versionNumber: evidence.versionNumber, title: evidence.title, text: evidence.text, snapshotId: evidence.snapshotId, ruleRunId: '', link: evidence.link, charts: [] });
+    if (interpretation) interpretationDecisions.push(interpretation);
+  }
+  return { evidences, interpretationDecisions };
 }
 
 // ── charts (selector, never a creator — AXI-1553) ───────────────────────────
@@ -456,22 +531,26 @@ async function publishOne(client: RestClient, serviceUserId: string, t: Trace, q
     snapshotIds: snaps.map((s) => s.id),
   };
   const { decision, superseded } = await ensureDecision(client, serviceUserId, H, t, q, want, dryRun);
-  const version = evidences.length && (decision || dryRun) ? await ensurePublished(client, H, q.viewAnalysisId, evidences.map((e) => e.versionId), decision ? [decision.id] : [], dryRun) : null;
+  const userCharts = await ensureUserCharts(client, serviceUserId, H, t, q, cfg, dryRun);
+  const allEvidences = [...evidences, ...userCharts.evidences];
+  const decisionIds = [decision?.id, ...userCharts.interpretationDecisions.map((d) => d.id)].filter((x): x is string => Boolean(x));
+  const version = allEvidences.length && (decision || dryRun) ? await ensurePublished(client, H, q.viewAnalysisId, allEvidences.map((e) => e.versionId), decisionIds, dryRun) : null;
   q.published = {
     at: new Date().toISOString(),
-    evidences,
+    evidences: allEvidences,
     decisionId: decision?.id ?? null,
     decisionLabel: decision?.label ?? want.label,
     decisionStatus: decision?.status ?? null,
     decisionLink: decision ? `${FRONT_URL}/projects/${t.projectId}/view-analyses/${q.viewAnalysisId}/decisions/${decision.id}` : null,
     supersededDecisionId: superseded ?? q.published?.supersededDecisionId ?? null,
+    interpretationDecisions: userCharts.interpretationDecisions,
     verdicts: verdicts.map((v) => ({ rule: v.rule, verdict: v.verdict })),
     publishedVersionId: version?.id ?? null,
     publishedVersionNumber: version?.versionNumber ?? null,
     publishedLink: version ? `${FRONT_URL}/sponsor-review/views/${version.id}/export-preview` : null,
     previewApi: version ? `${BASE_URL}/api/v1/exports/sponsor/${version.id}/preview` : null,
   };
-  log(`${q.id}: ${evidences.length} evidence(s) / ${evidences.reduce((n, e) => n + e.charts.length, 0)} chart(s), decision ${decision?.id ?? '—'} (${decision?.status ?? '—'}) "${want.label}", published ${version?.id ?? '—'}`);
+  log(`${q.id}: ${allEvidences.length} evidence(s) (${userCharts.evidences.length} user chart(s)) / ${evidences.reduce((n, e) => n + e.charts.length, 0)} recommended chart(s), decision ${decision?.id ?? '—'} (${decision?.status ?? '—'}) "${want.label}", ${userCharts.interpretationDecisions.length} interpretation(s), published ${version?.id ?? '—'}`);
 }
 
 async function main(): Promise<void> {

@@ -416,6 +416,30 @@ for a snapshot (`selectRecommended`), and which pre-AXI-1553 hand-built `Qn ·
 | UT-STAGE-170 | `selectRecommended` returns ALL recommended specs when a dataset carries several templates | Pass |
 | UT-STAGE-171 | `isHandBuiltUserChart` matches a pre-AXI-1553 `Qn · …` user spec | Pass |
 | UT-STAGE-172 | `isHandBuiltUserChart` ignores a non-user origin, an unrelated user-chart title, and a null title | Pass |
+| UT-STAGE-193 | `interpretationDecisionLabel` is `"<questionId> — <reading> · interpretation"` (AXI-1586) | Pass |
+| UT-STAGE-194 | `interpretationDecisionLabel` differs for two different plans of the same question — the Review Center lists both | Pass |
+
+## `riazUserCharts.spec.ts` (AXI-1586 — the `userCharts[]` mechanism)
+
+Pure helpers `ensureUserChartSpec`/`ensureUserChartEvidence`/`ensureScopeSnapshot`
+build request bodies around: which column each spec binding maps to
+(`toBindings`, `col_`-prefixed), the render-cache key comparison for a scope
+snapshot (`filterKey`/`sameFilterSet` — order-independent, list-value-aware),
+and the 4 source-dataset filenames the mechanism resolves ids for
+(`USER_CHART_DATASET_FILES`).
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-183 | `toBindings` prefixes every column with `col_`, one binding per role | Pass |
+| UT-STAGE-184 | `toBindings` on an empty binding map returns an empty object | Pass |
+| UT-STAGE-185 | `filterKey` renders an `in` filter's list value joined, so two identical lists produce the same key | Pass |
+| UT-STAGE-186 | `sameFilterSet` is true for the same filters in a different order | Pass |
+| UT-STAGE-187 | `sameFilterSet` is false when a filter value differs | Pass |
+| UT-STAGE-188 | `sameFilterSet` is false when the filter counts differ | Pass |
+| UT-STAGE-189 | `sameFilterSet` is true for two equal `in` filters | Pass |
+| UT-STAGE-190 | `USER_CHART_DATASET_FILES` declares exactly the 4 handles the brief names (PAIRED/WIDE/DE/DE_STRATA) | Pass |
+| UT-STAGE-191 | `USER_CHART_DATASET_FILES.WIDE` points at the v2 (panel-gene) file, not the AXI-1374 count-matrix | Pass |
+| UT-STAGE-192 | a `UserChartPlan` with no `interpretation` is valid — interpretations are optional | Pass |
 
 ## `riazQuestionVerdicts.spec.ts` (AXI-1553 review fix — Q1 guided-trace path)
 
