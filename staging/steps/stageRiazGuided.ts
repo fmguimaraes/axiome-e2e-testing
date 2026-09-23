@@ -355,7 +355,7 @@ async function approveInterpretation(client: RestClient, workspaceId: string, pr
   log(`approved interpretation node ${nodeId}`);
 }
 
-export interface DecisionRow { id: string; status: string; label: string }
+export interface DecisionRow { id: string; status: string; label: string; type?: string; confidence?: string | null; evidenceLinks?: Array<Record<string, string>> }
 
 export async function recordDecision(
   client: RestClient,
@@ -365,6 +365,7 @@ export async function recordDecision(
   label: string,
   confidence: DecisionDraftConfidence,
   snapshotIds: string[],
+  opts: { type?: string; evidenceIds?: string[] } = {},
 ): Promise<DecisionRow> {
   const ctx: ProvisioningContext = { client, fixture: riazFixture(), serviceUserId, workspaceIdByFixtureName: new Map([[WORKSPACE, workspaceId]]), touched: [] };
   await ensureMemberRole(ctx, workspaceId, AUTHOR_HANDLE, 'editor');
@@ -375,10 +376,10 @@ export async function recordDecision(
     decision = must(
       await client.as<DecisionRow>(AUTHOR_HANDLE, 'POST', `/api/v1/workspaces/${workspaceId}/decisions`, {
         label,
-        type: 'phenotype_classification',
+        type: opts.type ?? 'phenotype_classification',
         confidence,
         context: { intendedUse: 'RUO' },
-        evidenceLinks: snapshotIds.map((snapshotId) => ({ snapshotId })),
+        evidenceLinks: [...(opts.evidenceIds ?? []).map((evidenceId) => ({ evidenceId })), ...snapshotIds.map((snapshotId) => ({ snapshotId }))],
         evidenceValues: [],
       }, H),
       'creating decision',

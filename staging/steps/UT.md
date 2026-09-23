@@ -380,3 +380,22 @@ against the live tenant (exit 0, 8/8 rules PASS, confirmed twice) + `npx
 playwright test tests/AXI-1368/AXI-1372-dataset-ingestion.spec.ts
 tests/AXI-1368/AXI-1371-tenant-provisioning.spec.ts` (18/18, last confirmed
 2026-08-28 AXI-1374).
+
+## Riaz visual evidence (`riazEvidenceText.ts`, `stage:riaz-publish`)
+
+`riazEvidenceText.spec.ts` pins the wording `stage:riaz-publish` publishes —
+the evidence summary built from a rule run's rows (never a row dump), the QC
+sentence, the titles, and the decision label/confidence derived from the
+offline verdicts in `riazQuestionVerdicts.ts` — on Q11's real Wilcoxon numbers
+(run GR-95c2062c). Pure functions, no network; run with `npm run stage:unit`.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-160 | responder summary: significant focus genes with direction + p (PDCD1 p=0.020, CD8A p=0.039), the trend (PRF1), what did not reach significance (GZMB, IFNG, LAG3), non-focus trends | Pass |
+| UT-STAGE-161 | non-responder summary: no focus gene moves; CXCL9 / CXCL10 rise, CD274 / IDO1 trend | Pass |
+| UT-STAGE-162 | summary is 3–5 sentences, no ids, no `key=value` syntax | Pass |
+| UT-STAGE-163 | a falling significant gene reads "falls"; the test name comes from the operation id | Pass |
+| UT-STAGE-164 | QC sentence: gate, referent, rows checked, verdict (pass / block with reasons) | Pass |
+| UT-STAGE-165 | titles are short (`Q11 · Wilcoxon Pre→On per gene — responders (n=9)`); cohort names come from the snapshot filters with a generic fallback | Pass |
+| UT-STAGE-166 | Q11 decision label states the claim + the cited rule verdicts, parentheticals stripped from rule names | Pass |
+| UT-STAGE-167 | confidence band: ≥0.75 high, ≥0.5 medium, else low; no numeric confidence → medium | Pass |
