@@ -92,6 +92,39 @@ export function sentenceEvidenceText(evidences: readonly EvidenceRead[], snapsho
 export const filterText = (filters: readonly Filter[]): string =>
   filters.map((f) => `${f.column} ${f.operator} ${Array.isArray(f.value) ? f.value.join('/') : String(f.value)}`).join(' & ');
 
+/**
+ * The DESCRIBE plan node that produced the i-th describe run.
+ *
+ * `RuleRun.materializedNodeId` is a workflow node UUID, NOT the plan node's id
+ * (`n2_describe_rank_mean`), so the id join silently never matches and every
+ * question reported `cited connector: none` on the first live run. The runs of
+ * one analysis come back in snapshot order and the plan's describe nodes are
+ * executed in plan order, so the i-th describe node produced the i-th describe
+ * run; the id match is still tried first, in case a future run row carries the
+ * plan id. (The run itself persists NO connector code — `rule_runs` has no
+ * `rule_code` column — which is AXI-1558's recorded debt and the reason the
+ * citation has to be read from the plan at all.)
+ */
+export function describeNodeFor(
+  planNodes: QuestionTrace['planNodes'],
+  run: QuestionTrace['ruleRuns'][number],
+  describeRunIndex: number,
+): QuestionTrace['planNodes'][number] | undefined {
+  const byId = planNodes.find((n) => n.id === run.planNode);
+  if (byId) return byId;
+  const describeNodes = planNodes.filter((n) => n.nodeType === 'describe' || String((n.params as { operation?: unknown })?.operation ?? '').startsWith('describe.'));
+  const sameOperation = describeNodes.filter((n) => operationIdOf(n) === run.operationId);
+  const pool = sameOperation.length ? sameOperation : describeNodes;
+  return pool[describeRunIndex] ?? pool[0];
+}
+
+const operationIdOf = (node: QuestionTrace['planNodes'][number]): string | null => {
+  const operation = (node.operation ?? {}) as { operationId?: unknown };
+  const params = (node.params ?? {}) as { operation?: unknown };
+  const id = operation.operationId ?? params.operation;
+  return typeof id === 'string' ? id : null;
+};
+
 /** The connector code the plan node cited, wherever the planner put it. */
 export function citedConnectorOf(node: QuestionTrace['planNodes'][number] | undefined): string | null {
   if (!node) return null;
@@ -143,6 +176,75 @@ async function listDecisions(client: RestClient, H: Record<string, string>, work
   return asList<DecisionRead>(must(await client.as<unknown>(SERVICE_HANDLE, 'GET', `/api/v1/workspaces/${workspaceId}/decisions?viewAnalysisId=${analysisId}&limit=100`, undefined, H), 'decisions'));
 }
 
+/**
+ * The RECOMMENDED CHART of a describe result is NOT a `DataviewSpec` with
+ * `origin: 'recommended'` — that was this step's first-run misconception, and
+ * it reported "recommended chart absent" while the product renders one.
+ *
+ * What the UI actually renders (`GuidedRecommendedChart`, AXI-1462/AXI-1564) is
+ * the chart the OPERATION DECLARES in the registry (`defaultChart`, AXI-1414),
+ * whose role templates (`{groupColumns}`, `{aggregation}_{valueColumn}`,
+ * `{sortColumn}`, `rank`, `n`) are resolved against the RUN's own result
+ * columns. So "the recommended chart is present" means exactly: the descriptor
+ * declares a `result`-surface default chart AND every column its roles resolve
+ * to exists in the result table. The exploratory `origin: 'auto'` candidates on
+ * the result dataset are a different surface and prove nothing about it.
+ */
+export interface ObservedRecommendedChart {
+  chartType: string | null;
+  /** role → the column it resolved to (after template substitution) */
+  roles: Record<string, string>;
+  /** roles whose template resolved to a column the result table does not carry */
+  missingColumns: string[];
+  surfaces: string[];
+}
+
+export interface OperationDescriptor {
+  operationId?: string;
+  defaultChart?: { type?: string; roles?: Record<string, string>; annotation?: string[]; surfaces?: string[] } | null;
+}
+
+/** `{groupColumns}` / `{aggregation}_{valueColumn}` / `{sortColumn}` → real column names. */
+export function resolveChartRole(
+  template: string,
+  boundParameters: Record<string, unknown>,
+  canonicalFields: readonly ObservedColumnBinding[],
+): string {
+  return template.replace(/\{([a-zA-Z]+)\}/g, (_m, key: string) => {
+    const columns = canonicalFields.filter((f) => f.parameter === key).map((f) => f.column);
+    if (columns.length) return columns.join(',');
+    const scalar = boundParameters[key];
+    return scalar === undefined || scalar === null ? '' : String(scalar);
+  });
+}
+
+export function recommendedChartOf(
+  descriptors: readonly OperationDescriptor[],
+  operationId: string | null,
+  boundParameters: Record<string, unknown>,
+  canonicalFields: readonly ObservedColumnBinding[],
+  columns: readonly string[],
+): ObservedRecommendedChart | null {
+  const chart = descriptors.find((d) => d.operationId === operationId)?.defaultChart;
+  if (!chart) return null;
+  const roles: Record<string, string> = {};
+  const missingColumns: string[] = [];
+  const known = new Set(columns.map((c) => c.toLowerCase()));
+  for (const [role, template] of Object.entries(chart.roles ?? {})) {
+    const resolved = resolveChartRole(template, boundParameters, canonicalFields);
+    roles[role] = resolved;
+    for (const column of resolved.split(',').filter(Boolean)) {
+      if (!known.has(column.toLowerCase())) missingColumns.push(column);
+    }
+  }
+  return { chartType: chart.type ?? null, roles, missingColumns, surfaces: chart.surfaces ?? [] };
+}
+
+async function listOperationDescriptors(client: RestClient, H: Record<string, string>): Promise<OperationDescriptor[]> {
+  const res = await client.as<{ operations?: OperationDescriptor[] }>(SERVICE_HANDLE, 'GET', '/api/v1/rule-runs/operations', undefined, H);
+  return res.ok && res.body?.operations ? res.body.operations : [];
+}
+
 async function listEvidence(client: RestClient, H: Record<string, string>, analysisId: string): Promise<EvidenceRead[]> {
   const res = await client.as<unknown>(SERVICE_HANDLE, 'GET', `/api/v1/view-analyses/${analysisId}/evidences?page=1&limit=100`, undefined, H);
   return res.ok ? asList<EvidenceRead>(res.body) : [];
@@ -163,9 +265,11 @@ export async function observeDescribeResults(client: RestClient, workspaceId: st
   const byId = new Map(snapshots.map((s) => [s.id, s]));
   const decisions = await listDecisions(client, H, workspaceId, q.viewAnalysisId);
   const evidences = await listEvidence(client, H, q.viewAnalysisId);
+  const descriptors = await listOperationDescriptors(client, H);
   const out: ObservedDescribeResult[] = [];
-  for (const run of q.ruleRuns.filter((r) => r.kind === DESCRIBE_RUN_KIND)) {
-    out.push(await observeOne(client, H, workspaceId, q, run, byId, decisions, evidences));
+  const describeRuns = q.ruleRuns.filter((r) => r.kind === DESCRIBE_RUN_KIND);
+  for (const [i, run] of describeRuns.entries()) {
+    out.push(await observeOne(client, H, workspaceId, q, run, byId, decisions, evidences, descriptors, i));
   }
   return out;
 }
@@ -179,6 +283,8 @@ async function observeOne(
   byId: Map<string, SnapshotRead>,
   decisions: readonly DecisionRead[],
   evidences: readonly EvidenceRead[],
+  descriptors: readonly OperationDescriptor[],
+  describeRunIndex: number,
 ): Promise<ObservedDescribeResult> {
   const produced = byId.get(run.producedSnapshotId);
   const referent = run.referentSnapshotId ? byId.get(run.referentSnapshotId) : undefined;
@@ -189,7 +295,7 @@ async function observeOne(
     snapshotId: run.producedSnapshotId,
     cohort: filterText(referent?.effectiveFilters ?? referent?.filters ?? []),
     operationId: run.operationId ?? detail?.operationId ?? null,
-    citedConnector: citedConnectorOf(q.planNodes.find((n) => n.id === run.planNode)),
+    citedConnector: citedConnectorOf(describeNodeFor(q.planNodes, run, describeRunIndex)),
     boundParameters: detail?.boundParameters ?? {},
     canonicalFields: canonicalFieldsOf(detail),
     columns: run.columns,
@@ -197,6 +303,7 @@ async function observeOne(
     nGroups: nGroupsOf(detail, run.summary),
     binding: bindingOf(produced),
     recommendedChartSpecId: await recommendedSpecId(client, H, workspaceId, produced?.datasetId ?? null),
+    recommendedChart: recommendedChartOf(descriptors, run.operationId, detail?.boundParameters ?? {}, canonicalFieldsOf(detail), run.columns),
     sentence: sentenceEvidenceText(evidences, run.producedSnapshotId),
     decision,
   };

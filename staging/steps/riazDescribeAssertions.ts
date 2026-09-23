@@ -27,6 +27,14 @@ export interface ObservedBinding {
   citationStatus: string | null;
 }
 
+/** The registry-declared chart of the run's operation, resolved against its result columns. */
+export interface ObservedRecommendedChart {
+  chartType: string | null;
+  roles: Record<string, string>;
+  missingColumns: string[];
+  surfaces: string[];
+}
+
 export interface ObservedDecision {
   id: string;
   type: string | null;
@@ -63,7 +71,10 @@ export interface ObservedDescribeResult {
   rows: Array<Record<string, unknown>>;
   nGroups: number | null;
   binding: ObservedBinding | null;
+  /** any `origin: 'recommended'` DataviewSpec on the result dataset (context only — see `recommendedChart`) */
   recommendedChartSpecId: string | null;
+  /** the operation's DECLARED chart, resolved against this run's result columns — what the UI renders */
+  recommendedChart: ObservedRecommendedChart | null;
   /** the sentence as the RESULT surface carries it (the run's Evidence text) */
   sentence: string | null;
   decision: ObservedDecision | null;
@@ -223,6 +234,23 @@ function bindingAssertions(exp: ExpectedDescribeResult, obs: ObservedDescribeRes
   ];
 }
 
+/**
+ * The recommended chart the product actually renders: the OPERATION's declared
+ * `defaultChart` (registry, AXI-1414), bound to this run's own result columns.
+ * Not an `origin: 'recommended'` DataviewSpec — a describe result carries none,
+ * and asserting on one reported "absent" against a product that renders the
+ * chart. The user's rule still holds end-to-end: the chart is the platform's
+ * own recommendation, selected, never hand-built.
+ */
+function recommendedChartAssertions(obs: ObservedDescribeResult): Assertion[] {
+  const chart = obs.recommendedChart;
+  if (!chart) return [assertion('recommended chart', 'declared by the operation', 'no defaultChart on the descriptor', false)];
+  return [
+    assertion('recommended chart', 'declared for the result surface', `${chart.chartType ?? 'none'} [${chart.surfaces.join(',') || 'no surface'}]`, Boolean(chart.chartType) && chart.surfaces.includes('result')),
+    assertion('recommended chart columns', 'every role resolves to a result column', chart.missingColumns.length ? `missing ${chart.missingColumns.join(',')} (roles ${JSON.stringify(chart.roles)})` : JSON.stringify(chart.roles), chart.missingColumns.length === 0),
+  ];
+}
+
 /** The sentence as the RESULT surface carries it — the run's Evidence text. */
 function sentenceAssertions(exp: ExpectedDescribeResult, obs: ObservedDescribeResult): Assertion[] {
   const text = obs.sentence;
@@ -265,7 +293,7 @@ export function evaluateDescribeResult(exp: ExpectedDescribeResult, obs: Observe
     ...positionAssertions(exp, obs),
     ...rankAssertions(exp, obs),
     ...labelledCellAssertions(exp, obs),
-    assertion('recommended chart', 'present', obs.recommendedChartSpecId ?? 'absent', Boolean(obs.recommendedChartSpecId)),
+    ...recommendedChartAssertions(obs),
     ...sentenceAssertions(exp, obs),
     ...decisionAssertions(exp, obs),
   ];

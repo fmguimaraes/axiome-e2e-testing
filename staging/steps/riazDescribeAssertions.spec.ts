@@ -53,6 +53,7 @@ function observedQ12(overrides: Partial<ObservedDescribeResult> = {}): ObservedD
     nGroups: 24,
     binding: { state: 'covered', ambiguous: false, matchedConnectors: ['SUM-RANK-01'], unmappedColumns: [], citationStatus: 'confirmed' },
     recommendedChartSpecId: 'spec-1',
+    recommendedChart: { chartType: 'bar_chart', roles: { category: 'gene', value: 'mean_log2_cpm' }, missingColumns: [], surfaces: ['result', 'gallery'] },
     sentence: Q12_SENTENCE,
     decision: { id: 'dec-1', type: 'descriptive_summary', ruleRunId: 'run-1', sentenceText: Q12_SENTENCE, status: 'draft' },
     ...overrides,
@@ -97,8 +98,19 @@ test('UT-E2E-DESC-005: an indeterminate or ambiguous binding fails — only a na
   assert.ok(namesOfFailures(evaluateDescribeResult(Q12, ambiguous)).includes('binding ambiguous'));
 });
 
-test('UT-E2E-DESC-006: a missing recommended chart fails the question — it is never worked around', () => {
-  assert.ok(namesOfFailures(evaluateDescribeResult(Q12, observedQ12({ recommendedChartSpecId: null }))).includes('recommended chart'));
+test('UT-E2E-DESC-006: a missing or unbindable recommended chart fails the question — it is never worked around', () => {
+  // No chart declared by the operation at all.
+  assert.ok(namesOfFailures(evaluateDescribeResult(Q12, observedQ12({ recommendedChart: null }))).includes('recommended chart'));
+  // Declared, but not for the result surface (gallery only) — nothing renders beside the table.
+  const galleryOnly = observedQ12({ recommendedChart: { chartType: 'bar_chart', roles: { category: 'gene', value: 'mean_log2_cpm' }, missingColumns: [], surfaces: ['gallery'] } });
+  assert.ok(namesOfFailures(evaluateDescribeResult(Q12, galleryOnly)).includes('recommended chart'));
+  // Declared and on the result surface, but a role resolves to a column the
+  // result table does not carry — the chart cannot bind, so it cannot render.
+  const unbindable = observedQ12({ recommendedChart: { chartType: 'bar_chart', roles: { category: 'gene', value: 'median_log2_cpm' }, missingColumns: ['median_log2_cpm'], surfaces: ['result'] } });
+  assert.ok(namesOfFailures(evaluateDescribeResult(Q12, unbindable)).includes('recommended chart columns'));
+  // An `origin:'recommended'` DataviewSpec is NOT what makes the chart present:
+  // a describe result carries none and the product still renders the chart.
+  assert.deepEqual(namesOfFailures(evaluateDescribeResult(Q12, observedQ12({ recommendedChartSpecId: null }))), []);
 });
 
 test('UT-E2E-DESC-007: the Q12 sentence is compared byte-for-byte, on the evidence AND on the decision', () => {
