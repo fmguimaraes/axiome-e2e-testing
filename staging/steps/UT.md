@@ -449,6 +449,12 @@ and the 4 source-dataset filenames the mechanism resolves ids for
 | UT-STAGE-198 | `combineDescribeUserCharts` appends the `userCharts[]` evidences and interpretation decisions to the describe publish | Pass |
 | UT-STAGE-199 | `combineDescribeUserCharts` drops a null descriptive decision id and tolerates no `userCharts[]` at all | Pass |
 
+## `workspaceProvisioning.spec.ts` (AXI-1587 bounce fix — org-rename-drift fallback)
+
+| UT-STAGE-200 | `resolveWorkspaceMatch` prefers the org-scoped match and never adopts an org id when the scoped lookup already found it | Pass |
+| UT-STAGE-201 | `resolveWorkspaceMatch` falls back to the any-org match and adopts its real `ownerOrganizationId` — the org-rename-drift fix | Pass |
+| UT-STAGE-202 | `resolveWorkspaceMatch` returns undefined (fresh-instance path, AC1) when neither lookup found anything, and tolerates a null `ownerOrganizationId` on the any-org match | Pass |
+
 ## `riazQuestionVerdicts.spec.ts` (AXI-1553 review fix — Q1 guided-trace path)
 
 Review finding: `q1Context()`'s cwd-relative default (`../axiome-docs/...`)
