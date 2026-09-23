@@ -10,17 +10,19 @@ import type { QuestionTrace } from './runRiazQuestions';
 import type { PublishedRecord } from './publishRiazEvidence';
 
 /**
- * `npm run stage:riaz-report` — turns docs/riaz-questions-trace.json (what the
+ * `npm run stage:riaz-report` — turns ../axiome-docs/demo/riaz-2017/riaz-questions-trace.json (what the
  * LLM planner did and what the kernel produced for Q2..Q11) into
- * docs/Riaz-Guided-Questions-Report.md: per question the plan the planner
+ * ../axiome-docs/demo/riaz-2017/Riaz-Guided-Questions-Report.md: per question the plan the planner
  * chose, the result tables, the offline verdict of every INTERPRET / DECISION
  * rule the question cites (the platform has no executor for those protocols),
  * whether that verdict matches the expectation computed from the source CSV,
  * and the deep links. Re-fetches each analysis's snapshots for their
  * `effectiveFilters`, which is how a rule run is tied back to its cohort.
  */
-const TRACE_PATH = process.env.STAGING_RIAZ_QUESTIONS_TRACE?.trim() || 'docs/riaz-questions-trace.json';
-const REPORT_PATH = process.env.STAGING_RIAZ_QUESTIONS_REPORT?.trim() || 'docs/Riaz-Guided-Questions-Report.md';
+const TRACE_PATH = process.env.STAGING_RIAZ_QUESTIONS_TRACE?.trim() || '../axiome-docs/demo/riaz-2017/riaz-questions-trace.json';
+const REPORT_PATH = process.env.STAGING_RIAZ_QUESTIONS_REPORT?.trim() || '../axiome-docs/demo/riaz-2017/Riaz-Guided-Questions-Report.md';
+// Q1's trace (stage:riaz-guided) — the paired t-test verdicts Q11's sensitivity rule compares against.
+const GUIDED_TRACE_PATH = process.env.STAGING_RIAZ_GUIDED_TRACE?.trim() || '../axiome-docs/demo/riaz-2017/riaz-guided-trace.json';
 const FRONT_URL = (process.env.STAGING_FRONT_URL?.trim() || 'http://localhost:5173').replace(/\/+$/, '');
 const DELTA = 0.5;
 const P = 0.05;
@@ -352,7 +354,7 @@ function paperSection(rows: Array<{ id: string; concordance: Concordance; note: 
 
 function q1Context(): { r: ReturnType<typeof evaluateCyto>; nr: ReturnType<typeof evaluateCyto> } | null {
   try {
-    const t = JSON.parse(readFileSync('docs/riaz-guided-trace.json', 'utf8')) as { verdicts: Record<string, { responders: ReturnType<typeof evaluateCyto>; nonResponders: ReturnType<typeof evaluateCyto> }> };
+    const t = JSON.parse(readFileSync(GUIDED_TRACE_PATH, 'utf8')) as { verdicts: Record<string, { responders: ReturnType<typeof evaluateCyto>; nonResponders: ReturnType<typeof evaluateCyto> }> };
     const v = t.verdicts['RIAZ-INT-CYTO-01'];
     return v ? { r: v.responders, nr: v.nonResponders } : null;
   } catch {
@@ -456,7 +458,7 @@ async function main(): Promise<void> {
   const md = [
     '# Riaz 2017 — ten guided questions, run through the LLM planner (report)',
     '',
-    `Generated ${new Date().toISOString()} from \`${TRACE_PATH}\` by \`npm run stage:riaz-report\`. Each question was asked as Marc Ottavi through the guided-analysis planner (\`POST /guided-analysis/plan\`, anthropic), the returned plan was submitted unchanged as a governed run (with \`organizationId\`, which the UI omits), the interpretation node approved as the service identity, and the cited INTERPRET / DECISION rules evaluated offline over the kernel's result tables (no executor exists for those protocols). "Expected" is the verdict computed from the source CSV in docs/Riaz-Guided-Questions.md.`,
+    `Generated ${new Date().toISOString()} from \`${TRACE_PATH}\` by \`npm run stage:riaz-report\`. Each question was asked as Marc Ottavi through the guided-analysis planner (\`POST /guided-analysis/plan\`, anthropic), the returned plan was submitted unchanged as a governed run (with \`organizationId\`, which the UI omits), the interpretation node approved as the service identity, and the cited INTERPRET / DECISION rules evaluated offline over the kernel's result tables (no executor exists for those protocols). "Expected" is the verdict computed from the source CSV in ../axiome-docs/demo/riaz-2017/Riaz-Guided-Questions.md.`,
     '',
     '| Q | Plan (planner) | Run | Run status | Rule verdicts matching expectation | Overall | vs paper | Analysis |',
     '|---|---|---|---|---|---|---|---|',

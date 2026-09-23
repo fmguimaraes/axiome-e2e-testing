@@ -9,10 +9,10 @@ import { resolveTenant } from './stageRiazGuided';
 
 /**
  * `npm run stage:riaz-questions` — asks the ten follow-up questions of
- * docs/Riaz-Guided-Questions.md through the REAL guided-analysis planner (the
+ * ../axiome-docs/demo/riaz-2017/Riaz-Guided-Questions.md through the REAL guided-analysis planner (the
  * same REST calls the guided page makes: profile → plan → governed submit →
  * drain → approve), as the presenter identity, and records every id, plan
- * node, rule run and result table to docs/riaz-questions-trace.json.
+ * node, rule run and result table to ../axiome-docs/demo/riaz-2017/riaz-questions-trace.json.
  *
  * Differences from the UI, both deliberate: the submit carries
  * `organizationId` (the UI omits it — org-scoped QC rules fail there), and
@@ -29,7 +29,7 @@ import { resolveTenant } from './stageRiazGuided';
  */
 const PROTO_ROW_LIMIT = 1000;
 const FRONT_URL = (process.env.STAGING_FRONT_URL?.trim() || 'http://localhost:5173').replace(/\/+$/, '');
-const TRACE_PATH = process.env.STAGING_RIAZ_QUESTIONS_TRACE?.trim() || 'docs/riaz-questions-trace.json';
+const TRACE_PATH = process.env.STAGING_RIAZ_QUESTIONS_TRACE?.trim() || '../axiome-docs/demo/riaz-2017/riaz-questions-trace.json';
 const PRESENTER = 'cast-biologist';
 const SETTLED = new Set(['SUCCEEDED', 'REUSED', 'FAILED', 'BLOCKED', 'CANCELLED', 'AWAITING_APPROVAL']);
 

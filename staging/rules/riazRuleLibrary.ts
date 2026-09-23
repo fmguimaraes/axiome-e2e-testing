@@ -1,6 +1,6 @@
 /**
  * The Riaz 2017 rule library — every rule the ten guided questions in
- * docs/Riaz-Guided-Questions.md cite, built with `protocolBuilders.ts` so each
+ * ../axiome-docs/demo/riaz-2017/Riaz-Guided-Questions.md cite, built with `protocolBuilders.ts` so each
  * protocol's publish contract is satisfied by construction.
  *
  *   Q1  on-treatment cytotoxic induction, responder-restricted   (stage:riaz-guided, done)

@@ -24,7 +24,7 @@ import type { ProvisioningContext } from './context';
 
 /**
  * `npm run stage:riaz-guided` — the guided, rule-bound workflow on the staged
- * Riaz 2017 project (run `stage:riaz` first). docs/Riaz-Guided-Rule-Workflow.md
+ * Riaz 2017 project (run `stage:riaz` first). ../axiome-docs/demo/riaz-2017/Riaz-Guided-Rule-Workflow.md
  * is the operator doc; this file is the executable record.
  *
  *   1. bind the `immuno_oncology` semantic profile to the project and verify
@@ -37,7 +37,7 @@ import type { ProvisioningContext } from './context';
  *   5. read the paired-test tables, evaluate the INTERPRET + DECISION rules
  *      offline, approve the run's interpretation node, and record the
  *      human-approved DecisionDraft citing the rule-derived snapshots;
- *   6. write every id + deep link to `docs/riaz-guided-trace.json`.
+ *   6. write every id + deep link to `../axiome-docs/demo/riaz-2017/riaz-guided-trace.json`.
  *
  * Idempotent where the platform lets it be (profile, dataset, rules are
  * find-or-create). A governed run is NOT reusable by design (every plan
@@ -52,7 +52,7 @@ const QUESTION =
   'Does nivolumab induce an on-treatment cytotoxic / IFN-γ transcriptional program in melanoma, and is that induction confined to responders?';
 const AUTHOR_HANDLE = 'cast-biologist'; // Marc Ottavi — the presenter
 const FRONT_URL = (process.env.STAGING_FRONT_URL?.trim() || 'http://localhost:5173').replace(/\/+$/, '');
-const TRACE_PATH = process.env.STAGING_RIAZ_GUIDED_TRACE?.trim() || 'docs/riaz-guided-trace.json';
+const TRACE_PATH = process.env.STAGING_RIAZ_GUIDED_TRACE?.trim() || '../axiome-docs/demo/riaz-2017/riaz-guided-trace.json';
 
 const SETTLED = new Set(['SUCCEEDED', 'REUSED', 'FAILED', 'BLOCKED', 'CANCELLED', 'AWAITING_APPROVAL']);
 const POLL_MS = 2000;

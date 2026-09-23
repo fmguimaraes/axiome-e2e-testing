@@ -1,6 +1,6 @@
 /**
  * The rule library that answers the Riaz 2017 guided question
- * (docs/Riaz-Guided-Rule-Workflow.md):
+ * (../axiome-docs/demo/riaz-2017/Riaz-Guided-Rule-Workflow.md):
  *
  *   "Does nivolumab induce an on-treatment cytotoxic / IFN-γ transcriptional
  *    program in melanoma, and is that induction confined to responders?"

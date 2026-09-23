@@ -2,7 +2,7 @@
  * stage:riaz-publish — make the ten questions' results citable evidence and
  * publish them.
  *
- * For every traced question (docs/riaz-questions-trace.json) whose governed
+ * For every traced question (../axiome-docs/demo/riaz-2017/riaz-questions-trace.json) whose governed
  * run produced rule-derived snapshots this step, idempotently:
  *   1. records one Evidence per rule-derived result table in the run's
  *      analysis (`POST /view-analyses/evidences`, citation kind `table` —
@@ -27,7 +27,7 @@ import { projectHeaders } from './projectProvisioning';
 import { recordDecision } from './stageRiazGuided';
 import type { QuestionTrace } from './runRiazQuestions';
 
-const TRACE_PATH = process.env.STAGING_RIAZ_QUESTIONS_TRACE?.trim() || 'docs/riaz-questions-trace.json';
+const TRACE_PATH = process.env.STAGING_RIAZ_QUESTIONS_TRACE?.trim() || '../axiome-docs/demo/riaz-2017/riaz-questions-trace.json';
 const FRONT_URL = (process.env.STAGING_FRONT_URL?.trim() || 'http://localhost:5173').replace(/\/+$/, '');
 
 export interface PublishedRecord {

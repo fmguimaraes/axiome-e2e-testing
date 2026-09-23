@@ -74,7 +74,7 @@ export async function ensureRules(client: RestClient | null, a: Args): Promise<R
   const tenant = await resolveTenant(client);
   log(`workspace ${tenant.workspaceId} / project ${tenant.projectId} / org ${tenant.organizationId ?? '(none → system scope)'}`);
   for (const [i, e] of entries.entries()) {
-    const { row, action } = await ensureRule(client, e.make(), tenant, { log, dryRun: a.dryRun, justification: `Riaz 2017 rule library (${e.protocol}) — cited by ${e.questions.join(', ')} in docs/Riaz-Guided-Questions.md` });
+    const { row, action } = await ensureRule(client, e.make(), tenant, { log, dryRun: a.dryRun, justification: `Riaz 2017 rule library (${e.protocol}) — cited by ${e.questions.join(', ')} in axiome-docs/demo/riaz-2017/Riaz-Guided-Questions.md` });
     Object.assign(reports[i], { action, id: row.id || undefined, version: row.version || undefined });
   }
   return reports;
