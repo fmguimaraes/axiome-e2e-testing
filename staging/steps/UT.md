@@ -433,3 +433,24 @@ resolved path, instead of degrading.
 | UT-STAGE-173 | `STAGING_RIAZ_GUIDED_TRACE` wins outright when set, regardless of the questions trace path | Pass |
 | UT-STAGE-174 | with no override, the guided trace is derived as a sibling of the questions trace path | Pass |
 | UT-STAGE-175 | with neither env var set, falls back to the historical cwd-relative default | Pass |
+
+## `lib/evidenceKind.spec.ts` (AXI-1555 — Executable Describe & Summary Connector Rules)
+
+`deriveEvidenceKind` — the structural (never title-regexed) evidence-`kind`
+classification `stage:riaz-publish` now sends explicitly on evidence create/update,
+mirroring the backend's own `EVIDENCE_KIND_BY_RUN_KIND`/`deriveEvidenceKind`
+(`apps/organization-service/src/view-analyses/evidence-kind.ts`, axiome-back) so the
+two never drift: a statistical run kind outranks a QC run kind when both are cited,
+DESCRIBE/LEGACY_AD_HOC contribute nothing of their own (fall through to chart/table
+by shape), and with no structural fact at all it returns `undefined` — the caller
+omits `kind` and lets the server derive it, rather than guessing.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-176 | a QC run kind classifies as `qc_check` | Pass |
+| UT-STAGE-177 | DELTA/STRATIFY/STATISTICAL/JOIN run kinds all classify as `statistical_result` | Pass |
+| UT-STAGE-178 | `statistical_result` outranks `qc_check` when both run kinds are cited | Pass |
+| UT-STAGE-179 | DESCRIBE/LEGACY_AD_HOC contribute no classification of their own — falls through to shape (chart / table) | Pass |
+| UT-STAGE-180 | no known run kind, chart entries present — classifies as `chart` | Pass |
+| UT-STAGE-181 | no known run kind, no chart, a citation context — classifies as `table` | Pass |
+| UT-STAGE-182 | nothing structural to go on (incl. an unrecognized future run kind) — `undefined`, never a guessed `note` | Pass |

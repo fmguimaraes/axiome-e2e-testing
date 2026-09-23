@@ -34,6 +34,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { RestClient } from '../client/RestClient';
 import { ensureIdentities } from '../identities/ensureIdentities';
+import { deriveEvidenceKind } from '../lib/evidenceKind';
 import { asList, must } from '../rules/ensureRule';
 import { SERVICE_HANDLE } from './context';
 import { projectHeaders } from './projectProvisioning';
@@ -227,10 +228,16 @@ async function ensureOneEvidence(client: RestClient, H: Record<string, string>, 
   const content = evidenceContent(q, cfg, s, rr, cohort, levels, charts);
   const link = (id: string) => `${FRONT_URL}/projects/${t.projectId}/view-analyses/${q.viewAnalysisId}/evidences/${id}`;
   const chartEntries = charts.map((c) => ({ chartArtifactId: c.id, snapshotId: c.snapshotId, datasetVersionId: c.datasetId }));
+  // AXI-1555: this step KNOWS the run kind behind the cited snapshot (`rr.kind`,
+  // the live `rule_runs.run_kind`) and whether it bound a recommended chart — the
+  // same facts the backend's own derivation would read off provenance, computed
+  // here instead of guessed from `content.title`. See `lib/evidenceKind.ts`.
+  const kind = deriveEvidenceKind({ runKinds: [rr.kind], hasChartEntries: charts.length > 0, hasCitationContext: true });
   const body = {
     chartEntries,
     title: content.title,
     text: content.text,
+    kind,
     citationContext: {
       kind: 'table',
       evidence_id: rr.id,
