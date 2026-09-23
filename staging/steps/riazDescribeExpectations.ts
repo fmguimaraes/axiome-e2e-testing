@@ -95,6 +95,9 @@ export interface DescribeExpectation {
 
 const PAIRED = 'riaz2017_immune_paired_log2cpm_long.csv';
 const DE = 'riaz_pre_therapy_responders_vs_nonresponders.csv (ingested as riaz2017_de_pre_R_vs_NR.csv)';
+/** AXI-1587 — Q25/Q30 additional source files. */
+const DE_STRATA = 'riaz_stratified_pre_R_vs_NR_by_prior_ipi.csv (ingested as riaz2017_stratified_de_by_prior_ipi.csv)';
+const WIDE_V2 = 'riaz2017_expression_by_response_timepoint_v2.csv';
 
 /** AC2's golden EN sentence for Q12, byte-for-byte. */
 export const Q12_SENTENCE =
@@ -302,6 +305,186 @@ export const DESCRIBE_EXPECTED: Record<string, DescribeExpectation> = {
           { rank: 2, label: 'LCK', value: 1.9680 },
           { rank: 3, label: 'CXCL11', value: 1.8431 },
           { rank: 24, label: 'HAVCR2', value: 0.0666 },
+        ],
+      },
+    ],
+  },
+  // ── AXI-1587: Q22–Q31 (Chart-Enrichment-Brief §5) ──────────────────────────
+  Q22: {
+    derivation: `pandas: ${PAIRED} → df[df.gene.isin(CYTO)].groupby(['patient_id','timepoint']).log2_cpm.agg(['mean','count'])`,
+    results: [
+      {
+        cohort: '',
+        connector: 'SUM-CROSS-01',
+        operationId: 'describe.grouped_aggregate',
+        nGroups: 54,
+        parameters: { groupColumns: ['patient_id', 'timepoint'], valueColumn: 'log2_cpm', aggregation: 'mean' },
+        cells: [
+          { label: 'Pt1|On', value: 2.4613, n: 6 },
+          { label: 'Pt1|Pre', value: 3.9935, n: 6 },
+          { label: 'Pt101|On', value: 4.8915, n: 6 },
+          { label: 'Pt103|Pre', value: 3.7511, n: 6 },
+          { label: 'Pt94|On', value: 3.0123, n: 6 },
+        ],
+      },
+    ],
+  },
+  Q23: {
+    derivation: `pandas: ${WIDE_V2} → df[df.gene=='CD8A'].sort_values('delta', ascending=False)`,
+    results: [
+      {
+        cohort: 'gene eq CD8A',
+        connector: 'SUM-TOPN-01',
+        operationId: 'describe.top_n',
+        nGroups: 1,
+        rowCount: 27,
+        labelColumn: 'patient_id',
+        parameters: { sortColumn: 'delta', direction: 'desc', n: 27 },
+        ranks: [
+          { rank: 1, label: 'Pt30', value: 4.4608 },
+          { rank: 2, label: 'Pt78', value: 3.326 },
+          { rank: 3, label: 'Pt28', value: 2.7263 },
+          { rank: 27, label: 'Pt103', value: -3.1238 },
+        ],
+      },
+    ],
+  },
+  Q24: {
+    derivation: `pandas: ${PAIRED} → df[df.timepoint=='On'].groupby(['gene','prior_ipi']).log2_cpm.agg(['mean','count'])`,
+    results: [
+      {
+        cohort: 'timepoint eq On',
+        connector: 'SUM-CROSS-01',
+        operationId: 'describe.grouped_aggregate',
+        nGroups: 48,
+        parameters: { groupColumns: ['gene', 'prior_ipi'], valueColumn: 'log2_cpm', aggregation: 'mean' },
+        cells: [
+          { label: 'CD8A|ipi_naive', value: 4.8035, n: 14 },
+          { label: 'CD8A|ipi_progressed', value: 3.9616, n: 13 },
+          { label: 'HLA-DRA|ipi_naive', value: 10.201, n: 14 },
+          { label: 'PDCD1|ipi_naive', value: 2.1859, n: 14 },
+          { label: 'PDCD1|ipi_progressed', value: 1.7544, n: 13 },
+        ],
+      },
+    ],
+  },
+  Q25: {
+    derivation: `pandas: ${DE} → sig-band counts by padj: (df.padj<0.01).sum()==22 genes, (0.01<=df.padj<0.05).sum()==36 genes, (0.05<=df.padj<0.10).sum()==91 genes (each a describe.count group count)`,
+    results: [
+      { cohort: 'padj lt 0.01', connector: 'SUM-COUNT-01', operationId: 'describe.count', nGroups: 22, parameters: { groupColumns: ['gene'] } },
+      { cohort: 'padj gte 0.01', connector: 'SUM-COUNT-01', operationId: 'describe.count', nGroups: 36, parameters: { groupColumns: ['gene'] } },
+      { cohort: 'padj gte 0.05', connector: 'SUM-COUNT-01', operationId: 'describe.count', nGroups: 91, parameters: { groupColumns: ['gene'] } },
+    ],
+  },
+  Q26: {
+    derivation: `pandas: ${PAIRED} → df[df.timepoint=='Pre'].groupby(['gene','response']).log2_cpm.agg(['median','count'])`,
+    results: [
+      {
+        cohort: 'timepoint eq Pre',
+        connector: 'SUM-CROSS-01',
+        operationId: 'describe.grouped_aggregate',
+        nGroups: 48,
+        parameters: { groupColumns: ['gene', 'response'], valueColumn: 'log2_cpm', aggregation: 'median' },
+        cells: [
+          { label: 'CD8A|NR', value: 3.799, n: 18 },
+          { label: 'CD8A|R', value: 5.7715, n: 9 },
+          { label: 'HLA-DRA|NR', value: 9.6252, n: 18 },
+          { label: 'HLA-DRA|R', value: 10.8617, n: 9 },
+          { label: 'PDCD1|R', value: 2.1544, n: 9 },
+        ],
+      },
+    ],
+  },
+  Q27: {
+    derivation: `pandas: ${DE} → df[df.padj<0.05].sort_values('log2FoldChange', ascending=True).head(10)`,
+    results: [
+      {
+        cohort: 'padj lt 0.05',
+        connector: 'SUM-TOPN-01',
+        operationId: 'describe.top_n',
+        nGroups: 1,
+        rowCount: 10,
+        labelColumn: 'gene',
+        parameters: { sortColumn: 'log2FoldChange', direction: 'asc', n: 10 },
+        ranks: [
+          { rank: 1, label: 'MYL1', value: -43.2809 },
+          { rank: 2, label: 'KRT14', value: -7.7627 },
+          { rank: 3, label: 'CASP14', value: -7.2487 },
+          { rank: 10, label: 'KRTDAP', value: -5.6561 },
+        ],
+      },
+    ],
+  },
+  Q28: {
+    derivation: `pandas: ${PAIRED} → df[df.gene.isin(['CXCL9','CXCL10','CXCL11']) & (df.response=='R')].groupby(['gene','timepoint']).log2_cpm.agg(['mean','count'])`,
+    results: [
+      {
+        cohort: '',
+        connector: 'SUM-CROSS-01',
+        operationId: 'describe.grouped_aggregate',
+        nGroups: 6,
+        parameters: { groupColumns: ['gene', 'timepoint'], valueColumn: 'log2_cpm', aggregation: 'mean' },
+        cells: [
+          { label: 'CXCL10|On', value: 5.8779, n: 9 },
+          { label: 'CXCL10|Pre', value: 5.8671, n: 9 },
+          { label: 'CXCL11|On', value: 3.4112, n: 9 },
+          { label: 'CXCL11|Pre', value: 3.8484, n: 9 },
+          { label: 'CXCL9|On', value: 7.727, n: 9 },
+          { label: 'CXCL9|Pre', value: 7.2381, n: 9 },
+        ],
+      },
+    ],
+  },
+  Q29: {
+    derivation: `pandas: ${PAIRED} → df[(df.gene=='HLA-DRA')&(df.timepoint=='Pre')].sort_values('log2_cpm', ascending=False).head(10)`,
+    results: [
+      {
+        cohort: '',
+        connector: 'SUM-TOPN-01',
+        operationId: 'describe.top_n',
+        nGroups: 1,
+        rowCount: 10,
+        labelColumn: 'patient_id',
+        parameters: { sortColumn: 'log2_cpm', direction: 'desc', n: 10 },
+        ranks: [
+          { rank: 1, label: 'Pt34', value: 13.4693 },
+          { rank: 2, label: 'Pt103', value: 12.5465 },
+          { rank: 3, label: 'Pt46', value: 12.3897 },
+          { rank: 10, label: 'Pt31', value: 10.4751 },
+        ],
+      },
+    ],
+  },
+  Q30: {
+    derivation: `pandas: ${DE_STRATA} → df[df.padj<0.05].groupby('stratum').log2FoldChange.agg(['mean','count'])`,
+    results: [
+      {
+        cohort: '',
+        connector: 'SUM-RANK-01',
+        operationId: 'describe.grouped_aggregate',
+        nGroups: 2,
+        parameters: { groupColumns: ['stratum'], valueColumn: 'log2FoldChange', aggregation: 'mean', direction: 'desc' },
+        top: { label: 'ipi_progressed', value: 1.7887, n: 50 },
+        bottom: { label: 'ipi_naive', value: -0.4618, n: 33 },
+      },
+    ],
+  },
+  Q31: {
+    derivation: `pandas: ${PAIRED} → df[(df.timepoint=='On')&(df.gene.isin(CYTO))].groupby('patient_id').log2_cpm.mean() desc`,
+    results: [
+      {
+        cohort: '',
+        connector: 'SUM-RANK-01',
+        operationId: 'describe.grouped_aggregate',
+        nGroups: 27,
+        parameters: { groupColumns: ['patient_id'], valueColumn: 'log2_cpm', aggregation: 'mean', direction: 'desc' },
+        top: { label: 'Pt49', value: 6.5885, n: 6 },
+        bottom: { label: 'Pt84', value: 0.1548, n: 6 },
+        ranks: [
+          { rank: 1, label: 'Pt49', value: 6.5885 },
+          { rank: 2, label: 'Pt30', value: 5.7634 },
+          { rank: 3, label: 'Pt18', value: 5.0655 },
+          { rank: 27, label: 'Pt84', value: 0.1548 },
         ],
       },
     ],

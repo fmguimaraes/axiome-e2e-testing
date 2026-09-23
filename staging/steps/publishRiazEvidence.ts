@@ -389,8 +389,28 @@ async function bindChartsToSentenceEvidence(client: RestClient, H: Record<string
   return after;
 }
 
-async function publishDescribeOne(client: RestClient, t: Trace, q: PublishedTrace, snaps: Snap[], dryRun: boolean): Promise<void> {
+/**
+ * AXI-1587 — a describe question's `userCharts[]` plans (Q22–Q31, on top of
+ * Q12–Q21's future ones) merge into the SAME publish call as the sentence
+ * evidence: `allEvidences` carries both, `decisionIds` carries the descriptive
+ * decision plus every `userCharts[]` interpretation's decision. Extracted as a
+ * pure function so the merge itself — not the network calls around it — is
+ * unit-tested (UT-STAGE-198..199).
+ */
+export function combineDescribeUserCharts(
+  evidences: PublishedRecord['evidences'],
+  decisionId: string | null,
+  userCharts: UserChartsResult,
+): { allEvidences: PublishedRecord['evidences']; decisionIds: string[] } {
+  return {
+    allEvidences: [...evidences, ...userCharts.evidences],
+    decisionIds: [decisionId, ...userCharts.interpretationDecisions.map((d) => d.id)].filter((x): x is string => Boolean(x)),
+  };
+}
+
+async function publishDescribeOne(client: RestClient, serviceUserId: string, t: Trace, q: PublishedTrace, snaps: Snap[], dryRun: boolean): Promise<void> {
   const H = projectHeaders(t.workspaceId);
+  const cfg = configFor(q.id);
   const existing = await listEvidence(client, H, q.viewAnalysisId as string);
   const decisions = asList<DecisionRow>(must(await client.as<unknown>(SERVICE_HANDLE, 'GET', `/api/v1/workspaces/${t.workspaceId}/decisions?viewAnalysisId=${q.viewAnalysisId}&limit=100`, undefined, H), 'listing decisions'));
   const evidences: PublishedRecord['evidences'] = [];
@@ -405,12 +425,14 @@ async function publishDescribeOne(client: RestClient, t: Trace, q: PublishedTrac
     const draft = findDescriptiveDecision(decisions, rr.id, s.id);
     if (draft) decision = dryRun ? draft : await approve(client, H, t.workspaceId, draft);
   }
-  const version = evidences.length ? await ensurePublished(client, H, q.viewAnalysisId as string, evidences.map((e) => e.versionId), decision ? [decision.id] : [], dryRun) : null;
-  q.published = describedRecord(t, q, evidences, decision, version);
-  log(`${q.id}: ${evidences.length} sentence evidence(s) / ${evidences.reduce((n, e) => n + e.charts.length, 0)} chart(s), descriptive decision ${decision?.id ?? '—'} (${decision?.status ?? '—'}), published ${version?.id ?? '—'}`);
+  const userCharts = await ensureUserCharts(client, serviceUserId, H, t, q, cfg, dryRun);
+  const { allEvidences, decisionIds } = combineDescribeUserCharts(evidences, decision?.id ?? null, userCharts);
+  const version = allEvidences.length ? await ensurePublished(client, H, q.viewAnalysisId as string, allEvidences.map((e) => e.versionId), decisionIds, dryRun) : null;
+  q.published = describedRecord(t, q, allEvidences, decision, userCharts.interpretationDecisions, version);
+  log(`${q.id}: ${allEvidences.length} evidence(s) (${userCharts.evidences.length} user chart(s)) / ${allEvidences.reduce((n, e) => n + e.charts.length, 0)} chart(s), descriptive decision ${decision?.id ?? '—'} (${decision?.status ?? '—'}), ${userCharts.interpretationDecisions.length} interpretation(s), published ${version?.id ?? '—'}`);
 }
 
-function describedRecord(t: Trace, q: PublishedTrace, evidences: PublishedRecord['evidences'], decision: DecisionRow | null, version: PublishedVersion | null): PublishedRecord {
+function describedRecord(t: Trace, q: PublishedTrace, evidences: PublishedRecord['evidences'], decision: DecisionRow | null, interpretationDecisions: PublishedRecord['interpretationDecisions'], version: PublishedVersion | null): PublishedRecord {
   return {
     at: new Date().toISOString(),
     evidences,
@@ -419,6 +441,7 @@ function describedRecord(t: Trace, q: PublishedTrace, evidences: PublishedRecord
     decisionStatus: decision?.status ?? null,
     decisionLink: decision ? `${FRONT_URL}/projects/${t.projectId}/view-analyses/${q.viewAnalysisId}/decisions/${decision.id}` : null,
     supersededDecisionId: q.published?.supersededDecisionId ?? null,
+    interpretationDecisions: interpretationDecisions ?? [],
     verdicts: [],
     publishedVersionId: version?.id ?? null,
     publishedVersionNumber: version?.versionNumber ?? null,
@@ -514,7 +537,7 @@ async function publishOne(client: RestClient, serviceUserId: string, t: Trace, q
   const all = await listSnapshots(client, H, q.viewAnalysisId);
   const snaps = all.filter((s) => s.origin === 'rule_derived' && s.ruleRunId);
   if (!snaps.length) { log(`${q.id}: no rule-derived snapshots — skipped`); return; }
-  if (isDescribeQuestion(q.id)) return publishDescribeOne(client, t, q, snaps, dryRun);
+  if (isDescribeQuestion(q.id)) return publishDescribeOne(client, serviceUserId, t, q, snaps, dryRun);
   const levels = pairedLevels(q);
   const existing = await listEvidence(client, H, q.viewAnalysisId);
   const evidences: PublishedRecord['evidences'] = [];

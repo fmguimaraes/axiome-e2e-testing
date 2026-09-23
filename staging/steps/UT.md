@@ -444,6 +444,11 @@ and the 4 source-dataset filenames the mechanism resolves ids for
 | UT-STAGE-196 | `sameChartParams` is false when the existing spec is missing `aggregation: "mean"` the plan now declares — the bug the review gate caught | Pass |
 | UT-STAGE-197 | `sameChartParams` is order-independent and true once both sides agree on aggregation | Pass |
 
+## `publishRiazEvidence.spec.ts` (AXI-1587 — userCharts[] on describe questions)
+
+| UT-STAGE-198 | `combineDescribeUserCharts` appends the `userCharts[]` evidences and interpretation decisions to the describe publish | Pass |
+| UT-STAGE-199 | `combineDescribeUserCharts` drops a null descriptive decision id and tolerates no `userCharts[]` at all | Pass |
+
 ## `riazQuestionVerdicts.spec.ts` (AXI-1553 review fix — Q1 guided-trace path)
 
 Review finding: `q1Context()`'s cwd-relative default (`../axiome-docs/...`)

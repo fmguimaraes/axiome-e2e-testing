@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { findDescriptiveDecision, findSentenceEvidence, interpretationDecisionLabel, isHandBuiltUserChart, selectRecommended } from './publishRiazEvidence';
+import { combineDescribeUserCharts, findDescriptiveDecision, findSentenceEvidence, interpretationDecisionLabel, isHandBuiltUserChart, selectRecommended } from './publishRiazEvidence';
 
 /**
  * UT-STAGE-168..172 — the two pure selectors `stage:riaz-publish` uses
@@ -71,4 +71,24 @@ test('UT-STAGE-194: interpretationDecisionLabel differs for two different plans 
   const a = interpretationDecisionLabel('Q6', 'exhausted transcripts mark the hot tumour');
   const b = interpretationDecisionLabel('Q6', 'CTLA4 is the outlier — checkpoint ≠ exhaustion');
   assert.notEqual(a, b);
+});
+
+// ── AXI-1587: a describe question's userCharts[] merge into the same publish ──
+
+const sentenceEvidence = (id: string) => ({ id, versionId: `${id}-v1`, versionNumber: 1, title: 'sentence', text: 'sentence text', snapshotId: 's1', ruleRunId: 'r1', link: 'l', charts: [] });
+const userChartEvidence = (id: string) => ({ id, versionId: `${id}-v1`, versionNumber: 1, title: 'chart', text: 'chart reading', snapshotId: 's2', ruleRunId: '', link: 'l', charts: [] });
+
+test('UT-STAGE-198: combineDescribeUserCharts appends the userCharts[] evidences and interpretation decisions to the describe publish', () => {
+  const evidences = [sentenceEvidence('e1')];
+  const userCharts = { evidences: [userChartEvidence('e2'), userChartEvidence('e3')], interpretationDecisions: [{ id: 'd2', label: 'alt reading', link: 'l' }] };
+  const { allEvidences, decisionIds } = combineDescribeUserCharts(evidences, 'd1', userCharts);
+  assert.deepEqual(allEvidences.map((e) => e.id), ['e1', 'e2', 'e3']);
+  assert.deepEqual(decisionIds, ['d1', 'd2']);
+});
+
+test('UT-STAGE-199: combineDescribeUserCharts drops a null descriptive decision id and tolerates no userCharts[] at all', () => {
+  const evidences = [sentenceEvidence('e1')];
+  const { allEvidences, decisionIds } = combineDescribeUserCharts(evidences, null, { evidences: [], interpretationDecisions: [] });
+  assert.deepEqual(allEvidences.map((e) => e.id), ['e1']);
+  assert.deepEqual(decisionIds, []);
 });

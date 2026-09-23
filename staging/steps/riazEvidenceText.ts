@@ -198,6 +198,108 @@ const Q11_USER_CHARTS: UserChartPlan[] = [
   },
 ];
 
+// ── AXI-1587 — Q22–Q31 (Chart-Enrichment-Brief §5, describe questions) ──────
+// Describe questions publish through `publishDescribeOne` (AXI-1565/AXI-1587):
+// the sentence evidence + `descriptive_summary` decision are the platform's
+// own, selected never authored; `userCharts` is the only field this config
+// contributes for these questions (`focusGenes`/`cohortNames`/`decisionHeadline`
+// are dead code on that path, kept only so `QuestionConfig` stays one shape).
+const CXCL_TRIO = ['CXCL9', 'CXCL10', 'CXCL11'] as const;
+const noHeadline = (): string => '';
+
+const Q22_USER_CHARTS: UserChartPlan[] = [
+  {
+    key: 'slope', templateId: 'paired_slope_v1', dataset: 'WIDE', filters: [inList('gene', CYTOTOXIC_FOCUS)], bindings: { from: 'pre_expression', to: 'on_expression', group: 'response' },
+    title: 'Q22 · Cytotoxic panel pre→on slope by patient and gene (WIDE)',
+    reading: 'Per-patient, per-gene slopes across the six cytotoxic panel genes, pre-treatment to on-treatment, grouped by response — the individual lines behind the patient×timepoint means above.',
+    interpretation: { label: 'cohort means can mask individual heterogeneity', text: 'The patient×timepoint mean table answers "what is the panel doing on average"; this slope view answers a different question — which individual patients rise, fall or barely move — and the two readings should be quoted together, not one in place of the other.' },
+  },
+  { key: 'facetLine', templateId: 'faceted_grouped_line_v1', dataset: 'PAIRED', filters: [inList('gene', CYTOTOXIC_FOCUS)], bindings: { facet: 'response', x: 'timepoint', y: 'log2_cpm', color: 'gene' }, title: 'Q22 · Cytotoxic panel by timepoint, faceted by response, coloured by gene (PAIRED)', reading: 'Mean ± SE per gene, Pre vs On, one facet per response group — which of the six genes drive each patient\'s mean.' },
+];
+
+const Q23_USER_CHARTS: UserChartPlan[] = [
+  { key: 'waterfall', templateId: 'waterfall_v1', dataset: 'WIDE', filters: [eq('gene', 'CD8A')], bindings: { x: 'patient_id', y: 'delta' }, title: 'Q23 · CD8A pre→on delta waterfall (WIDE)', reading: 'The 27-patient CD8A Pre→On change as a waterfall, largest increase to largest decrease — the classic oncology waterfall shape.' },
+  {
+    key: 'strip', templateId: 'strip_v1', dataset: 'WIDE', filters: [eq('gene', 'CD8A')], bindings: { y: 'delta', group: 'response' }, title: 'Q23 · CD8A delta distribution by response (WIDE, strip)',
+    reading: 'Every patient\'s CD8A delta, grouped by response — the raw points behind the ranked waterfall.',
+    interpretation: { label: 'a handful of large non-responder increases blur the waterfall\'s visual story', text: 'The waterfall\'s rising end is not exclusively responders — Pt78 and Pt28 (both NR) post some of the largest CD8A increases in the cohort; a ranking chart alone can read as "responders rise" when the real picture is a mixed top tier.' },
+  },
+];
+
+const Q24_USER_CHARTS: UserChartPlan[] = [
+  {
+    key: 'facet', templateId: 'faceted_grouped_boxplot_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'On')], bindings: { facet: 'gene', x: 'prior_ipi', y: 'log2_cpm' }, title: 'Q24 · Panel by prior ipilimumab exposure, on-treatment (PAIRED)',
+    reading: 'On-treatment expression, one facet per gene, split by prior ipilimumab exposure — Q5\'s picture without a paired test.',
+    interpretation: { label: 'on-treatment level differences by prior exposure are small next to the induction differences Q5 tests', text: 'Most facets here show overlapping on-treatment boxes between ipi-naive and ipi-progressed; the meaningful contrast Q5 finds is in the SIZE of the Pre→On move, not the on-treatment level alone, so this chart should not be read as contradicting Q5\'s induction result.' },
+  },
+  { key: 'dotNaive', templateId: 'dot_plot_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'On'), eq('prior_ipi', 'ipi_naive')], bindings: { x: 'log2_cpm', y: 'gene' }, title: 'Q24 · Panel on-treatment ranking, ipi-naive (PAIRED)', reading: 'Mean on-treatment level per gene, ipilimumab-naive patients only, ranked.' },
+  { key: 'dotProgressed', templateId: 'dot_plot_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'On'), eq('prior_ipi', 'ipi_progressed')], bindings: { x: 'log2_cpm', y: 'gene' }, title: 'Q24 · Panel on-treatment ranking, ipi-progressed (PAIRED)', reading: 'The same ranking in ipilimumab-progressed patients, side by side with the naive version.' },
+];
+
+const Q25_USER_CHARTS: UserChartPlan[] = [
+  { key: 'pHist', templateId: 'histogram_v1', dataset: 'DE', filters: [], bindings: { x: 'pvalue' }, title: 'Q25 · Baseline DE p-value distribution (DE)', reading: 'The raw p-value histogram across the tested universe — near-uniform, the signature of a well-calibrated null test with little true signal.' },
+  { key: 'padjEcdf', templateId: 'ecdf_v1', dataset: 'DE', filters: [], bindings: { x: 'padj' }, title: 'Q25 · Baseline DE padj ECDF (DE)', reading: 'Empirical CDF of adjusted p-values — how fast padj climbs through the 0.01/0.05/0.10 bands this question counts.' },
+  {
+    key: 'lfcHist', templateId: 'histogram_v1', dataset: 'DE', filters: [{ column: 'padj', operator: 'lt', value: 0.1 }], bindings: { x: 'log2FoldChange' }, title: 'Q25 · log2 fold-change distribution, padj<0.10 (DE)',
+    reading: 'The fold-change distribution of every gene that clears the loosest band (padj<0.10) — the 149-gene pool the three counted bins are carved from.',
+    interpretation: { label: 'the padj<0.10 pool is not evenly split between up and down', text: 'This distribution is not symmetric around zero; more genes in the padj<0.10 pool trend in one direction than the other, a pattern Q16\'s up/down split (25 vs 33 at padj<0.05) already hints at and this wider band confirms rather than contradicts.' },
+  },
+];
+
+const Q26_USER_CHARTS: UserChartPlan[] = [
+  { key: 'facet', templateId: 'faceted_grouped_boxplot_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'Pre')], bindings: { facet: 'gene', x: 'response', y: 'log2_cpm' }, title: 'Q26 · Panel at Pre by response, faceted (PAIRED)', reading: 'Boxes overlap on every gene at baseline — the medians restate Q4\'s baseline non-separation instead of the mean.' },
+  {
+    key: 'ridgeR', templateId: 'ridgeline_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'Pre'), eq('response', 'R')], bindings: { y: 'log2_cpm', group: 'gene' }, title: 'Q26 · Panel baseline landscape, responders (PAIRED, ridgeline)',
+    reading: 'Responders\' baseline expression landscape across the panel, one ridge per gene — the density behind the per-gene medians.',
+    interpretation: { label: 'medians and means tell the same baseline story here', text: 'The median-based cross-tab and the mean-based Q4/Q12 baseline readings rank genes the same way; the choice of central tendency is not driving the "baseline does not separate response" conclusion.' },
+  },
+];
+
+const Q27_USER_CHARTS: UserChartPlan[] = [
+  { key: 'volcano', templateId: 'volcano_v1', dataset: 'DE', filters: [{ column: 'padj', operator: 'lt', value: 0.05 }], bindings: { x: 'log2FoldChange', y: 'pvalue' }, title: 'Q27 · Baseline DE volcano, padj<0.05 (DE)', reading: 'The 58 significant genes alone — the ten most negative fold changes this question ranks sit at the far-left tail.' },
+  {
+    key: 'lollipop', templateId: 'lollipop_v1', dataset: 'DE', filters: [inList('gene', ['MYL1', 'KRT14', 'CASP14', 'SPRR2D', 'GSTA3', 'KRT6B', 'COL2A1', 'KLK6', 'PLA2G4F', 'KRTDAP'])], bindings: { x: 'gene', y: 'log2FoldChange' }, title: 'Q27 · Ten most down-regulated genes (DE, lollipop)',
+    reading: 'The ten genes this question ranks, as a lollipop — MYL1, KRT14 and CASP14 lead the fall.',
+    interpretation: { label: 'muscle and keratin genes, not immunity, dominate the negative tail', text: 'MYL1 (myosin light chain), KRT14/KRT6B/KRTDAP (keratins) and COL2A1 (collagen) are structural/tissue genes, not immune genes; their extreme negative fold changes are more consistent with sample composition (biopsy tissue content) than with an immune-suppressive baseline signature in non-responders, echoing Q8\'s composition-artefact reading.' },
+  },
+];
+
+const Q28_USER_CHARTS: UserChartPlan[] = [
+  { key: 'facetLine', templateId: 'faceted_grouped_line_v1', dataset: 'PAIRED', filters: [inList('gene', CXCL_TRIO)], bindings: { facet: 'gene', x: 'timepoint', y: 'log2_cpm', color: 'response' }, title: 'Q28 · Chemokine trio by timepoint, both cohorts (PAIRED)', reading: 'CXCL9 rises while CXCL11 falls on treatment, in both responders and non-responders — the chemokine-axis shift the governed table (responders only) does not show by itself.' },
+  {
+    key: 'slopeR', templateId: 'paired_slope_v1', dataset: 'WIDE', filters: [inList('gene', CXCL_TRIO), eq('response', 'R')], bindings: { from: 'pre_expression', to: 'on_expression', group: 'gene' }, title: 'Q28 · Chemokine trio pre→on slope, responders (WIDE)',
+    reading: 'Per-patient slopes for the three chemokines in responders — CXCL9 lines lean up, CXCL11 lines lean down.',
+    interpretation: { label: 'CXCL9 up / CXCL11 down is a within-axis trade, not a general chemokine induction', text: 'The three chemokines do not move together: CXCL9 rises, CXCL11 falls, and CXCL10 barely moves; "the chemokine axis is induced" overstates a shift that is really CXCL9 specifically rising relative to CXCL11, not the CXCR3-ligand axis as a whole.' },
+  },
+];
+
+const Q29_USER_CHARTS: UserChartPlan[] = [
+  {
+    key: 'strip', templateId: 'strip_v1', dataset: 'PAIRED', filters: [eq('gene', 'HLA-DRA'), eq('timepoint', 'Pre')], bindings: { y: 'log2_cpm', group: 'response' }, title: 'Q29 · HLA-DRA at Pre, every patient by response (PAIRED, strip)',
+    reading: 'Every patient\'s baseline HLA-DRA, grouped by response — high and low readings appear in both groups.',
+    interpretation: { label: 'baseline HLA-DRA spans both response groups — not a response biomarker on its own', text: 'The patients with the highest baseline HLA-DRA (Pt34 R, Pt103 NR, Pt46 NR) are a response-mixed set; antigen presentation level at baseline separates patients from each other far more than it separates responders from non-responders.' },
+  },
+  { key: 'dot', templateId: 'dot_plot_v1', dataset: 'PAIRED', filters: [eq('gene', 'HLA-DRA'), eq('timepoint', 'Pre')], bindings: { x: 'log2_cpm', y: 'patient_id' }, title: 'Q29 · HLA-DRA at Pre, ranked by patient (PAIRED, dot plot)', reading: 'Every patient ranked by baseline HLA-DRA — the same ten patients the governed table names, in the context of the full 27.' },
+];
+
+const Q30_USER_CHARTS: UserChartPlan[] = [
+  { key: 'lfcHist', templateId: 'histogram_color_v1', dataset: 'DE_STRATA', filters: [{ column: 'padj', operator: 'lt', value: 0.05 }], bindings: { x: 'log2FoldChange', color: 'stratum' }, title: 'Q30 · log2FC distribution by stratum, padj<0.05 (DE-STRATA)', reading: 'The significant genes\' fold-change distributions by stratum — ipi-progressed skews positive, ipi-naive centres near zero, restating this question\'s two means as full distributions.' },
+  {
+    key: 'volcanoProgressed', templateId: 'volcano_v1', dataset: 'DE_STRATA', filters: [eq('stratum', 'ipi_progressed')], bindings: { x: 'log2FoldChange', y: 'pvalue' }, title: 'Q30 · DE volcano, ipi-progressed stratum (DE-STRATA)',
+    reading: 'The ipi-progressed stratum\'s volcano — more hits than the naive stratum (Q9), and this question shows they lean positive on average.',
+    interpretation: { label: 'Q9\'s count and this question\'s direction tell one story: prior ipilimumab reshapes the baseline upward', text: 'Q9 found more significant genes in the ipi-progressed stratum (50 vs 33); this question adds that those genes skew toward a POSITIVE fold change on average, where the naive stratum\'s mean is near zero — consistent with prior ipilimumab exposure shifting the baseline transcriptome, not just adding noise.' },
+  },
+];
+
+const Q31_USER_CHARTS: UserChartPlan[] = [
+  {
+    key: 'heatmap', templateId: 'heatmap_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'On'), inList('gene', CYTOTOXIC_FOCUS)], bindings: { x: 'patient_id', y: 'gene', z: 'log2_cpm' }, title: 'Q31 · Cytotoxic panel heatmap, on-treatment (PAIRED)',
+    reading: 'The classic hot/cold expression heatmap — patients as columns, the six cytotoxic genes as rows, on-treatment. Hot and cold read together across genes, not from any single gene alone.',
+    interpretation: { label: '"hot vs cold" on one screen — 8 of the 9 responders sit in the hotter half of the ranking', text: 'Ranking the 27 patients by mean cytotoxic-panel expression and splitting at the median, 8 of the 9 responders fall in the hotter half; the ninth responder and several non-responders in the hotter half show the rule is strong but not absolute — a useful screening signal, not a perfect classifier.' },
+  },
+  { key: 'strip', templateId: 'strip_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'On'), inList('gene', CYTOTOXIC_FOCUS)], bindings: { y: 'log2_cpm', group: 'response' }, title: 'Q31 · Cytotoxic panel on-treatment, every point by response (PAIRED, strip)', reading: 'Every individual on-treatment cytotoxic-panel measurement, coloured by response — the raw points behind the per-patient ranking and the heatmap above.' },
+];
+
 export const QUESTION_CONFIG: Record<string, QuestionConfig> = {
   Q2: {
     focusGenes: ['PDCD1'],
@@ -285,6 +387,18 @@ export const QUESTION_CONFIG: Record<string, QuestionConfig> = {
     decisionType: 'phenotype_classification',
     userCharts: Q11_USER_CHARTS,
   },
+  // AXI-1587 — Q22–Q31 describe questions: only `userCharts` and `decisionType`
+  // (for the userCharts[] interpretation decisions) are live on this path.
+  Q22: { focusGenes: CYTOTOXIC_FOCUS, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q22_USER_CHARTS },
+  Q23: { focusGenes: ['CD8A'], cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'biomarker_threshold', userCharts: Q23_USER_CHARTS },
+  Q24: { focusGenes: CYTOTOXIC_FOCUS, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'cohort_stratification', userCharts: Q24_USER_CHARTS },
+  Q25: { focusGenes: [], cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q25_USER_CHARTS },
+  Q26: { focusGenes: CYTOTOXIC_FOCUS, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'biomarker_threshold', userCharts: Q26_USER_CHARTS },
+  Q27: { focusGenes: [], cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q27_USER_CHARTS },
+  Q28: { focusGenes: CXCL_TRIO, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q28_USER_CHARTS },
+  Q29: { focusGenes: ['HLA-DRA'], cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'biomarker_threshold', userCharts: Q29_USER_CHARTS },
+  Q30: { focusGenes: [], cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'cohort_stratification', userCharts: Q30_USER_CHARTS },
+  Q31: { focusGenes: CYTOTOXIC_FOCUS, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'biomarker_threshold', userCharts: Q31_USER_CHARTS },
 };
 
 const GENERIC_CONFIG: QuestionConfig = {
