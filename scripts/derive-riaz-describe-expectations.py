@@ -99,9 +99,14 @@ def main() -> None:
     print(q20_sample.head(4).to_string())
 
     # Q21 — |log2FoldChange| of the 24 panel genes, ranked desc.
+    # NOTE: the expectation ranks by the RAW value (the connector computes
+    # mean(log2FoldChange) per gene, one row per gene). The two orders agree
+    # here ONLY because all 24 panel genes have a POSITIVE fold change in this
+    # table — asserted below. A panel with a negative mover would diverge.
     q21 = de[de["gene"].isin(panel)].assign(abs_lfc=lambda d: d["log2FoldChange"].abs()).sort_values("abs_lfc", ascending=False)[["gene", "abs_lfc", "padj"]].round(4)
     show("Q21", "gene in the 24-gene panel, |log2FoldChange| desc (pooled Pre R vs NR)", q21)
-    print(f"  panel genes: {len(panel)}; min padj in panel = {q21['padj'].min()}")
+    negatives = de[de["gene"].isin(panel) & (de["log2FoldChange"] < 0)]
+    print(f"  panel genes: {len(panel)}; min padj in panel = {q21['padj'].min()}; negative fold changes in panel = {len(negatives)} (must be 0 for |lfc| order == raw order)")
     print(f"  stratified table rows (unused by Q12-Q21, listed for completeness): {len(strat)}")
 
 

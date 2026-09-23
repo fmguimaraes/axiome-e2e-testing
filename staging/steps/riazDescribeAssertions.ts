@@ -35,6 +35,17 @@ export interface ObservedDecision {
   status: string | null;
 }
 
+/**
+ * One column bound to a connector parameter, as the binding report carries it
+ * (`operationBinding.canonicalFields`). A COLUMN-ROLE parameter never appears in
+ * `boundParameters` — see `COLUMN_ROLE_PARAMETERS`.
+ */
+export interface ObservedColumnBinding {
+  parameter: string;
+  column: string;
+  canonicalField: string | null;
+}
+
 export interface ObservedDescribeResult {
   ruleRunId: string;
   /** the snapshot the run produced — what `?snapshotId=` opens in the UI */
@@ -44,12 +55,16 @@ export interface ObservedDescribeResult {
   operationId: string | null;
   /** the connector code cited on the plan node that produced this run */
   citedConnector: string | null;
+  /** SCALAR parameters only (`aggregation`, `direction`, `n`) — review-gate blocker 1 */
   boundParameters: Record<string, unknown>;
+  /** the column roles (`groupColumns`, `valueColumn`, `sortColumn`, `distinctKey`), in bound order */
+  canonicalFields: ObservedColumnBinding[];
   columns: string[];
   rows: Array<Record<string, unknown>>;
   nGroups: number | null;
   binding: ObservedBinding | null;
   recommendedChartSpecId: string | null;
+  /** the sentence as the RESULT surface carries it (the run's Evidence text) */
   sentence: string | null;
   decision: ObservedDecision | null;
 }
@@ -103,8 +118,12 @@ export function topNLabel(row: Record<string, unknown>, sortColumn: string | und
   return key === undefined ? '' : String(row[key] ?? '');
 }
 
-const labelOf = (row: Record<string, unknown>, exp: ExpectedDescribeResult): string =>
-  exp.operationId === 'describe.top_n' ? topNLabel(row, exp.parameters.sortColumn) : rowLabel(row, groupColumnsOf(exp.parameters));
+const labelOf = (row: Record<string, unknown>, exp: ExpectedDescribeResult): string => {
+  if (exp.operationId !== 'describe.top_n') return rowLabel(row, groupColumnsOf(exp.parameters));
+  // A NAMED label column is preferred; the positional fallback stays for a
+  // top_n expectation that does not declare one (review-gate advisory A4).
+  return exp.labelColumn ? String(readColumn(row, exp.labelColumn) ?? '') : topNLabel(row, exp.parameters.sortColumn);
+};
 
 const valueColumnOf = (exp: ExpectedDescribeResult): string =>
   exp.operationId === 'describe.top_n' ? exp.parameters.sortColumn ?? '' : aggregateColumnName(exp.parameters);
@@ -152,13 +171,45 @@ function labelledCellAssertions(exp: ExpectedDescribeResult, obs: ObservedDescri
   });
 }
 
+/**
+ * A connector parameter whose value is a COLUMN (kind `column`) or an ordered
+ * list of columns (kind `columns`).
+ *
+ * These are NOT in `boundParameters`. The backend builds that bag from
+ * `effectiveParameters(operationId, run.operationParams)`, and `operationParams`
+ * is assembled by `copyConnectorScalars`, which keeps only the `enum`/`number`
+ * kinds (axiome-back `guided-analysis/plan/operation-binding.ts`). The column
+ * roles travel separately, as `operationBinding.canonicalFields`
+ * (`rule-binding/signature/describe-facts.ts#bindingsOf`: one entry per bound
+ * column, in `operandRoles` insertion order, so `groupColumns` order is
+ * preserved). Reading a column role off `boundParameters` therefore reports
+ * `unbound` on a run that bound it perfectly — the review-gate blocker this set
+ * exists to prevent.
+ */
+export const COLUMN_ROLE_PARAMETERS: ReadonlySet<string> = new Set(['groupColumns', 'valueColumn', 'sortColumn', 'distinctKey']);
+
+/** The columns bound to one parameter, in bound order. */
+export function boundColumns(canonicalFields: readonly ObservedColumnBinding[], parameter: string): string[] {
+  return canonicalFields.filter((f) => f.parameter === parameter).map((f) => f.column);
+}
+
 function parameterAssertions(exp: ExpectedDescribeResult, obs: ObservedDescribeResult): Assertion[] {
-  return Object.entries(exp.parameters).map(([key, want]) => {
-    const got = obs.boundParameters[key];
-    const expected = Array.isArray(want) ? want.join(',') : String(want);
-    const actual = Array.isArray(got) ? got.join(',') : got === undefined ? 'unbound' : String(got);
-    return assertion(`bound ${key}`, expected, actual, expected === actual);
-  });
+  return Object.entries(exp.parameters).map(([key, want]) =>
+    COLUMN_ROLE_PARAMETERS.has(key) ? columnRoleAssertion(key, want, obs) : scalarAssertion(key, want, obs),
+  );
+}
+
+function columnRoleAssertion(key: string, want: unknown, obs: ObservedDescribeResult): Assertion {
+  const expected = (Array.isArray(want) ? want : [want]).map(String).join(',');
+  const got = boundColumns(obs.canonicalFields, key);
+  return assertion(`bound ${key}`, expected, got.join(',') || 'unbound', got.join(',') === expected);
+}
+
+function scalarAssertion(key: string, want: unknown, obs: ObservedDescribeResult): Assertion {
+  const got = obs.boundParameters[key];
+  const expected = String(want);
+  const actual = got === undefined ? 'unbound' : String(got);
+  return assertion(`bound ${key}`, expected, actual, expected === actual);
 }
 
 function bindingAssertions(exp: ExpectedDescribeResult, obs: ObservedDescribeResult): Assertion[] {
@@ -172,22 +223,30 @@ function bindingAssertions(exp: ExpectedDescribeResult, obs: ObservedDescribeRes
   ];
 }
 
+/** The sentence as the RESULT surface carries it — the run's Evidence text. */
 function sentenceAssertions(exp: ExpectedDescribeResult, obs: ObservedDescribeResult): Assertion[] {
   const text = obs.sentence;
-  if (exp.sentence !== undefined) return [assertion('rendered sentence (exact)', exp.sentence, text ?? 'absent', text === exp.sentence)];
-  const out: Assertion[] = [assertion('rendered sentence', 'non-empty', text ?? 'absent', Boolean(text && text.trim()))];
+  if (exp.sentence !== undefined) return [assertion('evidence sentence (exact)', exp.sentence, text ?? 'absent', text === exp.sentence)];
+  const out: Assertion[] = [assertion('evidence sentence', 'non-empty', text ?? 'absent', Boolean(text && text.trim()))];
   for (const s of exp.sentenceIncludes ?? []) out.push(assertion(`sentence contains "${s}"`, 'yes', text ?? 'absent', Boolean(text?.includes(s))));
   for (const s of exp.sentenceExcludes ?? []) out.push(assertion(`sentence omits "${s}"`, 'yes', text ?? 'absent', Boolean(text) && !text!.includes(s)));
   return out;
 }
 
+/**
+ * The Decision surface. The draft is LOOKED UP by `context.ruleRunId`
+ * (`decisionOf`), so its presence IS the "linked to this run" assertion — a
+ * draft that names another run is simply absent here, and re-asserting the id
+ * it was found by would assert nothing (review-gate advisory A1). What is
+ * genuinely cross-surface is the sentence: the draft's text against the
+ * EVIDENCE's text, two records the platform writes independently.
+ */
 function decisionAssertions(exp: ExpectedDescribeResult, obs: ObservedDescribeResult): Assertion[] {
   const d = obs.decision;
-  if (!d) return [assertion('descriptive_summary decision', 'present', 'absent', false)];
+  if (!d) return [assertion(`descriptive_summary decision for run ${obs.ruleRunId}`, 'present', 'absent', false)];
   return [
     eq('decision type', 'descriptive_summary', d.type),
-    eq('decision context.ruleRunId', obs.ruleRunId, d.ruleRunId),
-    assertion('decision sentence === rendered sentence', obs.sentence ?? 'absent', d.sentenceText ?? 'absent', Boolean(obs.sentence) && d.sentenceText === obs.sentence),
+    assertion('decision sentence === evidence sentence', obs.sentence ?? 'absent', d.sentenceText ?? 'absent', Boolean(obs.sentence) && d.sentenceText === obs.sentence),
     ...(exp.sentence === undefined ? [] : [assertion('decision sentence (exact)', exp.sentence, d.sentenceText ?? 'absent', d.sentenceText === exp.sentence)]),
   ];
 }

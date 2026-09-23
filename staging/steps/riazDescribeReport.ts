@@ -21,17 +21,27 @@ export const assertionScore = (q: QuestionTrace): { passed: number; total: numbe
 
 const first = (q: QuestionTrace) => q.describe?.results[0];
 
-const expectedSentenceOf = (q: QuestionTrace): string =>
-  DESCRIBE_EXPECTED[q.id]?.results[0]?.sentence ?? '_(shape asserted, not byte-for-byte)_';
+const expectedSentenceOf = (q: QuestionTrace, index: number): string =>
+  DESCRIBE_EXPECTED[q.id]?.results[index]?.sentence ?? '_(shape asserted, not byte-for-byte)_';
 
-/** One row per descriptive question: what bound, what it said, and whether every assertion is green. */
+/**
+ * ONE ROW PER DESCRIBE RESULT, not per question: Q16 answers with two
+ * `describe.count` branches, and a summary that showed only the first would
+ * hide half of the answer it is reporting on (review-gate advisory A5). The
+ * assertion score stays per QUESTION — that is the unit that passes or fails —
+ * and is printed on the question's first row only.
+ */
 export function describeSummaryRows(questions: readonly QuestionTrace[]): string[] {
-  return describeQuestions(questions).map((q) => {
-    const r = first(q);
+  return describeQuestions(questions).flatMap((q) => {
     const { passed, total } = assertionScore(q);
-    const connector = r?.binding?.matchedConnectors.join(', ') || 'none';
-    const state = r?.binding?.state ?? '—';
-    return `| ${q.id} | ${r?.citedConnector ?? '—'} | ${connector} (${state}) | ${r?.nGroups ?? '—'} | ${r?.recommendedChartSpecId ? '✓' : '✗'} | ${passed}/${total} ${tick(total > 0 && passed === total)} |`;
+    const results = q.describe?.results ?? [];
+    if (!results.length) return [`| ${q.id} | — | none (—) | — | ✗ | ${passed}/${total} ${tick(false)} |`];
+    return results.map((r, i) => {
+      const label = results.length > 1 ? `${q.id} (${r.cohort || `branch ${i + 1}`})` : q.id;
+      const connector = r.binding?.matchedConnectors.join(', ') || 'none';
+      const score = i === 0 ? `${passed}/${total} ${tick(total > 0 && passed === total)}` : '↑';
+      return `| ${label} | ${r.citedConnector ?? '—'} | ${connector} (${r.binding?.state ?? '—'}) | ${r.nGroups ?? '—'} | ${r.recommendedChartSpecId ? '✓' : '✗'} | ${score} |`;
+    });
   });
 }
 
@@ -51,7 +61,12 @@ export function describeSection(questions: readonly QuestionTrace[]): string[] {
     '',
     '| Q | Rendered sentence | Expected |',
     '|---|---|---|',
-    ...describeQuestions(questions).map((q) => `| ${q.id} | ${first(q)?.sentence ?? '_(none)_'} | ${expectedSentenceOf(q)} |`),
+    ...describeQuestions(questions).flatMap((q) =>
+      (q.describe?.results ?? [{ sentence: null, cohort: '' }]).map((r, i) => {
+        const label = (q.describe?.results?.length ?? 0) > 1 ? `${q.id} (${r.cohort || `branch ${i + 1}`})` : q.id;
+        return `| ${label} | ${r.sentence ?? '_(none)_'} | ${expectedSentenceOf(q, i)} |`;
+      }),
+    ),
     '',
   ];
 }

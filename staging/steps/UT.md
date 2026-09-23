@@ -458,7 +458,14 @@ omits `kind` and lets the server derive it, rather than guessing.
 ## `steps/riazDescribeAssertions.spec.ts` (AXI-1565 — Automated E2E for Riaz Q12–Q21)
 
 The pure assertion engine behind `npm run stage:riaz-questions` for the ten
-descriptive questions (FR35). Every expected value it compares against is
+descriptive questions (FR35). **Parameter shape (review-gate round 1):** a
+connector's COLUMN roles (`groupColumns`, `valueColumn`, `sortColumn`,
+`distinctKey`) are asserted from `operationBinding.canonicalFields`, never from
+`boundParameters` — the backend's `copyConnectorScalars` keeps only the
+`enum`/`number` kinds in that bag, so reading a column role there reports
+`unbound` on a run that bound it perfectly. The sentence is read from the
+run's EVIDENCE and compared against the DECISION draft's copy, so the
+cross-surface assertion can actually fail. Every expected value it compares against is
 derived from the Riaz source CSVs, never from the platform's own output
 (`riazDescribeExpectations.ts` carries the number AND the derivation); the
 engine only decides expected-vs-actual. One red assertion fails the question —
@@ -473,8 +480,8 @@ report, never a case to work around.
 | UT-E2E-DESC-004 | a wrong `n_groups` fails even when every asserted row is right | Pass |
 | UT-E2E-DESC-005 | an indeterminate or ambiguous binding fails — only a narrow match passes | Pass |
 | UT-E2E-DESC-006 | a missing recommended chart fails the question — it is never worked around | Pass |
-| UT-E2E-DESC-007 | the Q12 sentence is compared byte-for-byte | Pass |
-| UT-E2E-DESC-008 | a decision of another type, another run, or another sentence fails | Pass |
+| UT-E2E-DESC-007 | the Q12 sentence is compared byte-for-byte, on the evidence AND on the decision | Pass |
+| UT-E2E-DESC-008 | a decision of another type, an absent draft, or a sentence that drifted from the evidence fails | Pass |
 | UT-E2E-DESC-009 | an unbound or overridden connector parameter fails, naming the parameter | Pass |
 | UT-E2E-DESC-010 | EC6 — a Q14 count sentence that says "rows" instead of "patients" fails | Pass |
 | UT-E2E-DESC-011 | a two-branch question pairs each expectation with the branch carrying its filter | Pass |
@@ -483,6 +490,9 @@ report, never a case to work around.
 | UT-E2E-DESC-014 | labels join the bound group columns in order; `top_n` reads its label column | Pass |
 | UT-E2E-DESC-015 | the observation readers read the cited code, `n_groups` and the run-linked draft | Pass |
 | UT-E2E-DESC-016 | every descriptive question declares a derivation and four distinct connectors are covered | Pass |
+| UT-E2E-DESC-030 | column roles are asserted from `canonicalFields`, in bound order — never from `boundParameters` | Pass |
+| UT-E2E-DESC-031 | Q15 asserts one group and ten rows (`describe.top_n` reports `n_groups: 1`) and reads its label column by name | Pass |
+| UT-E2E-DESC-032 | the observers read the column roles and the evidence sentence off the shapes the API returns | Pass |
 
 ## `steps/publishRiazEvidence.spec.ts` — describe branch (AXI-1565)
 
@@ -507,6 +517,7 @@ two can disagree).
 | UT-E2E-DESC-019 | only the descriptive questions appear in the section, and the score counts assertions | Pass |
 | UT-E2E-DESC-020 | a missing recommended chart is reported as ✗ and fails the question score | Pass |
 | UT-E2E-DESC-021 | the section carries the rendered sentence, the expected sentence and the derivation | Pass |
+| UT-E2E-DESC-034 | a two-branch question (Q16) shows BOTH branches, each with its own cohort and connector | Pass |
 
 ## `rules/riazConnectorRules.spec.ts` (AXI-1565 — FR34)
 
@@ -522,9 +533,10 @@ node error.
 |----|-------------|--------|
 | UT-E2E-DESC-022 | rule access `ALL` entitles without a grant, `NONE` cannot be granted, `CUSTOM` needs one | Pass |
 | UT-E2E-DESC-023 | a connector absent, unpublished or bound to the wrong operation is a problem; a correct one is silent | Pass |
-| UT-E2E-DESC-024 | the carrier is resolved by the `op:` tag, newest published version first | Pass |
+| UT-E2E-DESC-024 | the carrier is resolved by the runner's own predicate — system scope, published, `op:` tag, newest version | Pass |
 | UT-E2E-DESC-025 | a missing carrier reports the operation that cannot resolve, and the remedy | Pass |
 | UT-E2E-DESC-026 | the staged surface is the four cited connectors over the three describe operations | Pass |
+| UT-E2E-DESC-033 | the rule listing pages until the server says there is no next page (a truncated listing would report a present carrier missing) | Pass |
 
 ## `capture/masters/m13DescribeResultQ12.spec.ts` (AXI-1565 — FR37/AC14)
 

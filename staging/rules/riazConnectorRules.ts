@@ -168,10 +168,22 @@ export const DESCRIBE_CARRIERS: ReadonlyArray<{ code: string; operationId: strin
 
 const REMEDY = 'seed it with `npx tsx scripts/create-describe-rules.ts` in axiome-back (idempotent, API-only)';
 
-/** The published rule that carries `operationId`, resolved the way the runner resolves it: by tag. */
+/**
+ * The rule the runner would resolve for `operationId`, resolved by the SAME
+ * predicate it uses: `findSystemRule({ scope: 'system', status: 'published',
+ * tags: { has: 'op:<operationId>' } })`, newest version first
+ * (`rule-runs-analysis-runner.ts#resolveRuleId`). `scope` is part of that
+ * predicate — a workspace-scoped rule carrying the tag would be found here and
+ * NOT by the runner, i.e. a green stage:rules over a stack that cannot run.
+ *
+ * The runner's second arm, `FAMILY_RULE_CODES`, declares `delta` and `stratify`
+ * only — no `describe` family — so for a describe operation the tag is the one
+ * and only path, and mirroring the fallback here would add a branch that can
+ * never fire.
+ */
 export function findCarrier(rules: readonly RuleDetail[], operationId: string): RuleDetail | undefined {
   return rules
-    .filter((r) => r.status === 'published' && (r.tags ?? []).includes(`op:${operationId}`))
+    .filter((r) => r.scope === 'system' && r.status === 'published' && (r.tags ?? []).includes(`op:${operationId}`))
     .sort((a, b) => b.version - a.version)[0];
 }
 
@@ -180,10 +192,36 @@ export function carrierProblems(code: string, operationId: string, rule: RuleDet
   return [];
 }
 
+/**
+ * EVERY rule, page by page. A single `?limit=500` silently truncates once the
+ * library outgrows it, and a truncated listing would report a carrier
+ * `missing` that is actually there (or, worse, the reverse once the seed lands
+ * on page 3) — the listing must be exhaustive or the check is noise.
+ */
+export async function listAllRules(client: RestClient, pageSize = 200): Promise<RuleDetail[]> {
+  const all: RuleDetail[] = [];
+  for (let page = 1; page <= MAX_RULE_PAGES; page++) {
+    const body = must(await client.as<unknown>(ADMIN_HANDLE, 'GET', `/api/v1/rules?page=${page}&limit=${pageSize}`), 'listing rules for the describe carriers');
+    const rows = asList<RuleDetail>(body);
+    all.push(...rows);
+    if (!hasNextPage(body, rows.length, pageSize)) return all;
+  }
+  throw new Error(`refusing to page past ${MAX_RULE_PAGES} pages of rules — the listing is not terminating`);
+}
+
+const MAX_RULE_PAGES = 50;
+
+/** Trust the server's own `meta.hasNextPage` when it sends one; fall back to a short page. */
+export function hasNextPage(body: unknown, received: number, pageSize: number): boolean {
+  const meta = (body as { meta?: { hasNextPage?: boolean } } | null)?.meta;
+  if (typeof meta?.hasNextPage === 'boolean') return meta.hasNextPage;
+  return received >= pageSize;
+}
+
 /** FR34 — the carrier rules Q12–Q21's describe nodes need, proved present. */
 export async function checkDescribeCarriers(client: RestClient, opts: EnsureConnectorsOptions = {}): Promise<ConnectorReport[]> {
   const log = opts.log ?? (() => undefined);
-  const rules = asList<RuleDetail>(must(await client.as<unknown>(ADMIN_HANDLE, 'GET', '/api/v1/rules?limit=500'), 'listing rules for the describe carriers'));
+  const rules = await listAllRules(client);
   return DESCRIBE_CARRIERS.map(({ code, operationId }) => {
     const rule = findCarrier(rules, operationId);
     const problems = carrierProblems(code, operationId, rule);

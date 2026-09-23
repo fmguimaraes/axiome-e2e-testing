@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   carrierProblems,
+  hasNextPage,
   connectorProblems,
   DESCRIBE_CARRIERS,
   findCarrier,
@@ -37,15 +38,25 @@ test('UT-E2E-DESC-023: a connector that is absent, unpublished or bound to the w
   assert.match(connectorProblems('SUM-RANK-01', 'describe.grouped_aggregate', published(), 'NONE')[0], /rule access mode is NONE/);
 });
 
-test('UT-E2E-DESC-024: the carrier is resolved by the op: tag the runner matches, newest published version first', () => {
+test('UT-E2E-DESC-024: the carrier is resolved by the runner\'s own predicate — system scope, published, op: tag, newest version', () => {
   const rules = [
-    published({ id: 'c1', code: 'DESC-GROUPED-AGGREGATE', tags: ['describe', 'op:describe.grouped_aggregate'], version: 1 }),
-    published({ id: 'c2', code: 'DESC-GROUPED-AGGREGATE', tags: ['op:describe.grouped_aggregate'], version: 3 }),
-    published({ id: 'c3', code: 'DESC-COUNT', tags: ['op:describe.count'], status: 'draft' }),
+    published({ id: 'c1', code: 'DESC-GROUPED-AGGREGATE', scope: 'system', tags: ['describe', 'op:describe.grouped_aggregate'], version: 1 }),
+    published({ id: 'c2', code: 'DESC-GROUPED-AGGREGATE', scope: 'system', tags: ['op:describe.grouped_aggregate'], version: 3 }),
+    published({ id: 'c3', code: 'DESC-COUNT', scope: 'system', tags: ['op:describe.count'], status: 'draft' }),
+    // A workspace-scoped rule carrying the tag is NOT what the runner resolves —
+    // finding it here would green-light a stack that cannot run a describe node.
+    published({ id: 'c4', code: 'DESC-TOP-N', scope: 'workspace', tags: ['op:describe.top_n'] }),
   ];
   assert.equal(findCarrier(rules, 'describe.grouped_aggregate')?.id, 'c2');
   assert.equal(findCarrier(rules, 'describe.count'), undefined, 'a draft carrier cannot be resolved');
-  assert.equal(findCarrier(rules, 'describe.top_n'), undefined);
+  assert.equal(findCarrier(rules, 'describe.top_n'), undefined, 'a non-system carrier cannot be resolved');
+});
+
+test('UT-E2E-DESC-033: the rule listing pages until the server says there is no next page', () => {
+  assert.equal(hasNextPage({ data: [], meta: { hasNextPage: true } }, 0, 200), true);
+  assert.equal(hasNextPage({ data: [], meta: { hasNextPage: false } }, 200, 200), false, 'the server wins over a full page');
+  assert.equal(hasNextPage([], 200, 200), true, 'no meta: a full page means keep going');
+  assert.equal(hasNextPage([], 7, 200), false, 'no meta: a short page is the last one');
 });
 
 test('UT-E2E-DESC-025: a missing carrier reports the operation that cannot resolve and the remedy', () => {

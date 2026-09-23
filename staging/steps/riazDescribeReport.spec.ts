@@ -43,3 +43,23 @@ test('UT-E2E-DESC-021: the section carries the rendered sentence, the expected s
   assert.ok(describeAssertionTable(q12).join('\n').includes('pandas: groupby gene mean log2_cpm'));
   assert.deepEqual(describeAssertionTable(q4), []);
 });
+
+test('UT-E2E-DESC-034: a two-branch question shows BOTH branches, each with its own cohort and connector', () => {
+  const q16 = {
+    id: 'Q16',
+    assertions: [{ name: 'n_groups', expected: '25', actual: '25', ok: true }],
+    describe: {
+      derivation: 'pandas: two count branches',
+      results: [
+        { cohort: 'log2FoldChange gt 0', citedConnector: 'SUM-COUNT-01', nGroups: 25, recommendedChartSpecId: 'spec-a', sentence: 'up branch', binding: { state: 'covered', matchedConnectors: ['SUM-COUNT-01'] } },
+        { cohort: 'log2FoldChange lt 0', citedConnector: 'SUM-COUNT-01', nGroups: 33, recommendedChartSpecId: 'spec-b', sentence: 'down branch', binding: { state: 'covered', matchedConnectors: ['SUM-COUNT-01'] } },
+      ],
+    },
+  } as unknown as QuestionTrace;
+  const rows = describeSummaryRows([q16]);
+  assert.equal(rows.length, 2, 'one row per branch, never only the first');
+  assert.ok(rows[0].includes('Q16 (log2FoldChange gt 0)') && rows[0].includes('| 25 |'));
+  assert.ok(rows[1].includes('Q16 (log2FoldChange lt 0)') && rows[1].includes('| 33 |'));
+  const section = describeSection([q16]).join('\n');
+  assert.ok(section.includes('up branch') && section.includes('down branch'));
+});

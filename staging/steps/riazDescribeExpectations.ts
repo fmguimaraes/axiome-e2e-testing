@@ -14,6 +14,9 @@
  *    `std` aggregation is population SD (AXI-1557, pre-existing). The doc quotes the
  *    sample SD (CXCL9 2.81); the ranking is identical, the values differ in the second
  *    decimal (CXCL9 2.76), and asserting the doc's number would fail a CORRECT platform.
+ *  - **Q15 asserts `nGroups: 1`**, because `describe.top_n` groups nothing — bio-compute
+ *    reports `n_groups: 1` for the whole selection (`top_n.py`) and `SUM-TOPN-01` does not
+ *    declare the metric at all. The real invariant, ten rows, is asserted as `rowCount`.
  *  - **Q16 counts significant genes per direction as `n_groups` of two `describe.count`
  *    branches** grouped by `gene`, because the pooled DE table carries no direction
  *    column and `describe` derives none (P11: the registry is the compute boundary —
@@ -74,6 +77,8 @@ export interface ExpectedDescribeResult {
   cells?: ExpectedCell[];
   /** total rows in the result table when it is not `nGroups` (top_n) */
   rowCount?: number;
+  /** `describe.top_n` only — the column carrying the row's identity, named rather than guessed positionally */
+  labelColumn?: string;
   /** the rendered sentence, byte-for-byte (AC2 — Q12 only) */
   sentence?: string;
   /** substrings the rendered sentence must contain (EC6: Q14 says "patients") */
@@ -163,8 +168,13 @@ export const DESCRIBE_EXPECTED: Record<string, DescribeExpectation> = {
         cohort: 'padj lt 0.05',
         connector: 'SUM-TOPN-01',
         operationId: 'describe.top_n',
-        nGroups: 10,
+        // `describe.top_n` groups NOTHING — bio-compute reports the whole
+        // selection as one group (`top_n.py`: `metrics.n_groups = 1`) and
+        // `SUM-TOPN-01`'s seed omits `n_groups` from its outputFields. The ten
+        // rows are the invariant, and they are asserted as `rowCount`.
+        nGroups: 1,
         rowCount: 10,
+        labelColumn: 'gene',
         parameters: { sortColumn: 'log2FoldChange', direction: 'desc', n: 10 },
         ranks: [
           { rank: 1, label: 'C20orf166-AS1', value: 13.9224 },
@@ -278,6 +288,12 @@ export const DESCRIBE_EXPECTED: Record<string, DescribeExpectation> = {
         connector: 'SUM-RANK-01',
         operationId: 'describe.grouped_aggregate',
         nGroups: 24,
+        // Ranking by the MEAN of `log2FoldChange` per gene, which for a
+        // one-row-per-gene DE table is the value itself. The derivation script
+        // ranks by |log2FoldChange| and lands on the same order ONLY because
+        // all 24 panel genes have a positive fold change here (verified); a
+        // future panel with a negative mover would diverge — rank by the raw
+        // value in both places if that ever changes.
         parameters: { groupColumns: ['gene'], valueColumn: 'log2FoldChange', aggregation: 'mean', direction: 'desc' },
         top: { label: 'IDO1', value: 2.2149, n: 1 },
         bottom: { label: 'HAVCR2', value: 0.0666, n: 1 },

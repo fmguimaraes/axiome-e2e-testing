@@ -18,7 +18,7 @@ import type { RestClient } from '../client/RestClient';
 import { asList, must } from '../rules/ensureRule';
 import { SERVICE_HANDLE } from './context';
 import { projectHeaders } from './projectProvisioning';
-import type { ObservedBinding, ObservedDecision, ObservedDescribeResult } from './riazDescribeAssertions';
+import type { ObservedBinding, ObservedColumnBinding, ObservedDecision, ObservedDescribeResult } from './riazDescribeAssertions';
 import type { QuestionTrace } from './runRiazQuestions';
 
 export const DESCRIBE_RUN_KIND = 'DESCRIBE';
@@ -31,7 +31,9 @@ interface Filter {
 
 interface OperationBindingDetail {
   operationId?: string | null;
+  /** SCALARS ONLY — the column roles live in `canonicalFields` (see `COLUMN_ROLE_PARAMETERS`). */
   boundParameters?: Record<string, unknown> | null;
+  canonicalFields?: Array<{ parameter?: string; column?: string; canonicalField?: string | null }> | null;
   nGroups?: number | null;
   unmappedColumns?: string[] | null;
   ambiguous?: boolean | null;
@@ -60,6 +62,31 @@ interface DecisionRead {
 interface SpecRead {
   id: string;
   origin?: string | null;
+}
+
+interface EvidenceRead {
+  id: string;
+  currentVersion?: { text?: string | null; citationContext?: { snapshot_id?: string } | null } | null;
+}
+
+/** The column roles the binding report carries, normalised and order-preserving. */
+export function canonicalFieldsOf(detail: OperationBindingDetail | null): ObservedColumnBinding[] {
+  return (detail?.canonicalFields ?? [])
+    .filter((f) => typeof f?.parameter === 'string' && typeof f?.column === 'string')
+    .map((f) => ({ parameter: f.parameter as string, column: f.column as string, canonicalField: f.canonicalField ?? null }));
+}
+
+/**
+ * The sentence as the RESULT surface carries it — the Evidence AXI-1562 mints,
+ * found by its citation context, never by title.
+ *
+ * Deliberately a DIFFERENT surface from the decision draft: comparing the draft's
+ * sentence with a sentence read off that same draft asserts nothing (review-gate
+ * advisory A1). Evidence text vs draft text is a real cross-surface check.
+ */
+export function sentenceEvidenceText(evidences: readonly EvidenceRead[], snapshotId: string): string | null {
+  const found = evidences.find((e) => e.currentVersion?.citationContext?.snapshot_id === snapshotId);
+  return found?.currentVersion?.text ?? null;
 }
 
 export const filterText = (filters: readonly Filter[]): string =>
@@ -116,6 +143,11 @@ async function listDecisions(client: RestClient, H: Record<string, string>, work
   return asList<DecisionRead>(must(await client.as<unknown>(SERVICE_HANDLE, 'GET', `/api/v1/workspaces/${workspaceId}/decisions?viewAnalysisId=${analysisId}&limit=100`, undefined, H), 'decisions'));
 }
 
+async function listEvidence(client: RestClient, H: Record<string, string>, analysisId: string): Promise<EvidenceRead[]> {
+  const res = await client.as<unknown>(SERVICE_HANDLE, 'GET', `/api/v1/view-analyses/${analysisId}/evidences?page=1&limit=100`, undefined, H);
+  return res.ok ? asList<EvidenceRead>(res.body) : [];
+}
+
 async function recommendedSpecId(client: RestClient, H: Record<string, string>, workspaceId: string, datasetId: string | null): Promise<string | null> {
   if (!datasetId) return null;
   const res = await client.as<unknown>(SERVICE_HANDLE, 'GET', `/api/v1/workspaces/${workspaceId}/datasets/${datasetId}/candidates`, undefined, H);
@@ -130,9 +162,10 @@ export async function observeDescribeResults(client: RestClient, workspaceId: st
   const snapshots = await listSnapshots(client, H, q.viewAnalysisId);
   const byId = new Map(snapshots.map((s) => [s.id, s]));
   const decisions = await listDecisions(client, H, workspaceId, q.viewAnalysisId);
+  const evidences = await listEvidence(client, H, q.viewAnalysisId);
   const out: ObservedDescribeResult[] = [];
   for (const run of q.ruleRuns.filter((r) => r.kind === DESCRIBE_RUN_KIND)) {
-    out.push(await observeOne(client, H, workspaceId, q, run, byId, decisions));
+    out.push(await observeOne(client, H, workspaceId, q, run, byId, decisions, evidences));
   }
   return out;
 }
@@ -145,6 +178,7 @@ async function observeOne(
   run: QuestionTrace['ruleRuns'][number],
   byId: Map<string, SnapshotRead>,
   decisions: readonly DecisionRead[],
+  evidences: readonly EvidenceRead[],
 ): Promise<ObservedDescribeResult> {
   const produced = byId.get(run.producedSnapshotId);
   const referent = run.referentSnapshotId ? byId.get(run.referentSnapshotId) : undefined;
@@ -157,12 +191,13 @@ async function observeOne(
     operationId: run.operationId ?? detail?.operationId ?? null,
     citedConnector: citedConnectorOf(q.planNodes.find((n) => n.id === run.planNode)),
     boundParameters: detail?.boundParameters ?? {},
+    canonicalFields: canonicalFieldsOf(detail),
     columns: run.columns,
     rows: run.rows,
     nGroups: nGroupsOf(detail, run.summary),
     binding: bindingOf(produced),
     recommendedChartSpecId: await recommendedSpecId(client, H, workspaceId, produced?.datasetId ?? null),
-    sentence: decision?.sentenceText ?? null,
+    sentence: sentenceEvidenceText(evidences, run.producedSnapshotId),
     decision,
   };
 }
