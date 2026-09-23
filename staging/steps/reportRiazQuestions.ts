@@ -3,6 +3,8 @@ import { RestClient } from '../client/RestClient';
 import { ensureIdentities } from '../identities/ensureIdentities';
 import { asList, must } from '../rules/ensureRule';
 import { rulesForQuestion } from '../rules/riazRuleLibrary';
+import { assertionScore, describeAssertionTable, describeSection } from './riazDescribeReport';
+import { isDescribeQuestion } from './riazDescribeExpectations';
 import { EVALUATORS, fmt, fmtP, q1Context, statsOf, type Snap, type Stat, type Verdict } from './riazQuestionVerdicts';
 import { ADMIN_HANDLE, SERVICE_HANDLE } from './context';
 import { projectHeaders } from './projectProvisioning';
@@ -195,7 +197,8 @@ async function main(): Promise<void> {
     const pub = (q as QuestionTrace & { published?: PublishedRecord }).published;
     const verdicts = q.error ? [] : (EVALUATORS[q.id] ?? (() => []))(q, stats, { q1, earlier });
     earlier.set(q.id, verdicts);
-    const matched = verdicts.filter((v) => v.match === true).length, total = verdicts.filter((v) => v.match !== null).length;
+    const score = isDescribeQuestion(q.id) ? assertionScore(q) : { passed: verdicts.filter((v) => v.match === true).length, total: verdicts.filter((v) => v.match !== null).length };
+    const matched = score.passed, total = score.total;
     const status = q.error ? `ERROR: ${q.error.slice(0, 80)}` : `${q.runStatus} (${q.nodes.filter((n) => n.status === 'SUCCEEDED' || n.status === 'REUSED').length}/${q.nodes.length} nodes)`;
     const overall = q.error ? '✗' : total === 0 ? '?' : matched === total ? '✓' : '✗';
     const paper = q.error ? { concordance: 'not evaluable' as Concordance, note: 'run errored' } : (PAPER[q.id]?.judge(verdicts) ?? { concordance: 'not addressed' as Concordance, note: '' });
@@ -227,6 +230,7 @@ async function main(): Promise<void> {
         '| Rule | Verdict | Detail | Expected | Match |', '|---|---|---|---|---|',
         ...verdicts.map((v) => `| ${v.rule} | **${v.verdict}** | ${v.detail} | ${v.expected} | ${v.match === null ? '?' : v.match ? '✓' : '✗'} |`),
         '',
+        ...describeAssertionTable(q),
         `**Paper (Riaz 2017)** ${PAPER[q.id]?.claim ?? '—'} → **${paper.concordance}**${paper.note ? `: ${paper.note}` : ''}`,
         '',
         '**Published evidence**', '',
@@ -256,6 +260,7 @@ async function main(): Promise<void> {
     '',
     `Project: ${FRONT_URL}/biotech-one/public-datasets-io-benchmarks/riaz-2017-nivolumab-melanoma/overview · Guided history (all planner sessions): ${FRONT_URL}/projects/${trace.projectId}/guided-analyses · Rules: ${FRONT_URL}/rules`,
     '',
+    ...describeSection(trace.questions),
     ...paperSection(paperRows),
     '## Limitations — the rules are calibrated on this cohort',
     '',

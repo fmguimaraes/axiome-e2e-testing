@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { isHandBuiltUserChart, selectRecommended } from './publishRiazEvidence';
+import { findDescriptiveDecision, findSentenceEvidence, isHandBuiltUserChart, selectRecommended } from './publishRiazEvidence';
 
 /**
  * UT-STAGE-168..172 — the two pure selectors `stage:riaz-publish` uses
@@ -39,4 +39,26 @@ test('UT-STAGE-172: isHandBuiltUserChart ignores a non-user origin, a user chart
   assert.equal(isHandBuiltUserChart(spec('recommended', 'Q11 · looks like one but is not')), false);
   assert.equal(isHandBuiltUserChart(spec('user', 'My custom chart')), false);
   assert.equal(isHandBuiltUserChart(spec('user', null)), false);
+});
+
+// ── AXI-1565 (FR36): the describe branch selects, never authors ──────────────
+
+test('UT-E2E-DESC-017: the run\'s sentence evidence is found by its citation context, never by title', () => {
+  const rows = [
+    { id: 'e1', currentVersion: { id: 'v1', title: 'Q12 · Mann–Whitney per gene', citationContext: { snapshot_id: 'other' } } },
+    { id: 'e2', currentVersion: { id: 'v2', title: 'Describe result (ranked) — binding covered', citationContext: { snapshot_id: 'snap-1' } } },
+  ];
+  assert.equal(findSentenceEvidence(rows, 'snap-1')?.id, 'e2');
+  assert.equal(findSentenceEvidence(rows, 'snap-missing'), undefined);
+  assert.equal(findSentenceEvidence([{ id: 'e3', currentVersion: { id: 'v3', title: 'x' } }], 'snap-1'), undefined);
+});
+
+test('UT-E2E-DESC-018: the descriptive decision is the draft whose context names this rule run', () => {
+  const decisions = [
+    { id: 'd1', label: 'x', status: 'draft', context: { ruleRunId: 'run-9' } },
+    { id: 'd2', label: 'y', status: 'draft', context: { ruleRunId: 'run-1' } },
+    { id: 'd3', label: 'z', status: 'draft' },
+  ] as unknown as Parameters<typeof findDescriptiveDecision>[0];
+  assert.equal(findDescriptiveDecision(decisions, 'run-1')?.id, 'd2');
+  assert.equal(findDescriptiveDecision(decisions, 'run-absent'), undefined);
 });

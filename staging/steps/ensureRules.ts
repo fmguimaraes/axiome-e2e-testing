@@ -3,6 +3,8 @@ import { ensureIdentities } from '../identities/ensureIdentities';
 import { checkProtocol } from '../rules/protocolBuilders';
 import { RIAZ_RULE_LIBRARY, rulesForQuestion, type LibraryEntry } from '../rules/riazRuleLibrary';
 import { ensureRule, type EnsureRuleAction } from '../rules/ensureRule';
+import { checkDescribeCarriers, ensureConnectorsVisible, RIAZ_CONNECTORS, type ConnectorAction, type ConnectorReport } from '../rules/riazConnectorRules';
+import { isDescribeQuestion } from './riazDescribeExpectations';
 import { resolveTenant } from './stageRiazGuided';
 
 /**
@@ -60,11 +62,13 @@ function log(msg: string): void {
   console.log(`[stage:rules] ${msg}`);
 }
 
-export interface RuleReport { code: string; protocol: string; executable: boolean; questions: string[]; action: EnsureRuleAction | 'checked' | 'invalid'; id?: string; version?: number; problems: string[] }
+export interface RuleReport { code: string; protocol: string; executable: boolean; questions: string[]; action: EnsureRuleAction | ConnectorAction | 'checked' | 'invalid'; id?: string; version?: number; problems: string[] }
 
 export async function ensureRules(client: RestClient | null, a: Args): Promise<RuleReport[]> {
   const entries = selectEntries(a);
-  if (entries.length === 0) throw new Error('nothing selected');
+  // Q12–Q21 cite the SUM-* connectors and no library rule, so an empty library
+  // selection is legitimate for them — but only for them.
+  if (entries.length === 0 && !isDescribeQuestion((a.question ?? '').toUpperCase())) throw new Error('nothing selected');
   const reports: RuleReport[] = entries.map((e) => ({ code: e.code, protocol: e.protocol, executable: e.executable, questions: e.questions, action: 'checked', problems: checkProtocol(e.make()) }));
   reports.filter((r) => r.problems.length).forEach((r) => (r.action = 'invalid'));
   if (a.list || a.check || !client) return reports;
@@ -77,8 +81,36 @@ export async function ensureRules(client: RestClient | null, a: Args): Promise<R
     const { row, action } = await ensureRule(client, e.make(), tenant, { log, dryRun: a.dryRun, justification: `Riaz 2017 rule library (${e.protocol}) — cited by ${e.questions.join(', ')} in axiome-docs/demo/riaz-2017/Riaz-Guided-Questions.md` });
     Object.assign(reports[i], { action, id: row.id || undefined, version: row.version || undefined });
   }
+  reports.push(...(await connectorReports(client, tenant, a)));
   return reports;
 }
+
+/**
+ * AXI-1565 (FR34) — the four SUM-* connector rules Q12–Q21 cite, reported in the
+ * same table as the library. They are system seeds, so the only tenant-level
+ * action is entitlement (see `riazConnectorRules.ts`); a selection that names
+ * neither a describe question nor a SUMMARY protocol skips them entirely.
+ */
+async function connectorReports(client: RestClient, tenant: { organizationId: string | null }, a: Args): Promise<RuleReport[]> {
+  if (a.codes && !a.codes.some((c) => RIAZ_CONNECTORS.some((k) => k.code === c))) return [];
+  if (a.protocol && a.protocol !== 'SUMMARY_RULE') return [];
+  const connectors = await ensureConnectorsVisible(client, tenant, { log, dryRun: a.dryRun });
+  // The carriers are what the describe NODE cites; without them the connectors
+  // are selectable and the run still cannot resolve a ruleId (AXI-1556 seed).
+  const carriers = await checkDescribeCarriers(client, { log });
+  return [...connectors.map(toRuleReport), ...carriers.map((c) => ({ ...toRuleReport(c), protocol: 'DESCRIBE_CARRIER' }))];
+}
+
+const toRuleReport = (c: ConnectorReport): RuleReport => ({
+  code: c.code,
+  protocol: 'SUMMARY_RULE',
+  executable: true,
+  questions: ['Q12-Q21'],
+  action: c.action === 'missing' || c.action === 'unentitled' ? 'invalid' : (c.action as RuleReport['action']),
+  id: c.ruleId ?? undefined,
+  version: c.version ?? undefined,
+  problems: c.problems,
+});
 
 function printTable(reports: RuleReport[]): void {
   const w = Math.max(...reports.map((r) => r.code.length));

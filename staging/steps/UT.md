@@ -454,3 +454,86 @@ omits `kind` and lets the server derive it, rather than guessing.
 | UT-STAGE-180 | no known run kind, chart entries present — classifies as `chart` | Pass |
 | UT-STAGE-181 | no known run kind, no chart, a citation context — classifies as `table` | Pass |
 | UT-STAGE-182 | nothing structural to go on (incl. an unrecognized future run kind) — `undefined`, never a guessed `note` | Pass |
+
+## `steps/riazDescribeAssertions.spec.ts` (AXI-1565 — Automated E2E for Riaz Q12–Q21)
+
+The pure assertion engine behind `npm run stage:riaz-questions` for the ten
+descriptive questions (FR35). Every expected value it compares against is
+derived from the Riaz source CSVs, never from the platform's own output
+(`riazDescribeExpectations.ts` carries the number AND the derivation); the
+engine only decides expected-vs-actual. One red assertion fails the question —
+a run row alone is not a pass, and a missing recommended chart is a failure to
+report, never a case to work around.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-E2E-DESC-001 | a fully correct Q12 result passes every assertion | Pass |
+| UT-E2E-DESC-002 | a top value off by more than 0.01 fails, off by less passes | Pass |
+| UT-E2E-DESC-003 | a rank whose label moved fails, exactly (no tolerance on ranks) | Pass |
+| UT-E2E-DESC-004 | a wrong `n_groups` fails even when every asserted row is right | Pass |
+| UT-E2E-DESC-005 | an indeterminate or ambiguous binding fails — only a narrow match passes | Pass |
+| UT-E2E-DESC-006 | a missing recommended chart fails the question — it is never worked around | Pass |
+| UT-E2E-DESC-007 | the Q12 sentence is compared byte-for-byte | Pass |
+| UT-E2E-DESC-008 | a decision of another type, another run, or another sentence fails | Pass |
+| UT-E2E-DESC-009 | an unbound or overridden connector parameter fails, naming the parameter | Pass |
+| UT-E2E-DESC-010 | EC6 — a Q14 count sentence that says "rows" instead of "patients" fails | Pass |
+| UT-E2E-DESC-011 | a two-branch question pairs each expectation with the branch carrying its filter | Pass |
+| UT-E2E-DESC-012 | a question whose describe run never happened fails with a named assertion | Pass |
+| UT-E2E-DESC-013 | the aggregate column name is derived from the bound parameters, `n` for a count | Pass |
+| UT-E2E-DESC-014 | labels join the bound group columns in order; `top_n` reads its label column | Pass |
+| UT-E2E-DESC-015 | the observation readers read the cited code, `n_groups` and the run-linked draft | Pass |
+| UT-E2E-DESC-016 | every descriptive question declares a derivation and four distinct connectors are covered | Pass |
+
+## `steps/publishRiazEvidence.spec.ts` — describe branch (AXI-1565)
+
+`stage:riaz-publish` must PUBLISH the sentence Evidence the backend already
+minted for a describe run, never author a second one (AXI-1562 owns that
+Evidence; a staged duplicate would make two records of one sentence).
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-E2E-DESC-017 | the run's sentence evidence is found by its citation context, never by title | Pass |
+| UT-E2E-DESC-018 | the descriptive decision is the draft whose `context.ruleRunId` names this rule run | Pass |
+
+## `steps/riazDescribeReport.spec.ts` (AXI-1565 — FR36)
+
+The "Descriptive questions (Q12–Q21)" section of
+`Riaz-Guided-Questions-Report.md`: the report renders what the runner asserted
+and never re-derives a number (a second derivation is a second answer, and the
+two can disagree).
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-E2E-DESC-019 | only the descriptive questions appear in the section, and the score counts assertions | Pass |
+| UT-E2E-DESC-020 | a missing recommended chart is reported as ✗ and fails the question score | Pass |
+| UT-E2E-DESC-021 | the section carries the rendered sentence, the expected sentence and the derivation | Pass |
+
+## `rules/riazConnectorRules.spec.ts` (AXI-1565 — FR34)
+
+`stage:rules` over the describe surface: the four SUMMARY **connector** rules
+Q12–Q21 cite (system seeds — proved present and entitled, never re-authored)
+and the three DESCRIBE **carrier** rules the runs themselves cite (resolved by
+the `op:<operationId>` tag, exactly as `RuleRunsAnalysisRunner.resolveRuleId`
+does). A missing carrier is what made the first live Q12 run fail on the demo
+stack — `stage:rules` now names it and the remedy instead of leaving a cryptic
+node error.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-E2E-DESC-022 | rule access `ALL` entitles without a grant, `NONE` cannot be granted, `CUSTOM` needs one | Pass |
+| UT-E2E-DESC-023 | a connector absent, unpublished or bound to the wrong operation is a problem; a correct one is silent | Pass |
+| UT-E2E-DESC-024 | the carrier is resolved by the `op:` tag, newest published version first | Pass |
+| UT-E2E-DESC-025 | a missing carrier reports the operation that cannot resolve, and the remedy | Pass |
+| UT-E2E-DESC-026 | the staged surface is the four cited connectors over the three describe operations | Pass |
+
+## `capture/masters/m13DescribeResultQ12.spec.ts` (AXI-1565 — FR37/AC14)
+
+M13's precondition resolution — the Riaz ids come from the `stage:riaz-questions`
+trace, never hard-coded, and an unstaged stack BLOCKS with a reason rather than
+producing a fabricated frame.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-E2E-DESC-027 | a complete trace resolves every id M13 navigates to | Pass |
+| UT-E2E-DESC-028 | a trace without a Q12 describe result blocks with a reason, never a fabricated target | Pass |
+| UT-E2E-DESC-029 | a missing trace file is a blocked reason naming the path, not a throw | Pass |

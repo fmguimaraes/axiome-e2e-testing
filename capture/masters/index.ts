@@ -13,6 +13,7 @@ import { captureM9 } from './m9SponsorExport';
 import { captureM10 } from './m10SubjectDelta';
 import { captureM11 } from './m11DatasetSchemaBadge';
 import { captureM12 } from './m12FlowCytometry';
+import { captureM13 } from './m13DescribeResultQ12';
 import type { MasterResult } from './types';
 
 /**
@@ -43,6 +44,7 @@ export const MASTERS: MasterDefinition[] = [
   { id: 'M10', needsDefaultLogin: true, run: captureM10 }, // AXI-1368 FIX 3: now a real browser capture
   { id: 'M11', needsDefaultLogin: true, run: captureM11 },
   { id: 'M12', needsDefaultLogin: false, run: async () => captureM12() }, // REST-only, no browser
+  { id: 'M13', needsDefaultLogin: true, run: captureM13 }, // AXI-1565: the Riaz describe result (its own tenant — see the module note)
 ];
 
 /** The identity every `needsDefaultLogin` master authenticates as — the

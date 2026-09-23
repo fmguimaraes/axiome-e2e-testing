@@ -39,6 +39,7 @@ import { asList, must } from '../rules/ensureRule';
 import { SERVICE_HANDLE } from './context';
 import { projectHeaders } from './projectProvisioning';
 import { recordDecision, type DecisionRow } from './stageRiazGuided';
+import { isDescribeQuestion } from './riazDescribeExpectations';
 import { EVALUATORS, q1Context, statsOf, type Verdict } from './riazQuestionVerdicts';
 import {
   TEXT_OVERRIDES,
@@ -275,6 +276,75 @@ async function ensureOneEvidence(client: RestClient, H: Record<string, string>, 
   return record(created);
 }
 
+// ── describe questions (AXI-1565, FR36) ──────────────────────────────────────
+//
+// A describe run already carries its own Evidence and its own Decision: the
+// backend writes a table-cited Evidence whose text IS the deterministic sentence
+// and a `descriptive_summary` DecisionDraft that cites it (AXI-1562). This step
+// therefore SELECTS them — it does not author a second sentence, a second
+// summary or a second decision, which would be two governed statements about one
+// result. All it adds is what it adds everywhere else: the platform's own
+// recommended chart, bound to the evidence, and the publication.
+
+/** The backend's sentence Evidence for a describe snapshot, found by its citation, never by title. */
+export function findSentenceEvidence(existing: readonly EvidenceRow[], snapshotId: string): EvidenceRow | undefined {
+  return existing.find((e) => (e.currentVersion?.citationContext as { snapshot_id?: string } | undefined)?.snapshot_id === snapshotId);
+}
+
+/** The `descriptive_summary` draft this run's sentence lives on. */
+export function findDescriptiveDecision(decisions: readonly DecisionRow[], ruleRunId: string): DecisionRow | undefined {
+  return decisions.find((d) => (d as { context?: { ruleRunId?: string } }).context?.ruleRunId === ruleRunId);
+}
+
+async function bindChartsToSentenceEvidence(client: RestClient, H: Record<string, string>, q: PublishedTrace, e: EvidenceRow, charts: PublishedChart[], dryRun: boolean): Promise<EvidenceRow> {
+  const cv = e.currentVersion!;
+  if (sameSet(cv.chartArtifactIds ?? [], charts.map((c) => c.id))) return e;
+  if (dryRun) { log(`${q.id}: would bind ${charts.length} recommended chart(s) to the sentence evidence ${e.id}`); return e; }
+  const chartEntries = charts.map((c) => ({ chartArtifactId: c.id, snapshotId: c.snapshotId, datasetVersionId: c.datasetId }));
+  must(await client.as<unknown>(SERVICE_HANDLE, 'PATCH', `/api/v1/view-analyses/evidences/${e.id}`, { chartEntries, title: cv.title, text: cv.text, citationContext: cv.citationContext }, H), `binding charts to evidence ${e.id}`);
+  const after = must(await client.as<EvidenceRow>(SERVICE_HANDLE, 'GET', `/api/v1/view-analyses/evidences/${e.id}`, undefined, H), `reading evidence ${e.id}`);
+  log(`${q.id}: bound ${charts.length} recommended chart(s) to the sentence evidence ${e.id} → v${after.currentVersion?.versionNumber ?? '?'}`);
+  return after;
+}
+
+async function publishDescribeOne(client: RestClient, t: Trace, q: PublishedTrace, snaps: Snap[], dryRun: boolean): Promise<void> {
+  const H = projectHeaders(t.workspaceId);
+  const existing = await listEvidence(client, H, q.viewAnalysisId as string);
+  const decisions = asList<DecisionRow>(must(await client.as<unknown>(SERVICE_HANDLE, 'GET', `/api/v1/workspaces/${t.workspaceId}/decisions?viewAnalysisId=${q.viewAnalysisId}&limit=100`, undefined, H), 'listing decisions'));
+  const evidences: PublishedRecord['evidences'] = [];
+  let decision: DecisionRow | null = null;
+  for (const s of snaps) {
+    const rr = q.ruleRuns.find((r) => r.id === s.ruleRunId);
+    const found = rr ? findSentenceEvidence(existing, s.id) : undefined;
+    if (!rr || !found?.currentVersion) { log(`${q.id}: snapshot ${s.id} has no sentence evidence from the run — skipped (the run wrote none)`); continue; }
+    const charts = await recommendedCharts(client, H, t.workspaceId, s, q.id);
+    const bound = await bindChartsToSentenceEvidence(client, H, q, found, charts, dryRun);
+    evidences.push({ id: bound.id, versionId: bound.currentVersion!.id, versionNumber: bound.currentVersion!.versionNumber ?? null, title: bound.currentVersion!.title ?? '', text: bound.currentVersion!.text ?? '', snapshotId: s.id, ruleRunId: rr.id, link: `${FRONT_URL}/projects/${t.projectId}/view-analyses/${q.viewAnalysisId}/evidences/${bound.id}`, charts });
+    const draft = findDescriptiveDecision(decisions, rr.id);
+    if (draft) decision = dryRun ? draft : await approve(client, H, t.workspaceId, draft);
+  }
+  const version = evidences.length ? await ensurePublished(client, H, q.viewAnalysisId as string, evidences.map((e) => e.versionId), decision ? [decision.id] : [], dryRun) : null;
+  q.published = describedRecord(t, q, evidences, decision, version);
+  log(`${q.id}: ${evidences.length} sentence evidence(s) / ${evidences.reduce((n, e) => n + e.charts.length, 0)} chart(s), descriptive decision ${decision?.id ?? '—'} (${decision?.status ?? '—'}), published ${version?.id ?? '—'}`);
+}
+
+function describedRecord(t: Trace, q: PublishedTrace, evidences: PublishedRecord['evidences'], decision: DecisionRow | null, version: PublishedVersion | null): PublishedRecord {
+  return {
+    at: new Date().toISOString(),
+    evidences,
+    decisionId: decision?.id ?? null,
+    decisionLabel: decision?.label ?? null,
+    decisionStatus: decision?.status ?? null,
+    decisionLink: decision ? `${FRONT_URL}/projects/${t.projectId}/view-analyses/${q.viewAnalysisId}/decisions/${decision.id}` : null,
+    supersededDecisionId: q.published?.supersededDecisionId ?? null,
+    verdicts: [],
+    publishedVersionId: version?.id ?? null,
+    publishedVersionNumber: version?.versionNumber ?? null,
+    publishedLink: version ? `${FRONT_URL}/sponsor-review/views/${version.id}/export-preview` : null,
+    previewApi: version ? `${BASE_URL}/api/v1/exports/sponsor/${version.id}/preview` : null,
+  };
+}
+
 // ── decision ─────────────────────────────────────────────────────────────────
 
 interface DecisionWant { label: string; type: string; confidence: 'high' | 'medium' | 'low'; evidenceIds: string[]; snapshotIds: string[] }
@@ -362,6 +432,7 @@ async function publishOne(client: RestClient, serviceUserId: string, t: Trace, q
   const all = await listSnapshots(client, H, q.viewAnalysisId);
   const snaps = all.filter((s) => s.origin === 'rule_derived' && s.ruleRunId);
   if (!snaps.length) { log(`${q.id}: no rule-derived snapshots — skipped`); return; }
+  if (isDescribeQuestion(q.id)) return publishDescribeOne(client, t, q, snaps, dryRun);
   const levels = pairedLevels(q);
   const existing = await listEvidence(client, H, q.viewAnalysisId);
   const evidences: PublishedRecord['evidences'] = [];
