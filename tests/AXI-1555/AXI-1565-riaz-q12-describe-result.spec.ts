@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readTrace, resolveQ12Target, type Q12Target } from '../../capture/masters/m13DescribeResultQ12';
+import { loginAsUi } from '../../capture/masters/login';
+import { BASE_URL } from '../../config/env';
 import { Q12_SENTENCE } from '../../staging/steps/riazDescribeExpectations';
 
 /**
@@ -30,7 +32,16 @@ const target = typeof trace === 'string' ? trace : resolveQ12Target(trace);
 const staged = typeof target !== 'string';
 const q12 = target as Q12Target;
 
-test.beforeEach(async ({ context }) => {
+// The Riaz project lives on the STAGED tenant, whose members are the staging
+// cast identities — the default `admin` storageState is the platform admin and
+// belongs to no Riaz workspace, so every route renders "No Workspace" and the
+// describe surface never mounts. Start from a blank state and log in as the
+// biologist who actually presented these questions (`runRiazQuestions`'
+// `PRESENTER`), through the UI, the way `loginAsUi` does for the capture
+// masters.
+test.use({ storageState: { cookies: [], origins: [] } });
+
+test.beforeEach(async ({ context, page }) => {
   test.skip(!staged, `Riaz Q12 not staged: ${staged ? '' : (target as string)}`);
   // The active org/workspace/project is client state every internal page reads
   // (`topMenuStore`); without it the analysis route renders "Access denied"
@@ -43,6 +54,7 @@ test.beforeEach(async ({ context }) => {
     },
     [q12.orgId, q12.workspaceId, q12.projectId],
   );
+  await loginAsUi(page, BASE_URL, 'cast-biologist');
 });
 
 test('AC2/AC11 (FR21, FR32) — the Q12 result view shows the deterministic sentence, the SUM-RANK-01 match chip and the recommended chart on one screen @SI-044', async ({ page }) => {
@@ -63,8 +75,17 @@ test('AC2/AC11 (FR21, FR32) — the Q12 result view shows the deterministic sent
   await expect(ruleLink).toBeVisible();
   await expect(ruleLink).toHaveAttribute('href', /^\/rules\/[0-9a-f-]{36}/);
 
-  // AXI-1553's rule: the recommended spec is SELECTED, never hand-built —
-  // so what must render is the platform's own recommended chart.
+  // AXI-1553's rule: the recommended spec is SELECTED, never hand-built — so
+  // what must render is the platform's OWN recommended chart. Live 2026-09-23
+  // this is red for two platform reasons, both routed rather than worked
+  // around: (P2) `RecommendedChartMaterializerService` withholds every describe
+  // card ("declared role column missing") because `templateVarsOf` only feeds
+  // the delta/stratify vocabulary, so no recommended DataviewSpec is ever
+  // persisted; and (P4) `GuidedRecommendedChart` — the only component carrying
+  // this testid — is mounted solely by `GuidedAnalysisPanel`, so the analysis
+  // RESULT view has no recommended-chart mount at all (a live page audit found
+  // zero chart surfaces on it). The epic's objective is "make a question and
+  // see a chart + answer": the answer renders, the chart does not.
   await expect(page.getByTestId('ga-recommended-chart')).toBeVisible();
 });
 
