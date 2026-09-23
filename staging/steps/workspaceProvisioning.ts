@@ -31,14 +31,42 @@ interface WorkspaceSummary {
  * duplicate under the freshly (wrongly) created org. This makes reuse
  * survive an org rename that happens entirely outside this fixture's
  * control, without this file needing to know the org's current name.
+ *
+ * Review-gate bounce (AXI-1587, same incident): a same-named workspace can
+ * ALSO exist in a totally unrelated, foreign org by coincidence — confirmed
+ * live, `18005b73-…` (org `5ac1262c-…`, holding an unrelated "Statistical
+ * Surface Validation" project) already carries the exact fixture name
+ * "Public Datasets — IO Benchmarks". If the any-org fallback picked
+ * whichever of these the listing API happened to return first, an
+ * org-rename drift could silently land an entire run — project, dataset
+ * re-ingestion, publishes — in a FOREIGN tenant. `findWorkspaceAnyOrg` now
+ * collects every match, and `resolveWorkspaceMatch` REFUSES (throws
+ * `WorkspaceNameAmbiguousError`) the moment more than one distinct
+ * `ownerOrganizationId` is represented among them, rather than ever guessing.
  */
+export class WorkspaceNameAmbiguousError extends Error {
+  constructor(public readonly candidates: WorkspaceSummary[]) {
+    super(
+      `workspace name is ambiguous across ${new Set(candidates.map((w) => w.ownerOrganizationId ?? '(none)')).size} ` +
+        `organizations — refusing to guess which one is the real tenant. Candidates: ` +
+        `${candidates.map((w) => `${w.id} (org ${w.ownerOrganizationId ?? '(none)'})`).join(', ')}. ` +
+        `Fix: rename the foreign workspace, fix the drifted organization's name back so the ` +
+        `org-scoped lookup finds it directly, or set STAGING_RIAZ_WORKSPACE to the correct id.`,
+    );
+    this.name = 'WorkspaceNameAmbiguousError';
+  }
+}
+
 export function resolveWorkspaceMatch(
   scoped: WorkspaceSummary | undefined,
-  anyOrg: WorkspaceSummary | undefined,
+  anyOrgMatches: WorkspaceSummary[],
 ): { workspace: WorkspaceSummary; adoptOrgId: string | null } | undefined {
   if (scoped) return { workspace: scoped, adoptOrgId: null };
-  if (anyOrg) return { workspace: anyOrg, adoptOrgId: anyOrg.ownerOrganizationId ?? null };
-  return undefined;
+  if (anyOrgMatches.length === 0) return undefined;
+  const distinctOrgs = new Set(anyOrgMatches.map((w) => w.ownerOrganizationId ?? null));
+  if (distinctOrgs.size > 1) throw new WorkspaceNameAmbiguousError(anyOrgMatches);
+  const [only] = anyOrgMatches;
+  return { workspace: only, adoptOrgId: only.ownerOrganizationId ?? null };
 }
 
 /**
@@ -52,11 +80,17 @@ export function resolveWorkspaceMatch(
 export async function ensureWorkspace(ctx: ProvisioningContext, fixture: WorkspaceFixture): Promise<string> {
   const names = [fixture.name, ...fixture.legacyNames];
   const scoped = await findWorkspace(ctx, names);
-  const anyOrg = scoped ? undefined : await findWorkspaceAnyOrg(ctx, names);
-  const match = resolveWorkspaceMatch(scoped, anyOrg);
+  const anyOrgMatches = scoped ? [] : await findWorkspaceAnyOrg(ctx, names);
+  const match = resolveWorkspaceMatch(scoped, anyOrgMatches);
   if (match) {
     if (match.adoptOrgId && match.adoptOrgId !== ctx.orgId) {
-      recordTouched(ctx, { kind: 'organization', name: '(adopted from existing workspace, org rename drift)', id: match.adoptOrgId, action: 'reused' });
+      const previousOrgId = ctx.orgId;
+      console.warn(
+        `[ensure-workspace] ORG-RENAME-DRIFT ADOPTION: workspace "${fixture.name}" (${match.workspace.id}) found ` +
+          `under org ${match.adoptOrgId}, not the ${previousOrgId ? `resolved` : 'newly created'} org ${previousOrgId ?? '(none)'}. ` +
+          `Adopting ${match.adoptOrgId} as ctx.orgId instead of creating a duplicate — see workspaceProvisioning.ts's module doc.`,
+      );
+      recordTouched(ctx, { kind: 'organization', name: `(adopted from existing workspace, org rename drift; was ${previousOrgId ?? '(none)'})`, id: match.adoptOrgId, action: 'reused' });
       ctx.orgId = match.adoptOrgId;
     }
     return reuseWorkspace(ctx, fixture, match.workspace);
@@ -93,18 +127,21 @@ async function findWorkspaceByExactName(ctx: ProvisioningContext, name: string):
  * Org-rename-drift fallback (AXI-1587) — same lookup, no `ownerOrganizationId`
  * filter, paginated like `resolveTenant` (`stageRiazGuided.ts`) since a
  * plain `search=` match can span more than one page in a shared demo tenant.
- * Only called once the org-scoped lookup has already missed.
+ * Only called once the org-scoped lookup has already missed. Collects EVERY
+ * matching workspace (not just the first) across ALL pages so
+ * `resolveWorkspaceMatch` can detect a foreign-org collision and refuse
+ * instead of guessing (review-gate bounce — see the module doc above).
  */
-async function findWorkspaceAnyOrg(ctx: ProvisioningContext, candidateNames: string[]): Promise<WorkspaceSummary | undefined> {
+async function findWorkspaceAnyOrg(ctx: ProvisioningContext, candidateNames: string[]): Promise<WorkspaceSummary[]> {
   const names = new Set(candidateNames);
+  const matches: WorkspaceSummary[] = [];
   for (let page = 1; page <= 5; page++) {
     const res = await ctx.client.as<{ data: WorkspaceSummary[] }>(ADMIN_HANDLE, 'GET', `/api/v1/workspaces?limit=100&page=${page}`);
     const rows = res.body?.data ?? [];
-    const match = rows.find((w) => names.has(w.name));
-    if (match) return match;
+    matches.push(...rows.filter((w) => names.has(w.name)));
     if (rows.length < 100) break;
   }
-  return undefined;
+  return matches;
 }
 
 async function renameWorkspace(ctx: ProvisioningContext, workspaceId: string, name: string): Promise<void> {
