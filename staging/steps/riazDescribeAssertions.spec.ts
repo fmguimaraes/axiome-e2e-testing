@@ -93,7 +93,16 @@ test('UT-E2E-DESC-005: an indeterminate or ambiguous binding fails — only a na
   const failures = namesOfFailures(evaluateDescribeResult(Q12, indeterminate));
   assert.ok(failures.includes('binding state'));
   assert.ok(failures.includes('binding matched connector'));
-  assert.ok(failures.includes('binding unmapped columns'));
+  // AXI-1561: an unmapped raw column no longer degrades the binding, so it is
+  // no longer a failure of its own — a `covered` binding that still lists one
+  // (live Q12: `unmappedColumns: ['log2_cpm']`) must PASS.
+  const coveredWithUnmapped = observedQ12({
+    binding: { state: 'covered', ambiguous: false, matchedConnectors: ['SUM-RANK-01'], unmappedColumns: ['log2_cpm'], citationStatus: 'confirmed' },
+  });
+  assert.deepEqual(
+    namesOfFailures(evaluateDescribeResult(Q12, coveredWithUnmapped)).filter((n) => n.startsWith('binding')),
+    [],
+  );
   const ambiguous = observedQ12({ binding: { state: 'covered', ambiguous: true, matchedConnectors: ['SUM-RANK-01', 'SUM-CROSS-01'], unmappedColumns: [], citationStatus: 'confirmed' } });
   assert.ok(namesOfFailures(evaluateDescribeResult(Q12, ambiguous)).includes('binding ambiguous'));
 });

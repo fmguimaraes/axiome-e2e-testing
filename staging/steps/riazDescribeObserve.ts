@@ -16,7 +16,24 @@
  */
 import type { RestClient } from '../client/RestClient';
 import { asList, must } from '../rules/ensureRule';
-import { SERVICE_HANDLE } from './context';
+
+/** The identity that ASKS the Riaz questions (`runRiazQuestions`' `PRESENTER`). */
+const PRESENTER_HANDLE = 'cast-biologist';
+
+/**
+ * The binding is ENTITLEMENT-SCOPED: it is derived at read time from the rules
+ * the READER may see. Read as the `service` account, every describe snapshot of
+ * this project reports `state: 'no_match'` with `reason: 'no_candidate_rules'`
+ * and `signatureAvailable: true` — not because nothing matches, but because the
+ * service identity is offered no connector rules to match against. The SAME
+ * snapshot read as `cast-biologist`, the identity that asked the question and
+ * the one whose session renders the chip, reports `covered` with
+ * `matchedConnectors: ['SUM-RANK-01']` (verified live 2026-09-23 on Q12
+ * snapshots `df44498d…`, `18ccc645…` and `15a367d3…`). An E2E for "what the
+ * scientist sees" must therefore observe AS THE SCIENTIST; observing as the
+ * service account asserted a view no user has.
+ */
+const OBSERVER_HANDLE = PRESENTER_HANDLE;
 import { projectHeaders } from './projectProvisioning';
 import type { ObservedBinding, ObservedColumnBinding, ObservedDecision, ObservedDescribeResult } from './riazDescribeAssertions';
 import type { QuestionTrace } from './runRiazQuestions';
@@ -49,14 +66,14 @@ interface SnapshotRead {
   origin?: string | null;
   effectiveFilters?: Filter[] | null;
   filters?: Filter[] | null;
-  resultBinding?: { state?: string | null; operationBinding?: OperationBindingDetail | null } | null;
+  resultBinding?: { state?: string | null; reason?: string | null; signatureAvailable?: boolean | null; operationBinding?: OperationBindingDetail | null } | null;
 }
 
 interface DecisionRead {
   id: string;
   type?: string | null;
   status?: string | null;
-  context?: { ruleRunId?: string | null; resultSentence?: { text?: string | null; pending?: boolean } | null } | null;
+  context?: { ruleRunId?: string | null; snapshotId?: string | null; resultSentence?: { text?: string | null; pending?: boolean } | null } | null;
 }
 
 interface SpecRead {
@@ -152,12 +169,20 @@ export function bindingOf(snapshot: SnapshotRead | undefined): ObservedBinding |
     matchedConnectors: (detail.matchedConnectors ?? []).map((c) => c.ruleCode ?? '').filter(Boolean),
     unmappedColumns: detail.unmappedColumns ?? [],
     citationStatus: detail.citation?.status ?? null,
+    signatureAvailable: report.signatureAvailable ?? null,
+    reason: report.reason ?? null,
   };
 }
 
 /** The `descriptive_summary` draft this run's sentence lives on (AXI-1562). */
-export function decisionOf(decisions: readonly DecisionRead[], ruleRunId: string): ObservedDecision | null {
-  const draft = decisions.find((d) => d.context?.ruleRunId === ruleRunId);
+export function decisionOf(decisions: readonly DecisionRead[], ruleRunId: string, snapshotId?: string): ObservedDecision | null {
+  // AXI-1562 keys the draft on (ruleRunId, snapshotId), not on the run alone:
+  // a DEDUPED analysis reuses another analysis' run, so the run id no longer
+  // identifies one draft. Prefer the draft that names THIS snapshot; fall back
+  // to the run-only match for drafts written before that key existed.
+  const draft =
+    (snapshotId ? decisions.find((d) => d.context?.ruleRunId === ruleRunId && d.context?.snapshotId === snapshotId) : undefined) ??
+    decisions.find((d) => d.context?.ruleRunId === ruleRunId);
   if (!draft) return null;
   return {
     id: draft.id,
@@ -169,11 +194,11 @@ export function decisionOf(decisions: readonly DecisionRead[], ruleRunId: string
 }
 
 async function listSnapshots(client: RestClient, H: Record<string, string>, analysisId: string): Promise<SnapshotRead[]> {
-  return asList<SnapshotRead>(must(await client.as<unknown>(SERVICE_HANDLE, 'GET', `/api/v1/view-analyses/${analysisId}/snapshots?page=1&limit=100`, undefined, H), 'snapshots'));
+  return asList<SnapshotRead>(must(await client.as<unknown>(OBSERVER_HANDLE, 'GET', `/api/v1/view-analyses/${analysisId}/snapshots?page=1&limit=100`, undefined, H), 'snapshots'));
 }
 
 async function listDecisions(client: RestClient, H: Record<string, string>, workspaceId: string, analysisId: string): Promise<DecisionRead[]> {
-  return asList<DecisionRead>(must(await client.as<unknown>(SERVICE_HANDLE, 'GET', `/api/v1/workspaces/${workspaceId}/decisions?viewAnalysisId=${analysisId}&limit=100`, undefined, H), 'decisions'));
+  return asList<DecisionRead>(must(await client.as<unknown>(OBSERVER_HANDLE, 'GET', `/api/v1/workspaces/${workspaceId}/decisions?viewAnalysisId=${analysisId}&limit=100`, undefined, H), 'decisions'));
 }
 
 /**
@@ -241,27 +266,68 @@ export function recommendedChartOf(
 }
 
 async function listOperationDescriptors(client: RestClient, H: Record<string, string>): Promise<OperationDescriptor[]> {
-  const res = await client.as<{ operations?: OperationDescriptor[] }>(SERVICE_HANDLE, 'GET', '/api/v1/rule-runs/operations', undefined, H);
+  const res = await client.as<{ operations?: OperationDescriptor[] }>(OBSERVER_HANDLE, 'GET', '/api/v1/rule-runs/operations', undefined, H);
   return res.ok && res.body?.operations ? res.body.operations : [];
 }
 
 async function listEvidence(client: RestClient, H: Record<string, string>, analysisId: string): Promise<EvidenceRead[]> {
-  const res = await client.as<unknown>(SERVICE_HANDLE, 'GET', `/api/v1/view-analyses/${analysisId}/evidences?page=1&limit=100`, undefined, H);
+  const res = await client.as<unknown>(OBSERVER_HANDLE, 'GET', `/api/v1/view-analyses/${analysisId}/evidences?page=1&limit=100`, undefined, H);
   return res.ok ? asList<EvidenceRead>(res.body) : [];
 }
 
 async function recommendedSpecId(client: RestClient, H: Record<string, string>, workspaceId: string, datasetId: string | null): Promise<string | null> {
   if (!datasetId) return null;
-  const res = await client.as<unknown>(SERVICE_HANDLE, 'GET', `/api/v1/workspaces/${workspaceId}/datasets/${datasetId}/candidates`, undefined, H);
+  const res = await client.as<unknown>(OBSERVER_HANDLE, 'GET', `/api/v1/workspaces/${workspaceId}/datasets/${datasetId}/candidates`, undefined, H);
   if (!res.ok) return null;
   return asList<SpecRead>(res.body).find((s) => s.origin === 'recommended')?.id ?? null;
+}
+
+/**
+ * The binding is derived AT READ TIME from the result dataset's evidence
+ * signature, and that signature is computed from a profile that lands
+ * asynchronously once the run's result parquet is registered (AXI-1558). A read
+ * taken the instant the run reports SUCCEEDED therefore reports `no_match` with
+ * `signatureAvailable: false` on a result that is `covered` seconds later —
+ * observed live 2026-09-23 on all ten questions, every one of which read
+ * `covered` + the expected connector when re-read afterwards. So the observer
+ * waits for the signature to EXIST before reading the binding it will assert
+ * on. It never waits for a particular VERDICT: the poll stops as soon as the
+ * platform says it has decided (`signatureAvailable`), and a wrong verdict then
+ * fails exactly as loudly as before.
+ */
+const SIGNATURE_POLL_MS = 3_000;
+const SIGNATURE_TIMEOUT_MS = 90_000;
+
+async function settledSnapshots(
+  client: RestClient,
+  H: Record<string, string>,
+  analysisId: string,
+  describeSnapshotIds: readonly string[],
+): Promise<SnapshotRead[]> {
+  const deadline = Date.now() + SIGNATURE_TIMEOUT_MS;
+  let snapshots = await listSnapshots(client, H, analysisId);
+  const pending = () =>
+    describeSnapshotIds.filter((id) => {
+      const binding = snapshots.find((s) => s.id === id)?.resultBinding;
+      return binding != null && binding.signatureAvailable === false;
+    });
+  while (pending().length && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, SIGNATURE_POLL_MS));
+    snapshots = await listSnapshots(client, H, analysisId);
+  }
+  return snapshots;
 }
 
 /** Every DESCRIBE run of one question, observed. */
 export async function observeDescribeResults(client: RestClient, workspaceId: string, q: QuestionTrace): Promise<ObservedDescribeResult[]> {
   if (!q.viewAnalysisId) return [];
   const H = projectHeaders(workspaceId);
-  const snapshots = await listSnapshots(client, H, q.viewAnalysisId);
+  const snapshots = await settledSnapshots(
+    client,
+    H,
+    q.viewAnalysisId,
+    q.ruleRuns.filter((r) => r.kind === DESCRIBE_RUN_KIND).map((r) => r.producedSnapshotId),
+  );
   const byId = new Map(snapshots.map((s) => [s.id, s]));
   const decisions = await listDecisions(client, H, workspaceId, q.viewAnalysisId);
   const evidences = await listEvidence(client, H, q.viewAnalysisId);
@@ -289,7 +355,7 @@ async function observeOne(
   const produced = byId.get(run.producedSnapshotId);
   const referent = run.referentSnapshotId ? byId.get(run.referentSnapshotId) : undefined;
   const detail = produced?.resultBinding?.operationBinding ?? null;
-  const decision = decisionOf(decisions, run.id);
+  const decision = decisionOf(decisions, run.id, run.producedSnapshotId);
   return {
     ruleRunId: run.id,
     snapshotId: run.producedSnapshotId,

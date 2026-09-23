@@ -292,8 +292,15 @@ export function findSentenceEvidence(existing: readonly EvidenceRow[], snapshotI
 }
 
 /** The `descriptive_summary` draft this run's sentence lives on. */
-export function findDescriptiveDecision(decisions: readonly DecisionRow[], ruleRunId: string): DecisionRow | undefined {
-  return decisions.find((d) => (d as { context?: { ruleRunId?: string } }).context?.ruleRunId === ruleRunId);
+export function findDescriptiveDecision(decisions: readonly DecisionRow[], ruleRunId: string, snapshotId?: string): DecisionRow | undefined {
+  // AXI-1562 keys the draft on (ruleRunId, snapshotId): a DEDUPED analysis gets
+  // its OWN draft for a run it did not execute, so the run id alone can name
+  // two drafts. Prefer this snapshot's; fall back for pre-key drafts.
+  type Ctx = { context?: { ruleRunId?: string; snapshotId?: string } };
+  return (
+    (snapshotId ? decisions.find((d) => (d as Ctx).context?.ruleRunId === ruleRunId && (d as Ctx).context?.snapshotId === snapshotId) : undefined) ??
+    decisions.find((d) => (d as Ctx).context?.ruleRunId === ruleRunId)
+  );
 }
 
 async function bindChartsToSentenceEvidence(client: RestClient, H: Record<string, string>, q: PublishedTrace, e: EvidenceRow, charts: PublishedChart[], dryRun: boolean): Promise<EvidenceRow> {
@@ -320,7 +327,7 @@ async function publishDescribeOne(client: RestClient, t: Trace, q: PublishedTrac
     const charts = await recommendedCharts(client, H, t.workspaceId, s, q.id);
     const bound = await bindChartsToSentenceEvidence(client, H, q, found, charts, dryRun);
     evidences.push({ id: bound.id, versionId: bound.currentVersion!.id, versionNumber: bound.currentVersion!.versionNumber ?? null, title: bound.currentVersion!.title ?? '', text: bound.currentVersion!.text ?? '', snapshotId: s.id, ruleRunId: rr.id, link: `${FRONT_URL}/projects/${t.projectId}/view-analyses/${q.viewAnalysisId}/evidences/${bound.id}`, charts });
-    const draft = findDescriptiveDecision(decisions, rr.id);
+    const draft = findDescriptiveDecision(decisions, rr.id, s.id);
     if (draft) decision = dryRun ? draft : await approve(client, H, t.workspaceId, draft);
   }
   const version = evidences.length ? await ensurePublished(client, H, q.viewAnalysisId as string, evidences.map((e) => e.versionId), decision ? [decision.id] : [], dryRun) : null;

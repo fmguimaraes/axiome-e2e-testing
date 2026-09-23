@@ -25,6 +25,17 @@ export interface ObservedBinding {
   matchedConnectors: string[];
   unmappedColumns: string[];
   citationStatus: string | null;
+  /**
+   * Why the binding reads what it reads. `signatureAvailable === false` means
+   * the result's evidence signature is not computed YET — the binding is
+   * derived at read time from the result dataset's profile, which lands
+   * asynchronously after the run completes (AXI-1558), so a read taken the
+   * instant the run finishes legitimately says `no_match` on a result that is
+   * `covered` a few seconds later. Recorded so a red binding can be told apart
+   * from an early one.
+   */
+  signatureAvailable?: boolean | null;
+  reason?: string | null;
 }
 
 /** The registry-declared chart of the run's operation, resolved against its result columns. */
@@ -230,7 +241,18 @@ function bindingAssertions(exp: ExpectedDescribeResult, obs: ObservedDescribeRes
     eq('binding state', 'covered', b.state),
     assertion('binding ambiguous', false, b.ambiguous, b.ambiguous === false),
     assertion('binding matched connector', exp.connector, b.matchedConnectors.join(',') || 'none', b.matchedConnectors.includes(exp.connector)),
-    assertion('binding unmapped columns', 'none', b.unmappedColumns.join(',') || 'none', b.unmappedColumns.length === 0),
+    // `unmappedColumns` is NO LONGER a pass/fail gate (AXI-1561). Until that
+    // story, FR18 degraded every candidate on any unmapped raw column, so
+    // "covered" and "no unmapped columns" were the same statement and asserting
+    // both was harmless. With wildcard signatures a connector legitimately
+    // COVERS a result that still carries an unmapped raw column — live, Q12
+    // reads `state: 'covered'`, `matchedConnectors: ['SUM-RANK-01']` AND
+    // `unmappedColumns: ['log2_cpm']`. Asserting emptiness here would now fail
+    // a CORRECT platform, which is the same class of mistake the review gate
+    // caught on `top_n`'s `n_groups`. The list stays in the trace
+    // (`describe.results[].binding.unmappedColumns`) as context; what the
+    // product's chip promises — covered, unambiguous, this connector — is
+    // asserted by the three checks above.
   ];
 }
 

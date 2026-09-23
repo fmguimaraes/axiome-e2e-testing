@@ -76,17 +76,18 @@ test('AC2/AC11 (FR21, FR32) — the Q12 result view shows the deterministic sent
   await expect(ruleLink).toHaveAttribute('href', /^\/rules\/[0-9a-f-]{36}/);
 
   // AXI-1553's rule: the recommended spec is SELECTED, never hand-built — so
-  // what must render is the platform's OWN recommended chart. Live 2026-09-23
-  // this is red for two platform reasons, both routed rather than worked
-  // around: (P2) `RecommendedChartMaterializerService` withholds every describe
-  // card ("declared role column missing") because `templateVarsOf` only feeds
-  // the delta/stratify vocabulary, so no recommended DataviewSpec is ever
-  // persisted; and (P4) `GuidedRecommendedChart` — the only component carrying
-  // this testid — is mounted solely by `GuidedAnalysisPanel`, so the analysis
-  // RESULT view has no recommended-chart mount at all (a live page audit found
-  // zero chart surfaces on it). The epic's objective is "make a question and
-  // see a chart + answer": the answer renders, the chart does not.
-  await expect(page.getByTestId('ga-recommended-chart')).toBeVisible();
+  // what must render is the platform's OWN recommended chart, and it must sit
+  // on the SAME screen as the sentence and the chip. AXI-1564 mounts it under
+  // the answer band as `describe-result-chart` wrapping the existing
+  // `ga-recommended-chart` — a SIBLING of the summary section, not a child of
+  // it, so it is located on the page and its co-presence with the visible
+  // summary above is what "one screen" means here. The figure itself is PLOTLY
+  // (`svg.main-svg`), not recharts — asserting the wrapper alone would pass on
+  // an empty frame, so the drawn surface is asserted too.
+  const chart = page.getByTestId('describe-result-chart');
+  await expect(chart).toBeVisible();
+  await expect(chart.getByTestId('ga-recommended-chart')).toBeVisible();
+  await expect(chart.locator('svg.main-svg').first()).toBeVisible();
 });
 
 test('AC11 (FR32) — the sentence is carried by a Descriptive Summary Decision, not only by the result view @SI-044', async ({ page }) => {
