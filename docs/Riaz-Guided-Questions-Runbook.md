@@ -149,10 +149,12 @@ Adding a question = one entry in `QUESTIONS` (id, dataset role, text), one
   FIRST gene's responder snapshot; the downstream compare node then
   fingerprints identically and is `DEDUPED` onto the first gene's rule run
   (Q10 attempt 2: n13/n14 → 470d2860/94785f8b deduped from a6a75e97/d6e44c12,
-  no CD274 R/NR result exists, lineage claims one). Workaround: ask for ONE
-  filter node carrying both conditions per cohort, depending directly on the
-  QC node. Needs a backend fix (match on parent snapshot too, or on the
-  effective filters).
+  no CD274 R/NR result exists, lineage claims one). **Fixed in axiome-back
+  `37f9b50` (2026-09-23):** the materialize path now reuses a candidate only
+  when its chain composes to the same effective scope (UT-VA-MAT-007/008). The
+  Q9/Q10 question texts still ask for ONE filter node carrying both conditions
+  per cohort; that phrasing is no longer required on a backend at or after that
+  commit, but it is harmless and keeps the plans flat.
 - **A multi-gene referent needs `featureColumn = gene`** on `compare_paired`
   (`params.featureColumn` → `pivot.featureColumn`), else bio-compute refuses:
   "referent has N row(s) sharing a subject and level … choose a feature
