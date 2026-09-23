@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { CohortFilter } from './riazEvidenceText';
-import { USER_CHART_DATASET_FILES, filterKey, sameFilterSet, toBindings, type UserChartPlan } from './riazUserCharts';
+import { USER_CHART_DATASET_FILES, filterKey, sameChartParams, sameFilterSet, toBindings, type UserChartPlan } from './riazUserCharts';
 
 test('UT-STAGE-183: toBindings prefixes every column with col_, one binding per role', () => {
   const out = toBindings({ x: 'timepoint', y: 'log2_cpm', color: 'response' });
@@ -54,4 +54,20 @@ test('UT-STAGE-191: USER_CHART_DATASET_FILES.WIDE points at the v2 (panel-gene) 
 test('UT-STAGE-192: a UserChartPlan with no `interpretation` is valid — interpretations are optional, not every chart forks a reading', () => {
   const plan: UserChartPlan = { key: 'x', templateId: 'strip_v1', dataset: 'PAIRED', filters: [], bindings: { y: 'log2_cpm' }, title: 'T', reading: 'R' };
   assert.equal(plan.interpretation, undefined);
+});
+
+// ── AXI-1586 rework: bar_grouped_v1 aggregates by mean, not the renderer's sum default ──
+
+test('UT-STAGE-195: sameChartParams ignores the cohort discriminator — a spec found with only `cohort` set still matches a plan with no other params', () => {
+  assert.equal(sameChartParams({ cohort: 'Q2:means' }, { cohort: 'Q2:means' }), true);
+});
+
+test('UT-STAGE-196: sameChartParams is false when the existing spec is missing `aggregation: "mean"` the plan now declares — this is the bug the review gate caught', () => {
+  assert.equal(sameChartParams({ cohort: 'Q2:means' }, { cohort: 'Q2:means', aggregation: 'mean' }), false);
+});
+
+test('UT-STAGE-197: sameChartParams is order-independent and true once both sides agree on aggregation', () => {
+  const a = { aggregation: 'mean', cohort: 'Q10:means' };
+  const b = { cohort: 'Q10:means', aggregation: 'mean' };
+  assert.equal(sameChartParams(a, b), true);
 });

@@ -8,11 +8,14 @@ import type { ProvisioningContext } from './context';
 
 /**
  * AXI-1586 — idempotently ingests + links `RIAZ_WIDE_V2_DATASET` (see its
- * doc comment in `stageRiaz.ts`) into the Riaz 2017 project. Used by
- * `stage:riaz-publish` before creating any `userCharts[]` spec whose plan
- * names dataset `WIDE_V2`, and runnable standalone for a first ingest /
- * verification. A second run reuses the existing dataset (NFR1), same
- * pattern as `stageRiazGuided.ensureDataset`.
+ * doc comment in `stageRiaz.ts`) into the Riaz 2017 project. This is what
+ * `stage:riaz` runs (the dataset is folded into `riazFixture().content.
+ * datasets`); `stage:riaz-publish` never calls it — it only resolves the
+ * already-ingested dataset by filename (`resolveUserChartDatasetIds` in
+ * `publishRiazEvidence.ts`) for any `userCharts[]` plan naming the `WIDE`
+ * handle (`riazUserCharts.ts`'s `UserChartDatasetHandle`). Also runnable
+ * standalone for a first ingest / verification. A second run reuses the
+ * existing dataset (NFR1), same pattern as `stageRiazGuided.ensureDataset`.
  */
 export async function ensureWideV2Dataset(client: RestClient, serviceUserId: string, workspaceId: string, organizationId: string | null): Promise<string> {
   const fixture = { ...riazFixture(), content: { ...riazFixture().content, datasets: [RIAZ_WIDE_V2_DATASET] } };

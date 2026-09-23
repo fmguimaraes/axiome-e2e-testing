@@ -440,6 +440,9 @@ and the 4 source-dataset filenames the mechanism resolves ids for
 | UT-STAGE-190 | `USER_CHART_DATASET_FILES` declares exactly the 4 handles the brief names (PAIRED/WIDE/DE/DE_STRATA) | Pass |
 | UT-STAGE-191 | `USER_CHART_DATASET_FILES.WIDE` points at the v2 (panel-gene) file, not the AXI-1374 count-matrix | Pass |
 | UT-STAGE-192 | a `UserChartPlan` with no `interpretation` is valid — interpretations are optional | Pass |
+| UT-STAGE-195 | `sameChartParams` ignores the `cohort` discriminator — a spec found with only `cohort` set still matches a plan with no other params | Pass |
+| UT-STAGE-196 | `sameChartParams` is false when the existing spec is missing `aggregation: "mean"` the plan now declares — the bug the review gate caught | Pass |
+| UT-STAGE-197 | `sameChartParams` is order-independent and true once both sides agree on aggregation | Pass |
 
 ## `riazQuestionVerdicts.spec.ts` (AXI-1553 review fix — Q1 guided-trace path)
 

@@ -7,10 +7,13 @@
  * `../axiome-docs/demo/riaz-2017/Riaz-Chart-Enrichment-Brief.md` §1/§3.
  *
  * Idempotent: a spec is found-or-created by TITLE on its dataset (the export
- * labels by title, so titles are unique per dataset by construction); a scope
- * snapshot is found-or-created by (datasetId, filters) on the analysis; an
- * evidence is found-or-created by title on the analysis. A second run of
- * `stage:riaz-publish` creates nothing new.
+ * labels by title, so titles are unique per dataset by construction) — and,
+ * if found, REPLACED (delete + recreate) when its `params` no longer match
+ * the plan's, since `/candidates` has no PATCH; a scope snapshot is
+ * found-or-created by (datasetId, filters) on the analysis; an evidence is
+ * found-or-created by title on the analysis and rebinds automatically
+ * whenever its cited `chartArtifactId` changes. A second run of
+ * `stage:riaz-publish` creates nothing new when nothing changed.
  */
 import { RestClient } from '../client/RestClient';
 import { must, asList } from '../rules/ensureRule';
@@ -47,13 +50,24 @@ export interface UserChartPlan {
   interpretation?: UserChartInterpretation;
 }
 
-export interface SpecRow { id: string; title: string | null; origin: string; templateId: string }
+export interface SpecRow { id: string; title: string | null; origin: string; templateId: string; params?: Record<string, unknown> | null }
 interface SnapRow { id: string; datasetId: string; filters?: CohortFilter[] | null; origin: string }
 
 export const filterKey = (f: CohortFilter): string => `${f.column} ${f.operator} ${Array.isArray(f.value) ? f.value.join('/') : String(f.value)}`;
 export const sameFilterSet = (a: CohortFilter[], b: CohortFilter[]): boolean => {
   const ak = [...a].map(filterKey).sort(), bk = [...b].map(filterKey).sort();
   return ak.length === bk.length && ak.every((x, i) => x === bk[i]);
+};
+
+/** Params equality ignoring the render-cache `cohort` discriminator, which every spec carries regardless of the plan. */
+export const sameChartParams = (a: Record<string, unknown> | null | undefined, b: Record<string, unknown> | null | undefined): boolean => {
+  const normalize = (p: Record<string, unknown> | null | undefined) =>
+    JSON.stringify(
+      Object.entries(p ?? {})
+        .filter(([k]) => k !== 'cohort')
+        .sort(([x], [y]) => x.localeCompare(y)),
+    );
+  return normalize(a) === normalize(b);
 };
 
 async function listSnapshots(client: RestClient, H: Record<string, string>, analysisId: string): Promise<SnapRow[]> {
@@ -83,16 +97,27 @@ export async function ensureScopeSnapshot(client: RestClient, H: Record<string, 
 export const toBindings = (bindings: Record<string, string>): Record<string, { column_id: string }> =>
   Object.fromEntries(Object.entries(bindings).map(([role, col]) => [role, { column_id: `col_${col}` }]));
 
-/** Find-or-create the plan's spec by TITLE on its dataset (AXI-1586 mechanic — never by filters, the render cache ignores them). */
+/**
+ * Find-or-create the plan's spec by TITLE on its dataset (AXI-1586 mechanic —
+ * never by filters, the render cache ignores them). If a spec with this title
+ * already exists but its params (e.g. `aggregation`) no longer match the
+ * plan — the seed template's default drifted underneath it, or the plan was
+ * edited — there is no PATCH on `/candidates` (Operating Manual §9), so the
+ * stale spec is DELETEd and a replacement is created; the caller's
+ * `ensureUserChartEvidence` rebinds automatically because the returned
+ * spec's `id` differs from what the evidence's `chartEntries` cite.
+ */
 export async function ensureUserChartSpec(client: RestClient, H: Record<string, string>, workspaceId: string, datasetId: string, analysisId: string, qId: string, plan: UserChartPlan, dryRun: boolean): Promise<SpecRow | null> {
   const found = (await listSpecs(client, H, workspaceId, datasetId, analysisId)).find((s) => s.title === plan.title);
-  if (found) return found;
-  if (dryRun) return null;
+  const desiredParams = { ...(plan.params ?? {}), cohort: `${qId}:${plan.key}` };
+  if (found && sameChartParams(found.params, desiredParams)) return found;
+  if (dryRun) return found ?? null;
+  if (found) await client.as<unknown>(SERVICE_HANDLE, 'DELETE', `/api/v1/workspaces/${workspaceId}/datasets/${datasetId}/candidates/${found.id}`, undefined, H);
   const body = {
     templateId: plan.templateId,
     templateVersion: plan.templateVersion ?? '1.0.0',
     bindings: toBindings(plan.bindings),
-    params: { ...(plan.params ?? {}), cohort: `${qId}:${plan.key}` },
+    params: desiredParams,
     filters: plan.filters,
     title: plan.title,
   };
