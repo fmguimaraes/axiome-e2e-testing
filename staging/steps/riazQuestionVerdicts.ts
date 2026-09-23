@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { CYTO_GENES, evaluateCyto, evaluateResp, type PairedGeneStat } from './riazGuidedRules';
 import type { QuestionTrace } from './runRiazQuestions';
 
@@ -8,8 +9,25 @@ import type { QuestionTrace } from './runRiazQuestions';
  * verdict tables) and `stage:riaz-publish` (the decision label / confidence),
  * so neither script imports the other.
  */
-// Q1's trace (stage:riaz-guided) — the paired t-test verdicts Q11's sensitivity rule compares against.
-const GUIDED_TRACE_PATH = process.env.STAGING_RIAZ_GUIDED_TRACE?.trim() || '../axiome-docs/demo/riaz-2017/riaz-guided-trace.json';
+const DEFAULT_GUIDED_TRACE_PATH = '../axiome-docs/demo/riaz-2017/riaz-guided-trace.json';
+
+/**
+ * Q1's trace (stage:riaz-guided) — the paired t-test verdicts Q11's sensitivity
+ * rule compares against. `STAGING_RIAZ_GUIDED_TRACE` wins outright when set;
+ * otherwise the guided trace is a SIBLING of `riaz-questions-trace.json`
+ * (`riaz-guided-trace.json` in the same directory), derived from
+ * `STAGING_RIAZ_QUESTIONS_TRACE` when the caller set that — a cwd-relative
+ * default only resolves when cwd happens to be the e2e-testing checkout root
+ * with `axiome-docs` as its exact sibling, which is false from a story
+ * worktree and silently produced `not_evaluable` (AXI-1553 review finding).
+ */
+export function deriveGuidedTracePath(questionsTracePathEnv: string | undefined, overrideEnv: string | undefined): string {
+  if (overrideEnv?.trim()) return overrideEnv.trim();
+  const questionsTracePath = questionsTracePathEnv?.trim();
+  return questionsTracePath ? join(dirname(questionsTracePath), 'riaz-guided-trace.json') : DEFAULT_GUIDED_TRACE_PATH;
+}
+
+const GUIDED_TRACE_PATH = deriveGuidedTracePath(process.env.STAGING_RIAZ_QUESTIONS_TRACE, process.env.STAGING_RIAZ_GUIDED_TRACE);
 const DELTA = 0.5;
 const P = 0.05;
 
@@ -215,12 +233,18 @@ function deVerdicts(q: QuestionTrace, stats: Stat[], id: string): Verdict[] {
 
 
 export function q1Context(): { r: ReturnType<typeof evaluateCyto>; nr: ReturnType<typeof evaluateCyto> } | null {
+  let raw: string;
   try {
-    const t = JSON.parse(readFileSync(GUIDED_TRACE_PATH, 'utf8')) as { verdicts: Record<string, { responders: ReturnType<typeof evaluateCyto>; nonResponders: ReturnType<typeof evaluateCyto> }> };
-    const v = t.verdicts['RIAZ-INT-CYTO-01'];
-    return v ? { r: v.responders, nr: v.nonResponders } : null;
-  } catch {
-    return null;
+    raw = readFileSync(GUIDED_TRACE_PATH, 'utf8');
+  } catch (err) {
+    // A missing/unreadable Q1 trace used to degrade RIAZ-INT-SENS-01 to
+    // "not_evaluable" silently (AXI-1553 review finding) — fail loudly instead,
+    // naming the resolved path, so a wrong cwd/env is caught at the call site
+    // rather than shipped as a quiet wrong verdict.
+    throw new Error(`q1Context: could not read the Q1 guided trace at "${GUIDED_TRACE_PATH}" (set STAGING_RIAZ_GUIDED_TRACE to override): ${(err as Error).message}`);
   }
+  const t = JSON.parse(raw) as { verdicts: Record<string, { responders: ReturnType<typeof evaluateCyto>; nonResponders: ReturnType<typeof evaluateCyto> }> };
+  const v = t.verdicts['RIAZ-INT-CYTO-01'];
+  return v ? { r: v.responders, nr: v.nonResponders } : null;
 }
 

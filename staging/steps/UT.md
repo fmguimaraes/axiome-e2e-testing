@@ -399,3 +399,37 @@ offline verdicts in `riazQuestionVerdicts.ts` — on Q11's real Wilcoxon numbers
 | UT-STAGE-165 | titles are short (`Q11 · Wilcoxon Pre→On per gene — responders (n=9)`); cohort names come from the snapshot filters with a generic fallback | Pass |
 | UT-STAGE-166 | Q11 decision label states the claim + the cited rule verdicts, parentheticals stripped from rule names | Pass |
 | UT-STAGE-167 | confidence band: ≥0.75 high, ≥0.5 medium, else low; no numeric confidence → medium | Pass |
+
+## `publishRiazEvidence.spec.ts` (AXI-1553 — selector, not creator)
+
+`stage:riaz-publish` no longer creates charts (AXI-1552 already mints the
+platform's `origin: 'recommended'` DataviewSpec on every rule-derived result
+table). Two pure selectors replace the old `ensureChart`/`retireDriftedChart`
+network code: which candidate specs on a dataset are the recommended chart(s)
+for a snapshot (`selectRecommended`), and which pre-AXI-1553 hand-built `Qn ·
+…` user specs `--prune-user-charts` deletes (`isHandBuiltUserChart`).
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-168 | `selectRecommended` returns the recommended spec when present | Pass |
+| UT-STAGE-169 | `selectRecommended` returns an empty list when no recommended spec exists (a passing QC gate can legitimately have none) | Pass |
+| UT-STAGE-170 | `selectRecommended` returns ALL recommended specs when a dataset carries several templates | Pass |
+| UT-STAGE-171 | `isHandBuiltUserChart` matches a pre-AXI-1553 `Qn · …` user spec | Pass |
+| UT-STAGE-172 | `isHandBuiltUserChart` ignores a non-user origin, an unrelated user-chart title, and a null title | Pass |
+
+## `riazQuestionVerdicts.spec.ts` (AXI-1553 review fix — Q1 guided-trace path)
+
+Review finding: `q1Context()`'s cwd-relative default (`../axiome-docs/...`)
+only resolves when cwd is the e2e-testing checkout root with `axiome-docs` as
+its literal sibling — false from a story worktree — and the read failure was
+swallowed, silently degrading Q11's `RIAZ-INT-SENS-01` from `robust` to
+`not_evaluable`. `deriveGuidedTracePath` fixes the resolution (derive from
+`STAGING_RIAZ_QUESTIONS_TRACE`'s directory when set, override wins outright,
+else the historical default); `q1Context()` now throws loudly, naming the
+resolved path, instead of degrading.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-STAGE-173 | `STAGING_RIAZ_GUIDED_TRACE` wins outright when set, regardless of the questions trace path | Pass |
+| UT-STAGE-174 | with no override, the guided trace is derived as a sibling of the questions trace path | Pass |
+| UT-STAGE-175 | with neither env var set, falls back to the historical cwd-relative default | Pass |

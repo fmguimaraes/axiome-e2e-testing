@@ -4,18 +4,17 @@
  *
  * For every traced question (../axiome-docs/demo/riaz-2017/riaz-questions-trace.json) whose governed
  * run produced rule-derived snapshots this step, idempotently:
- *   1. creates the user charts that show each STATISTICAL result — a ranked
- *      horizontal bar of the effect size per gene on the result table, and a
- *      grouped bar of the measured value per focus gene on the cohort's source
- *      slice (`POST /workspaces/:ws/datasets/:ds/candidates`, matched by title
- *      on re-run) — and verifies they render;
+ *   1. SELECTS the platform's own `origin: 'recommended'` DataviewSpec(s) already
+ *      minted on each rule-derived result table (AXI-1552: on profiling completion
+ *      for a new run, and by self-heal the first time this step lists a dataset's
+ *      candidates) — never creates a chart. A snapshot with no recommended spec
+ *      publishes table-only (logged, not an error);
  *   2. records one Evidence per rule-derived result table (`POST /view-analyses/
  *      evidences`), or updates the existing one (`PATCH` → a new immutable
- *      EvidenceVersion) when its title, text or charts changed: the charts are
- *      bound through `chartEntries`, the text is a short summary built from the
- *      kernel rows (`riazEvidenceText.ts`), and the whole rule-run table stays
- *      the citation (AXI-1161, kind `table`). QC evidences keep the table alone
- *      (or a `qc_fail_reason_counts_v1` spec when the platform recommended one);
+ *      EvidenceVersion) when its title, text or charts changed: the recommended
+ *      chart(s) are bound through `chartEntries`, the text is a short summary
+ *      built from the kernel rows (`riazEvidenceText.ts`), and the whole rule-run
+ *      table stays the citation (AXI-1161, kind `table`);
  *   3. records one Decision per question whose label STATES the verdict of the
  *      cited INTERPRET / DECISION rules (evaluated offline by
  *      `riazQuestionVerdicts.ts`, the same code `stage:riaz-report` prints),
@@ -28,7 +27,9 @@
  * The ids and deep links are written back into the trace (`published`) so
  * `stage:riaz-report` can link them.
  *
- * Flags: `--only Q4,Q6`, `--dry-run` (reads only, prints what it would do).
+ * Flags: `--only Q4,Q6`, `--dry-run` (reads only, prints what it would do),
+ * `--prune-user-charts` (deletes the AXI-1553 hand-built `Qn · …` user specs
+ * this step used to create — a one-off cleanup, run alone, idempotent).
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { RestClient } from '../client/RestClient';
@@ -39,7 +40,6 @@ import { projectHeaders } from './projectProvisioning';
 import { recordDecision, type DecisionRow } from './stageRiazGuided';
 import { EVALUATORS, q1Context, statsOf, type Verdict } from './riazQuestionVerdicts';
 import {
-  CYTOTOXIC_FOCUS,
   TEXT_OVERRIDES,
   cohortName,
   confidenceBand,
@@ -47,8 +47,6 @@ import {
   decisionLabel,
   filterKey,
   qcTitle,
-  rankedChartTitle,
-  sliceChartTitle,
   statisticalTitle,
   summariseQc,
   summariseStatistical,
@@ -61,17 +59,8 @@ const TRACE_PATH = process.env.STAGING_RIAZ_QUESTIONS_TRACE?.trim() || '../axiom
 const FRONT_URL = (process.env.STAGING_FRONT_URL?.trim() || 'http://localhost:5173').replace(/\/+$/, '');
 const BASE_URL = (process.env.STAGING_BASE_URL?.trim() || 'http://localhost:3000').replace(/\/+$/, '');
 
-/** The long Riaz table every question runs on: which columns the source-slice chart binds. */
-const SLICE_CHART = { xColumn: 'gene', yColumn: 'log2_cpm', colorColumn: 'timepoint', valueLabel: 'log2 CPM' };
-const RANKED_CHART = { featureColumn: 'feature', valueColumn: 'effectSize' };
-const QC_RECOMMENDED_TEMPLATE = 'qc_fail_reason_counts_v1';
-/** A user chart binds columns by NAME (`{ column_id: 'feature' }`, what the
- *  front sends): bio-compute's `resolve_column` matches `column_id` against the
- *  dataframe's columns, and the sponsor export's `resolveBindingValue` passes a
- *  name through unchanged. The profile's `col_<name>` ids the auto candidates
- *  carry render in the export only — the interactive route answers
- *  "binding columns not found" for them on this stack. */
-const colId = (name: string): string => name;
+/** A hand-built user chart from before AXI-1553 — titled `Qn · …` — is what `--prune-user-charts` removes. */
+const HAND_BUILT_CHART_TITLE = /^Q\d+\s·\s/;
 
 export interface PublishedChart { id: string; title: string; templateId: string; datasetId: string; snapshotId: string; renderStatus: number | null }
 export interface PublishedRecord {
@@ -104,7 +93,7 @@ interface Snap {
 }
 interface EvidenceVersion { id: string; versionNumber?: number; title: string | null; text?: string | null; chartArtifactIds?: string[]; citationContext?: unknown }
 interface EvidenceRow { id: string; currentVersion?: EvidenceVersion }
-interface SpecRow { id: string; title: string | null; origin: 'auto' | 'user'; templateId: string; datasetVersionId?: string; bindings?: unknown; params?: unknown; filters?: unknown }
+interface SpecRow { id: string; title: string | null; origin: 'auto' | 'user' | 'recommended'; templateId: string; datasetVersionId?: string; bindings?: unknown; params?: unknown; filters?: unknown }
 interface PublishedVersion { id: string; versionNumber: number; evidenceVersionIds: string[]; decisionIds: string[] }
 type RuleRun = QuestionTrace['ruleRuns'][number];
 
@@ -145,95 +134,54 @@ async function listSpecs(client: RestClient, H: Record<string, string>, workspac
   return asList<SpecRow>(must(await client.as<unknown>(SERVICE_HANDLE, 'GET', `/api/v1/workspaces/${workspaceId}/datasets/${datasetId}/candidates${qs}`, undefined, H), `candidates of ${datasetId}`));
 }
 
-// ── charts ───────────────────────────────────────────────────────────────────
+// ── charts (selector, never a creator — AXI-1553) ───────────────────────────
 
-interface ChartSpec { templateId: string; bindings: Record<string, { column_id: string }>; params: Record<string, unknown>; filters: CohortFilter[]; title: string }
+/** Pure selection: every `origin: 'recommended'` spec in a dataset's candidate list. Exported for UT-STAGE-168..170. */
+export const selectRecommended = (specs: SpecRow[]): SpecRow[] => specs.filter((x) => x.origin === 'recommended');
 
-/** Creates the user chart unless a user spec with this title already exists on
- *  the dataset for this analysis; then reads it back and asks the render route
- *  for it (the same call the gallery makes) so a chart that cannot render is
- *  visible in the log, not in the sponsor preview. */
-async function ensureChart(client: RestClient, H: Record<string, string>, workspaceId: string, datasetId: string, analysisId: string, snapshotId: string, spec: ChartSpec, dryRun: boolean): Promise<PublishedChart | null> {
-  const existing = (await listSpecs(client, H, workspaceId, datasetId, analysisId)).find((s) => s.origin === 'user' && s.title === spec.title);
-  let id = existing && (await retireDriftedChart(client, H, workspaceId, datasetId, existing, spec, dryRun)) ? null : existing?.id ?? null;
-  if (!id) {
-    if (dryRun) { log(`would create chart "${spec.title}" (${spec.templateId}) on dataset ${datasetId}`); return null; }
-    const body = { templateId: spec.templateId, templateVersion: '1.0.0', bindings: spec.bindings, params: spec.params, filters: spec.filters, combinator: 'AND', title: spec.title, viewAnalysisId: analysisId };
-    const created = must(await client.as<{ id: string; origin: string }>(SERVICE_HANDLE, 'POST', `/api/v1/workspaces/${workspaceId}/datasets/${datasetId}/candidates`, body, H), `creating chart "${spec.title}"`);
-    if (created.origin !== 'user') throw new Error(`chart "${spec.title}" was created with origin "${created.origin}", expected "user"`);
-    id = created.id;
-    log(`created chart ${id} "${spec.title}"`);
+/** Pure filter: an AXI-1553-era hand-built `Qn · …` user spec — what `--prune-user-charts` targets. Exported for UT-STAGE-171..172. */
+export const isHandBuiltUserChart = (spec: Pick<SpecRow, 'origin' | 'title'>): boolean => spec.origin === 'user' && HAND_BUILT_CHART_TITLE.test(spec.title ?? '');
+
+/**
+ * Every `origin: 'recommended'` DataviewSpec the platform already minted on
+ * this rule-derived result table (AXI-1552). Listing candidates is what
+ * triggers the backend's self-heal for a dataset that predates that story, so
+ * this call alone is enough — no compute-run/candidates POST needed. Several
+ * recommended templates on one dataset (e.g. a statistical card plus a QC
+ * card) are all bound; none is logged, not an error — a passing QC gate can
+ * legitimately have no recommended card.
+ */
+async function recommendedCharts(client: RestClient, H: Record<string, string>, workspaceId: string, s: Snap, qId: string): Promise<PublishedChart[]> {
+  const specs = await listSpecs(client, H, workspaceId, s.datasetId, null);
+  const recs = selectRecommended(specs);
+  if (!recs.length) { log(`${qId}: no recommended chart for snapshot ${s.id} (dataset ${s.datasetId})`); return []; }
+  return recs.map((r) => ({ id: r.id, title: r.title ?? r.templateId, templateId: r.templateId, datasetId: s.datasetId, snapshotId: s.id, renderStatus: null }));
+}
+
+/** `--prune-user-charts`: deletes every AXI-1553-era hand-built `Qn · …` user
+ *  spec across every traced question's snapshots' datasets. Idempotent (a
+ *  second run finds nothing left to delete) and safe to run before or after
+ *  `stage:riaz-publish` has already rebound each evidence's `chartEntries` to
+ *  the recommended spec — `EvidenceChart.chartArtifactId` is a plain string,
+ *  not a foreign key, so a stale reference on an OLD evidence version does not
+ *  block the delete; a delete the backend still refuses is logged and skipped
+ *  (non-fatal), never crashes the run. */
+async function pruneUserCharts(client: RestClient, serviceUserId: string, t: Trace, dryRun: boolean): Promise<void> {
+  const H = projectHeaders(t.workspaceId);
+  const datasetIds = new Set<string>();
+  for (const q of t.questions) {
+    if (!q.viewAnalysisId) continue;
+    for (const s of await listSnapshots(client, H, q.viewAnalysisId)) datasetIds.add(s.datasetId);
   }
-  const back = must(await client.as<SpecRow>(SERVICE_HANDLE, 'GET', `/api/v1/workspaces/${workspaceId}/datasets/${datasetId}/candidates/${id}`, undefined, H), `reading chart ${id}`);
-  if (back.origin !== 'user' || back.templateId !== spec.templateId) throw new Error(`chart ${id} read back as ${back.origin}/${back.templateId}, expected user/${spec.templateId}`);
-  const render = await client.as<unknown>(SERVICE_HANDLE, 'POST', `/api/v1/workspaces/${workspaceId}/dataviews/${id}/render`, { snapshotId }, H);
-  if (!render.ok) log(`WARNING chart ${id} "${spec.title}" did not render (status ${render.status}): ${JSON.stringify(render.body).slice(0, 200)}`);
-  return { id, title: spec.title, templateId: spec.templateId, datasetId, snapshotId, renderStatus: render.status };
-}
-
-const canon = (v: unknown): string => JSON.stringify(v ?? null, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x as Record<string, unknown>).sort()) : x));
-
-/** A same-titled spec whose bindings/filters/params no longer match what this
- *  step would create is retired by renaming (the spec stays — an older evidence
- *  version still cites it, and the platform's provenance is append-only) and
- *  the caller creates the current one. Returns true when it was retired. */
-async function retireDriftedChart(client: RestClient, H: Record<string, string>, workspaceId: string, datasetId: string, existing: SpecRow, spec: ChartSpec, dryRun: boolean): Promise<boolean> {
-  const live = must(await client.as<SpecRow>(SERVICE_HANDLE, 'GET', `/api/v1/workspaces/${workspaceId}/datasets/${datasetId}/candidates/${existing.id}`, undefined, H), `reading chart ${existing.id}`);
-  const same = live.templateId === spec.templateId && canon(live.bindings) === canon(spec.bindings) && canon(live.filters) === canon(spec.filters) && canon(live.params) === canon(spec.params);
-  if (same) return false;
-  if (dryRun) { log(`would retire chart ${existing.id} "${spec.title}" (bindings/filters/params drifted) and recreate it`); return true; }
-  const retired = `${spec.title} (superseded ${new Date().toISOString().slice(0, 10)})`;
-  must(await client.as(SERVICE_HANDLE, 'PATCH', `/api/v1/workspaces/${workspaceId}/datasets/${datasetId}/candidates/${existing.id}/title`, { title: retired }, H), `retiring chart ${existing.id}`);
-  log(`retired chart ${existing.id} → "${retired}" (bindings/filters/params drifted)`);
-  return true;
-}
-
-/** The cohort's own filter snapshot — the rule-derived snapshot's parent when
- *  it carries the same effective filters, else any filter snapshot that does. */
-function cohortSnapshot(s: Snap, all: Snap[]): Snap | null {
-  const want = cohortFiltersOf(s).map(filterKey).sort().join('|');
-  const parent = all.find((x) => x.id === s.parentSnapshotId);
-  if (parent && cohortFiltersOf(parent).map(filterKey).sort().join('|') === want) return parent;
-  return all.find((x) => x.origin === 'filter' && cohortFiltersOf(x).map(filterKey).sort().join('|') === want) ?? null;
-}
-
-async function statisticalCharts(client: RestClient, H: Record<string, string>, t: Trace, q: QuestionTrace, cfg: QuestionConfig, s: Snap, all: Snap[], rr: RuleRun, cohort: string, levels: PairedLevels, dryRun: boolean): Promise<PublishedChart[]> {
-  const analysisId = q.viewAnalysisId as string;
-  const n = typeof rr.rows[0]?.nPairs === 'number' ? (rr.rows[0].nPairs as number) : null;
-  const charts: PublishedChart[] = [];
-  // 1. ranked effect size per gene, on the result table (24 rows, no filters — renders identically everywhere)
-  if (rr.columns.includes(RANKED_CHART.featureColumn) && rr.columns.includes(RANKED_CHART.valueColumn)) {
-    const ranked = await ensureChart(client, H, t.workspaceId, s.datasetId, analysisId, s.id, {
-      templateId: 'bar_horizontal_v1',
-      bindings: { y: { column_id: colId(RANKED_CHART.featureColumn) }, x: { column_id: colId(RANKED_CHART.valueColumn) } },
-      params: { sort_by: 'value', sort_order: 'desc', topK: Math.max(rr.rows.length, 20) },
-      filters: [],
-      title: rankedChartTitle(q.id, rr.operationId, cohort, n, levels.levelFrom, levels.levelTo),
-    }, dryRun);
-    if (ranked) charts.push(ranked);
-  } else log(`${q.id}: rule run ${rr.id} has no ${RANKED_CHART.featureColumn}/${RANKED_CHART.valueColumn} columns — no ranked chart`);
-  // 2. the measured value per focus gene, on the cohort's source slice (filters = cohort + focus genes; `in` is what the dataset query accepts for a list)
-  const cohortSnap = cohortSnapshot(s, all);
-  if (!cohortSnap) { log(`${q.id}: no filter snapshot matches ${scopeOf(s)} — no source-slice chart`); return charts; }
-  const slice = await ensureChart(client, H, t.workspaceId, q.datasetId, analysisId, cohortSnap.id, {
-    templateId: 'bar_grouped_v1',
-    bindings: { x: { column_id: colId(SLICE_CHART.xColumn) }, y: { column_id: colId(SLICE_CHART.yColumn) }, color: { column_id: colId(SLICE_CHART.colorColumn) } },
-    // `cohort` is ignored by the renderer; it is here because the render cache key (bio-compute
-    // `compute_instance_id`) hashes dataset + template + bindings + params but NOT `filters`, so the
-    // responder and non-responder slices — identical but for their filters — would share one cached
-    // render and the second cohort would be shown the first cohort's bars.
-    params: { topK: Math.max(cfg.focusGenes.length, 20), barmode: 'group', cohort },
-    filters: [...cohortFiltersOf(s), { column: SLICE_CHART.xColumn, operator: 'in', value: [...cfg.focusGenes] }],
-    title: sliceChartTitle(q.id, SLICE_CHART.valueLabel, cohort, levels.levelFrom, levels.levelTo),
-  }, dryRun);
-  if (slice) charts.push(slice);
-  return charts;
-}
-
-/** QC evidences get a chart only when the platform already recommended one on the QC table. */
-async function qcCharts(client: RestClient, H: Record<string, string>, t: Trace, q: QuestionTrace, s: Snap): Promise<PublishedChart[]> {
-  const rec = (await listSpecs(client, H, t.workspaceId, s.datasetId, null)).find((x) => x.templateId === QC_RECOMMENDED_TEMPLATE);
-  return rec ? [{ id: rec.id, title: rec.title ?? QC_RECOMMENDED_TEMPLATE, templateId: rec.templateId, datasetId: s.datasetId, snapshotId: s.id, renderStatus: null }] : [];
+  for (const datasetId of datasetIds) {
+    const stale = (await listSpecs(client, H, t.workspaceId, datasetId, null)).filter(isHandBuiltUserChart);
+    for (const spec of stale) {
+      if (dryRun) { log(`would delete user chart ${spec.id} "${spec.title}" on dataset ${datasetId}`); continue; }
+      const res = await client.as<unknown>(SERVICE_HANDLE, 'DELETE', `/api/v1/workspaces/${t.workspaceId}/datasets/${datasetId}/candidates/${spec.id}?performedBy=${serviceUserId}`, undefined, H);
+      if (res.ok) log(`deleted user chart ${spec.id} "${spec.title}"`);
+      else log(`WARNING could not delete user chart ${spec.id} "${spec.title}" (status ${res.status}) — left in place`);
+    }
+  }
 }
 
 // ── evidence ─────────────────────────────────────────────────────────────────
@@ -271,11 +219,11 @@ function findExisting(existing: EvidenceRow[], prior: PublishedRecord | undefine
   return existing.find((e) => e.id === priorId) ?? existing.find((e) => e.currentVersion?.title === title) ?? existing.find((e) => e.currentVersion?.title === legacyTitle);
 }
 
-async function ensureOneEvidence(client: RestClient, H: Record<string, string>, t: Trace, q: PublishedTrace, cfg: QuestionConfig, s: Snap, all: Snap[], existing: EvidenceRow[], levels: PairedLevels, dryRun: boolean): Promise<PublishedRecord['evidences'][number] | null> {
+async function ensureOneEvidence(client: RestClient, H: Record<string, string>, t: Trace, q: PublishedTrace, cfg: QuestionConfig, s: Snap, existing: EvidenceRow[], levels: PairedLevels, dryRun: boolean): Promise<PublishedRecord['evidences'][number] | null> {
   const rr = q.ruleRuns.find((r) => r.id === s.ruleRunId);
   if (!rr) { log(`${q.id}: snapshot ${s.id} cites rule run ${s.ruleRunId} the trace does not carry — skipped`); return null; }
   const cohort = cohortName(cohortFiltersOf(s), cfg);
-  const charts = rr.kind === 'QC' ? await qcCharts(client, H, t, q, s) : await statisticalCharts(client, H, t, q, cfg, s, all, rr, cohort, levels, dryRun);
+  const charts = await recommendedCharts(client, H, t.workspaceId, s, q.id);
   const content = evidenceContent(q, cfg, s, rr, cohort, levels, charts);
   const link = (id: string) => `${FRONT_URL}/projects/${t.projectId}/view-analyses/${q.viewAnalysisId}/evidences/${id}`;
   const chartEntries = charts.map((c) => ({ chartArtifactId: c.id, snapshotId: c.snapshotId, datasetVersionId: c.datasetId }));
@@ -411,7 +359,7 @@ async function publishOne(client: RestClient, serviceUserId: string, t: Trace, q
   const existing = await listEvidence(client, H, q.viewAnalysisId);
   const evidences: PublishedRecord['evidences'] = [];
   for (const s of snaps) {
-    const e = await ensureOneEvidence(client, H, t, q, cfg, s, all, existing, levels, dryRun);
+    const e = await ensureOneEvidence(client, H, t, q, cfg, s, existing, levels, dryRun);
     if (e) evidences.push(e);
   }
   const verdicts = verdictsFor(q, all);
@@ -444,13 +392,18 @@ async function publishOne(client: RestClient, serviceUserId: string, t: Trace, q
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const dryRun = argv.includes('--dry-run');
+  const pruneOnly = argv.includes('--prune-user-charts');
   const onlyArg = argv.indexOf('--only');
   const only = onlyArg >= 0 ? new Set(argv[onlyArg + 1].split(',').map((s) => s.trim())) : null;
   const trace = JSON.parse(readFileSync(TRACE_PATH, 'utf8')) as Trace;
   const client = new RestClient({ baseUrl: BASE_URL, onCall: () => undefined });
   await ensureIdentities(client, process.env.STAGING_ADMIN_EMAIL?.trim() || 'admin@axiome.local', process.env.STAGING_ADMIN_PASSWORD?.trim() || 'admin');
   const serviceUserId = must(await client.as<{ id: string }>(SERVICE_HANDLE, 'GET', '/api/v1/auth/me'), 'resolving service user').id;
-  void CYTOTOXIC_FOCUS;
+  if (pruneOnly) {
+    await pruneUserCharts(client, serviceUserId, trace, dryRun);
+    log(dryRun ? 'dry run — nothing deleted' : 'prune complete');
+    return;
+  }
   for (const q of trace.questions) {
     if (only && !only.has(q.id)) continue;
     await publishOne(client, serviceUserId, trace, q, dryRun);

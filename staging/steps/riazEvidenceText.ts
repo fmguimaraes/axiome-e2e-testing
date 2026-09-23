@@ -37,7 +37,79 @@ export const CYTOTOXIC_FOCUS = ['CD8A', 'PRF1', 'GZMB', 'IFNG', 'PDCD1', 'LAG3']
 
 const verdictOf = (v: Verdict[], code: string): string | null => v.find((x) => ruleCode(x.rule) === code)?.verdict ?? null;
 
+const IFNG_FOCUS = ['IFNG', 'CXCL9', 'CXCL10', 'CXCL11', 'IDO1', 'STAT1', 'IRF1', 'HLA-DRA'] as const;
+const EXHAUSTION_FOCUS = ['LAG3', 'HAVCR2', 'TIGIT', 'CTLA4', 'TOX', 'PDCD1'] as const;
+const APM_FOCUS = ['HLA-DRA', 'CD274'] as const;
+
+const verdictHeadline = (v: Verdict[], code: string, prefix = ''): string => {
+  const x = verdictOf(v, code);
+  return `${prefix}${x ?? 'not evaluable'}`;
+};
+
 export const QUESTION_CONFIG: Record<string, QuestionConfig> = {
+  Q2: {
+    focusGenes: ['PDCD1'],
+    cohortNames: DEFAULT_COHORT_NAMES,
+    decisionHeadline: (v) => `PDCD1 (PD-1) reads ${verdictHeadline(v, 'RIAZ-INT-PD1-01 @ all')} pooled, ${verdictHeadline(v, 'RIAZ-INT-PD1-01 @ response=NR')} in non-responders`,
+    labelRules: ['RIAZ-INT-PD1-01 @ all', 'RIAZ-INT-PD1-01 @ response=R', 'RIAZ-INT-PD1-01 @ response=NR'],
+    decisionType: 'phenotype_classification',
+  },
+  Q3: {
+    focusGenes: IFNG_FOCUS,
+    cohortNames: DEFAULT_COHORT_NAMES,
+    decisionHeadline: (v) => `the IFN-γ programme in responders reads ${verdictHeadline(v, 'RIAZ-INT-IFNG-01 @ responders')}`,
+    labelRules: ['RIAZ-INT-IFNG-01 @ responders'],
+    decisionType: 'phenotype_classification',
+  },
+  Q4: {
+    focusGenes: CYTOTOXIC_FOCUS,
+    cohortNames: DEFAULT_COHORT_NAMES,
+    decisionHeadline: (v) => `baseline (Pre) cytotoxic expression reads ${verdictHeadline(v, 'RIAZ-INT-BASELINE-01 @ Pre')}; response prediction is ${verdictHeadline(v, 'RIAZ-DEC-BASELINE-01 (with Q1 responder_restricted)')}`,
+    labelRules: ['RIAZ-INT-BASELINE-01 @ Pre', 'RIAZ-DEC-BASELINE-01 (with Q1 responder_restricted)'],
+    decisionType: 'biomarker_threshold',
+  },
+  Q5: {
+    focusGenes: CYTOTOXIC_FOCUS,
+    cohortNames: DEFAULT_COHORT_NAMES,
+    decisionHeadline: (v) => `cytotoxic induction by prior ipilimumab exposure reads ${verdictHeadline(v, 'RIAZ-INT-IPI-01')} — ${verdictHeadline(v, 'RIAZ-DEC-IPI-01')}`,
+    labelRules: ['RIAZ-INT-IPI-01', 'RIAZ-DEC-IPI-01'],
+    decisionType: 'cohort_stratification',
+  },
+  Q6: {
+    focusGenes: EXHAUSTION_FOCUS,
+    cohortNames: DEFAULT_COHORT_NAMES,
+    decisionHeadline: (v) => `on-treatment exhaustion/checkpoint markers read ${verdictHeadline(v, 'RIAZ-INT-EXH-01 @ On')} in responders vs non-responders`,
+    labelRules: ['RIAZ-INT-EXH-01 @ On'],
+    decisionType: 'phenotype_classification',
+  },
+  Q7: {
+    focusGenes: CYTOTOXIC_FOCUS,
+    cohortNames: DEFAULT_COHORT_NAMES,
+    decisionHeadline: (v) => `non-responder cytotoxic induction reads ${verdictHeadline(v, 'RIAZ-INT-CYTO-01 @ non-responders')}`,
+    labelRules: ['RIAZ-INT-CYTO-01 @ non-responders'],
+    decisionType: 'phenotype_classification',
+  },
+  Q8: {
+    focusGenes: [],
+    cohortNames: DEFAULT_COHORT_NAMES,
+    decisionHeadline: (v) => `baseline differential-expression signal reads ${verdictHeadline(v, 'RIAZ-INT-DE-01')}`,
+    labelRules: ['RIAZ-SUM-DE-01', 'RIAZ-INT-DE-01'],
+    decisionType: 'phenotype_classification',
+  },
+  Q9: {
+    focusGenes: [],
+    cohortNames: DEFAULT_COHORT_NAMES,
+    decisionHeadline: (v) => `the ipi_naive vs ipi_progressed differential-expression strata read ${verdictHeadline(v, 'RIAZ-INT-STRATA-01')}`,
+    labelRules: ['RIAZ-SUM-STRATA-01', 'RIAZ-INT-STRATA-01'],
+    decisionType: 'cohort_stratification',
+  },
+  Q10: {
+    focusGenes: APM_FOCUS,
+    cohortNames: DEFAULT_COHORT_NAMES,
+    decisionHeadline: (v) => `antigen-presentation induction (HLA-DRA, CD274) reads ${verdictHeadline(v, 'RIAZ-INT-APM-01 @ all')} pooled, ${verdictHeadline(v, 'RIAZ-INT-APM-01 @ response=R')} in responders`,
+    labelRules: ['RIAZ-INT-APM-01 @ all', 'RIAZ-INT-APM-01 @ response=R', 'RIAZ-INT-APM-01 @ response=NR'],
+    decisionType: 'phenotype_classification',
+  },
   Q11: {
     focusGenes: CYTOTOXIC_FOCUS,
     cohortNames: DEFAULT_COHORT_NAMES,
@@ -111,13 +183,18 @@ function geneStats(rows: ResultRow[]): GeneStat[] {
 
 const list = (xs: string[]): string => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 const withP = (g: GeneStat): string => `${g.gene} (${g.p === null ? 'p n/a' : fmtP(g.p)})`;
-const dirWord = (d: 1 | -1 | 0, plural: boolean): string => (d < 0 ? (plural ? 'fall' : 'falls') : plural ? 'rise' : 'rises');
+const dirWord = (d: 1 | -1, plural: boolean): string => (d < 0 ? (plural ? 'fall' : 'falls') : plural ? 'rise' : 'rises');
+const flatWord = (plural: boolean): string => (plural ? 'show' : 'shows') + ' no directional change';
 
+/** A zero delta is neither a rise nor a fall — a gene with `direction === 0`
+ *  (e.g. a null/zero effect estimate that still cleared the p-value filter)
+ *  used to be bucketed into "up" and worded "rises", overstating it. */
 function describeSet(gs: GeneStat[], plural: boolean): string {
-  const up = gs.filter((g) => g.direction >= 0), down = gs.filter((g) => g.direction < 0);
+  const up = gs.filter((g) => g.direction > 0), down = gs.filter((g) => g.direction < 0), flat = gs.filter((g) => g.direction === 0);
   const parts: string[] = [];
   if (up.length) parts.push(`${list(up.map(withP))} ${dirWord(1, plural || up.length > 1)}`);
   if (down.length) parts.push(`${list(down.map(withP))} ${dirWord(-1, plural || down.length > 1)}`);
+  if (flat.length) parts.push(`${list(flat.map(withP))} ${flatWord(plural || flat.length > 1)}`);
   return parts.join(' and ');
 }
 
@@ -157,7 +234,7 @@ export function summariseStatistical(input: StatisticalSummaryInput): string {
     const bits = [otherSig.length ? describeSet(otherSig, false) : '', otherTrend.length ? `${describeSet(otherTrend, false)} as a trend` : ''].filter(Boolean);
     s.push(`Outside the focus set, ${bits.join('; ')}.`);
   }
-  s.push(`The chart ranks all ${gs.length} genes by paired effect size; the cited table carries every gene's statistics.`);
+  s.push(`The recommended chart and the cited table carry every gene's statistics.`);
   return s.join(' ');
 }
 
@@ -185,10 +262,6 @@ export function summariseQc(input: QcSummaryInput): string {
 export const statisticalTitle = (qId: string, operationId: string | null, cohort: string, n: number | null, levelFrom?: string | null, levelTo?: string | null): string =>
   `${qId} · ${testShortName(operationId)}${levelFrom && levelTo ? ` ${levelFrom}→${levelTo}` : ''} per gene — ${cohort}${n !== null ? ` (n=${n})` : ''}`;
 export const qcTitle = (qId: string, cohort: string, verdict: string | null): string => `${qId} · Paired QC — ${cohort}${verdict ? ` (${verdict})` : ''}`;
-export const rankedChartTitle = (qId: string, operationId: string | null, cohort: string, n: number | null, levelFrom?: string | null, levelTo?: string | null): string =>
-  `${qId} · ${testShortName(operationId)}${levelFrom && levelTo ? ` ${levelFrom}→${levelTo}` : ''} effect size per gene — ${cohort}${n !== null ? ` (n=${n})` : ''}`;
-export const sliceChartTitle = (qId: string, valueLabel: string, cohort: string, levelFrom?: string | null, levelTo?: string | null): string =>
-  `${qId} · ${valueLabel}${levelFrom && levelTo ? ` ${levelFrom} vs ${levelTo}` : ''}, focus genes — ${cohort}`;
 
 // ── decision ─────────────────────────────────────────────────────────────────
 
