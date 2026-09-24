@@ -11,6 +11,11 @@ playwright-report/
 blob-report/
 playwright/.cache/
 
+# AXI-1614 — raw shadow-run rows (a live-run artifact the aggregation script
+# consumes; the generated report itself is committed under axiome-docs, this
+# raw JSON is not)
+tests/AXI-1462/harness/shadow-run/
+
 # Auth storage state (per-role storageState — never committed; NFR6)
 .auth/
 storage-state*.json
