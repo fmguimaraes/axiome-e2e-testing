@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { adminApi, type Api } from '../AXI-1435/harness/api';
 import { ensureTenant } from '../AXI-1435/harness/seed';
-import { anchorDataset } from './harness/governed';
+import { anchorDataset } from '../AXI-1604/harness/anchor-dataset';
 import { runShadowBank, writeShadowRunRows } from './harness/shadow';
 
 /**

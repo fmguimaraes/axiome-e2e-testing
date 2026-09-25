@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { adminApi, type Api } from '../AXI-1435/harness/api';
 import { ensureTenant } from '../AXI-1435/harness/seed';
-import { anchorDataset, buildEnvelope, planQuestion, submitPlan, drainRun, ranWithoutError, loadGradosBank } from './harness/governed';
+import { buildEnvelope, planQuestion, submitPlan, drainRun, ranWithoutError, loadGradosBank } from './harness/governed';
+import { anchorDataset } from '../AXI-1604/harness/anchor-dataset';
 
 /**
  * AXI-1473 — Grados-corpus governed-path E2E (@SI-047), covers AC6(a) of feature

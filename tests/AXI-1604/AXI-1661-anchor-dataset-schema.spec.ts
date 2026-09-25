@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { adminApi, type Api } from '../AXI-1435/harness/api';
 import { ensureTenant } from '../AXI-1435/harness/seed';
-import { anchorDataset, SHA256_VERSION_HASH_RE } from '../AXI-1462/harness/governed';
+import { anchorDataset, SHA256_VERSION_HASH_RE } from './harness/anchor-dataset';
 
 /**
  * AXI-1661 (epic AXI-1604 — FR28/FR30, SI-042). The live half of the

@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { adminApi, type Api } from '../AXI-1435/harness/api';
 import { ingestFixture } from '../AXI-1435/harness/seed';
-import { anchorDataset, buildEnvelope, planQuestion, findPersistedPlan, ensureStrategy, submitPlanRun, ensureTenant1603 } from './harness/planner';
+import { buildEnvelope, planQuestion, findPersistedPlan, ensureStrategy, submitPlanRun, ensureTenant1603 } from './harness/planner';
+import { anchorDataset } from '../AXI-1604/harness/anchor-dataset';
 
 /**
  * AXI-1603 — Intent-Compiled Planner (epic acceptance).
@@ -56,7 +57,7 @@ test.beforeAll(async ({}, testInfo) => {
   workspaceId = tenant.workspaceId;
   projectId = tenant.projectId;
   await ingestFixture(api, tenant, 'statistical-trigger.csv');
-  anchor = await anchorDataset(api, workspaceId);
+  anchor = await anchorDataset(api, workspaceId, projectId);
   if (!anchor) return;
 
   ordinaryRes = await planQuestion(api, workspaceId, projectId, buildEnvelope(projectId, ORDINARY_QUESTION, [anchor]));

@@ -1,6 +1,7 @@
 import type { Api } from '../../AXI-1435/harness/api';
 import { workspaceHeader, asList } from '../../AXI-1435/harness/api';
 import type { Tenant } from '../../AXI-1435/harness/seed';
+import type { AnchoredDataset } from '../../AXI-1604/harness/anchor-dataset';
 
 /**
  * AXI-1603 — Intent-Compiled Planner epic E2E harness (@SI-045/@SI-046).
@@ -55,12 +56,20 @@ export async function ensureTenant1603(api: Api): Promise<Tenant> {
   return { orgId, workspaceId: workspaceId!, projectId: projectId!, ruleIds: {}, headers };
 }
 
+/**
+ * The envelope the AXI-1603 specs send. `datasets` is the SHARED
+ * `AnchoredDataset` (`tests/AXI-1604/harness/anchor-dataset.ts`) — real
+ * identity, profiler semantic types, and the `categories` domains the compiled
+ * arm validates filter/group values against — not a locally narrowed
+ * `{ name, type }` shape. AXI-1662: the local shape omitted `categories`
+ * entirely, so an envelope built here did not match what the product sends.
+ */
 export interface PlannerEnvelope {
   projectId: string;
   question: string;
   sendData: boolean;
   context: Record<string, unknown>;
-  datasets: Array<{ datasetId: string; name: string; versionHash: string; columns: Array<{ name: string; type: string }> }>;
+  datasets: AnchoredDataset[];
 }
 
 export function buildEnvelope(projectId: string, question: string, datasets: PlannerEnvelope['datasets']): PlannerEnvelope {
@@ -74,32 +83,19 @@ export function buildEnvelope(projectId: string, question: string, datasets: Pla
 }
 
 /**
- * Discover an available dataset in the workspace to anchor a plan on.
+ * AXI-1662: this harness no longer has its own `anchorDataset()`.
  *
- * FIX (this run): the dataset LIST row carries neither a `columns` array nor a
- * `versionHash`/`latestVersionId` field — the previous version of this helper
- * (copied from `tests/AXI-1462/harness/governed.ts`, which carries the same
- * defect) silently sent `columns: []` and `versionHash: 'sha256:unknown'`.
- * That went unnoticed against the fallback/legacy arms, which never validate
- * an envelope's column/hash shape, but the compiled arm's strict re-validation
- * (P24 — `versionHash` must actually be a sha256 hash; I03/I11 — every cited
- * column must exist in `datasets[].columns`) rejects it on every single
- * attempt, live-logged as "Columns available on dataset ...: (none)" and
- * "versionHash 'sha256:unknown' is not a sha256: hash" — burning the whole
- * 5-attempt budget on a malformed request, not a compiled-arm defect.
- * `loadDatasetForGuided` (axiome-front `src/lib/guidedAnalysis/loadDataset.ts`)
- * is the real contract this mirrors: the dataset's `fileHash` (its real content
- * hash) is the `versionHash`, and columns come from a live query slice
- * (`POST /datasets/:id/query`), never from the list row.
+ * It used to carry a near-duplicate of `tests/AXI-1462/harness/governed.ts`'s
+ * copy, and the comment block that stood here claimed the path was
+ * "live-verified" — it was, for the ENDPOINTS. What it never got right was
+ * failing loudly, and when AXI-1661 fixed that in the other copy the fix never
+ * crossed: this one still degraded to `columns: []` (`?? []`), substituted the
+ * literal `'sha256:unknown'` (the exact value that voided the 2026-09-25 shadow
+ * run), accepted a `pending` upload through a truthiness test, and emitted no
+ * `categories` at all. Two copies kept in step by hand is the defect, not the
+ * symptom. Import `anchorDataset` from `tests/AXI-1604/harness/anchor-dataset`
+ * — the ONE resolver — and never re-add one here.
  */
-export async function anchorDataset(api: Api, workspaceId: string): Promise<PlannerEnvelope['datasets'][number] | null> {
-  const res = await api.get(`/api/v1/workspaces/${workspaceId}/datasets?limit=50`, workspaceHeader(workspaceId));
-  const ds = asList(res.body).find((d: any) => (d.availability ?? d.latestIngestion?.status) && d.id);
-  if (!ds) return null;
-  const query = await api.post(`/api/v1/workspaces/${workspaceId}/datasets/${ds.id}/query`, { limit: 1 }, workspaceHeader(workspaceId));
-  const cols = (query.body?.columns ?? []).map((c: any) => ({ name: c.name ?? c, type: c.type ?? 'string' }));
-  return { datasetId: ds.id, name: ds.originalFilename ?? ds.name ?? ds.id, versionHash: ds.fileHash ?? 'sha256:unknown', columns: cols };
-}
 
 // Live-verified against `POST /guided-analysis/plan` (this run's direct curl
 // against the compiled arm): the create response's top-level field is
