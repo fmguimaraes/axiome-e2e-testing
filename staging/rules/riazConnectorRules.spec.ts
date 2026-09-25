@@ -68,6 +68,10 @@ test('UT-E2E-DESC-025: a missing carrier reports the operation that cannot resol
 });
 
 test('UT-E2E-DESC-026: the staged surface is the four cited connectors over the three describe operations', () => {
-  assert.deepEqual(RIAZ_CONNECTORS.map((c) => c.code), ['SUM-RANK-01', 'SUM-CROSS-01', 'SUM-COUNT-01', 'SUM-TOPN-01', 'SUM-TOPN-FILTERED-01', 'SUM-EXPR-RANK-01']);
+  assert.deepEqual(RIAZ_CONNECTORS.map((c) => c.code), [
+    'SUM-RANK-01', 'SUM-CROSS-01', 'SUM-COUNT-01', 'SUM-TOPN-01',
+    'SUM-TOPN-FILTERED-01', 'SUM-EXPR-RANK-01',
+    'SUM-RANK-MEDIAN-01', 'SUM-SPREAD-01', 'SUM-EXTREMES-01', 'SUM-CROSS-COUNT-01',
+  ]);
   assert.deepEqual([...new Set(RIAZ_CONNECTORS.map((c) => c.operationId))].sort(), DESCRIBE_CARRIERS.map((c) => c.operationId).sort());
 });

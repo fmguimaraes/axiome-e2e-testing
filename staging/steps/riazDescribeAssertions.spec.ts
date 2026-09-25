@@ -159,7 +159,7 @@ test('UT-E2E-DESC-010: EC6 — a Q14 count sentence that says "rows" instead of 
   const base: ObservedDescribeResult = {
     ...observedQ12(),
     operationId: 'describe.count',
-    citedConnector: 'SUM-COUNT-01',
+    citedConnector: 'SUM-CROSS-COUNT-01',
     boundParameters: {},
     canonicalFields: [
       { parameter: 'groupColumns', column: 'response', canonicalField: 'response_status' },
@@ -168,7 +168,7 @@ test('UT-E2E-DESC-010: EC6 — a Q14 count sentence that says "rows" instead of 
     ],
     rows,
     nGroups: 4,
-    binding: { state: 'covered', ambiguous: false, matchedConnectors: ['SUM-COUNT-01'], unmappedColumns: [], citationStatus: 'confirmed' },
+    binding: { state: 'covered', ambiguous: false, matchedConnectors: ['SUM-CROSS-COUNT-01'], unmappedColumns: [], citationStatus: 'confirmed' },
     sentence: 'NR/ipi_naive has the most patients (9); R/ipi_progressed the fewest (4). 4 groups counted.',
   };
   const ok = { ...base, decision: { id: 'd', type: 'descriptive_summary', ruleRunId: base.ruleRunId, sentenceText: base.sentence, status: 'draft' } };
@@ -220,13 +220,26 @@ test('UT-E2E-DESC-015: the observation readers read the cited code, n_groups and
   assert.equal(decisionOf([{ id: 'd', context: { ruleRunId: 'other' } }], 'r1'), null);
 });
 
-test('UT-E2E-DESC-016: every descriptive question declares a derivation and four distinct connectors are covered', () => {
+test('UT-E2E-DESC-016: every descriptive question declares a derivation and all ten seeded connectors are covered', () => {
   const ids = Object.keys(DESCRIBE_EXPECTED);
   // AXI-1587 added Q22–Q31 (ten more descriptive questions) on top of Q12–Q21.
-  assert.equal(ids.length, 22); // AXI-1582 added Q36–Q37
+  assert.equal(ids.length, 26); // AXI-1581 added Q32–Q35, AXI-1582 Q36–Q37
   ids.forEach((id) => assert.ok(isDescribeQuestion(id) && DESCRIBE_EXPECTED[id].derivation.length > 20, id));
   const connectors = new Set(ids.flatMap((id) => DESCRIBE_EXPECTED[id].results.map((r: ExpectedDescribeResult) => r.connector)));
-  assert.deepEqual([...connectors].sort(), ['SUM-COUNT-01', 'SUM-CROSS-01', 'SUM-EXPR-RANK-01', 'SUM-RANK-01', 'SUM-TOPN-01', 'SUM-TOPN-FILTERED-01']);
+  // Every seeded connector is exercised by a staged question — the eight shape
+  // connectors plus AXI-1582's filtered top-N and its domain connector.
+  assert.deepEqual([...connectors].sort(), [
+    'SUM-COUNT-01',
+    'SUM-CROSS-01',
+    'SUM-CROSS-COUNT-01',
+    'SUM-EXPR-RANK-01',
+    'SUM-EXTREMES-01',
+    'SUM-RANK-01',
+    'SUM-RANK-MEDIAN-01',
+    'SUM-SPREAD-01',
+    'SUM-TOPN-01',
+    'SUM-TOPN-FILTERED-01',
+  ]);
 });
 
 test('UT-E2E-DESC-030: column roles are asserted from canonicalFields, in bound order — never from boundParameters', () => {

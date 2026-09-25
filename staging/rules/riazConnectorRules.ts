@@ -30,6 +30,11 @@ export const RIAZ_CONNECTORS: ReadonlyArray<{ code: string; operationId: string 
   // AXI-1582
   { code: 'SUM-TOPN-FILTERED-01', operationId: 'describe.top_n' },
   { code: 'SUM-EXPR-RANK-01', operationId: 'describe.grouped_aggregate' },
+  // AXI-1581
+  { code: 'SUM-RANK-MEDIAN-01', operationId: 'describe.grouped_aggregate' },
+  { code: 'SUM-SPREAD-01', operationId: 'describe.grouped_aggregate' },
+  { code: 'SUM-EXTREMES-01', operationId: 'describe.grouped_aggregate' },
+  { code: 'SUM-CROSS-COUNT-01', operationId: 'describe.count' },
 ]);
 
 export type ConnectorAction = 'visible' | 'granted' | 'would-grant' | 'missing' | 'unentitled';

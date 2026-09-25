@@ -149,7 +149,7 @@ export const DESCRIBE_EXPECTED: Record<string, DescribeExpectation> = {
     results: [
       {
         cohort: '',
-        connector: 'SUM-COUNT-01',
+        connector: 'SUM-CROSS-COUNT-01',
         operationId: 'describe.count',
         nGroups: 4,
         parameters: { groupColumns: ['response', 'prior_ipi'], distinctKey: 'patient_id' },
@@ -489,6 +489,86 @@ export const DESCRIBE_EXPECTED: Record<string, DescribeExpectation> = {
       },
     ],
   },
+  // ── AXI-1581: the four Phase-1 shape connectors (epic AXI-1575) — derived with pandas from the source CSV ──
+  Q32: {
+    derivation: `pandas: ${PAIRED} → df[df.timepoint=='Pre'].groupby('gene').log2_cpm.median().sort_values(ascending=False)`,
+    results: [
+      {
+        cohort: '',
+        connector: 'SUM-RANK-MEDIAN-01',
+        operationId: 'describe.grouped_aggregate',
+        nGroups: 24,
+        parameters: { groupColumns: ['gene'], valueColumn: 'log2_cpm', aggregation: 'median', direction: 'desc' },
+        top: { label: 'HLA-DRA', value: 9.757, n: 27 },
+        bottom: { label: 'IFNG', value: 0.9225, n: 27 },
+        ranks: [
+          { rank: 1, label: 'HLA-DRA', value: 9.757 },
+          { rank: 2, label: 'STAT1', value: 8.2792 },
+          { rank: 3, label: 'CXCL9', value: 6.5856 },
+          { rank: 24, label: 'IFNG', value: 0.9225 },
+        ],
+      },
+    ],
+  },
+  Q33: {
+    derivation: `pandas: ${PAIRED} → df[df.timepoint=='Pre'].groupby('gene').log2_cpm.std(ddof=0).sort_values(ascending=False)  # population SD — bio-compute std is ddof=0`,
+    results: [
+      {
+        cohort: '',
+        connector: 'SUM-SPREAD-01',
+        operationId: 'describe.grouped_aggregate',
+        nGroups: 24,
+        parameters: { groupColumns: ['gene'], valueColumn: 'log2_cpm', aggregation: 'std', direction: 'desc' },
+        top: { label: 'CXCL9', value: 2.7591, n: 27 },
+        bottom: { label: 'IFNG', value: 0.9621, n: 27 },
+        ranks: [
+          { rank: 1, label: 'CXCL9', value: 2.7591 },
+          { rank: 2, label: 'CXCL10', value: 2.1331 },
+          { rank: 3, label: 'IDO1', value: 2.0833 },
+        ],
+      },
+    ],
+  },
+  Q34: {
+    derivation: `pandas: ${PAIRED} → df[df.timepoint=='Pre'].groupby('gene').log2_cpm.max().sort_values(ascending=False)`,
+    results: [
+      {
+        cohort: '',
+        connector: 'SUM-EXTREMES-01',
+        operationId: 'describe.grouped_aggregate',
+        nGroups: 24,
+        parameters: { groupColumns: ['gene'], valueColumn: 'log2_cpm', aggregation: 'max', direction: 'desc' },
+        top: { label: 'HLA-DRA', value: 13.4693, n: 27 },
+        bottom: { label: 'IFNG', value: 2.842, n: 27 },
+        ranks: [
+          { rank: 1, label: 'HLA-DRA', value: 13.4693 },
+          { rank: 2, label: 'STAT1', value: 10.2178 },
+          { rank: 3, label: 'CXCL9', value: 9.9296 },
+          { rank: 24, label: 'IFNG', value: 2.842 },
+        ],
+      },
+    ],
+  },
+  Q35: {
+    derivation: `pandas: ${PAIRED} → df[df.gene=='CD8A'].groupby(['response','timepoint']).patient_id.nunique()`,
+    results: [
+      {
+        cohort: '',
+        connector: 'SUM-CROSS-COUNT-01',
+        operationId: 'describe.count',
+        nGroups: 4,
+        parameters: { groupColumns: ['response', 'timepoint'], distinctKey: 'patient_id' },
+        cells: [
+          { label: 'NR|On', value: 18 },
+          { label: 'NR|Pre', value: 18 },
+          { label: 'R|On', value: 9 },
+          { label: 'R|Pre', value: 9 },
+        ],
+        sentenceIncludes: ['patients'],
+        sentenceExcludes: ['rows'],
+      },
+    ],
+  },
   // ── AXI-1582: filtered top-N + domain connector — derived with pandas from the source CSV ──
   // NOTE Q37 binds `match` only after the semantic contract repair has been RUN against the project
   // (POST /v1/semantic-profiles/projects/:id/normalize maps log2_cpm -> expression_value); before it, the
@@ -535,7 +615,7 @@ export const DESCRIBE_EXPECTED: Record<string, DescribeExpectation> = {
   },
 };
 
-/** The ten descriptive question ids, in order. */
+/** The descriptive question ids, in order. */
 export const DESCRIBE_QUESTION_IDS: readonly string[] = Object.freeze(Object.keys(DESCRIBE_EXPECTED));
 
 export const isDescribeQuestion = (id: string): boolean => id in DESCRIBE_EXPECTED;
