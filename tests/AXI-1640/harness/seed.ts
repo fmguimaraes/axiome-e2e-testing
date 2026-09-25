@@ -223,25 +223,13 @@ export function syntheticTypeBody(typeId: string, declarationForm: unknown[] = [
 }
 
 /**
- * Register a synthetic type for ARRANGEMENT. `POST /evidence-types` cannot carry a
- * non-empty `declaration_form` today (product bug B1: the gateway's implicit-
- * conversion ValidationPipe flattens every form element to `[]` -> INVALID_FIELD),
- * so the type is registered with an empty form and the form is written straight
- * to the row. The UI-driven registration (E2E-1640-A2) still exercises the real route.
+ * Register a synthetic type for ARRANGEMENT through the real `POST /evidence-types`
+ * route, carrying the real `declaration_form` (product bug B1 / AXI-1658 is fixed:
+ * the gateway DTO no longer flattens form elements).
  */
 export async function registerTypeViaApi(api: Api, body: Record<string, unknown>): Promise<void> {
-  const form = (body.declaration_form as unknown[]) ?? [];
-  const res = await api.post('/api/v1/evidence-types', { ...body, declaration_form: [] });
+  const res = await api.post('/api/v1/evidence-types', body);
   if (res.status >= 300) throw new Error(`register evidence type failed (${res.status}): ${JSON.stringify(res.body)}`);
-  if (form.length > 0) {
-    const typeId = String(body.type_id);
-    if (!/^[a-z0-9_]{1,64}$/.test(typeId)) throw new Error('typeId must be snake_case');
-    const json = JSON.stringify(form);
-    if (json.includes('$e2e$')) throw new Error('form json contains the quote tag');
-    if (!psql(`UPDATE organization_svc.evidence_type_registrations SET declaration_form = $e2e$${json}$e2e$::jsonb WHERE type_id = '${typeId}'`)) {
-      throw new Error('could not write declaration_form (local Postgres container unreachable)');
-    }
-  }
 }
 
 /** Run one statement on the local stack's Postgres (test setup only; never on data this run did not create). */
