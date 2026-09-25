@@ -52,7 +52,11 @@ async function seedWorkspaceScope(page: Page): Promise<void> {
   );
 }
 
-test.beforeAll(async () => {
+test.beforeAll(async ({}, testInfo) => {
+  // The compiled arm's 5-attempt feedback loop runs one real conversation with
+  // Anthropic per plan request (AXI-1609) — genuinely slower than the fallback
+  // arm this beforeAll was originally timed against.
+  testInfo.setTimeout(280_000);
   api = await adminApi();
   const tenant = await ensureTenant1603(api);
   workspaceId = tenant.workspaceId;

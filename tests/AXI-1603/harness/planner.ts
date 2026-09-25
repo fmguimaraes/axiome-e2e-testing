@@ -73,15 +73,41 @@ export function buildEnvelope(projectId: string, question: string, datasets: Pla
   };
 }
 
-/** Discover an available dataset in the workspace to anchor a plan on. */
+/**
+ * Discover an available dataset in the workspace to anchor a plan on.
+ *
+ * FIX (this run): the dataset LIST row carries neither a `columns` array nor a
+ * `versionHash`/`latestVersionId` field — the previous version of this helper
+ * (copied from `tests/AXI-1462/harness/governed.ts`, which carries the same
+ * defect) silently sent `columns: []` and `versionHash: 'sha256:unknown'`.
+ * That went unnoticed against the fallback/legacy arms, which never validate
+ * an envelope's column/hash shape, but the compiled arm's strict re-validation
+ * (P24 — `versionHash` must actually be a sha256 hash; I03/I11 — every cited
+ * column must exist in `datasets[].columns`) rejects it on every single
+ * attempt, live-logged as "Columns available on dataset ...: (none)" and
+ * "versionHash 'sha256:unknown' is not a sha256: hash" — burning the whole
+ * 5-attempt budget on a malformed request, not a compiled-arm defect.
+ * `loadDatasetForGuided` (axiome-front `src/lib/guidedAnalysis/loadDataset.ts`)
+ * is the real contract this mirrors: the dataset's `fileHash` (its real content
+ * hash) is the `versionHash`, and columns come from a live query slice
+ * (`POST /datasets/:id/query`), never from the list row.
+ */
 export async function anchorDataset(api: Api, workspaceId: string): Promise<PlannerEnvelope['datasets'][number] | null> {
   const res = await api.get(`/api/v1/workspaces/${workspaceId}/datasets?limit=50`, workspaceHeader(workspaceId));
   const ds = asList(res.body).find((d: any) => (d.availability ?? d.latestIngestion?.status) && d.id);
   if (!ds) return null;
-  const cols = (ds.columns ?? ds.schema?.columns ?? []).map((c: any) => ({ name: c.name ?? c, type: c.type ?? 'string' }));
-  return { datasetId: ds.id, name: ds.originalFilename ?? ds.name ?? ds.id, versionHash: ds.versionHash ?? ds.latestVersionId ?? 'sha256:unknown', columns: cols };
+  const query = await api.post(`/api/v1/workspaces/${workspaceId}/datasets/${ds.id}/query`, { limit: 1 }, workspaceHeader(workspaceId));
+  const cols = (query.body?.columns ?? []).map((c: any) => ({ name: c.name ?? c, type: c.type ?? 'string' }));
+  return { datasetId: ds.id, name: ds.originalFilename ?? ds.name ?? ds.id, versionHash: ds.fileHash ?? 'sha256:unknown', columns: cols };
 }
 
+// Live-verified against `POST /guided-analysis/plan` (this run's direct curl
+// against the compiled arm): the create response's top-level field is
+// `plannerFallback`, never `fallbackOccurred` — there is no `fallbackOccurred`
+// key anywhere on the wire. `intentUnsupported`/`attemptCount` ARE present at
+// both the top level (create response) AND nested under `plan.*` (both the
+// create response and the persisted row) — `findPersistedPlan`'s row exposes
+// them only under `.plan`, not at its own top level (see that function's doc).
 export interface PlanResponse {
   plan: any;
   status: string;
@@ -89,7 +115,6 @@ export interface PlanResponse {
   plannerFallback?: boolean;
   intentUnsupported: boolean;
   attemptCount?: number;
-  fallbackOccurred?: boolean;
   structuralGap?: unknown;
   promptTitle?: string | null;
 }
@@ -106,6 +131,13 @@ export async function planQuestion(
 }
 
 /** The persisted `GuidedAnalysisPlan` row for a given planId (§4.1 step 3, §6). */
+/**
+ * The persisted row carries `planId`/`planner`/`status`/`envelope`/`plan` at
+ * its own top level — `intentUnsupported` and `attemptCount` are NOT top-level
+ * fields here (unlike the create response); read them off the returned row's
+ * `.plan.intentUnsupported` / `.plan.attemptCount` (live-verified this run,
+ * `GET /guided-analysis/plans?projectId=...`).
+ */
 export async function findPersistedPlan(api: Api, workspaceId: string, projectId: string, planId: string): Promise<any | null> {
   const res = await api.get(`/api/v1/guided-analysis/plans?projectId=${projectId}`, workspaceHeader(workspaceId));
   return asList(res.body).find((p: any) => p.planId === planId) ?? null;

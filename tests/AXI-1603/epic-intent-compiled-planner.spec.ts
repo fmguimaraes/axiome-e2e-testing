@@ -45,7 +45,12 @@ let ordinaryPersisted: any;
 let unsupportedRes: Awaited<ReturnType<typeof planQuestion>> | undefined;
 let unsupportedPersisted: any;
 
-test.beforeAll(async () => {
+test.beforeAll(async ({}, testInfo) => {
+  // The compiled arm's 5-attempt feedback loop runs one real conversation with
+  // Anthropic per plan request (AXI-1609) — genuinely slower than the fallback
+  // arm this beforeAll was originally timed against. Two plan requests here
+  // (ordinary + unsupported) can legitimately exceed the 30s hook default.
+  testInfo.setTimeout(280_000);
   api = await adminApi();
   const tenant = await ensureTenant1603(api);
   workspaceId = tenant.workspaceId;
@@ -75,11 +80,19 @@ test('AC16 AC28 — an ordinary question plans through the compiled arm and pers
   expect(Array.isArray(ordinaryRes!.body.plan?.nodes) && ordinaryRes!.body.plan.nodes.length > 0, 'plan has nodes').toBe(true);
   expect(ordinaryRes!.body.plan?.reasoning, 'plan carries reasoning').toBeTruthy();
 
+  // AMENDED against the live wire contract (direct curl against the compiled
+  // arm, this run): the create response's own top-level field is
+  // `plannerFallback`, not `fallbackOccurred` (no `fallbackOccurred` key
+  // exists anywhere on the wire) — asserted straight off `ordinaryRes.body`,
+  // the create response, which is where it lives. The persisted row
+  // (`GET /guided-analysis/plans`) carries `intentUnsupported`/`attemptCount`
+  // nested under `.plan`, not at its own top level — `findPersistedPlan`'s
+  // doc comment records the same finding.
+  expect(ordinaryRes!.body.plannerFallback, 'no fallback occurred').toBe(false);
   expect(ordinaryPersisted, 'plan row was persisted').toBeTruthy();
   expect(ordinaryPersisted.planner, 'persisted planner reads compiled').toBe('compiled');
-  expect(ordinaryPersisted.fallbackOccurred, 'no fallback occurred').toBe(false);
-  expect(ordinaryPersisted.intentUnsupported, 'an ordinary question is not flagged unsupported').toBe(false);
-  expect(typeof ordinaryPersisted.attemptCount, 'attemptCount is set').toBe('number');
+  expect(ordinaryPersisted.plan.intentUnsupported, 'an ordinary question is not flagged unsupported').toBe(false);
+  expect(typeof ordinaryPersisted.plan.attemptCount, 'attemptCount is set').toBe('number');
 });
 
 test('AC20 — a selected strategy still steers the compiled arm; a strategy asking for an uncatalogued shape does not widen it', async () => {
