@@ -2,8 +2,13 @@ import { test, expect } from '@playwright/test';
 import { API_BASE_URL } from '../../config/env';
 
 /**
- * AXI-1633 (epic AXI-1575 — FR22, FR23, FR25, NFR10; AC10, AC11, AC12, AC13):
+ * AXI-1633 (epic AXI-1575 — FR22, FR23, FR24, FR25; AC10, AC11, AC12, AC13):
  * the connector authoring follow-ups, in the browser (@SI-035).
+ *
+ * STATUS: AUTHORED AND NEVER EXECUTED. This suite has not been run against a
+ * live stack — the Playwright job is skipped in CI whenever `vars.BASE_URL` is
+ * unset, which it is. Treat every assertion below as a STATED expectation, not
+ * as evidence; the story's proof is its unit suites.
  *
  * Same subject as AXI-1583's spec beside it, and the same method — the page's
  * OWN `GET /v1/rules/connectors` response is the source of truth, never a
@@ -15,7 +20,7 @@ import { API_BASE_URL } from '../../config/env';
  *    `connectorKind`. `describe.top_n`'s `filter` is the case that matters: it
  *    is `type: 'json'` and the retired client-side inference called it an
  *    `enum`, offering a free-text pin for a structured predicate.
- *  - the `semantic` VOCABULARY (NFR10) — the picker must offer exactly the
+ *  - the `semantic` VOCABULARY (FR22/FR24, AC10) — the picker must offer exactly the
  *    server's `canonicalFields`; free text is how a typo published a connector
  *    that reads `indeterminate` on every column, forever.
  *  - a publish refusal's CODE (AC11) — which the server only began sending in
@@ -89,7 +94,7 @@ test('AC12 (FR24) — every slot badge is the kind the SERVER declared, `filter`
   }
 });
 
-test('NFR10 — the `semantic` control offers the platform\'s canonical fields, not free text @SI-035', async ({
+test('AC10 (FR22, FR24) — the `semantic` control offers the platform\'s canonical fields, not free text @SI-035', async ({
   page,
 }) => {
   const { editor, listing } = await openConnectorForm(page);
@@ -121,20 +126,33 @@ test('AC11 (FR23, EC11) — a publish refusal shows its CODE beside the field it
     (op) => op.operationId === 'describe.grouped_aggregate',
   );
   test.skip(!grouped, 'describe.grouped_aggregate is not offered on this stack');
+  const groupColumns = grouped!.tableInputScheme.find((role) => role.role === 'groupColumns');
+  test.skip(!groupColumns, 'groupColumns is not offered on this stack');
 
   await editor.getByLabel('Connector operation').selectOption('describe.grouped_aggregate');
-  // `geometric_mean` is not in the operation's declared enum. The FORM does not
-  // refuse it — FR23 gives the publish validator the only vote — so what is
-  // asserted here is the SERVER's refusal, rendered with the code it now sends.
-  await editor.getByLabel('Pin mode for aggregation').selectOption('value');
-  await editor.getByLabel('Pinned value for aggregation').fill('geometric_mean');
+
+  // A cardinality ABOVE the kernel role's own bound, typed into a free-text
+  // field the form deliberately does not validate.
+  //
+  // The obvious choice — pinning `aggregation` to a value outside its enum —
+  // is NOT expressible here and that is not an oversight: `aggregation`
+  // declares `allowedValues`, so the form renders a <select> of exactly the
+  // operation's own set, and an out-of-enum value cannot be entered at all.
+  // Cardinality is the refusal a real author CAN reach, because `formIssues`
+  // reports only blank or non-numeric input and leaves the bound to the server
+  // (pinned by UT-FE-CONN-1583-014).
+  await editor.getByLabel('Declare groupColumns').check();
+  await editor.getByLabel('Minimum columns for groupColumns').fill('1');
+  await editor.getByLabel('Maximum columns for groupColumns').fill('99');
 
   const submit = page.getByRole('button', { name: /^(create|save|publish)/i }).first();
   test.skip((await submit.count()) === 0, 'no submit control on this build');
   await submit.click();
 
-  await expect(editor.getByTestId('connector-refusal-code-aggregation')).toContainText(
-    'INVALID_CONNECTOR_FIXED_VALUE',
+  // FR23 gives the publish validator the only vote, so this is the SERVER's
+  // refusal, rendered with the code it only began sending in this story.
+  await expect(editor.getByTestId('connector-refusal-code-groupColumns')).toContainText(
+    'CONNECTOR_CARDINALITY_EXCEEDS_OPERATION',
   );
 });
 
