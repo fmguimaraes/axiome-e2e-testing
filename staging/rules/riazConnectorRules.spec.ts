@@ -67,7 +67,7 @@ test('UT-E2E-DESC-025: a missing carrier reports the operation that cannot resol
   assert.deepEqual(carrierProblems('DESC-TOP-N', 'describe.top_n', published({ tags: ['op:describe.top_n'] })), []);
 });
 
-test('UT-E2E-DESC-026: the staged surface is the four cited connectors over the three describe operations', () => {
+test('UT-E2E-DESC-026: the staged surface is the ten cited connectors over the three describe operations', () => {
   assert.deepEqual(RIAZ_CONNECTORS.map((c) => c.code), [
     'SUM-RANK-01', 'SUM-CROSS-01', 'SUM-COUNT-01', 'SUM-TOPN-01',
     'SUM-TOPN-FILTERED-01', 'SUM-EXPR-RANK-01',

@@ -14,7 +14,7 @@ import { RIAZ_CONNECTORS } from './riazConnectorRules';
 
 test('UT-E2E-CONN-1581-001: every expected describe result cites a connector that can bind its own declared parameters', () => {
   const problems = Object.entries(DESCRIBE_EXPECTED).flatMap(([id, expectation]) =>
-    expectation.results.flatMap((r) => connectorBindingProblems(r.connector, r.operationId, r.parameters).map((p) => `${id}: ${p}`)),
+    expectation.results.flatMap((r) => connectorBindingProblems(r.connector, r.operationId, r.parameters, { declaresEveryParameter: false }).map((p) => `${id}: ${p}`)),
   );
   assert.deepEqual(problems, []);
 });
@@ -50,4 +50,25 @@ test('UT-E2E-CONN-1581-004: the guard names the AXI-1581 narrowings it exists to
   assert.deepEqual(connectorBindingProblems('SUM-SPREAD-01', 'describe.grouped_aggregate', {
     groupColumns: ['gene'], valueColumn: 'log2_cpm', aggregation: 'std', direction: 'desc',
   }), []);
+});
+
+test('UT-E2E-CONN-1581-005: the guard separates the two top-N connectors by the presence of a filter (AXI-1582)', () => {
+  const topN = { sortColumn: 'log2_cpm', direction: 'desc', n: 5 };
+
+  // SUM-TOPN-01 is pinned to an ABSENT filter (`fixed: null`) — declaring one cannot bind it.
+  assert.match(
+    connectorBindingProblems('SUM-TOPN-01', 'describe.top_n', { ...topN, filter: { column: 'response', op: 'eq', value: 'R' } }).join(' | '),
+    /SUM-TOPN-01 is pinned to an absent filter/,
+  );
+  assert.deepEqual(connectorBindingProblems('SUM-TOPN-01', 'describe.top_n', topN), []);
+
+  // …and the filtered connector requires one.
+  assert.match(
+    connectorBindingProblems('SUM-TOPN-FILTERED-01', 'describe.top_n', topN).join(' | '),
+    /SUM-TOPN-FILTERED-01 requires filter/,
+  );
+  assert.deepEqual(
+    connectorBindingProblems('SUM-TOPN-FILTERED-01', 'describe.top_n', { ...topN, filter: { column: 'response', op: 'eq', value: 'R' } }),
+    [],
+  );
 });

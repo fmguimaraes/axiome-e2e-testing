@@ -1,5 +1,5 @@
 /**
- * AXI-1581 (epic AXI-1575 — FR13–FR16) — a MIRROR of the eight seeded `SUM-*`
+ * AXI-1581 (epic AXI-1575 — FR13–FR16) — a MIRROR of the ten seeded `SUM-*`
  * connector parameter schemes
  * (`axiome-back/apps/organization-service/src/rules/seed-rules.ts`), narrow
  * enough to answer ONE question offline: could the connector a staged Riaz
@@ -28,10 +28,19 @@ export interface ConnectorShape {
   required: string[];
   /** admissible values per enum parameter — a value outside it cannot bind */
   enums: Record<string, string[]>;
+  /** parameters the seed pins ABSENT (`fixed: null`) — declaring one cannot bind */
+  forbidden?: string[];
+  /**
+   * A DOMAIN connector (AXI-1582) also requires its value column to resolve to a
+   * semantic role, which is a fact of the PROJECT's semantic contract and not of
+   * this repo. The mirror therefore checks its shape only, and says so.
+   */
+  domain?: boolean;
 }
 
 /**
- * Mirrors `seed-rules.ts` AFTER AXI-1581's two narrowings: `SUM-RANK-01`'s
+ * Mirrors `seed-rules.ts` (AXI-1559 + AXI-1581 + AXI-1582) AFTER AXI-1581's two
+ * narrowings: `SUM-RANK-01`'s
  * aggregation is {mean, sum} (median/spread/extremes moved to their own
  * connectors) and `SUM-COUNT-01` groups by exactly ONE column (the two-column
  * cross-tab moved to `SUM-CROSS-COUNT-01`).
@@ -84,6 +93,21 @@ export const CONNECTOR_SHAPES: Readonly<Record<string, ConnectorShape>> = Object
     groupColumnArity: null,
     required: ['sortColumn', 'n', 'direction'],
     enums: { direction: ['asc', 'desc'] },
+    // AXI-1582 pinned `filter: { fixed: null }` — an unfiltered top-N only.
+    forbidden: ['filter'],
+  },
+  'SUM-TOPN-FILTERED-01': {
+    operationId: 'describe.top_n',
+    groupColumnArity: null,
+    required: ['sortColumn', 'n', 'direction', 'filter'],
+    enums: { direction: ['asc', 'desc'] },
+  },
+  'SUM-EXPR-RANK-01': {
+    operationId: 'describe.grouped_aggregate',
+    groupColumnArity: [1],
+    required: ['groupColumns', 'valueColumn', 'aggregation', 'direction'],
+    enums: { aggregation: ['mean', 'median', 'std', 'min', 'max', 'sum'], direction: ['asc', 'desc'] },
+    domain: true,
   },
 });
 
@@ -100,6 +124,7 @@ export interface DeclaredParameters {
   distinctKey?: string;
   sortColumn?: string;
   n?: number;
+  filter?: unknown;
 }
 
 function arityProblems(shape: ConnectorShape, code: string, params: DeclaredParameters): string[] {
@@ -125,13 +150,27 @@ function enumProblems(shape: ConnectorShape, code: string, params: DeclaredParam
  * sentences a reader can act on. An empty array means the citation is
  * self-consistent under the current seeds.
  */
-export function connectorBindingProblems(code: string, operationId: string | undefined, params: DeclaredParameters): string[] {
+export function connectorBindingProblems(
+  code: string,
+  operationId: string | undefined,
+  params: DeclaredParameters,
+  /**
+   * `declaresEveryParameter: false` for the EXPECTATIONS sweep: an
+   * `ExpectedParameters` is the set of parameters a question ASSERTS on the run,
+   * not the full set the node binds (AXI-1582's Q36 asserts sortColumn /
+   * direction / n but not its `filter`), so a missing required parameter there is
+   * an assertion gap, not a binding failure. `true` — the default — is the
+   * complete-declaration case a prompt makes.
+   */
+  { declaresEveryParameter = true }: { declaresEveryParameter?: boolean } = {},
+): string[] {
   const shape = CONNECTOR_SHAPES[code];
-  if (!shape) return [`${code} is not one of the eight seeded SUM-* connectors — nothing in this repo may cite it`];
+  if (!shape) return [`${code} is not one of the ten seeded SUM-* connectors — nothing in this repo may cite it`];
   const problems: string[] = [];
   if (operationId && operationId !== shape.operationId) problems.push(`${code} binds ${shape.operationId}, the question declares ${operationId}`);
   const declared = params as Record<string, unknown>;
-  problems.push(...shape.required.filter((p) => declared[p] === undefined).map((p) => `${code} requires ${p}, the question declares none`));
+  if (declaresEveryParameter) problems.push(...shape.required.filter((p) => declared[p] === undefined).map((p) => `${code} requires ${p}, the question declares none`));
+  problems.push(...(shape.forbidden ?? []).filter((p) => declared[p] !== undefined).map((p) => `${code} is pinned to an absent ${p}, the question declares one`));
   problems.push(...arityProblems(shape, code, params));
   problems.push(...enumProblems(shape, code, params));
   return problems;
