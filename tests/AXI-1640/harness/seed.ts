@@ -263,3 +263,63 @@ export function setEvidenceType(evidenceId: string, typeId: string): boolean {
   if (!/^[a-z0-9_]{1,64}$/.test(typeId)) throw new Error('typeId must be snake_case');
   return psql(`UPDATE organization_svc.de_evidence_references SET evidence_type = '${typeId}' WHERE id = '${evidenceId}'`);
 }
+
+// ── Sourcing arrangement (source-candidate inspector) ────────────────────────
+
+/** Create an antibody panel (workspace-admin API) — becomes a `workspace_inventory` candidate. */
+export async function createPanelViaApi(api: Api, t: Tenant, name: string, version = 'v1'): Promise<void> {
+  const res = await api.post(`/api/v1/workspaces/${t.workspaceId}/inventories/antibody-panels`, {
+    panel_name: name, panel_version: version, markers: [{ marker: 'CD3', fluorochrome: 'FITC' }],
+  }, t.headers);
+  if (res.status >= 300) throw new Error(`create panel failed (${res.status}): ${JSON.stringify(res.body)}`);
+}
+
+/** Create a glossary category with one term — becomes a `workspace_glossary` candidate. */
+export async function createGlossaryViaApi(api: Api, t: Tenant, category: string): Promise<void> {
+  const cat = await api.post(`/api/v1/workspaces/${t.workspaceId}/glossary/categories`, { name: category }, t.headers);
+  if (cat.status >= 300) throw new Error(`create glossary category failed (${cat.status}): ${JSON.stringify(cat.body)}`);
+  const term = await api.post(`/api/v1/workspaces/${t.workspaceId}/glossary/terms`, {
+    categoryId: cat.body.id, label: 'E2E term', columnName: 'e2e_col',
+  }, t.headers);
+  if (term.status >= 300) throw new Error(`create glossary term failed (${term.status}): ${JSON.stringify(term.body)}`);
+}
+
+/** psql returning rows (unaligned, tuples only) — setup/teardown of rows this run created only. */
+export function psqlRows(sql: string): string[] {
+  const container = process.env.E2E_PG_CONTAINER ?? 'axiome-localhost';
+  const db = process.env.E2E_PG_DB ?? 'axiome';
+  const user = process.env.E2E_PG_USER ?? 'axiome';
+  const out = execFileSync('docker', ['exec', container, 'psql', '-U', user, '-d', db, '-v', 'ON_ERROR_STOP=1', '-At', '-c', sql], { stdio: 'pipe' }).toString();
+  return out.split('\n').map((l) => l.trim()).filter(Boolean);
+}
+
+/**
+ * Put an evidence version into a view analysis' provenance graph: create the analysis
+ * + base snapshot through the API, then add ONE edge snapshot-node -> DEEvidenceReference
+ * node (the public API has no "cite evidence in the map" call that a UI-less fixture can
+ * make). Returns the analysis id.
+ */
+export async function linkEvidenceIntoAnalysisGraph(api: Api, t: Tenant, evidenceId: string): Promise<string> {
+  if (!/^[0-9a-f-]{36}$/i.test(evidenceId)) throw new Error('evidenceId must be a uuid');
+  const datasetId = t.datasetId;
+  const va = await api.post('/api/v1/view-analyses', { projectId: t.projectId, datasetId, name: `e2e graph ${uniq()}` }, t.headers);
+  if (va.status >= 300) throw new Error(`create view analysis failed (${va.status}): ${JSON.stringify(va.body)}`);
+  const analysisId: string = va.body.id;
+  const snap = await api.post('/api/v1/view-analyses/snapshots', { viewAnalysisId: analysisId, filters: [] }, t.headers);
+  if (snap.status >= 300) throw new Error(`create snapshot failed (${snap.status}): ${JSON.stringify(snap.body)}`);
+  // Materialise the snapshot node by reading the graph once, then link the evidence node.
+  await api.get(`/api/v1/view-analyses/${analysisId}/provenance-graph`, t.headers);
+  const ok = psql(`INSERT INTO organization_svc.provenance_edges (id, source_node_id, target_node_id, edge_type, metadata)
+    SELECT gen_random_uuid(), sn.id, en.id, 'DERIVED_FROM', '{}'::jsonb
+    FROM organization_svc.provenance_nodes sn, organization_svc.provenance_nodes en
+    WHERE sn.node_type = 'ViewAnalysisSnapshot' AND sn.reference_id = '${snap.body.id}'
+      AND en.node_type = 'DEEvidenceReference' AND en.reference_id = '${evidenceId}'`);
+  if (!ok) throw new Error('could not link evidence node into the analysis graph');
+  return analysisId;
+}
+
+/** Simulate "the supersede graph write failed": drop the SUPERSEDED_BY edge out of this evidence node. */
+export function dropSupersedeEdge(evidenceId: string): boolean {
+  if (!/^[0-9a-f-]{36}$/i.test(evidenceId)) throw new Error('evidenceId must be a uuid');
+  return psql(`DELETE FROM organization_svc.provenance_edges WHERE edge_type = 'SUPERSEDED_BY' AND source_node_id IN (SELECT id FROM organization_svc.provenance_nodes WHERE node_type='DEEvidenceReference' AND reference_id='${evidenceId}')`);
+}

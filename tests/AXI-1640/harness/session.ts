@@ -118,14 +118,14 @@ export async function openSession(page: Page, who: Who, t: Tenant): Promise<void
   await seedBrowserSession(page, await tokensFor(who), t.workspaceId, t.orgId);
 }
 
-/** Make the non-admin `user` role a workspace VIEWER of the tenant workspace (idempotent). */
-export async function ensureViewerMember(api: Api, t: Tenant): Promise<void> {
-  const tokens = await roleTokens('user');
+/** Make a suite role (default: the non-admin `user`, as VIEWER) a member of the tenant workspace (idempotent). */
+export async function ensureViewerMember(api: Api, t: Tenant, who: 'user' | 'admin' = 'user', role = 'viewer'): Promise<void> {
+  const tokens = await roleTokens(who);
   const me = await api.ctx.get(apiUrl('/api/v1/auth/me'), { headers: { Authorization: `Bearer ${tokens.accessToken}` } });
   const meBody = await me.json();
   const userId = meBody.userId ?? meBody.id;
   const res = await api.post(`/api/v1/workspaces/${t.workspaceId}/members`, {
-    userId, organizationId: t.orgId, role: 'viewer',
+    userId, organizationId: t.orgId, role,
   }, t.headers);
   // 409 = already a member from an earlier run.
   if (res.status >= 300 && res.status !== 409) {
