@@ -569,8 +569,9 @@ two can disagree).
 
 ## `rules/riazConnectorRules.spec.ts` (AXI-1565 — FR34)
 
-`stage:rules` over the describe surface: the four SUMMARY **connector** rules
-Q12–Q21 cite (system seeds — proved present and entitled, never re-authored)
+`stage:rules` over the describe surface: the eight SUMMARY **connector** rules
+Q12–Q35 cite (system seeds — proved present and entitled, never re-authored;
+AXI-1581 added the four shape connectors)
 and the three DESCRIBE **carrier** rules the runs themselves cite (resolved by
 the `op:<operationId>` tag, exactly as `RuleRunsAnalysisRunner.resolveRuleId`
 does). A missing carrier is what made the first live Q12 run fail on the demo
@@ -583,8 +584,24 @@ node error.
 | UT-E2E-DESC-023 | a connector absent, unpublished or bound to the wrong operation is a problem; a correct one is silent | Pass |
 | UT-E2E-DESC-024 | the carrier is resolved by the runner's own predicate — system scope, published, `op:` tag, newest version | Pass |
 | UT-E2E-DESC-025 | a missing carrier reports the operation that cannot resolve, and the remedy | Pass |
-| UT-E2E-DESC-026 | the staged surface is the four cited connectors over the three describe operations | Pass |
+| UT-E2E-DESC-026 | the staged surface is the eight cited connectors over the three describe operations | Pass |
 | UT-E2E-DESC-033 | the rule listing pages until the server says there is no next page (a truncated listing would report a present carrier missing) | Pass |
+
+## `rules/connectorShapes.spec.ts` (AXI-1581 — epic AXI-1575, FR13–FR16)
+
+A staged question CITES a connector and DECLARES the parameters its describe node
+will bind. `connectorShapes.ts` mirrors the eight seeded parameter schemes just
+far enough to ask, offline, whether the two agree — the check that was missing
+when Q20 kept citing `SUM-RANK-01` with `aggregation: std` after AXI-1581 narrowed
+that enum to {mean, sum}. Without it the contradiction surfaces only at the end of
+a live `stage:riaz-questions` run, as an unbindable connector on the last question.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-E2E-CONN-1581-001 | every expected describe result cites a connector that can bind its own declared parameters (operation, required params, arity, enums) | Pass |
+| UT-E2E-CONN-1581-002 | every question prompt cites the same connector its expectation asserts | Pass |
+| UT-E2E-CONN-1581-003 | the mirrored shapes cover exactly the connectors `stage:rules` entitles | Pass |
+| UT-E2E-CONN-1581-004 | the guard names the two AXI-1581 narrowings it exists to catch (std on SUM-RANK-01, two group columns on SUM-COUNT-01) and stays silent on SUM-SPREAD-01 | Pass |
 
 ## `capture/masters/m13DescribeResultQ12.spec.ts` (AXI-1565 — FR37/AC14)
 

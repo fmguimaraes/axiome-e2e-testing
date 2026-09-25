@@ -269,7 +269,9 @@ export const DESCRIBE_EXPECTED: Record<string, DescribeExpectation> = {
     results: [
       {
         cohort: 'timepoint eq Pre',
-        connector: 'SUM-RANK-01',
+        // AXI-1581: a std ranking is SUM-SPREAD-01's shape — SUM-RANK-01's
+        // aggregation enum was narrowed to {mean, sum} and can no longer bind it.
+        connector: 'SUM-SPREAD-01',
         operationId: 'describe.grouped_aggregate',
         nGroups: 24,
         parameters: { groupColumns: ['gene'], valueColumn: 'log2_cpm', aggregation: 'std', direction: 'desc' },

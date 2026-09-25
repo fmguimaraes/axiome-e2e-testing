@@ -1,13 +1,14 @@
 /**
- * AXI-1565 (epic AXI-1555 — FR34) — the four SUMMARY **connector rules** the ten
- * descriptive Riaz questions cite, made visible to the Riaz tenant by
+ * AXI-1565 (epic AXI-1555 — FR34), extended by AXI-1581 (epic AXI-1575 —
+ * FR13–FR16) — the eight SUMMARY **connector rules** the descriptive Riaz
+ * questions cite, made visible to the Riaz tenant by
  * `stage:rules`.
  *
  * They are NOT authored here. Unlike every other rule in `riazRuleLibrary.ts`, a
  * connector carries an `operationId` + `parameterScheme` (AXI-1559) that the
  * public `POST /rules` DTO does not accept, and they ship as PUBLISHED SYSTEM
  * seeds (`apps/organization-service/src/rules/seed-rules.ts`) so every
- * environment has the identical four. Re-authoring them from the staging repo
+ * environment has the identical eight. Re-authoring them from the staging repo
  * would create a second, drifting definition of a governed rule — the exact
  * thing `ensureRule`'s "bump the code, never re-version" rule exists to prevent.
  *
@@ -21,7 +22,7 @@ import type { RestClient } from '../client/RestClient';
 import { ADMIN_HANDLE } from '../steps/context';
 import { asList, must, type RuleRow } from './ensureRule';
 
-/** The four codes, with the describe operation each one binds (AXI-1559 seeds). */
+/** The eight codes, with the describe operation each one binds (AXI-1559 + AXI-1581 seeds). */
 export const RIAZ_CONNECTORS: ReadonlyArray<{ code: string; operationId: string }> = Object.freeze([
   { code: 'SUM-RANK-01', operationId: 'describe.grouped_aggregate' },
   { code: 'SUM-CROSS-01', operationId: 'describe.grouped_aggregate' },
@@ -108,7 +109,7 @@ export interface EnsureConnectorsOptions {
   dryRun?: boolean;
 }
 
-/** FR34 — the four connectors, proved present and entitled for the Riaz tenant. */
+/** FR34 — the eight connectors, proved present and entitled for the Riaz tenant. */
 export async function ensureConnectorsVisible(
   client: RestClient,
   tenant: { organizationId: string | null },
