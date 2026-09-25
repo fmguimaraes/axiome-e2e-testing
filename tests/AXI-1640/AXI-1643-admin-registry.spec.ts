@@ -27,6 +27,12 @@ test.afterAll(async () => {
   await disposeArranged(ctx);
 });
 
+/** Registered type ids as the gateway reports them. */
+async function typeIds(): Promise<string[]> {
+  const res = await ctx.platform.get('/api/v1/evidence-types');
+  return (res.body as Array<{ type_id: string }>).map((r) => r.type_id);
+}
+
 test('AC2 @SI-030 @SI-031 — E2E-1640-A1: admin lists registered evidence types and filters by id', async ({ page }) => {
   const typeId = `e2e_list_${uniq()}`;
   await registerTypeViaApi(ctx.platform, syntheticTypeBody(typeId));
@@ -142,10 +148,8 @@ test('AC3 @SI-031 — E2E-1640-A5: deleting an unreferenced type removes it from
   await page.getByTestId('evidence-type-delete-confirm').click();
   await expect(page.getByTestId('evidence-types-delete-conflict')).toHaveCount(0);
   await expect(page.getByTestId(`evidence-type-row-${freeType}`)).toHaveCount(0);
-  // Server truth: still gone after a reload.
-  await page.reload();
-  await page.getByTestId('evidence-types-search').fill(freeType);
-  await expect(page.getByTestId(`evidence-type-row-${freeType}`)).toHaveCount(0);
+  // Server truth: gone from the registry.
+  expect(await typeIds()).not.toContain(freeType);
 });
 
 test('AC3 @SI-031 — E2E-1640-A5b: deleting a type that evidence depends on is refused (409) and the row stays', async ({ page }) => {
@@ -167,9 +171,8 @@ test('AC3 @SI-031 — E2E-1640-A5b: deleting a type that evidence depends on is 
     await expect(conflict).toBeVisible();
     await expect(conflict).toContainText(/depend on it/i);
     await expect(page.getByTestId(`evidence-type-row-${busyType}`)).toBeVisible();
-    await page.reload();
-    await page.getByTestId('evidence-types-search').fill(busyType);
-    await expect(page.getByTestId(`evidence-type-row-${busyType}`)).toBeVisible();
+    // Server truth: still registered.
+    expect(await typeIds()).toContain(busyType);
   } finally {
     setEvidenceType(ev.evidence_id, 'rnaseq_de_table');
   }
