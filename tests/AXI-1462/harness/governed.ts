@@ -78,7 +78,20 @@ export function buildEnvelope(
   };
 }
 
-/** Discover an available dataset in the workspace to anchor a governed run on. */
+/**
+ * Discover an available dataset in the workspace to anchor a governed run on.
+ *
+ * KNOWN DEFECT — do not trust this function's `columns`/`versionHash` for any
+ * measurement (AXI-1616, 2026-09-25). It reads the workspace dataset **list**
+ * endpoint, which carries neither a column schema nor a version hash, so both
+ * `??` chains below fall through to `[]` and the literal `'sha256:unknown'`
+ * WITHOUT failing. The 2026-09-25 FR28/FR30 shadow run was therefore conducted
+ * against a dataset with no schema at all — both planner arms refused, and
+ * neither the shape-coverage nor the cache-read comparison in
+ * `axiome-docs/reports/2026-09-25-compiled-planner-shadow-run.md` measures
+ * anything. Fix before the next shadow run: read the dataset detail/schema
+ * endpoint, and throw rather than anchor on an empty column list.
+ */
 export async function anchorDataset(api: Api, workspaceId: string): Promise<
   { datasetId: string; name: string; versionHash: string; columns: Array<{ name: string; type: string }> } | null
 > {

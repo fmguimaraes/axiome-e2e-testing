@@ -99,6 +99,16 @@ function shapeOf(plan: PlanApiBody['plan']): string {
   return shaped?.nodeType ?? 'unknown';
 }
 
+/**
+ * KNOWN DEFECT — `planned` is not comparable across arms (AXI-1616, 2026-09-25).
+ * A legacy-arm response carrying one `profile` node, every analysis in
+ * `declined[]` and an empty `datasetsUsed[]` is a REFUSAL, but it scores
+ * `planned` here because `body.plan` exists and neither flag is set; the
+ * compiled arm spells the identical answer `unsupported`. On the 2026-09-25 run
+ * this made the two arms look as if they disagreed on six questions when they
+ * agreed on all of them (see the FR30 report). Fix: treat an all-declined,
+ * no-dataset-used plan as a refusal on both arms.
+ */
 function outcomeOf(body: PlanApiBody, status: number): ShadowRunOutcome {
   if (status >= 300 || !body.plan) return 'unavailable';
   if (body.intentUnsupported) return 'unsupported';
