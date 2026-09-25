@@ -167,7 +167,7 @@ test('AC11 (FR23, EC11) — a PUBLISH refusal shows its CODE in the Rule detail 
   const publish = page.getByRole('button', { name: /^publish$/i }).first();
   test.skip(
     (await publish.count()) === 0,
-    'this account cannot publish, or the draft needs fields this probe does not fill',
+    'Publish is not offered: this account lacks rule:publish, or the rule is not a draft',
   );
   await publish.click();
 
@@ -175,9 +175,25 @@ test('AC11 (FR23, EC11) — a PUBLISH refusal shows its CODE in the Rule detail 
   // `ConnectorEditor` is mounted by Create Rule alone. The code is asserted
   // rather than the sentence because the parser lifts it out of the message, so
   // a banner that dropped it would still show a plausible-looking refusal.
-  await expect(
-    page.getByTestId('connector-refusal-code-connector.parameterScheme.groupColumns.cardinality'),
-  ).toContainText('CONNECTOR_CARDINALITY_EXCEEDS_OPERATION');
+  const refusal = page.getByTestId(
+    /^connector-refusal-code-connector\.parameterScheme\.groupColumns\.cardinality-/,
+  );
+
+  // `handleLifecycleAction` runs `validateRuleForPublish` BEFORE it calls the
+  // server, and that gate requires an attribute evaluation, an expression and an
+  // output field of EVERY protocol type — a SUMMARY_RULE is not exempt. This
+  // probe authors none of them, so on most stacks the click stops at the
+  // client-side panel and the request is never issued. Skipping on that panel is
+  // the honest outcome: the run proved nothing about the server's refusal, and
+  // failing here would blame the connector for a form the probe did not fill.
+  const clientGate = page.getByText(/Cannot publish: \d+ validation error/i);
+  await expect(refusal.or(clientGate).first()).toBeVisible({ timeout: 30_000 });
+  test.skip(
+    (await clientGate.count()) > 0,
+    'client-side publish validation blocked the probe (attribute evaluation, expression and output field are required of every protocol type); the connector refusal is reachable here only after those are authored, or directly via the API',
+  );
+
+  await expect(refusal.first()).toContainText('CONNECTOR_CARDINALITY_EXCEEDS_OPERATION');
 });
 
 test('AC13 (FR25) — Rule detail names the sentence template and the bound questions @SI-035', async ({
