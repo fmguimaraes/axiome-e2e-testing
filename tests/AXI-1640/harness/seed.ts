@@ -279,7 +279,7 @@ export async function createGlossaryViaApi(api: Api, t: Tenant, category: string
   const cat = await api.post(`/api/v1/workspaces/${t.workspaceId}/glossary/categories`, { name: category }, t.headers);
   if (cat.status >= 300) throw new Error(`create glossary category failed (${cat.status}): ${JSON.stringify(cat.body)}`);
   const term = await api.post(`/api/v1/workspaces/${t.workspaceId}/glossary/terms`, {
-    categoryId: cat.body.id, label: 'E2E term', columnName: 'e2e_col',
+    categoryId: cat.body.id, label: 'E2E term', columnName: `e2e_col_${uniq()}`,
   }, t.headers);
   if (term.status >= 300) throw new Error(`create glossary term failed (${term.status}): ${JSON.stringify(term.body)}`);
 }
