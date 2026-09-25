@@ -7,9 +7,9 @@ import { apiUrl } from '../../../config/env';
 
 /**
  * AXI-1650 (epic AXI-1640) — REST seeding for the evidence-registry validation
- * surfaces. The front end has NO Finalize action (declare -> finalize is a
- * backend flow), so a supersede-able FINALIZED DE evidence is created here
- * through the same gateway routes the platform exposes:
+ * surfaces. Most specs seed a supersede-able FINALIZED DE evidence over the API
+ * (fast path; the front-end Finalize action landed with AXI-1665 and is itself
+ * exercised by AXI-1665-finalize.spec.ts) through the same gateway routes:
  *   POST /de-evidence-references/register-existing  (draft v1)
  *   POST /de-evidence-references/:id/finalize       (immutable)
  *
@@ -134,7 +134,7 @@ export async function registerDraftEvidence(api: Api, t: Tenant, opts: RegisterO
   return res.body.evidence;
 }
 
-/** Finalize a draft evidence — the only way to a supersede-able version (no front-end Finalize). */
+/** Finalize a draft evidence — the only way to a supersede-able version (API fast path; the UI Finalize is covered by AXI-1665-finalize.spec.ts). */
 export async function finalizeEvidence(api: Api, t: Tenant, evidenceId: string): Promise<DeEvidence> {
   const res = await api.post(`/api/v1/de-evidence-references/${evidenceId}/finalize?project_id=${t.projectId}`, {}, t.headers);
   if (res.status >= 300) throw new Error(`finalize failed (${res.status}): ${JSON.stringify(res.body)}`);

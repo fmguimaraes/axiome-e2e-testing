@@ -81,7 +81,7 @@ test('AC2 AC3 @SI-030 @SI-031 — E2E-1640-A2: admin registers a synthetic type 
 
 test('AC3 @SI-031 — E2E-1640-A3: registering a duplicate type_id shows an inline conflict on type_id', async ({ page }) => {
   const typeId = `e2e_dup_${uniq()}`;
-  // Empty declaration form on both sides: isolates the 409 from the declaration-form path (see B1 in the scenario doc).
+  // Empty declaration form on both sides: isolates the 409 from the declaration-form path.
   await registerTypeViaApi(ctx.platform, syntheticTypeBody(typeId, []));
   created.push(typeId);
   await openSession(page, 'platform', ctx.t);

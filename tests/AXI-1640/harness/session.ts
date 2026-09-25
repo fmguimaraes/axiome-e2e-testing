@@ -76,7 +76,7 @@ async function tokensFor(who: Who) {
 }
 
 /** Bearer-authenticated JSON client (same shape as the AXI-1400 `Api`). */
-async function apiWith(accessToken: string): Promise<Api> {
+export async function apiWith(accessToken: string): Promise<Api> {
   const ctx = await apiRequest.newContext({ extraHTTPHeaders: { Authorization: `Bearer ${accessToken}` } });
   const parse = async (res: APIResponse) => {
     const text = await res.text();
