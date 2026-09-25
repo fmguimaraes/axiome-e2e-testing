@@ -28,6 +28,17 @@ import { runShadowBank, writeShadowRunRows } from './harness/shadow';
  * A 46-question live run against a real Anthropic-backed provider can take
  * several minutes per provider (up to 5 attempts x 150s deadline on a hard
  * case) — this spec's own timeout is sized generously rather than tuned.
+ *
+ * AXI-1616 — `ensureTenant()`'s own dedicated workspace ("AXI-1435 Statistical
+ * Trigger Surface") carries no ingested dataset, so `anchorDataset()` always
+ * returns `null` there and the run skips (honest, not a defect — AC21's own
+ * comment already documents this as "deferred to the W5 acceptance
+ * environment"). `SHADOW_RUN_WORKSPACE_ID`/`SHADOW_RUN_PROJECT_ID` let the
+ * operator point the run at a workspace/project that already has a real
+ * ingested dataset (e.g. the seeded "Public Datasets — IO Benchmarks" /
+ * "Riaz 2017 — Nivolumab Melanoma" pair) instead — never fabricated, always a
+ * real dataset already in the tenant. Unset, behaviour is unchanged
+ * (`ensureTenant()`).
  */
 test.describe.configure({ mode: 'serial', timeout: 30 * 60_000 });
 
@@ -37,6 +48,13 @@ let projectId: string;
 
 test.beforeAll(async () => {
   api = await adminApi();
+  const overrideWorkspaceId = process.env.SHADOW_RUN_WORKSPACE_ID;
+  const overrideProjectId = process.env.SHADOW_RUN_PROJECT_ID;
+  if (overrideWorkspaceId && overrideProjectId) {
+    workspaceId = overrideWorkspaceId;
+    projectId = overrideProjectId;
+    return;
+  }
   const t = await ensureTenant(api);
   workspaceId = t.workspaceId;
   projectId = t.projectId;

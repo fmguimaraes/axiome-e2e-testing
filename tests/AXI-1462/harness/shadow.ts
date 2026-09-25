@@ -10,7 +10,7 @@ import { loadGradosBank, buildEnvelope } from './governed';
  * whichever `GUIDED_ANALYSIS_LLM_PROVIDER` the caller says the backend is
  * currently configured with, and write the raw per-question rows the
  * `axiome-back` aggregation script
- * (`guided-analysis/plan/compile/shadow-report/generate-shadow-report.ts`)
+ * (`guided-analysis/shadow-run/generate-shadow-report.ts`)
  * turns into the FR28 Markdown table.
  *
  * `GUIDED_ANALYSIS_LLM_PROVIDER` is read ONCE by `createPlanner()` at Nest
