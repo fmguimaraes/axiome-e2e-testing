@@ -459,7 +459,7 @@ and the 4 source-dataset filenames the mechanism resolves ids for
 
 ## `riazEvidenceText.spec.ts` (AXI-1588 — Q12–Q21 userCharts[] plans)
 
-> **Q20 retired (AXI-1575 amendments):** Q20 duplicated Q33 and is removed from the question pack; the "Q12–Q21" wording below now means Q12–Q19 and Q21. Ids are not renumbered. UT-E2E-DESC-016 now expects 25 descriptive questions.
+> **Q20 retired (AXI-1575 amendments):** Q20 duplicated Q33 and is removed from the question pack; the "Q12–Q21" wording below now means Q12–Q19, Q21 and Q33 (Q20's three `userCharts[]` plans and its interpretation were re-attached to Q33). Ids are not renumbered. UT-E2E-DESC-016 now expects 25 descriptive questions.
 
 | UT-STAGE-205 | every Q12–Q21 question carries at least 3 `userCharts[]` plans (AC — recommended + ≥3 shows ≥4 charts total) | Pass |
 | UT-STAGE-206 | every Q12–Q21 plan has a unique title within its question (find-or-create-by-title depends on it) | Pass |

@@ -10,7 +10,7 @@
  *
  * Two deviations from `axiome-docs/demo/riaz-2017/Riaz-Guided-Questions.md`, both
  * deliberate and both recorded in the report:
- *  - **Q20 standard deviations are POPULATION SD** (`ddof=0`), because bio-compute's
+ *  - **Q33 (ex-Q20) standard deviations are POPULATION SD** (`ddof=0`), because bio-compute's
  *    `std` aggregation is population SD (AXI-1557, pre-existing). The doc quotes the
  *    sample SD (CXCL9 2.81); the ranking is identical, the values differ in the second
  *    decimal (CXCL9 2.76), and asserting the doc's number would fail a CORRECT platform.

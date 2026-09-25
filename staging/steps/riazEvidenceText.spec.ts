@@ -90,7 +90,8 @@ test('UT-STAGE-167: confidence band maps the rule confidence — ≥0.75 high, �
 // find-or-create-by-title mechanic in `riazUserCharts.ts` depends on it), and
 // every question carries exactly one `userCharts[]` interpretation.
 
-const Q12_TO_Q21 = ['Q12', 'Q13', 'Q14', 'Q15', 'Q16', 'Q17', 'Q18', 'Q19', 'Q21'];
+// Q20 was retired (duplicate of Q33); its chart plans live on Q33. Name kept for the UT-STAGE-205..209 rows.
+const Q12_TO_Q21 = ['Q12', 'Q13', 'Q14', 'Q15', 'Q16', 'Q17', 'Q18', 'Q19', 'Q21', 'Q33'];
 
 test('UT-STAGE-205: every Q12–Q21 question carries at least 3 userCharts[] plans (AC — recommended + ≥3 shows ≥4 charts total)', () => {
   for (const qId of Q12_TO_Q21) {

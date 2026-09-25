@@ -294,6 +294,17 @@ const Q19_USER_CHARTS: UserChartPlan[] = [
   },
 ];
 
+/** Chart-Enrichment-Brief §2 Q20 (retired, re-attached to its duplicate Q33; AXI-1575 amendments) — baseline variability (population sd, ranked). */
+const Q33_USER_CHARTS: UserChartPlan[] = [
+  { key: 'ridge', templateId: 'ridgeline_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'Pre')], bindings: { y: 'log2_cpm', group: 'gene' }, title: 'Q33 · Baseline expression landscape, all genes (PAIRED, ridgeline)', reading: 'The full baseline distribution per gene — CXCL9\'s ridge is visibly wider than IFNG\'s, matching the population-sd ranking (CXCL9 2.76 highest, IFNG 0.96 lowest).' },
+  { key: 'strip', templateId: 'strip_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'Pre')], bindings: { y: 'log2_cpm', group: 'gene' }, title: 'Q33 · Baseline, every patient by gene (PAIRED, strip)', reading: 'Every individual baseline measurement, one gene column per position — the raw spread the sd ranking summarises into one number per gene.' },
+  {
+    key: 'violin', templateId: 'violin_v1', dataset: 'PAIRED', filters: [eq('timepoint', 'Pre'), inList('gene', ['CXCL9', 'CXCL10', 'IFNG', 'PDCD1'])], bindings: { y: 'log2_cpm', group: 'gene' }, title: 'Q33 · Highest/lowest-variability genes, full distribution (PAIRED, violin)',
+    reading: 'CXCL9 and CXCL10 (widest baseline spread) against IFNG and PDCD1 (narrowest) — the two ends of the sd ranking as full distributions.',
+    interpretation: { label: 'a wide baseline spread is not the same signal as Q4\'s non-separating baseline', text: 'CXCL9\'s wide baseline spread (this question) and its lack of response-predictive power at baseline are two different properties — high patient-to-patient variability does not by itself mean a gene separates responders from non-responders; it just means individual baseline values vary a lot.' },
+  },
+];
+
 /** Chart-Enrichment-Brief §2 Q21 — the 24-gene immune panel within the baseline DE table. */
 const Q21_USER_CHARTS: UserChartPlan[] = [
   { key: 'volcano', templateId: 'volcano_v1', dataset: 'DE', filters: [inList('gene', RIAZ_24_PANEL_Q)], bindings: { x: 'log2FoldChange', y: 'pvalue' }, title: 'Q21 · 24-gene immune panel in the baseline DE table (DE, volcano)', reading: 'The same volcano as Q8, restricted to the 24-gene immune panel. Every panel gene sits below the significance line — none of the 24 clears padj<0.05 in this baseline contrast (min padj 0.21, at IDO1).' },
@@ -505,6 +516,7 @@ export const QUESTION_CONFIG: Record<string, QuestionConfig> = {
   Q18: { focusGenes: ['CXCL9'], cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q18_USER_CHARTS },
   Q19: { focusGenes: RIAZ_24_PANEL_Q, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q19_USER_CHARTS },
   Q21: { focusGenes: RIAZ_24_PANEL_Q, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q21_USER_CHARTS },
+  Q33: { focusGenes: RIAZ_24_PANEL_Q, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'biomarker_threshold', userCharts: Q33_USER_CHARTS },
   // AXI-1587 — Q22–Q31 describe questions: only `userCharts` and `decisionType`
   // (for the userCharts[] interpretation decisions) are live on this path.
   Q22: { focusGenes: CYTOTOXIC_FOCUS, cohortNames: DEFAULT_COHORT_NAMES, decisionHeadline: noHeadline, decisionType: 'phenotype_classification', userCharts: Q22_USER_CHARTS },
