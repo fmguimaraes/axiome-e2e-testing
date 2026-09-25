@@ -118,7 +118,7 @@ test('AC10 (FR22, FR24) — the `semantic` control offers the platform\'s canoni
   }
 });
 
-test('AC11 (FR23, EC11) — a publish refusal shows its CODE beside the field it names @SI-035', async ({
+test('AC11 (FR23, EC11) — a PUBLISH refusal shows its CODE in the Rule detail banner @SI-035', async ({
   page,
 }) => {
   const { editor, listing } = await openConnectorForm(page);
@@ -129,6 +129,13 @@ test('AC11 (FR23, EC11) — a publish refusal shows its CODE beside the field it
   const groupColumns = grouped!.tableInputScheme.find((role) => role.role === 'groupColumns');
   test.skip(!groupColumns, 'groupColumns is not offered on this stack');
 
+  // CREATE, then PUBLISH — two different gates, and only the second one emits
+  // this code. `CONNECTOR_CARDINALITY_EXCEEDS_OPERATION` comes from
+  // `validateConnectorForPublish`; the SHAPE validator the create path runs
+  // declines to judge a bound it would have to look the operation up to know
+  // (`rule-connector-shape.ts`), so Create Rule stores the draft and navigates
+  // to `/rules/:id` with no refusal at all. Asserting it after Create would
+  // assert a message the create path structurally cannot produce.
   await editor.getByLabel('Connector operation').selectOption('describe.grouped_aggregate');
 
   // A cardinality ABOVE the kernel role's own bound, typed into a free-text
@@ -145,15 +152,32 @@ test('AC11 (FR23, EC11) — a publish refusal shows its CODE beside the field it
   await editor.getByLabel('Minimum columns for groupColumns').fill('1');
   await editor.getByLabel('Maximum columns for groupColumns').fill('99');
 
-  const submit = page.getByRole('button', { name: /^(create|save|publish)/i }).first();
-  test.skip((await submit.count()) === 0, 'no submit control on this build');
-  await submit.click();
+  await page.getByPlaceholder('e.g., IMM-ACT-01').fill(`SUM-E2E-${Date.now() % 100000}`);
+  await page
+    .getByPlaceholder('e.g., Evidence of immune activation')
+    .fill('AXI-1633 cardinality refusal probe');
 
-  // FR23 gives the publish validator the only vote, so this is the SERVER's
-  // refusal, rendered with the code it only began sending in this story.
-  await expect(editor.getByTestId('connector-refusal-code-groupColumns')).toContainText(
-    'CONNECTOR_CARDINALITY_EXCEEDS_OPERATION',
+  const create = page.getByRole('button', { name: /^create rule$/i }).first();
+  test.skip((await create.count()) === 0, 'no create control on this build');
+  await create.click();
+
+  // The draft was accepted; the refusal is still ahead of us.
+  await page.waitForURL(/\/rules\/[0-9a-f-]{8,}$/i, { timeout: 30_000 });
+
+  const publish = page.getByRole('button', { name: /^publish$/i }).first();
+  test.skip(
+    (await publish.count()) === 0,
+    'this account cannot publish, or the draft needs fields this probe does not fill',
   );
+  await publish.click();
+
+  // Rule detail's banner is the ONLY screen a publish refusal is ever shown on:
+  // `ConnectorEditor` is mounted by Create Rule alone. The code is asserted
+  // rather than the sentence because the parser lifts it out of the message, so
+  // a banner that dropped it would still show a plausible-looking refusal.
+  await expect(
+    page.getByTestId('connector-refusal-code-connector.parameterScheme.groupColumns.cardinality'),
+  ).toContainText('CONNECTOR_CARDINALITY_EXCEEDS_OPERATION');
 });
 
 test('AC13 (FR25) — Rule detail names the sentence template and the bound questions @SI-035', async ({
