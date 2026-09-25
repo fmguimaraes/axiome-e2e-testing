@@ -33,6 +33,28 @@ export async function adminToken(): Promise<string> {
   return cachedToken;
 }
 
+/**
+ * AXI-1677 (epic AXI-1604 — FR28/FR30, @SI-042). Drop the cached access token so
+ * the next `adminToken()` mints a fresh one.
+ *
+ * WHY THIS EXISTS. `adminToken()` caches the token for the whole process, which
+ * is right for a spec that runs in seconds and wrong for one that runs for an
+ * hour. The 2026-09-25 shadow run outlasted the token's TTL partway through the
+ * legacy arm: 39 of its 46 rows were 4-13 ms `401 Invalid token` responses
+ * recorded as the outcome `unavailable`, indistinguishable in the report table
+ * from a planner that failed to answer
+ * (`axiome-docs/reports/2026-09-25-compiled-planner-shadow-run.md`). The
+ * exclusion set had to be reconstructed by hand from row latencies afterwards.
+ *
+ * `ensureAuthTokens()` performs a real login every call (`config/auth.ts`), so
+ * resetting the cache genuinely re-authenticates rather than returning the same
+ * expired string. A caller that resets MUST also build a new `Api` — the
+ * `Authorization` header is baked into the `APIRequestContext` at creation.
+ */
+export function resetAdminToken(): void {
+  cachedToken = undefined;
+}
+
 /** Gateway routes under `/api/v1/projects/*` (and siblings) read tenant scope from a header. */
 export function workspaceHeader(workspaceId: string): Record<string, string> {
   return { 'X-Workspace-Id': workspaceId };

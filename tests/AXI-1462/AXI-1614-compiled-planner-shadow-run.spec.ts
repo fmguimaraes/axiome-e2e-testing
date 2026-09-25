@@ -1,8 +1,13 @@
 import { test, expect } from '@playwright/test';
-import { adminApi, type Api } from '../AXI-1435/harness/api';
 import { ensureTenant } from '../AXI-1435/harness/seed';
 import { anchorDataset } from '../AXI-1604/harness/anchor-dataset';
-import { runShadowBank, writeShadowRunRows } from './harness/shadow';
+import {
+  createAdminShadowRunAuth,
+  runShadowBank,
+  shouldRunArm,
+  writeShadowRunRows,
+  type ShadowRunAuth,
+} from './harness/shadow';
 
 /**
  * AXI-1614 (epic AXI-1603 — FR28, AC21, SI-042). The compiled-planner shadow
@@ -39,15 +44,46 @@ import { runShadowBank, writeShadowRunRows } from './harness/shadow';
  * "Riaz 2017 — Nivolumab Melanoma" pair) instead — never fabricated, always a
  * real dataset already in the tenant. Unset, behaviour is unchanged
  * (`ensureTenant()`).
+ *
+ * AXI-1677 adds three operator controls, all defaulting to the previous
+ * behaviour:
+ *
+ *   SHADOW_RUN_DATASET_ID   Anchor EXACTLY this dataset instead of the first
+ *                           available one in the workspace. The workspace the
+ *                           run uses holds ~150 datasets, many of them
+ *                           intermediate `*_result.parquet` files with a NULL
+ *                           `file_hash`, so "the first one" is neither stable
+ *                           across runs nor necessarily anchorable. A gate
+ *                           measurement names its own input. A targeted id that
+ *                           cannot be reached THROWS — it never falls back.
+ *                           (`tests/AXI-1604/AXI-1677-synthetic-grados-seed.spec.ts`
+ *                           seeds and prints an id suitable for this.)
+ *
+ *   SHADOW_RUN_ARMS         Comma-separated provider arms this operator intends
+ *                           to run, e.g. `compiled`. An invocation whose
+ *                           SHADOW_RUN_PROVIDER is not in the list SKIPS, so one
+ *                           env setting can drive both invocations and the
+ *                           legacy one becomes a no-op. FR30(c) v0.5 withdrew
+ *                           the "no lower than the legacy arm's" clause, so the
+ *                           amended gate no longer compares the arms and no
+ *                           longer needs a second paid 46-question run. Unset,
+ *                           every arm runs, exactly as before.
+ *
+ *   SHADOW_RUN_REAUTH_EVERY How many questions between proactive token
+ *                           re-mints (default 10, `0` disables). The E2E access
+ *                           token's TTL is shorter than a full 46-question run:
+ *                           on 2026-09-25 it expired at Q8 of the legacy arm and
+ *                           39 of 46 rows were 401s recorded as `unavailable`.
+ *                           A 401 that survives a refresh now FAILS the run.
  */
 test.describe.configure({ mode: 'serial', timeout: 30 * 60_000 });
 
-let api: Api;
+let auth: ShadowRunAuth;
 let workspaceId: string;
 let projectId: string;
 
 test.beforeAll(async () => {
-  api = await adminApi();
+  auth = await createAdminShadowRunAuth();
   const overrideWorkspaceId = process.env.SHADOW_RUN_WORKSPACE_ID;
   const overrideProjectId = process.env.SHADOW_RUN_PROJECT_ID;
   if (overrideWorkspaceId && overrideProjectId) {
@@ -55,13 +91,13 @@ test.beforeAll(async () => {
     projectId = overrideProjectId;
     return;
   }
-  const t = await ensureTenant(api);
+  const t = await ensureTenant(auth.api());
   workspaceId = t.workspaceId;
   projectId = t.projectId;
 });
 
 test.afterAll(async () => {
-  await api?.ctx.dispose();
+  await auth?.api().ctx.dispose();
 });
 
 test(
@@ -69,11 +105,22 @@ test(
   { tag: ['@SI-045'] },
   async () => {
     const provider = process.env.SHADOW_RUN_PROVIDER ?? 'unspecified';
-    const dataset = await anchorDataset(api, workspaceId, projectId);
+    const arms = process.env.SHADOW_RUN_ARMS;
+    test.skip(
+      !shouldRunArm(arms, provider),
+      `provider '${provider}' is not in SHADOW_RUN_ARMS='${arms}' — this arm is not being run`,
+    );
+
+    const dataset = await anchorDataset(auth.api(), workspaceId, projectId, {
+      datasetId: process.env.SHADOW_RUN_DATASET_ID,
+    });
     test.skip(!dataset, 'could not anchor a dataset for the shadow run — deferred to the W5 acceptance environment');
     if (!dataset) return;
 
-    const rows = await runShadowBank(api, workspaceId, projectId, provider, [dataset]);
+    const reauthEvery = process.env.SHADOW_RUN_REAUTH_EVERY;
+    const rows = await runShadowBank(auth, workspaceId, projectId, provider, [dataset], {
+      ...(reauthEvery === undefined ? {} : { reauthEveryQuestions: Number(reauthEvery) }),
+    });
     expect(rows).toHaveLength(46);
 
     const path = writeShadowRunRows(provider, rows);

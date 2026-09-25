@@ -120,19 +120,34 @@ async function ensureStatisticalRules(api: Api): Promise<Record<string, string>>
 const INGEST_TIMEOUT_MS = 90_000;
 const INGEST_POLL_MS = 2_000;
 
-/** Ingest one fixture CSV and link it to the project (link POST is verified). */
-export async function ingestFixture(api: Api, t: Tenant, filename: string): Promise<string> {
+/**
+ * Ingest one fixture CSV and link it to the project (link POST is verified).
+ *
+ * `fixturesDir` (AXI-1677) defaults to this story's own fixtures directory, so
+ * every existing caller is unchanged. A caller whose fixture lives elsewhere —
+ * `tests/AXI-1604/fixtures/synthetic-grados-cohort.csv`, which belongs to the
+ * FR28/FR30 shadow run and not to the statistical-trigger surface — passes its
+ * own directory rather than parking an unrelated CSV in AXI-1435's folder. The
+ * ingestion PATH is deliberately the same one: the seed must go in the way a
+ * user's upload goes in, or it proves nothing about what the planner will see.
+ */
+export async function ingestFixture(
+  api: Api,
+  t: Tenant,
+  filename: string,
+  fixturesDir: string = FIXTURES_DIR,
+): Promise<string> {
   const ws = t.workspaceId;
   const existing = await api.get(`/api/v1/workspaces/${ws}/datasets?search=${encodeURIComponent(filename)}`, t.headers);
   const prior = asList(existing.body).find((d: any) => d.originalFilename === filename && d.availability === 'available');
-  const datasetId = prior ? prior.id : await uploadAndFinalize(api, t, filename);
+  const datasetId = prior ? prior.id : await uploadAndFinalize(api, t, filename, fixturesDir);
   await ensureLink(api, t, datasetId);
   return datasetId;
 }
 
-async function uploadAndFinalize(api: Api, t: Tenant, filename: string): Promise<string> {
+async function uploadAndFinalize(api: Api, t: Tenant, filename: string, fixturesDir: string): Promise<string> {
   const ws = t.workspaceId;
-  const bytes = readFileSync(join(FIXTURES_DIR, filename));
+  const bytes = readFileSync(join(fixturesDir, filename));
   const init = await api.post(`/api/v1/workspaces/${ws}/datasets`, {
     organizationId: t.orgId, originalFilename: filename, contentType: 'text/csv',
   }, t.headers);

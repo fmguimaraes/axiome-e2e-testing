@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { Api } from '../../AXI-1435/harness/api';
-import { workspaceHeader } from '../../AXI-1435/harness/api';
+import { adminApi, resetAdminToken, workspaceHeader } from '../../AXI-1435/harness/api';
 import { loadGradosBank, buildEnvelope } from './governed';
 
 /**
@@ -67,10 +67,17 @@ export interface ShadowRunRow {
   readonly correlationId?: string;
 }
 
-interface PlanApiBody {
+export interface PlanApiBody {
   plan?: {
     nodes?: Array<{ nodeType?: string; params?: Record<string, unknown> }>;
     attemptCount?: number;
+    /**
+     * AXI-1677 — the two fields that tell a REFUSAL from an answer. Both are
+     * optional on the wire: an older or minimal plan may carry neither, and the
+     * classifier must not invent them.
+     */
+    declined?: unknown[];
+    datasetsUsed?: unknown[];
   };
   plannerFallback?: boolean;
   intentUnsupported?: boolean;
@@ -100,20 +107,186 @@ function shapeOf(plan: PlanApiBody['plan']): string {
 }
 
 /**
- * KNOWN DEFECT — `planned` is not comparable across arms (AXI-1616, 2026-09-25).
- * A legacy-arm response carrying one `profile` node, every analysis in
- * `declined[]` and an empty `datasetsUsed[]` is a REFUSAL, but it scores
- * `planned` here because `body.plan` exists and neither flag is set; the
- * compiled arm spells the identical answer `unsupported`. On the 2026-09-25 run
- * this made the two arms look as if they disagreed on six questions when they
- * agreed on all of them (see the FR30 report). Fix: treat an all-declined,
- * no-dataset-used plan as a refusal on both arms.
+ * Node types that, on their own, analyse NOTHING. `profile` audits the dataset's
+ * structure and `filter` narrows rows; a plan made only of these produces no
+ * answer to the question that was asked, whatever else it contains.
+ *
+ * NOTE this is deliberately NOT `PLAN_STRUCTURAL_NODE_TYPES` from the backend
+ * contract, which also counts `describe`, `join` and `qc_check` as structural. A
+ * `describe` plan over a real dataset IS an answer to a descriptive question,
+ * and calling it a refusal would be a new lie in the opposite direction.
  */
-function outcomeOf(body: PlanApiBody, status: number): ShadowRunOutcome {
+const NON_ANALYTICAL_NODE_TYPES = new Set(['profile', 'filter']);
+
+/**
+ * AXI-1677 (epic AXI-1604 — FR28/FR30). Is this plan a REFUSAL dressed as a plan?
+ *
+ * THE DEFECT THIS REPLACES. `outcomeOf()` used to score any response carrying a
+ * `body.plan` as `planned` unless `intentUnsupported`/`plannerFallback` was set.
+ * A legacy-arm response of one `profile` node, every inferential analysis moved
+ * to `declined[]` and `datasetsUsed: []` satisfied that — so on the 2026-09-25
+ * run six questions read `planned` on the legacy arm and `unsupported` on the
+ * compiled arm when BOTH arms had given the same answer: "this envelope has no
+ * schema; nothing can be planned". The `planned`/`unsupported` columns of that
+ * table are not comparable between arms, and the FR30 report names this the
+ * single most misleading thing in it. The persisted plans are committed at
+ * `axiome-docs/reports/artifacts/2026-09-25-compiled-planner-shadow-run/db-plan-rows.md`
+ * and are what `harness-unit/AXI-1462/shadow.spec.ts` tests this against.
+ *
+ * THE TEST. A plan is a refusal when it USED NO DATASET **and** contains no node
+ * that analyses one. Both halves are required and each catches what the other
+ * misses: `datasetsUsed: []` alone would libel a legitimately dataset-free plan
+ * if one ever existed, and "all nodes are profile/filter" alone would libel a
+ * genuine profiling plan that did read a dataset. `declined[]` is strong
+ * corroboration and is NOT required — a plan that analyses nothing and declines
+ * nothing has still refused the question, it has merely not said so.
+ *
+ * It is applied to BOTH arms, identically. That is the point: a refusal must
+ * cost the same on the arm being measured and on the arm it is compared with.
+ */
+export function isRefusalPlan(plan: PlanApiBody['plan']): boolean {
+  if (!plan) return false;
+  const usedADataset = Array.isArray(plan.datasetsUsed) && plan.datasetsUsed.length > 0;
+  if (usedADataset) return false;
+  const nodes = plan.nodes ?? [];
+  return nodes.every((n) => NON_ANALYTICAL_NODE_TYPES.has(n?.nodeType ?? ''));
+}
+
+/**
+ * The outcome one plan API response is recorded as, most specific label first.
+ *
+ * `refused` is a member of `ShadowRunOutcome` that the harness never emitted
+ * before this story, and of `ShadowRunOutcome` in `axiome-back`'s
+ * `shadow-run-row.ts` / FR28's own outcome vocabulary. Nothing downstream needed
+ * changing to accept it — the report generator was always ready for a label the
+ * harness had simply never used.
+ *
+ * ORDER MATTERS. `intentUnsupported` and `plannerFallback` are the planner's own
+ * explicit statements about what it did, and FR30 conditions (a) and (b) count
+ * exactly those two; `refused` is this harness's INFERENCE from the plan body,
+ * so it must never mask either of them.
+ */
+export function outcomeOf(body: PlanApiBody, status: number): ShadowRunOutcome {
   if (status >= 300 || !body.plan) return 'unavailable';
   if (body.intentUnsupported) return 'unsupported';
   if (body.plannerFallback) return 'fallback';
+  if (isRefusalPlan(body.plan)) return 'refused';
   return 'planned';
+}
+
+/** The HTTP status that means "your token is no longer good", never an outcome. */
+const UNAUTHORIZED = 401;
+
+/**
+ * AXI-1677. Thrown when the run cannot authenticate. It is deliberately an
+ * EXCEPTION and not an outcome: a 401 made no LLM call, produced no plan and
+ * carries no cache datum, so it says nothing whatever about the planner. The
+ * 2026-09-25 run recorded 39 of them as `unavailable` rows and the resulting
+ * table had to be de-contaminated by hand afterwards, from row latencies.
+ */
+export class ShadowRunAuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ShadowRunAuthError';
+  }
+}
+
+/**
+ * The run's authentication, as a seam the run loop can re-mint mid-flight.
+ *
+ * Injected rather than constructed inside `runShadowBank` so the 401 policy is
+ * testable without a backend and without a clock: a stub whose first token is
+ * expired proves the retry, and a stub that cannot refresh proves the loud
+ * failure. `createAdminShadowRunAuth()` is the live implementation.
+ */
+export interface ShadowRunAuth {
+  /** The client the next request should use. */
+  api(): Api;
+  /** Re-authenticate; resolves to the new client. Throws if it cannot. */
+  refresh(): Promise<Api>;
+}
+
+/**
+ * Live admin auth that can re-mint its token. `adminToken()` caches for the
+ * whole process, so refreshing means dropping that cache (`resetAdminToken`) AND
+ * building a new `Api` — the `Authorization` header is baked into the
+ * `APIRequestContext` when it is created and cannot be mutated afterwards.
+ */
+export async function createAdminShadowRunAuth(): Promise<ShadowRunAuth> {
+  let current = await adminApi();
+  return {
+    api: () => current,
+    async refresh() {
+      const previous = current;
+      resetAdminToken();
+      current = await adminApi();
+      await previous.ctx.dispose();
+      return current;
+    },
+  };
+}
+
+export interface ShadowRunOptions {
+  /**
+   * Proactively re-mint the token every N questions. `0` disables the proactive
+   * refresh and leaves only the reactive one.
+   *
+   * WHY BOTH. The reactive path alone is sufficient for correctness but wastes a
+   * round trip and, worse, leaves one question's latency measurement polluted by
+   * a re-login. At the legacy arm's measured 104-180 s per question a 46-question
+   * run is well over an hour, so the token WILL expire; refreshing every ten
+   * questions means it expires between runs instead of inside one.
+   */
+  readonly reauthEveryQuestions?: number;
+}
+
+const DEFAULT_REAUTH_EVERY_QUESTIONS = 10;
+
+interface PlanAttempt {
+  readonly status: number;
+  readonly body: PlanApiBody;
+  readonly latencyMs: number;
+}
+
+/** One `POST /guided-analysis/plan`, timed. No retry, no interpretation. */
+async function planOnce(
+  api: Api,
+  workspaceId: string,
+  projectId: string,
+  envelope: ReturnType<typeof buildEnvelope>,
+): Promise<PlanAttempt> {
+  const startedAt = Date.now();
+  const res = await api.post<PlanApiBody>(
+    '/api/v1/guided-analysis/plan',
+    { projectId, envelope },
+    workspaceHeader(workspaceId),
+  );
+  return { status: res.status, body: res.body, latencyMs: Date.now() - startedAt };
+}
+
+/**
+ * One question's plan call, re-authenticating once on a 401. A 401 that survives
+ * the refresh FAILS THE RUN — it is never written as a row.
+ */
+async function planWithRefresh(
+  auth: ShadowRunAuth,
+  workspaceId: string,
+  projectId: string,
+  questionId: number,
+  envelope: ReturnType<typeof buildEnvelope>,
+): Promise<PlanAttempt> {
+  const first = await planOnce(auth.api(), workspaceId, projectId, envelope);
+  if (first.status !== UNAUTHORIZED) return first;
+  await auth.refresh();
+  const retry = await planOnce(auth.api(), workspaceId, projectId, envelope);
+  if (retry.status === UNAUTHORIZED) {
+    throw new ShadowRunAuthError(
+      `shadow run: question ${questionId} returned 401 again after re-authenticating. ` +
+        'Aborting the run: a 401 made no planner call, so recording it as an outcome would put ' +
+        'a harness artefact in the FR30 gate evidence (as 39 of 46 rows were on 2026-09-25).',
+    );
+  }
+  return retry;
 }
 
 /**
@@ -125,38 +298,68 @@ function outcomeOf(body: PlanApiBody, status: number): ShadowRunOutcome {
  * fabricating a value. `correlationId` IS part of the response (AXI-1624) and
  * IS captured (AXI-1631) — it is the join key that later resolves the token
  * usage and per-attempt rule ids against the FR31 log stream, offline.
+ *
+ * AXI-1677 — takes a `ShadowRunAuth` rather than a bare `Api`, because a run
+ * this long outlives its own access token; see `ShadowRunAuthError`.
  */
 export async function runShadowBank(
-  api: Api,
+  auth: ShadowRunAuth,
   workspaceId: string,
   projectId: string,
   provider: string,
   datasets: Parameters<typeof buildEnvelope>[2],
+  opts: ShadowRunOptions = {},
 ): Promise<ShadowRunRow[]> {
   const bank = loadGradosBank();
+  const every = opts.reauthEveryQuestions ?? DEFAULT_REAUTH_EVERY_QUESTIONS;
   const rows: ShadowRunRow[] = [];
-  for (const q of bank) {
+  for (const [index, q] of bank.entries()) {
+    if (every > 0 && index > 0 && index % every === 0) await auth.refresh();
     const envelope = buildEnvelope(projectId, q.question, datasets);
-    const startedAt = Date.now();
-    const res = await api.post<PlanApiBody>(
-      '/api/v1/guided-analysis/plan',
-      { projectId, envelope },
-      workspaceHeader(workspaceId),
-    );
-    const latencyMs = Date.now() - startedAt;
-    rows.push({
-      questionId: q.id,
-      provider,
-      outcome: outcomeOf(res.body, res.status),
-      attempts: res.body.plan?.attemptCount ?? 1,
-      ruleIdsPerAttempt: [],
-      shape: shapeOf(res.body.plan),
-      latencyMs,
-      usage: null,
-      correlationId: correlationIdOf(res.body),
-    });
+    const attempt = await planWithRefresh(auth, workspaceId, projectId, q.id, envelope);
+    rows.push(rowOf(q.id, provider, attempt));
   }
   return rows;
+}
+
+/** One `ShadowRunRow` from one completed plan attempt. Pure. */
+function rowOf(questionId: number, provider: string, attempt: PlanAttempt): ShadowRunRow {
+  return {
+    questionId,
+    provider,
+    outcome: outcomeOf(attempt.body, attempt.status),
+    attempts: attempt.body.plan?.attemptCount ?? 1,
+    ruleIdsPerAttempt: [],
+    shape: shapeOf(attempt.body.plan),
+    latencyMs: attempt.latencyMs,
+    usage: null,
+    correlationId: correlationIdOf(attempt.body),
+  };
+}
+
+/**
+ * AXI-1677 (epic AXI-1604 — FR30(c) v0.5). Does THIS invocation's arm belong to
+ * the set of arms the operator intends to run?
+ *
+ * WHY THE LEGACY ARM CAN NOW BE SKIPPED. FR30(c) used to require the compiled
+ * arm's cache reads to be "no lower than the legacy arm's", which is what made a
+ * legacy run part of the gate at all. v0.5 of the feature doc WITHDREW that
+ * clause as unsatisfiable by design — the compiled prompt is deliberately
+ * smaller, so it necessarily reads fewer cached tokens — and replaced it with
+ * FR20's criterion, which is about the compiled arm alone: non-zero cache reads
+ * with the cached prefix above the model's minimum. Nothing in the amended gate
+ * compares the two arms, so nothing in the amended gate requires paying for a
+ * second 46-question live run.
+ *
+ * The DEFAULT is unchanged: unset, every arm runs, exactly as before.
+ */
+export function shouldRunArm(armsEnv: string | undefined, provider: string): boolean {
+  const declared = (armsEnv ?? '')
+    .split(',')
+    .map((a) => a.trim().toLowerCase())
+    .filter((a) => a.length > 0);
+  if (declared.length === 0) return true;
+  return declared.includes(provider.trim().toLowerCase());
 }
 
 /** Writes the raw rows a run produced to a fixed, per-provider JSON artifact. */

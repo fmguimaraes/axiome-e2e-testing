@@ -63,3 +63,77 @@ the same envelope from the same real dataset — is
 | UT-ANCHOR-1662-2 | The AXI-1462 and AXI-1603 harnesses build their envelopes from the SAME anchor, categories and all | Pass |
 | UT-ANCHOR-1662-3 | The anchored dataset names itself with `displayName`, not the deprecated `name` | Pass |
 | UT-ANCHOR-1662-4 | The shared resolver contains no silent catch and no substituted hash — every degraded path throws | Pass |
+
+## AXI-1604/gate-readiness.spec.ts
+
+AXI-1677 (epic AXI-1604 — FR28/FR30). The three offline halves of gate
+readiness: the refusal classifier, the arm selector, and the run loop's 401
+policy.
+
+**The defect UT-SHADOW-1677-1..8 pin.** `outcomeOf` scored ANY response carrying
+a `body.plan` as `planned` unless `intentUnsupported`/`plannerFallback` was set.
+A legacy-arm response of one `profile` node, every inferential analysis in
+`declined[]` and `datasetsUsed: []` satisfied that — so on 2026-09-25 six
+questions read `planned` on the legacy arm and `unsupported` on the compiled arm
+when both arms had given the same answer ("this envelope has no schema; nothing
+can be planned"). The FR30 report names it the single most misleading thing in
+the table. The fixtures are not invented: they are the plan shapes that occurred,
+transcribed from `reports/artifacts/2026-09-25-compiled-planner-shadow-run/db-plan-rows.md`.
+A plan is now `refused` when it used no dataset AND contains no node that
+analyses one — both halves required, because either alone libels the other
+direction. `refused` was already a member of FR28's outcome vocabulary and of
+`ShadowRunOutcome` in `axiome-back`; nothing downstream needed changing.
+
+**The defect UT-SHADOW-1677-13..15 pin.** The same run's access token expired at
+Q8 of the legacy arm and 39 of 46 rows were 4-13 ms `401 Invalid token`
+responses written as the outcome `unavailable` — a harness artefact in the gate
+evidence, indistinguishable in the table from a planner that failed to answer,
+and de-contaminated afterwards by hand from row latencies. A 401 is now either
+recovered from or fatal, never a row.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-SHADOW-1677-1 | The recorded legacy Q1 plan PL-ac2885c4 scores `refused`, not `planned` | Pass |
+| UT-SHADOW-1677-2 | All seven recorded legacy plans of the 2026-09-25 run score `refused` | Pass |
+| UT-SHADOW-1677-3 | A plan that used a dataset and carries an analysis node is `planned` | Pass |
+| UT-SHADOW-1677-4 | A genuine profiling plan that DID use a dataset is not libelled as a refusal | Pass |
+| UT-SHADOW-1677-5 | A plan that used no dataset and declined nothing is still a refusal — it analysed nothing | Pass |
+| UT-SHADOW-1677-6 | The planner's own `intentUnsupported` outranks the inferred refusal (FR30(a) counts it) | Pass |
+| UT-SHADOW-1677-7 | The planner's own `plannerFallback` outranks the inferred refusal (FR30(b) counts it) | Pass |
+| UT-SHADOW-1677-8 | A non-2xx or plan-less body stays `unavailable`; a plan carrying neither field is not invented into a refusal | Pass |
+| UT-SHADOW-1677-9 | `SHADOW_RUN_ARMS` unset or empty runs every arm — the default is unchanged | Pass |
+| UT-SHADOW-1677-10 | `SHADOW_RUN_ARMS=compiled` runs the compiled arm alone (FR30(c) v0.5 dropped the legacy comparison) | Pass |
+| UT-SHADOW-1677-11 | `SHADOW_RUN_ARMS` accepts a list and tolerates spacing and case | Pass |
+| UT-SHADOW-1677-12 | An arm not named in `SHADOW_RUN_ARMS` never runs by accident | Pass |
+| UT-SHADOW-1677-13 | A 401 that survives re-authentication FAILS the run — it is never written as a row | Pass |
+| UT-SHADOW-1677-14 | A 401 followed by a successful refresh is retried and recorded normally | Pass |
+| UT-SHADOW-1677-15 | The token is re-minted proactively every N questions, before it can expire | Pass |
+
+## AXI-1604/synthetic-grados-cohort.spec.ts
+
+AXI-1677 (epic AXI-1604 — FR28/FR29/FR30). The synthetic Grados-shaped fixture
+the FR30 gate run is measured on.
+
+**The data is synthetic.** No cohort-level Grados dataset exists anywhere — the
+paper published summary tables only. The COLUMN SCHEMA is transcribed from
+`GRADOS_DATASET` (`axiome-back/.../compile/__fixtures__/grados-golden-intents.ts`),
+the `PlannerDatasetSchema` all 46 golden `AnalysisIntent`s were hand-authored
+against; the VALUES are fixed-seed PRNG output. It exists so the compiled planner
+can be MEASURED on questions that have a matching column, and it is **not**
+evidence about IgG4-RD. The categorical levels are written as TEXT because the
+profiler types a numerically-coded column `numeric` with no categories at all,
+which would put the live envelope in direct contradiction with the declaration.
+
+UT-GRADOS-1677-5 is a DRIFT guard: `synthetic-grados-schema.ts` is a copy of a
+declaration in another repo (the two share no package), and a column renamed or a
+domain changed on the `axiome-back` side would otherwise leave the seeded dataset
+quietly seating the old schema. It skips — loudly, never silently — where no
+sibling `axiome-back` checkout exists.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-GRADOS-1677-1 | The CSV header is exactly the declared `GRADOS_DATASET` columns, in declaration order | Pass |
+| UT-GRADOS-1677-2 | Every categorical column observes its declared domain exactly — no stray level, no missing level | Pass |
+| UT-GRADOS-1677-3 | The cohort and longitudinal structure the bank asks about is present (3 groups, 2 timepoints for treated subjects, both representation levels) | Pass |
+| UT-GRADOS-1677-4 | The committed CSV regenerates byte-identically from its generator | Pass |
+| UT-GRADOS-1677-5 | The copied schema still matches `GRADOS_DATASET` in `axiome-back` | Pass |

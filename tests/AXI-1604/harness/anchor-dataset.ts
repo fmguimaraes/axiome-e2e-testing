@@ -47,6 +47,12 @@ import { workspaceHeader, asList } from '../../AXI-1435/harness/api';
  * `null` is returned in EXACTLY ONE case: the workspace holds no anchorable
  * dataset at all. That is an honest "nothing to anchor on" and callers
  * `test.skip` on it. A dataset that exists but cannot describe itself throws.
+ *
+ * AXI-1677 adds ONE knob and nothing else: `AnchorDatasetOptions.datasetId`
+ * chooses WHICH dataset is anchored. Everything after the choice — the three
+ * sources, the four mandatory checks, the throw-on-every-degraded-path contract
+ * above — is byte-for-byte the same code on both paths, deliberately, so the
+ * targeted path cannot acquire a weaker contract than the untargeted one.
  */
 
 /** One column of an anchored dataset, as the planner envelope carries it. */
@@ -110,6 +116,63 @@ function snippet(body: unknown): string {
   }
 }
 
+/** How the anchor dataset is CHOSEN. Everything after the choice is identical. */
+export interface AnchorDatasetOptions {
+  /**
+   * AXI-1677 (epic AXI-1604 — FR28/FR30). Anchor EXACTLY this dataset id.
+   *
+   * WHY. Unset, this resolver takes the first available, ready dataset off the
+   * workspace list — which is not reproducible, and on the workspace the shadow
+   * run actually uses is close to arbitrary: the Riaz workspace holds roughly
+   * 150 datasets, many of them intermediate `*_result.parquet` artifacts whose
+   * `file_hash` is NULL and which therefore cannot be anchored on at all. A gate
+   * measurement has to be able to name its own input; "whatever came back first"
+   * is a different experiment on every run.
+   *
+   * The loud-failure contract is UNCHANGED and, if anything, stricter: a
+   * targeted id that is not a dataset in this workspace, or is not ingested,
+   * THROWS. It never silently falls back to the untargeted path, and it never
+   * returns `null` — `null` still means only "this workspace holds nothing
+   * anchorable", which is not what "the dataset you named is missing" means.
+   */
+  readonly datasetId?: string;
+}
+
+/** First available, ready dataset in the workspace, or `null`. Unchanged behaviour. */
+async function firstAnchorableDataset(api: Api, workspaceId: string): Promise<any | null> {
+  const res = await api.get(`/api/v1/workspaces/${workspaceId}/datasets?limit=50`, workspaceHeader(workspaceId));
+  // `availability === 'available'` AND a ready ingestion, both explicitly: the
+  // old truthiness test (`d.availability ?? d.latestIngestion?.status`) accepted
+  // a `pending` upload, which has no parquet, no schema and a null fileHash.
+  return (
+    asList(res.body).find(
+      (d: any) => d?.id && d.availability === 'available' && d.latestIngestion?.status === 'ready',
+    ) ?? null
+  );
+}
+
+/** The one named dataset, fetched by id. Every miss throws — see `datasetId`. */
+async function targetedDataset(api: Api, workspaceId: string, datasetId: string): Promise<any> {
+  // By id, through the DETAIL endpoint rather than by scanning the list: the
+  // list is paginated and the target may not be on the first page at all.
+  const res = await api.get(`/api/v1/workspaces/${workspaceId}/datasets/${datasetId}`, workspaceHeader(workspaceId));
+  if (res.status >= 300 || !res.body?.id) {
+    throw new AnchorDatasetError(
+      `anchorDataset: the targeted dataset ${datasetId} could not be read in workspace ${workspaceId} ` +
+        `(GET /datasets/:id returned ${res.status}): ${snippet(res.body)}. ` +
+        'A targeted run anchors on the dataset it names or it does not run; it never falls back to another dataset.',
+    );
+  }
+  if (res.body.availability !== 'available' || res.body.latestIngestion?.status !== 'ready') {
+    throw new AnchorDatasetError(
+      `anchorDataset: the targeted ${label(res.body)} is not ingested ` +
+        `(availability=${JSON.stringify(res.body.availability)}, ingestion=${JSON.stringify(res.body.latestIngestion?.status)}). ` +
+        'It has no parquet, no schema and no content hash, so it cannot be anchored on.',
+    );
+  }
+  return res.body;
+}
+
 /**
  * Discover an ingested dataset in the workspace and describe it — its real
  * column schema and its real content hash — for a planner envelope.
@@ -120,19 +183,19 @@ function snippet(body: unknown): string {
  * `ensureTenant1603()`, the AXI-1462 specs from `ensureTenant()` or the
  * `SHADOW_RUN_PROJECT_ID` override), so there is no caller for which a
  * project-less, type-less, category-less envelope would have to be tolerated.
+ *
+ * `opts.datasetId` (AXI-1677) targets one dataset by id; see the field's own doc
+ * for why "the first one in the list" is not good enough for a gate measurement.
  */
 export async function anchorDataset(
   api: Api,
   workspaceId: string,
   projectId: string,
+  opts: AnchorDatasetOptions = {},
 ): Promise<AnchoredDataset | null> {
-  const res = await api.get(`/api/v1/workspaces/${workspaceId}/datasets?limit=50`, workspaceHeader(workspaceId));
-  // `availability === 'available'` AND a ready ingestion, both explicitly: the
-  // old truthiness test (`d.availability ?? d.latestIngestion?.status`) accepted
-  // a `pending` upload, which has no parquet, no schema and a null fileHash.
-  const ds = asList(res.body).find(
-    (d: any) => d?.id && d.availability === 'available' && d.latestIngestion?.status === 'ready',
-  );
+  const ds = opts.datasetId
+    ? await targetedDataset(api, workspaceId, opts.datasetId)
+    : await firstAnchorableDataset(api, workspaceId);
   if (!ds) return null;
 
   const versionHash = await anchorVersionHash(api, workspaceId, ds);
