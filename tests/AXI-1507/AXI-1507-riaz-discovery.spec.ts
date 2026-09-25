@@ -65,6 +65,21 @@ const RIAZ = {
   splitPolicy: { holdoutRatio: 0.3, minPatientsPerArm: 5, minPatientsPerClass: 5 },
 };
 
+/**
+ * The authored guiding questions. REAL question prose, never placeholders (AXI-1596): the
+ * platform persists the question on the plan instance and reads it back through the
+ * view-analysis (`guidingQuestion`), so a placeholder would make that read-back assertion
+ * vacuous. One per analysis; the second plan on a container is refused, so its question is
+ * never persisted.
+ */
+const QUESTIONS = {
+  a: 'Which immune-panel transcripts (Pre or On biopsy) are associated with response to nivolumab (R vs NR) in the Riaz 2017 cohort?',
+  b: 'Which immune-panel transcripts separate nivolumab responders from non-responders in the Riaz 2017 melanoma cohort when a sealed holdout is requested but its responder arm is too small to be valid?',
+  c: 'Do baseline (Pre) or on-treatment (On) immune-panel transcripts better discriminate nivolumab responders from non-responders in the Riaz 2017 melanoma cohort?',
+  cRepeat: 'Is on-treatment expression of the 24-gene immune panel associated with RECIST response to nivolumab in the Riaz 2017 cohort?',
+  d: 'Which immune-panel transcripts separate nivolumab responders from non-responders in the Riaz 2017 melanoma cohort, screened on an exploration arm with a sealed validation holdout?',
+};
+
 const SETTLED = new Set(['SUCCEEDED', 'REUSED', 'FAILED', 'BLOCKED', 'CANCELLED']);
 const LABEL = `riaz-disc-${Date.now().toString(36)}`;
 const TRACE_PATH = resolve(
@@ -75,7 +90,7 @@ const TRACE_PATH = resolve(
 /** `error` is the node's own `StepFailed` reason (governed-execution.message.controller `toNodeStatus`). */
 interface NodeStatus { nodeId: string; status: string; error?: string | null; [k: string]: unknown }
 interface RunStatus { runId: string; status: string; runStatus?: string; nodes: NodeStatus[]; failReason?: string | null; [k: string]: unknown }
-interface RuleRunRecord { id: string; planNode: string | null; operationId: string | null; runKind: string; status: string; summary: unknown; columns: string[]; rows: Array<Record<string, unknown>>; producedSnapshotId: string; snapshotName: string }
+interface RuleRunRecord { id: string; planNode: string | null; operationId: string | null; runKind: string; status: string; summary: unknown; columns: string[]; rows: Array<Record<string, unknown>>; producedSnapshotId: string; parentSnapshotId: string | null; runFingerprint: string | null; dedupedFromRunId: string | null; snapshotName: string }
 interface Ctx { api: Api; t: Tenant; projectId: string; datasetId: string; hash: string; measurementColumns: string[] }
 
 /** Merge one block's record into the shared trace file (blocks may run in different workers). */
@@ -138,9 +153,9 @@ async function bindEnvelope(c: Ctx, viewAnalysisId: string) {
 }
 
 /** Declares the split thresholds and approves the config hash — idempotent (409 "already approved" is success). */
-async function ensureApprovedConfig(c: Ctx): Promise<Record<string, unknown>> {
+async function ensureApprovedConfig(c: Ctx, splitPolicy: Record<string, number> = RIAZ.splitPolicy): Promise<Record<string, unknown>> {
   const policy = await c.api.post(`/api/v1/workspaces/${c.t.workspaceId}/analysis-policy`, {
-    entries: { 'split.exploration_holdout': Object.fromEntries(Object.entries(RIAZ.splitPolicy).map(([k, v]) => [k, { value: v, locked: false }])) },
+    entries: { 'split.exploration_holdout': Object.fromEntries(Object.entries(splitPolicy).map(([k, v]) => [k, { value: v, locked: false }])) },
   }, c.t.headers);
   const cfg = await c.api.get('/api/v1/discovery/config', c.t.headers);
   const approval = await c.api.post('/api/v1/discovery/config/approvals', { configHash: cfg.body?.configHash, notes: `${LABEL} Riaz e2e` }, c.t.headers);
@@ -194,6 +209,7 @@ async function collect(c: Ctx, viewAnalysisId: string, runId: string): Promise<R
       id: run.id, runKind: run.runKind ?? '', operationId: run.operationId ?? null, status: run.status,
       planNode: run.materializedNodeId ? String(run.materializedNodeId).replace(`${runId}__`, '') : null,
       summary: run.summaryJson ?? null, columns, rows, producedSnapshotId: s.id, snapshotName: s.name,
+      parentSnapshotId: s.parentSnapshotId ?? null, runFingerprint: run.runFingerprint ?? null, dedupedFromRunId: run.dedupedFromRunId ?? null,
     });
   }
   return out;
@@ -203,6 +219,28 @@ const shortId = (n: NodeStatus) => n.nodeId.replace(/^GR-[0-9a-f]+__/, '');
 const byNode = (status: RunStatus, id: string) => status.nodes.find((n) => shortId(n) === id);
 const nodeRows = (status: RunStatus) => status.nodes.map((n) => ({ id: shortId(n), status: n.status, error: n.error ?? null }));
 const num = (v: unknown) => (typeof v === 'number' ? v : Number(v));
+
+/** Every snapshot on an analysis (rule-derived and the baseline filter snapshot alike). */
+async function snapshotsOf(c: Ctx, viewAnalysisId: string): Promise<any[]> {
+  return asList((await c.api.get(`/api/v1/view-analyses/${viewAnalysisId}/snapshots?page=1&limit=100`, c.t.headers)).body);
+}
+
+/** The analysis' baseline: the one snapshot with no parent (the plan's declared referent). */
+function baselineOf(snaps: any[]): any {
+  const roots = snaps.filter((s) => !s.parentSnapshotId);
+  expect(roots, 'exactly one root snapshot (the baseline referent)').toHaveLength(1);
+  return roots[0];
+}
+
+/** The authored question must read back from BOTH the instance and the analysis (FR31 / AXI-1594). */
+async function expectQuestionReadBack(c: Ctx, instance: any, viewAnalysisId: string, question: string): Promise<void> {
+  expect(instance.question, 'plan-instance response carries the authored question').toBe(question);
+  const detail = await c.api.get(`/api/v1/view-analyses/${viewAnalysisId}`, c.t.headers);
+  expect(detail.body?.guidingQuestion, 'view-analysis detail reads the authored question back').toBe(question);
+  const list = asList((await c.api.get(`/api/v1/view-analyses?projectId=${c.projectId}&limit=100`, c.t.headers)).body);
+  const listed = list.find((v: any) => v.id === viewAnalysisId);
+  expect(listed?.guidingQuestion, 'view-analysis list reads the authored question back').toBe(question);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe('AXI-1507 Riaz — block A: the plan through screen → cutoffs → association', () => {
@@ -244,13 +282,13 @@ test.describe('AXI-1507 Riaz — block A: the plan through screen → cutoffs �
   });
 
   test('FR27/FR28 — the nine-step plan instantiates into analysis A over all 48 gene columns (NR → R)', { tag: ['@SI-045', '@SI-047'] }, async () => {
-    const res = await c.api.post('/api/v1/discovery/plans', planBody(c, analysisA, `${LABEL}-a`,
-      'Which immune-panel transcripts (Pre or On biopsy) are associated with response to nivolumab (R vs NR) in the Riaz 2017 cohort?'), c.t.headers);
+    const res = await c.api.post('/api/v1/discovery/plans', planBody(c, analysisA, `${LABEL}-a`, QUESTIONS.a), c.t.headers);
     rec.instantiateA = res.body;
     expect(res.status, `instantiate: ${JSON.stringify(res.body)}`).toBe(201);
     expect(res.body.instantiated, `refused: ${JSON.stringify(res.body.reasons)}`).toBe(true);
     expect(res.body.instance.viewAnalysisId).toBe(analysisA);
     expect(res.body.instance.nodeIds, 'd1 profile … d6 screen').toEqual(expect.arrayContaining(['d1', 'd6']));
+    await expectQuestionReadBack(c, res.body.instance, analysisA, QUESTIONS.a);
   });
 
   test('AC2/AC6 — the governed run settles; envelope + QC guards + screen reach a verdict', { tag: ['@SI-047', '@SI-017'] }, async () => {
@@ -295,6 +333,23 @@ test.describe('AXI-1507 Riaz — block A: the plan through screen → cutoffs �
     // captured — which has no surface (see the FR13/FR19 GAP test).
     expect(associationNodes, 'no unrunnable association node was emitted').toEqual([]);
   });
+
+  // AC14 / NFR7 — lineage, not statuses. With NO split there is no exploration arm to
+  // narrow onto, so the honest referent of every step is the analysis' one baseline
+  // snapshot; what must hold is that each result snapshot is a real edge INTO that
+  // baseline (the plan is not a set of dangling, parentless results).
+  test('AC14/NFR7 — no split: every step result derives from the baseline snapshot (lineage edge), nothing is narrowed', { tag: ['@SI-022', '@SI-045'] }, async () => {
+    const snaps = await snapshotsOf(c, analysisA);
+    const baseline = baselineOf(snaps);
+    const derived = snaps.filter((s) => s.origin === 'rule_derived');
+    rec.lineageA = { baseline: baseline.id, derived: derived.map((s) => ({ id: s.id, name: s.name, parent: s.parentSnapshotId })) };
+    expect(derived.length, 'the plan produced result snapshots').toBeGreaterThan(0);
+    for (const s of derived) expect(s.parentSnapshotId, `${s.name} derives from the baseline`).toBe(baseline.id);
+    expect(snaps.some((s) => s.origin === 'filter' && s.parentSnapshotId), 'no exploration-arm snapshot without a split').toBe(false);
+    const screen = ruleRunsA.find((r) => r.operationId === 'stats.screen_shortlist');
+    rec.screenA = { runFingerprint: screen?.runFingerprint, dedupedFromRunId: screen?.dedupedFromRunId };
+    expect(screen?.runFingerprint, 'the screen run is fingerprinted').toBeTruthy();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -303,6 +358,11 @@ test.describe('AXI-1507 Riaz — block B: guards and refusals', () => {
   const rec: Record<string, unknown> = {};
   let c: Ctx;
   let splitRun: RuleRunRecord | null = null;
+  let freeAnalysis = '';
+  let freeRunId = '';
+  let refusedAnalysis = '';
+  // The TAKEN-split plan, shared by the two tests that follow it.
+  let taken: { analysis: string; run: RunStatus; ruleRuns: RuleRunRecord[]; snaps: any[]; baseline: any; ledger: any; splitRun: RuleRunRecord; freeScreen: RuleRunRecord } | null = null;
 
   test.beforeAll(async () => {
     c = await bootstrap();
@@ -316,12 +376,18 @@ test.describe('AXI-1507 Riaz — block B: guards and refusals', () => {
   test('FR27 — a second plan on the same analysis is refused (one plan per container)', { tag: ['@SI-045'] }, async () => {
     const analysisC = await createViewAnalysis(c.api, c.t, c.projectId, c.datasetId, `${LABEL} — discovery C (container)`);
     await bindEnvelope(c, analysisC);
-    const first = await c.api.post('/api/v1/discovery/plans', planBody(c, analysisC, `${LABEL}-c1`, 'first'), c.t.headers);
-    const second = await c.api.post('/api/v1/discovery/plans', planBody(c, analysisC, `${LABEL}-c2`, 'repeat'), c.t.headers);
+    const first = await c.api.post('/api/v1/discovery/plans', planBody(c, analysisC, `${LABEL}-c1`, QUESTIONS.c), c.t.headers);
+    const second = await c.api.post('/api/v1/discovery/plans', planBody(c, analysisC, `${LABEL}-c2`, QUESTIONS.cRepeat), c.t.headers);
     rec.onePlanPerContainer = { first: first.body, second: second.body };
     expect(first.body.instantiated, `first: ${JSON.stringify(first.body.reasons)}`).toBe(true);
+    freeAnalysis = analysisC;
+    freeRunId = first.body.instance.runId;
+    await expectQuestionReadBack(c, first.body.instance, analysisC, QUESTIONS.c);
     expect(second.body.instantiated).toBe(false);
     expect(second.body.reasons.join(' ')).toMatch(/already holds an instantiated discovery plan/);
+    // The refused plan must not overwrite the question the container already carries.
+    const detail = await c.api.get(`/api/v1/view-analyses/${analysisC}`, c.t.headers);
+    expect(detail.body?.guidingQuestion, 'the refused repeat did not replace the authored question').toBe(QUESTIONS.c);
   });
 
   test('FR15/AC9/EC6 — a literature cutoff on a different unit scale is blocked with a reason and no cut-point', { tag: ['@SI-017', '@SI-010'] }, async () => {
@@ -355,15 +421,19 @@ test.describe('AXI-1507 Riaz — block B: guards and refusals', () => {
 
   test('FR3/NFR4/NFR7 — the seeded 70/30 split partitions PATIENTS, stratified by outcome, with every patient accounted for', { tag: ['@SI-017', '@SI-022'] }, async () => {
     const analysisB = await createViewAnalysis(c.api, c.t, c.projectId, c.datasetId, `${LABEL} — discovery B (split)`);
+    refusedAnalysis = analysisB;
     await bindEnvelope(c, analysisB);
-    const res = await c.api.post('/api/v1/discovery/plans', planBody(c, analysisB, `${LABEL}-b`, 'Same question, with a sealed holdout.', { seed: RIAZ.splitSeed }), c.t.headers);
+    const res = await c.api.post('/api/v1/discovery/plans', planBody(c, analysisB, `${LABEL}-b`, QUESTIONS.b, { seed: RIAZ.splitSeed }), c.t.headers);
     rec.instantiateB = res.body;
     expect(res.body.instantiated, `refused: ${JSON.stringify(res.body.reasons)}`).toBe(true);
+    await expectQuestionReadBack(c, res.body.instance, analysisB, QUESTIONS.b);
     const runB = await drain(c, res.body.instance.runId);
     rec.runB = { status: runB.status, nodes: nodeRows(runB) };
     const split = byNode(runB, 'd5');
     expect(split, 'split node d5 exists').toBeTruthy();
-    expect(split!.status, `split verdict: ${split!.error ?? ''}`).toMatch(/SUCCEEDED|REUSED/);
+    // The run COMPLETES: the refusal is a governed verdict recorded on the ledger
+    // (summary.splitLedger), not a failed node — asserted below, not here.
+    expect(split!.status, `split node: ${split!.error ?? ''}`).toMatch(/SUCCEEDED|REUSED/);
 
     splitRun = (await collect(c, res.body.instance.viewAnalysisId, res.body.instance.runId))
       .find((r) => r.operationId === 'split.exploration_holdout') ?? null;
@@ -380,26 +450,136 @@ test.describe('AXI-1507 Riaz — block B: guards and refusals', () => {
     }
   });
 
-  // The split runs, and it is a correct partition — but nothing on the governed plan
-  // path writes a `CohortSplit` ledger row, so `split_arms_meet_minimum` is never
-  // evaluated against the MEASURED arms. The guard is dormant at submit by design
-  // (`split-guards.ts` header: the arm counts do not exist before the partition is
-  // computed); the second line of defence it names — a refusal recorded at
-  // materialization time — has no caller on this path, and the compute plane's
-  // `split_methods.py` enforces no minimum either. Marked `test.fail()` so the gap
-  // is REPORTED rather than asserted away: it turns red the moment it is fixed.
-  test('FR5/EC4 — GAP: the governed per-class minimum is not graded against the measured arms', { tag: ['@SI-017', '@SI-022'] }, async () => {
-    test.fail();
+  // FLIPPED by AXI-1595 (was `test.fail()` "GAP"): the governed per-class minimum IS now
+  // graded against the MEASURED arms. Riaz's holdout carries 3 responders against a declared
+  // minimum of 5, so the split is REFUSED — naming the arm, the class and the minimum — and a
+  // refused split publishes NO exploration arm (Rule-Kernel-Architecture §4.31).
+  test('FR5/EC4 — the governed per-class minimum is graded: the Riaz split is REFUSED naming arm and class, and publishes no arm', { tag: ['@SI-017', '@SI-022'] }, async () => {
     expect(splitRun, 'the split ran in the previous test').toBeTruthy();
+    const ledger = (splitRun!.summary as any)?.splitLedger;
+    rec.refusedLedger = ledger;
+    expect(ledger, 'the run summary carries the split ledger').toBeTruthy();
+    expect(ledger.graded, 'the partition was measured, so it was graded (not silently passed)').toBe(true);
+    expect(ledger.taken, 'a holdout below the declared minimum is not taken').toBe(false);
+    expect(ledger.cohortSplitId, 'a refused split writes no cohort_splits row').toBeFalsy();
+    expect(ledger.explorationSnapshotId, 'a refused split publishes no exploration arm').toBeFalsy();
+    const reasons: string[] = ledger.reasons ?? [];
+    expect(reasons.length, 'the refusal states why').toBeGreaterThan(0);
+    const why = reasons.join(' | ');
+    expect(why, 'names the failing arm').toMatch(/arm 'holdout'/);
+    expect(why, 'names the failing class').toMatch(/class 'R'/);
+    expect(why, 'names the declared minimum').toMatch(new RegExp(`minimum of ${RIAZ.splitPolicy.minPatientsPerClass}\\b`));
+
+    // Cross-check the ledger against the measured arm table it graded.
     const holdout = splitRun!.rows.filter((r) => String(r.arm) === 'holdout' && !r.discarded);
     const perClass = new Map<string, number>();
     for (const r of holdout) perClass.set(String(r.outcomeClass), (perClass.get(String(r.outcomeClass)) ?? 0) + 1);
     rec.holdoutPerClass = Object.fromEntries(perClass);
-    // 30 % of 9 responders ≈ 3, below the declared minPatientsPerClass of 5 — the
-    // split should be REFUSED naming the class, and it is not.
-    for (const [cls, n] of perClass) {
-      expect(n, `holdout class ${cls} meets the declared minimum of ${RIAZ.splitPolicy.minPatientsPerClass}`)
-        .toBeGreaterThanOrEqual(RIAZ.splitPolicy.minPatientsPerClass);
+    expect(perClass.get('R'), 'the measured holdout really is below the minimum').toBeLessThan(RIAZ.splitPolicy.minPatientsPerClass);
+
+    // Lineage of a REFUSED split: nothing is narrowed, so every step still derives from the
+    // baseline and NO exploration snapshot exists (the confinement guard speaks instead).
+    const snaps = await snapshotsOf(c, refusedAnalysis);
+    const baseline = baselineOf(snaps);
+    for (const s of snaps.filter((x) => x.origin === 'rule_derived')) {
+      expect(s.parentSnapshotId, `${s.name} derives from the baseline (refused split ⇒ no arm)`).toBe(baseline.id);
     }
+    expect(snaps.filter((s) => s.origin === 'filter' && s.parentSnapshotId), 'no exploration snapshot minted').toEqual([]);
+  });
+
+  // The split is TAKEN when the governed minimum is one the Riaz holdout clears (3 responders
+  // ≥ 3). This is the scenario that proves the split CHANGES what comes next — the only
+  // observation the earlier 15/15-green suite could not make (AXI-1596, AXI-1595 step 4).
+  test('AC5/FR23 — a TAKEN split writes a ledger row and publishes the exploration arm as a filtered child snapshot', { tag: ['@SI-017', '@SI-022', '@SI-045'] }, async () => {
+    test.setTimeout(420_000);
+    // 1. the split-free reference (analysis C from the container test) must have settled.
+    expect(freeRunId, 'the split-free reference plan was instantiated').toBeTruthy();
+    const freeRun = await drain(c, freeRunId);
+    const freeRuns = await collect(c, freeAnalysis, freeRunId);
+    const freeScreen = freeRuns.find((r) => r.operationId === 'stats.screen_shortlist');
+    expect(freeScreen, `split-free screen exists among ${freeRuns.map((r) => r.operationId).join(',')}`).toBeTruthy();
+
+    // 2. declare a minimum the holdout clears; restore the Riaz-realistic minimum afterwards.
+    const relaxed = { ...RIAZ.splitPolicy, minPatientsPerClass: 3 };
+    try {
+      rec.relaxedConfig = await ensureApprovedConfig(c, relaxed);
+      const analysisD = await createViewAnalysis(c.api, c.t, c.projectId, c.datasetId, `${LABEL} — discovery D (taken split)`);
+      await bindEnvelope(c, analysisD);
+      const res = await c.api.post('/api/v1/discovery/plans', planBody(c, analysisD, `${LABEL}-d`, QUESTIONS.d, { seed: RIAZ.splitSeed }), c.t.headers);
+      expect(res.body.instantiated, `refused: ${JSON.stringify(res.body.reasons)}`).toBe(true);
+      await expectQuestionReadBack(c, res.body.instance, analysisD, QUESTIONS.d);
+      const runD = await drain(c, res.body.instance.runId);
+      rec.takenRun = { status: runD.status, nodes: nodeRows(runD), free: nodeRows(freeRun) };
+      // NOT asserted here: that no node FAILED. See the `test.fail()` below — as of this
+      // spec the screen after a taken split FAILS (FR37 referent-eligibility), which is the
+      // defect that test tracks. This test asserts only what the split itself did.
+      expect(byNode(runD, 'd5')?.status, 'the split node itself succeeded').toMatch(/SUCCEEDED|REUSED/);
+
+      const ruleRuns = await collect(c, analysisD, res.body.instance.runId);
+      const split = ruleRuns.find((r) => r.operationId === 'split.exploration_holdout');
+      expect(split, 'the split ran').toBeTruthy();
+      const ledger = (split!.summary as any)?.splitLedger;
+      rec.takenLedger = ledger;
+      expect(ledger?.graded, `graded: ${JSON.stringify(ledger)}`).toBe(true);
+      expect(ledger.taken, `taken: ${JSON.stringify(ledger)}`).toBe(true);
+      expect(ledger.cohortSplitId, 'a cohort_splits ledger row').toBeTruthy();
+      expect(ledger.explorationSnapshotId, 'the exploration arm is published').toBeTruthy();
+
+      const snaps = await snapshotsOf(c, analysisD);
+      const baseline = baselineOf(snaps);
+      const arm = snaps.find((s) => s.id === ledger.explorationSnapshotId);
+      expect(arm, 'the published arm is a snapshot of this analysis').toBeTruthy();
+      expect(arm.origin, 'the arm is a plain filtered child snapshot').toBe('filter');
+      expect(arm.parentSnapshotId, 'the arm derives from the split\'s own referent').toBe(baseline.id);
+      const armPredicate = (arm.filters ?? []).find((f: any) => f.column === RIAZ.patientKeyColumn || f.field === RIAZ.patientKeyColumn);
+      rec.armFilters = arm.filters;
+      expect(armPredicate, `the arm carries an "in" predicate on ${RIAZ.patientKeyColumn}`).toBeTruthy();
+      const armPatients: unknown[] = armPredicate.values ?? armPredicate.value ?? [];
+      const exploration = new Set(split!.rows.filter((r) => String(r.arm) === 'exploration' && !r.discarded).map((r) => String(r.patient)));
+      expect(new Set(armPatients.map(String)), 'the arm lists exactly the exploration patients').toEqual(exploration);
+      expect(exploration.size, 'exploration arm size (Riaz 27 → 19 at ratio 0.3, seed 4172)').toBeLessThan(27);
+
+      const splitSnap = snaps.find((s) => s.origin === 'rule_derived' && s.ruleRunId === split!.id);
+      expect(splitSnap!.parentSnapshotId, 'the split is not narrowed onto itself').toBe(baseline.id);
+      taken = { analysis: analysisD, run: runD, ruleRuns, snaps, baseline, ledger, splitRun: split!, freeScreen: freeScreen! };
+    } finally {
+      // Leave the workspace declaring the Riaz-realistic minimum the other tests rely on.
+      rec.restoredConfig = await ensureApprovedConfig(c);
+    }
+  });
+
+  // EXPECTED-FAILURE (real defect, found by this spec 2026-09-25, reported to the lead):
+  // AXI-1595 mints the exploration arm as an `origin: filter` snapshot but stamps it with
+  // `ruleRunId = <the split's run>` (split-ledger.service.ts). `assertReferentEligible`
+  // (AXI-1423 / FR37) reads that producing run, sees a STATISTICAL operation with no
+  // `referentEligible: true` — the split's holdout SEAL is exactly that absence — and refuses
+  // the arm as a referent. So the screen after a TAKEN split FAILS with "Snapshot is a
+  // statistical result whose operation does not declare referent-eligibility (FR37)" and the
+  // four cutoffs + interpretation are BLOCKED. Everything below is the behaviour §4.31 and the
+  // AXI-1595 manual scenario promise; it turns green — and `test.fail()` must then be removed —
+  // when the arm stops inheriting the split run's ineligibility (e.g. arm `ruleRunId` null, or
+  // the eligibility gate exempting a split-published arm).
+  test('AC14/AC3/NFR7 — GAP: the steps after a TAKEN split derive from the exploration arm and do NOT dedupe onto the split-free plan', { tag: ['@SI-017', '@SI-022', '@SI-045'] }, async () => {
+    test.fail();
+    expect(taken, 'the taken-split plan ran in the previous test').toBeTruthy();
+    const { run: runD, ruleRuns, ledger, freeScreen } = taken!;
+    expect(runD.nodes.filter((n) => n.status === 'FAILED').map((n) => `${shortId(n)}: ${n.error}`), 'no node FAILED').toEqual([]);
+    // 3. LINEAGE: the split itself stays on the baseline (never narrowed onto its own output);
+    // every step after it derives from the ARM, not the baseline.
+    const downstream = ruleRuns.filter((r) => r.operationId === 'stats.screen_shortlist' || /^stats\.cutoff_/.test(r.operationId ?? ''));
+    expect(downstream, 'screen + four cutoff proposals ran').toHaveLength(5);
+    rec.downstreamLineage = downstream.map((r) => ({ op: r.operationId, parent: r.parentSnapshotId }));
+    for (const r of downstream) {
+      expect(r.parentSnapshotId, `${r.operationId} derives from the exploration arm, not the baseline`).toBe(ledger.explorationSnapshotId);
+    }
+
+    // 4. NO DEDUPE: the split-bearing screen is its own run, with a different fingerprint.
+    const screen = ruleRuns.find((r) => r.operationId === 'stats.screen_shortlist')!;
+    rec.dedupe = { free: { id: freeScreen!.id, fp: freeScreen!.runFingerprint }, split: { id: screen.id, fp: screen.runFingerprint, deduped: screen.dedupedFromRunId } };
+    expect(screen.runFingerprint, 'fingerprinted').toBeTruthy();
+    expect(screen.runFingerprint, 'split-bearing screen fingerprint differs from the split-free screen').not.toBe(freeScreen!.runFingerprint);
+    expect(screen.id, 'not the same run').not.toBe(freeScreen!.id);
+    expect(screen.dedupedFromRunId, 'the split-bearing screen did not dedupe onto any earlier run').toBeNull();
+    expect(byNode(runD, 'd6')?.status, 'the screen executed rather than being REUSED').not.toBe('REUSED');
   });
 });
