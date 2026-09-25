@@ -44,8 +44,9 @@ export const REQUIRED_PERMISSIONS: readonly string[] = [
   'dataset:manage',
   'dataset:link',
   'cross_dataset:materialize',
-  'workflow:read',
-  'workflow:run',
+  // AXI-465 (2026-09-25): 'workflow:read' and 'workflow:run' were removed with
+  // the legacy workflow execution engine. Requesting a permission the platform
+  // no longer declares would fail the capture role setup.
   'comment:moderate',
   'export:create',
   'styling-preset:read',
