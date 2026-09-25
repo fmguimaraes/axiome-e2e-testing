@@ -131,7 +131,10 @@ test('AC12 AC17 AC35 — a question no shape can express comes back flagged, not
   expect(unsupportedRes!.body.plan?.unsupportedReason, 'a reason is carried').toBeTruthy();
 
   expect(unsupportedPersisted, 'flagged plan row was persisted').toBeTruthy();
-  expect(unsupportedPersisted.intentUnsupported, 'persisted row carries the flag').toBe(true);
+  // Same field-path fix as the ordinary-question test above: the persisted row
+  // (GET /guided-analysis/plans) carries `intentUnsupported` nested under
+  // `.plan`, never at its own top level — missed here in the previous pass.
+  expect(unsupportedPersisted.plan.intentUnsupported, 'persisted row carries the flag').toBe(true);
   expect(unsupportedPersisted.status, 'a flagged plan is a draft, not a run').not.toBe('run');
 
   // AXI-1611 (structural gap report): `structuralGap` is present iff a
