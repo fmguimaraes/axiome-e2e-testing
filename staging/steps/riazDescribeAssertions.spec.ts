@@ -223,10 +223,10 @@ test('UT-E2E-DESC-015: the observation readers read the cited code, n_groups and
 test('UT-E2E-DESC-016: every descriptive question declares a derivation and four distinct connectors are covered', () => {
   const ids = Object.keys(DESCRIBE_EXPECTED);
   // AXI-1587 added Q22–Q31 (ten more descriptive questions) on top of Q12–Q21.
-  assert.equal(ids.length, 20);
+  assert.equal(ids.length, 22); // AXI-1582 added Q36–Q37
   ids.forEach((id) => assert.ok(isDescribeQuestion(id) && DESCRIBE_EXPECTED[id].derivation.length > 20, id));
   const connectors = new Set(ids.flatMap((id) => DESCRIBE_EXPECTED[id].results.map((r: ExpectedDescribeResult) => r.connector)));
-  assert.deepEqual([...connectors].sort(), ['SUM-COUNT-01', 'SUM-CROSS-01', 'SUM-RANK-01', 'SUM-TOPN-01']);
+  assert.deepEqual([...connectors].sort(), ['SUM-COUNT-01', 'SUM-CROSS-01', 'SUM-EXPR-RANK-01', 'SUM-RANK-01', 'SUM-TOPN-01', 'SUM-TOPN-FILTERED-01']);
 });
 
 test('UT-E2E-DESC-030: column roles are asserted from canonicalFields, in bound order — never from boundParameters', () => {

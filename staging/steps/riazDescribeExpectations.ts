@@ -489,6 +489,50 @@ export const DESCRIBE_EXPECTED: Record<string, DescribeExpectation> = {
       },
     ],
   },
+  // ── AXI-1582: filtered top-N + domain connector — derived with pandas from the source CSV ──
+  // NOTE Q37 binds `match` only after the semantic contract repair has been RUN against the project
+  // (POST /v1/semantic-profiles/projects/:id/normalize maps log2_cpm -> expression_value); before it, the
+  // connector is `indeterminate` naming log2_cpm and the question fails by design (FR21 / AC9).
+  Q36: {
+    derivation: `pandas: ${PAIRED} → df[(df.gene=='HLA-DRA')&(df.timepoint=='Pre')&(df.response=='R')].sort_values('log2_cpm', ascending=False).head(5)`,
+    results: [
+      {
+        cohort: '',
+        connector: 'SUM-TOPN-FILTERED-01',
+        operationId: 'describe.top_n',
+        nGroups: 1,
+        rowCount: 5,
+        labelColumn: 'patient_id',
+        parameters: { sortColumn: 'log2_cpm', direction: 'desc', n: 5 },
+        ranks: [
+          { rank: 1, label: 'Pt34', value: 13.4693 },
+          { rank: 2, label: 'Pt101', value: 12.0683 },
+          { rank: 3, label: 'Pt49', value: 11.3636 },
+          { rank: 5, label: 'Pt18', value: 10.8617 },
+        ],
+      },
+    ],
+  },
+  Q37: {
+    derivation: `pandas: ${PAIRED} → df[df.timepoint=='Pre'].groupby('gene').log2_cpm.agg(['mean','count']).sort_values('mean', ascending=False)`,
+    results: [
+      {
+        cohort: '',
+        connector: 'SUM-EXPR-RANK-01',
+        operationId: 'describe.grouped_aggregate',
+        nGroups: 24,
+        parameters: { groupColumns: ['gene'], valueColumn: 'log2_cpm', aggregation: 'mean', direction: 'desc' },
+        top: { label: 'HLA-DRA', value: 9.7626, n: 27 },
+        bottom: { label: 'IFNG', value: 1.1382, n: 27 },
+        ranks: [
+          { rank: 1, label: 'HLA-DRA', value: 9.7626 },
+          { rank: 2, label: 'STAT1', value: 8.5016 },
+          { rank: 3, label: 'CXCL9', value: 6.0093 },
+          { rank: 24, label: 'IFNG', value: 1.1382 },
+        ],
+      },
+    ],
+  },
 };
 
 /** The ten descriptive question ids, in order. */
