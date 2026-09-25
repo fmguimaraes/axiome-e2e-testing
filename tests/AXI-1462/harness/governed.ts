@@ -63,11 +63,28 @@ const SETTLED = new Set([
   'AWAITING_APPROVAL',
 ]);
 
+/** One column of an anchored dataset, as the planner envelope carries it. */
+export interface AnchoredColumn {
+  name: string;
+  /** The profiler's semantic type — `numeric` | `categorical` | `identifier` | `timepoint`. */
+  type: string;
+  /** The observed value domain of a low-cardinality categorical column (AXI-1462). */
+  categories?: string[];
+}
+
+/** A dataset resolved for a planner envelope: real identity, real schema. */
+export interface AnchoredDataset {
+  datasetId: string;
+  name: string;
+  versionHash: string;
+  columns: AnchoredColumn[];
+}
+
 /** Build the minimal PlannerEnvelope the guided planner needs for one question. */
 export function buildEnvelope(
   projectId: string,
   question: string,
-  datasets: Array<{ datasetId: string; name: string; versionHash: string; columns: Array<{ name: string; type: string }> }>,
+  datasets: AnchoredDataset[],
 ) {
   return {
     projectId,
@@ -79,27 +96,197 @@ export function buildEnvelope(
 }
 
 /**
- * Discover an available dataset in the workspace to anchor a governed run on.
- *
- * KNOWN DEFECT — do not trust this function's `columns`/`versionHash` for any
- * measurement (AXI-1616, 2026-09-25). It reads the workspace dataset **list**
- * endpoint, which carries neither a column schema nor a version hash, so both
- * `??` chains below fall through to `[]` and the literal `'sha256:unknown'`
- * WITHOUT failing. The 2026-09-25 FR28/FR30 shadow run was therefore conducted
- * against a dataset with no schema at all — both planner arms refused, and
- * neither the shape-coverage nor the cache-read comparison in
- * `axiome-docs/reports/2026-09-25-compiled-planner-shadow-run.md` measures
- * anything. Fix before the next shadow run: read the dataset detail/schema
- * endpoint, and throw rather than anchor on an empty column list.
+ * `sha256:<64 hex>` — the only version hash shape the backend accepts (rule P24,
+ * `apps/organization-service/src/guided-analysis/plan/envelope-identity.ts`).
  */
-export async function anchorDataset(api: Api, workspaceId: string): Promise<
-  { datasetId: string; name: string; versionHash: string; columns: Array<{ name: string; type: string }> } | null
-> {
+export const SHA256_VERSION_HASH_RE = /^sha256:[0-9a-f]{64}$/;
+
+/**
+ * Rows pulled to profile the anchor dataset. Same cap the product uses
+ * (`PROTO_ROW_LIMIT` in axiome-front `src/lib/guidedAnalysis/loadProjectDatasets.ts`),
+ * so the harness profiles exactly what a user's guided launch profiles.
+ */
+export const ANCHOR_PROFILE_ROW_LIMIT = 1000;
+
+/** Thrown when a dataset cannot describe itself — a run must not start on it. */
+export class AnchorDatasetError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AnchorDatasetError';
+  }
+}
+
+/** `dataset "name" (id)` — every failure message names the dataset it is about. */
+function label(ds: { id: string; originalFilename?: string; displayName?: string | null }): string {
+  return `dataset "${ds.displayName || ds.originalFilename || ds.id}" (${ds.id})`;
+}
+
+/** A short, non-secret rendering of a response body for a failure message. */
+function snippet(body: unknown): string {
+  try {
+    return JSON.stringify(body).slice(0, 300);
+  } catch {
+    return String(body);
+  }
+}
+
+/**
+ * Discover an ingested dataset in the workspace and describe it — its real
+ * column schema and its real content hash — for a planner envelope.
+ *
+ * AXI-1661. The previous version read `columns`/`versionHash` off the workspace
+ * dataset **LIST** row, which carries neither; both `??` chains fell through to
+ * `[]` and the literal `'sha256:unknown'` WITHOUT failing, so the 2026-09-25
+ * FR28/FR30 shadow run asked all 46 questions of both planner arms against a
+ * dataset with no schema and measured nothing
+ * (`axiome-docs/reports/2026-09-25-compiled-planner-shadow-run.md`). That mode
+ * of failure is now impossible: every source below is mandatory and each one
+ * throws, naming the dataset and what was missing, rather than degrading.
+ *
+ * The three sources are the ones the product itself uses (axiome-front
+ * `src/lib/guidedAnalysis/loadProjectDatasets.ts` + `plannerEnvelope.ts`), so a
+ * shadow run measures what a real guided launch would send:
+ *   1. `GET  /workspaces/:ws/datasets/:id`         -> `fileHash`, the sha256 content
+ *                                                     hash (P24's `versionHash`).
+ *   2. `POST /workspaces/:ws/datasets/:id/query`   -> the live column list + a row
+ *                                                     slice (the list row has neither).
+ *   3. `POST /guided-analysis/profile`             -> the profiler's semantic types
+ *                                                     and each categorical column's
+ *                                                     observed `categories` domain.
+ *
+ * Returns `null` ONLY when the workspace holds no ingested dataset at all — an
+ * honest "nothing to anchor on" the callers skip on. A dataset that exists but
+ * cannot be described throws.
+ */
+export async function anchorDataset(
+  api: Api,
+  workspaceId: string,
+  projectId: string,
+): Promise<AnchoredDataset | null> {
   const res = await api.get(`/api/v1/workspaces/${workspaceId}/datasets?limit=50`, workspaceHeader(workspaceId));
-  const ds = asList(res.body).find((d: any) => (d.availability ?? d.latestIngestion?.status) && d.id);
+  // `availability === 'available'` AND a ready ingestion, both explicitly: the
+  // old truthiness test (`d.availability ?? d.latestIngestion?.status`) accepted
+  // a `pending` upload, which has no parquet, no schema and a null fileHash.
+  const ds = asList(res.body).find(
+    (d: any) => d?.id && d.availability === 'available' && d.latestIngestion?.status === 'ready',
+  );
   if (!ds) return null;
-  const cols = (ds.columns ?? ds.schema?.columns ?? []).map((c: any) => ({ name: c.name ?? c, type: c.type ?? 'string' }));
-  return { datasetId: ds.id, name: ds.originalFilename ?? ds.name ?? ds.id, versionHash: ds.versionHash ?? ds.latestVersionId ?? 'sha256:unknown', columns: cols };
+
+  const versionHash = await anchorVersionHash(api, workspaceId, ds);
+  const { columns, rows } = await anchorSlice(api, workspaceId, ds);
+  const profiled = await anchorColumns(api, workspaceId, projectId, ds, versionHash, columns, rows);
+
+  return {
+    datasetId: ds.id,
+    name: ds.displayName || ds.originalFilename || ds.id,
+    versionHash,
+    columns: profiled,
+  };
+}
+
+/** The dataset's real content hash, from the detail endpoint. Never substituted. */
+async function anchorVersionHash(api: Api, workspaceId: string, ds: any): Promise<string> {
+  const detail = await api.get(`/api/v1/workspaces/${workspaceId}/datasets/${ds.id}`, workspaceHeader(workspaceId));
+  if (detail.status >= 300) {
+    throw new AnchorDatasetError(
+      `anchorDataset: ${label(ds)} — GET /datasets/:id returned ${detail.status}, so no version hash could be read: ${snippet(detail.body)}`,
+    );
+  }
+  const versionHash = detail.body?.fileHash;
+  if (typeof versionHash !== 'string' || !SHA256_VERSION_HASH_RE.test(versionHash)) {
+    throw new AnchorDatasetError(
+      `anchorDataset: ${label(ds)} carries no sha256 content hash (fileHash=${JSON.stringify(versionHash)}). ` +
+        'A planner envelope needs a real `sha256:<64 hex>` versionHash (rule P24); refusing to anchor a run on an unpinned dataset. ' +
+        'Note: fileHash is null for non-text formats (XLSX) — anchor on a CSV/TSV dataset.',
+    );
+  }
+  return versionHash;
+}
+
+/** The live column list and a bounded row slice. Zero columns is a hard failure. */
+async function anchorSlice(
+  api: Api,
+  workspaceId: string,
+  ds: any,
+): Promise<{ columns: Array<{ name: string }>; rows: Array<Record<string, unknown>> }> {
+  const query = await api.post(
+    `/api/v1/workspaces/${workspaceId}/datasets/${ds.id}/query`,
+    { limit: ANCHOR_PROFILE_ROW_LIMIT },
+    workspaceHeader(workspaceId),
+  );
+  if (query.status >= 300) {
+    throw new AnchorDatasetError(
+      `anchorDataset: ${label(ds)} — POST /datasets/:id/query returned ${query.status}, so no column schema could be read: ${snippet(query.body)}`,
+    );
+  }
+  const columns = Array.isArray(query.body?.columns) ? query.body.columns : [];
+  const rows = Array.isArray(query.body?.rows) ? query.body.rows : [];
+  if (columns.length === 0) {
+    throw new AnchorDatasetError(
+      `anchorDataset: ${label(ds)} resolved ZERO columns from POST /datasets/:id/query. ` +
+        'An envelope with `columns: []` tells the planner nothing and makes any run against it meaningless (AXI-1616); refusing to anchor.',
+    );
+  }
+  if (rows.length === 0) {
+    throw new AnchorDatasetError(
+      `anchorDataset: ${label(ds)} returned ${columns.length} columns but ZERO rows, so it cannot be profiled for column types or category domains; refusing to anchor.`,
+    );
+  }
+  return { columns, rows };
+}
+
+/** Semantic types + category domains, via the same profiler the product calls. */
+async function anchorColumns(
+  api: Api,
+  workspaceId: string,
+  projectId: string,
+  ds: any,
+  versionHash: string,
+  columns: Array<{ name: string }>,
+  rows: Array<Record<string, unknown>>,
+): Promise<AnchoredColumn[]> {
+  const names = columns.map((c: any) => c?.name).filter((n: unknown): n is string => typeof n === 'string' && n.length > 0);
+  if (names.length !== columns.length) {
+    throw new AnchorDatasetError(
+      `anchorDataset: ${label(ds)} — POST /datasets/:id/query returned a column with no usable name: ${snippet(columns)}`,
+    );
+  }
+  const profile = await api.post(
+    '/api/v1/guided-analysis/profile',
+    {
+      projectId,
+      dataset: {
+        datasetVersion: versionHash,
+        columns: names,
+        rows: rows.map((row) => Object.fromEntries(names.map((n) => [n, coerceCell(row?.[n])]))),
+      },
+    },
+    workspaceHeader(workspaceId),
+  );
+  if (profile.status >= 300) {
+    throw new AnchorDatasetError(
+      `anchorDataset: ${label(ds)} — POST /guided-analysis/profile returned ${profile.status}, so no column types could be resolved: ${snippet(profile.body)}`,
+    );
+  }
+  const variables = Array.isArray(profile.body?.variables) ? profile.body.variables : [];
+  if (variables.length === 0) {
+    throw new AnchorDatasetError(
+      `anchorDataset: ${label(ds)} profiled to ZERO variables even though the query returned ${names.length} columns (${names.join(', ')}); refusing to anchor on an unprofiled dataset.`,
+    );
+  }
+  return variables.map((v: any) => ({
+    name: v.name,
+    type: v.type,
+    ...(Array.isArray(v.categories) && v.categories.length > 0 ? { categories: v.categories } : {}),
+  }));
+}
+
+/** Coerce a cell to the `string | number | null` the guided dataset contract allows. */
+function coerceCell(value: unknown): string | number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number' || typeof value === 'string') return value;
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  return String(value);
 }
 
 /** Ask the planner for a plan (LLM or deterministic fallback) for one question. */

@@ -69,7 +69,7 @@ test(
   { tag: ['@SI-045'] },
   async () => {
     const provider = process.env.SHADOW_RUN_PROVIDER ?? 'unspecified';
-    const dataset = await anchorDataset(api, workspaceId);
+    const dataset = await anchorDataset(api, workspaceId, projectId);
     test.skip(!dataset, 'could not anchor a dataset for the shadow run — deferred to the W5 acceptance environment');
     if (!dataset) return;
 

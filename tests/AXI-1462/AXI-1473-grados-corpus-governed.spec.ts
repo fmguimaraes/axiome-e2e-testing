@@ -40,7 +40,7 @@ test.beforeAll(async () => {
   const t = await ensureTenant(api);
   workspaceId = t.workspaceId;
   projectId = t.projectId;
-  anchor = await anchorDataset(api, workspaceId);
+  anchor = await anchorDataset(api, workspaceId, projectId);
 });
 
 test.afterAll(async () => {
