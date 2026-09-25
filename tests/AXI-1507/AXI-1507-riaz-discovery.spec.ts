@@ -510,9 +510,8 @@ test.describe('AXI-1507 Riaz — block B: guards and refusals', () => {
       await expectQuestionReadBack(c, res.body.instance, analysisD, QUESTIONS.d);
       const runD = await drain(c, res.body.instance.runId);
       rec.takenRun = { status: runD.status, nodes: nodeRows(runD), free: nodeRows(freeRun) };
-      // NOT asserted here: that no node FAILED. See the `test.fail()` below — as of this
-      // spec the screen after a taken split FAILS (FR37 referent-eligibility), which is the
-      // defect that test tracks. This test asserts only what the split itself did.
+      // What came AFTER the split is the next test's subject (AXI-1632); this one
+      // asserts only what the split itself did.
       expect(byNode(runD, 'd5')?.status, 'the split node itself succeeded').toMatch(/SUCCEEDED|REUSED/);
 
       const ruleRuns = await collect(c, analysisD, res.body.instance.runId);
@@ -548,19 +547,16 @@ test.describe('AXI-1507 Riaz — block B: guards and refusals', () => {
     }
   });
 
-  // EXPECTED-FAILURE (real defect, found by this spec 2026-09-25, reported to the lead):
-  // AXI-1595 mints the exploration arm as an `origin: filter` snapshot but stamps it with
-  // `ruleRunId = <the split's run>` (split-ledger.service.ts). `assertReferentEligible`
-  // (AXI-1423 / FR37) reads that producing run, sees a STATISTICAL operation with no
-  // `referentEligible: true` — the split's holdout SEAL is exactly that absence — and refuses
-  // the arm as a referent. So the screen after a TAKEN split FAILS with "Snapshot is a
-  // statistical result whose operation does not declare referent-eligibility (FR37)" and the
-  // four cutoffs + interpretation are BLOCKED. Everything below is the behaviour §4.31 and the
-  // AXI-1595 manual scenario promise; it turns green — and `test.fail()` must then be removed —
-  // when the arm stops inheriting the split run's ineligibility (e.g. arm `ruleRunId` null, or
-  // the eligibility gate exempting a split-published arm).
-  test('AC14/AC3/NFR7 — GAP: the steps after a TAKEN split derive from the exploration arm and do NOT dedupe onto the split-free plan', { tag: ['@SI-017', '@SI-022', '@SI-045'] }, async () => {
-    test.fail();
+  // FLIPPED by AXI-1632 (was `test.fail()` — the defect this spec found on 2026-09-25):
+  // AXI-1595 mints the exploration arm as an `origin: filter` snapshot stamped with
+  // `ruleRunId = <the split's run>`, and `assertReferentEligible` (AXI-1423 / FR37) read that
+  // run, saw a STATISTICAL operation with no `referentEligible: true` — the split's holdout
+  // SEAL is exactly that absence — and refused the ARM. So the screen after a TAKEN split
+  // FAILED and the four cutoffs + interpretation were BLOCKED (run GR-bfa2a7ac). AXI-1632
+  // asks FR37 of the snapshot's provenance SHAPE instead: a snapshot that only NARROWS its
+  // parent (origin `filter`, same dataset) answers with its parent's eligibility, while the
+  // split's own `rule_derived` result — the table naming the sealed patients — stays refused.
+  test('AC14/AC3/NFR7 — the steps after a TAKEN split derive from the exploration arm and do NOT dedupe onto the split-free plan', { tag: ['@SI-017', '@SI-022', '@SI-045'] }, async () => {
     expect(taken, 'the taken-split plan ran in the previous test').toBeTruthy();
     const { run: runD, ruleRuns, ledger, freeScreen } = taken!;
     expect(runD.nodes.filter((n) => n.status === 'FAILED').map((n) => `${shortId(n)}: ${n.error}`), 'no node FAILED').toEqual([]);
