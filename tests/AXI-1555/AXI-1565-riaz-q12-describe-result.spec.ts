@@ -77,17 +77,38 @@ test('AC2/AC11 (FR21, FR32) — the Q12 result view shows the deterministic sent
 
   // AXI-1553's rule: the recommended spec is SELECTED, never hand-built — so
   // what must render is the platform's OWN recommended chart, and it must sit
-  // on the SAME screen as the sentence and the chip. AXI-1564 mounts it under
-  // the answer band as `describe-result-chart` wrapping the existing
-  // `ga-recommended-chart` — a SIBLING of the summary section, not a child of
-  // it, so it is located on the page and its co-presence with the visible
-  // summary above is what "one screen" means here. The figure itself is PLOTLY
-  // (`svg.main-svg`), not recharts — asserting the wrapper alone would pass on
-  // an empty frame, so the drawn surface is asserted too.
-  const chart = page.getByTestId('describe-result-chart');
+  // on the SAME screen as the sentence and the chip.
+  //
+  // AXI-1584 (FR31a) repoints this off `describe-result-chart`. That testid was
+  // AXI-1564's CLIENT-BUILT panel, which drew a figure from the operation
+  // registry's `defaultChart` even for a result the backend had explicitly
+  // withheld a chart for (a one-point box plot on a 1-row `stats.paired_ttest`).
+  // axiome-front `c83994e` (AXI-1573) deleted it and there is a standing
+  // regression guard — `ProjectViewAnalysisDetail.recommendedChart.test.tsx`
+  // `UT-FE-VIEW-1573-001` — that fails if it ever comes back. The assertion is
+  // NOT dropped (FR31a forbids that): it moves to the GOVERNED surface.
+  //
+  // That surface is the result view's own embedded chart gallery, which sits
+  // beside the result table on the same screen as the summary. The gallery pins
+  // the top-ranked `origin: 'recommended'` spec — the one
+  // `RecommendedChartMaterializerService` minted for this run — as its FEATURED
+  // card (`DatasetVisualizations.featuredSpec`, exempt from every gallery
+  // filter and sort, "the question's answer, not an exploratory candidate").
+  // So `featured-chart-card` IS the backend-minted recommended chart, and
+  // nothing client-side can conjure one: a withheld chart mints no
+  // `origin: 'recommended'` spec and this locator finds nothing, which is the
+  // correct failure rather than a drawn placeholder.
+  //
+  // The figure itself is PLOTLY (`svg.main-svg`), not recharts — asserting the
+  // card alone would pass on an empty frame, so the drawn surface is asserted
+  // too.
+  const chart = page.getByTestId('featured-chart-card');
   await expect(chart).toBeVisible();
-  await expect(chart.getByTestId('ga-recommended-chart')).toBeVisible();
   await expect(chart.locator('svg.main-svg').first()).toBeVisible();
+
+  // "One screen" is the co-presence, so the summary must still be visible with
+  // the chart on the page — a scroll that unmounted it would not satisfy FR31.
+  await expect(summary).toBeVisible();
 });
 
 test('AC11 (FR32) — the sentence is carried by a Descriptive Summary Decision, not only by the result view @SI-044', async ({ page }) => {
