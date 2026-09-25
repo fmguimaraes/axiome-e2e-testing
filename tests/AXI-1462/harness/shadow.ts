@@ -25,6 +25,17 @@ import { loadGradosBank, buildEnvelope } from './governed';
  * structurally: this harness issues exactly one `POST /guided-analysis/plan`
  * per question, like any ordinary guided-analysis request — it is not a second
  * call layered on top of one a real user already made.
+ *
+ * AXI-1631 (epic AXI-1603 — FR28/FR31 join, follow-up to AXI-1624): every row
+ * also carries `correlationId`, read off the SAME plan API response's own
+ * top-level `correlationId` field (`PlanResponse.correlationId`,
+ * `axiome-back/libs/contracts/src/guided-analysis/analysis-plan.patterns.ts`).
+ * This harness never mints its own id — the id is minted server-side, once,
+ * inside `PlannerService.plan()` (AXI-1624), and is the ONLY value that can
+ * join against the FR31 attempt-telemetry log stream the SAME backend process
+ * wrote for that request. A harness-invented id would join to nothing while
+ * looking populated, which is worse than the 'n/a' the field showed before
+ * this story (see `shadow-run-row.ts`'s field doc on the `axiome-back` side).
  */
 
 export interface ShadowRunUsage {
@@ -45,6 +56,15 @@ export interface ShadowRunRow {
   readonly shape: string;
   readonly latencyMs: number;
   readonly usage: ShadowRunUsage | null;
+  /**
+   * AXI-1631 — echoes `PlanResponse.correlationId` off the SAME response this
+   * row was built from. Omitted (never `null`/empty string) when the response
+   * carried none, matching `isShadowRunRow`'s optional-field contract on the
+   * `axiome-back` side (`shadow-run-row.ts`). `JSON.stringify` drops an
+   * `undefined` property entirely, so `writeShadowRunRows` never writes the
+   * key for such a row.
+   */
+  readonly correlationId?: string;
 }
 
 interface PlanApiBody {
@@ -54,6 +74,20 @@ interface PlanApiBody {
   };
   plannerFallback?: boolean;
   intentUnsupported?: boolean;
+  /** AXI-1631 — `PlanResponse.correlationId`, echoed at the top level (AXI-1624). */
+  correlationId?: string;
+}
+
+/**
+ * AXI-1631 — the join key this row will carry, read off the plan API response
+ * body. A pure extraction so it is unit-testable without a live backend: a
+ * missing/non-string value on the response is treated as "no id" (`undefined`),
+ * never fabricated.
+ */
+export function correlationIdOf(body: PlanApiBody): string | undefined {
+  return typeof body.correlationId === 'string' && body.correlationId.length > 0
+    ? body.correlationId
+    : undefined;
 }
 
 /** The shape's own node type, read off the plan's own last non-structural node. */
@@ -78,8 +112,9 @@ function outcomeOf(body: PlanApiBody, status: number): ShadowRunOutcome {
  * what the backend under test is configured with). Token usage and per-attempt
  * rule ids are NOT part of the plan API response (FR31's log line is the only
  * place those live) — this harness leaves them `null`/empty rather than
- * fabricating a value; see the story's report for the correlation gap this
- * leaves open.
+ * fabricating a value. `correlationId` IS part of the response (AXI-1624) and
+ * IS captured (AXI-1631) — it is the join key that later resolves the token
+ * usage and per-attempt rule ids against the FR31 log stream, offline.
  */
 export async function runShadowBank(
   api: Api,
@@ -108,6 +143,7 @@ export async function runShadowBank(
       shape: shapeOf(res.body.plan),
       latencyMs,
       usage: null,
+      correlationId: correlationIdOf(res.body),
     });
   }
   return rows;

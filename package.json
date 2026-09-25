@@ -33,6 +33,7 @@
     "stage:riaz-wide-v2": "tsx staging/steps/ensureRiazWideV2.ts",
     "verify": "tsx staging/verify/verify.ts",
     "capture:unit": "tsx --test $(find capture -name '*.spec.ts')",
+    "harness:unit": "tsx --test $(find harness-unit -name '*.spec.ts')",
     "capture:no-backdoor": "tsx staging/checks/noBackdoor.ts capture",
     "capture": "tsx capture/runCapture.ts"
   },
