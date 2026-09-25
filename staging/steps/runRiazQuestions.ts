@@ -88,10 +88,9 @@ export const QUESTIONS: Question[] = [
   { id: 'Q17', dataset: 'PAIRED', text: 'In responders only, what is the mean log2 CPM of each panel gene before and on treatment? Plan exactly two nodes: one filter node with the single condition response = R, then one describe node depending on it that cites the connector rule SUM-CROSS-01 with groupColumns = [gene, timepoint], valueColumn = log2_cpm and aggregation = mean.' },
   { id: 'Q18', dataset: 'PAIRED', text: 'What is the mean CXCL9 expression in responders and non-responders, before and on treatment? Plan exactly two nodes: one filter node with the single condition gene = CXCL9, then one describe node depending on it that cites the connector rule SUM-CROSS-01 with groupColumns = [response, timepoint], valueColumn = log2_cpm and aggregation = mean.' },
   { id: 'Q19', dataset: 'PAIRED', text: 'At the on-treatment biopsy, how does the mean expression of each panel gene compare between responders and non-responders? Plan exactly two nodes: one filter node with the single condition timepoint = On, then one describe node depending on it that cites the connector rule SUM-CROSS-01 with groupColumns = [gene, response], valueColumn = log2_cpm and aggregation = mean.' },
-  // AXI-1581 re-pointed Q20 from SUM-RANK-01 to SUM-SPREAD-01: the narrowing of
-  // SUM-RANK-01's aggregation enum to {mean, sum} means a std ranking cannot bind
-  // it at all, and the spread shape is exactly what SUM-SPREAD-01 was seeded for.
-  { id: 'Q20', dataset: 'PAIRED', text: 'At the pre-treatment biopsy, which panel genes vary most between patients? Plan exactly two nodes: one filter node with the single condition timepoint = Pre, then one describe node depending on it that cites the connector rule SUM-SPREAD-01 with groupColumns = [gene], valueColumn = log2_cpm, aggregation = std and direction = desc.' },
+  // Q20 RETIRED (AXI-1575 amendments): it asked the same question as Q33 (both cite
+  // SUM-SPREAD-01 over the same pre-treatment std ranking) and deduped onto one run.
+  // Q33 is kept; ids are NOT renumbered.
   { id: 'Q21', dataset: 'DE', text: `For the 24 immune panel genes, what is the pre-treatment responder-vs-non-responder log2 fold change? Plan exactly two nodes: one filter node with the single condition gene in [${PANEL}], then one describe node depending on it that cites the connector rule SUM-RANK-01 with groupColumns = [gene], valueColumn = log2FoldChange, aggregation = mean and direction = desc.` },
 
   // ── AXI-1587: ten more DESCRIPTIVE questions (Q22–Q31, Chart-Enrichment-Brief §5) ──

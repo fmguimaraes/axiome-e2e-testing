@@ -90,7 +90,7 @@ test('UT-STAGE-167: confidence band maps the rule confidence — ≥0.75 high, �
 // find-or-create-by-title mechanic in `riazUserCharts.ts` depends on it), and
 // every question carries exactly one `userCharts[]` interpretation.
 
-const Q12_TO_Q21 = ['Q12', 'Q13', 'Q14', 'Q15', 'Q16', 'Q17', 'Q18', 'Q19', 'Q20', 'Q21'];
+const Q12_TO_Q21 = ['Q12', 'Q13', 'Q14', 'Q15', 'Q16', 'Q17', 'Q18', 'Q19', 'Q21'];
 
 test('UT-STAGE-205: every Q12–Q21 question carries at least 3 userCharts[] plans (AC — recommended + ≥3 shows ≥4 charts total)', () => {
   for (const qId of Q12_TO_Q21) {

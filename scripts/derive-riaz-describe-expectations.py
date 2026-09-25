@@ -91,7 +91,7 @@ def main() -> None:
     q19 = long[long["timepoint"] == "On"].groupby(["gene", "response"])["log2_cpm"].agg(["mean", "count"]).round(4).reset_index()
     show("Q19", "timepoint == On, groupby(gene, response).mean(log2_cpm)", q19[q19["gene"].isin(["CD8A", "LCK", "CD3E"])], head=6)
 
-    # Q20 — POPULATION sd per gene at Pre (ddof=0 — what bio-compute computes).
+    # Q20 (RETIRED from the question pack, identical to Q33; kept as the derivation of Q33's sd) — POPULATION sd per gene at Pre (ddof=0 — what bio-compute computes).
     q20 = pre.groupby("gene")["log2_cpm"].agg(std=lambda s: s.std(ddof=0), n="count").sort_values("std", ascending=False).round(4).reset_index()
     q20_sample = pre.groupby("gene")["log2_cpm"].std(ddof=1).sort_values(ascending=False).round(4)
     show("Q20", "timepoint == Pre, groupby(gene).std(log2_cpm, ddof=0) — POPULATION sd, desc", q20)

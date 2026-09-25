@@ -223,7 +223,7 @@ test('UT-E2E-DESC-015: the observation readers read the cited code, n_groups and
 test('UT-E2E-DESC-016: every descriptive question declares a derivation and all ten seeded connectors are covered', () => {
   const ids = Object.keys(DESCRIBE_EXPECTED);
   // AXI-1587 added Q22–Q31 (ten more descriptive questions) on top of Q12–Q21.
-  assert.equal(ids.length, 26); // AXI-1581 added Q32–Q35, AXI-1582 Q36–Q37
+  assert.equal(ids.length, 25); // 26 before Q20 was retired (identical to Q33, AXI-1575 amendments); AXI-1581 added Q32–Q35, AXI-1582 Q36–Q37
   ids.forEach((id) => assert.ok(isDescribeQuestion(id) && DESCRIBE_EXPECTED[id].derivation.length > 20, id));
   const connectors = new Set(ids.flatMap((id) => DESCRIBE_EXPECTED[id].results.map((r: ExpectedDescribeResult) => r.connector)));
   // Every seeded connector is exercised by a staged question — the eight shape

@@ -264,27 +264,7 @@ export const DESCRIBE_EXPECTED: Record<string, DescribeExpectation> = {
       },
     ],
   },
-  Q20: {
-    derivation: `pandas: ${PAIRED} → df[df.timepoint=='Pre'].groupby('gene').log2_cpm.std(ddof=0) (POPULATION sd, as bio-compute computes it) sorted descending`,
-    results: [
-      {
-        cohort: 'timepoint eq Pre',
-        // AXI-1581: a std ranking is SUM-SPREAD-01's shape — SUM-RANK-01's
-        // aggregation enum was narrowed to {mean, sum} and can no longer bind it.
-        connector: 'SUM-SPREAD-01',
-        operationId: 'describe.grouped_aggregate',
-        nGroups: 24,
-        parameters: { groupColumns: ['gene'], valueColumn: 'log2_cpm', aggregation: 'std', direction: 'desc' },
-        top: { label: 'CXCL9', value: 2.7591, n: 27 },
-        bottom: { label: 'IFNG', value: 0.9621, n: 27 },
-        ranks: [
-          { rank: 1, label: 'CXCL9', value: 2.7591 },
-          { rank: 2, label: 'CXCL10', value: 2.1331 },
-          { rank: 24, label: 'IFNG', value: 0.9621 },
-        ],
-      },
-    ],
-  },
+  // Q20 retired — identical to Q33 (AXI-1575 amendments); ids are not renumbered.
   Q21: {
     derivation: `pandas: ${DE} → df[df.gene.isin(panel24)].sort_values('log2FoldChange', ascending=False); min(padj)=0.2095 at IDO1`,
     results: [
