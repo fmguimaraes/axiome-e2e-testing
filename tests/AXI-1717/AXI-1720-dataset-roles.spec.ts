@@ -169,6 +169,8 @@ test.describe('AXI-1720 - roles record and API (real backend)', { tag: ['@SI-014
   let t: Awaited<ReturnType<typeof ensureTenant>>;
   let viewAnalysisId: string;
   let datasetId: string;
+  let projectId: string;
+  let runId: string;
   const rolesUrl = () => `/api/v1/discovery/analyses/${viewAnalysisId}/datasets/${datasetId}/roles`;
   const declaration = (site = 'center') => ({
     outcome: { state: 'declared', column: 'response', outcomeKind: 'binary' },
@@ -182,7 +184,7 @@ test.describe('AXI-1720 - roles record and API (real backend)', { tag: ['@SI-014
   test.beforeAll(async () => {
     api = await adminApi();
     t = await ensureTenant(api);
-    const projectId = await ensureProject(api, t, NAMES.project);
+    projectId = await ensureProject(api, t, NAMES.project);
     datasetId = await ingestFixture(api, t, NAMES.smallFixture);
     const hash = await datasetVersionHash(api, t, datasetId);
     await ensureApprovedDiscoveryConfig(api, t);
@@ -190,7 +192,10 @@ test.describe('AXI-1720 - roles record and API (real backend)', { tag: ['@SI-014
     const bound = await bindEnvelope(api, t, viewAnalysisId);
     expect([200, 201], `envelope bind: ${JSON.stringify(bound.body)}`).toContain(bound.status);
     // A discovery plan instance on the container (LLM-free): the roles API derives the question from it.
-    await instantiatePlan(api, t, { viewAnalysisId, projectId, datasetId, datasetVersionHash: hash, questionKey: 'axi-1720-roles' });
+    const planned = await instantiatePlan(api, t, { viewAnalysisId, projectId, datasetId, datasetVersionHash: hash, questionKey: 'axi-1720-roles' });
+    expect(planned.status, `instantiate: ${JSON.stringify(planned.body)}`).toBe(201);
+    expect(planned.body.instantiated, `refused: ${JSON.stringify(planned.body.reasons)}`).toBe(true);
+    runId = planned.body.instance.runId;
   });
 
   test.afterAll(async () => { await api?.ctx.dispose(); });
@@ -225,14 +230,50 @@ test.describe('AXI-1720 - roles record and API (real backend)', { tag: ['@SI-014
 
   test('FR3 - before any exploration run an edit replaces the declaration in place (no new version)', async () => {
     const before = await api.get(rolesUrl(), t.headers);
-    test.skip(before.body.locked === true, 'an exploration run already exists on this question in this stack');
+    // The plan's governed run starts at instantiation and may already have produced a rule run on
+    // this analysis; either outcome is asserted (never skipped) - the lock flag decides which.
     const put = await api.ctx.put(apiUrl(rolesUrl()), {
       data: { roles: declaration('hospital'), confirm: true }, headers: t.headers,
     });
     const body = await put.json();
     expect(put.status(), JSON.stringify(body)).toBeLessThan(300);
-    expect(body.mintedNewRevision).toBe(false);
-    expect(body.record.revision).toBe(before.body.current.revision);
+    if (before.body.locked === false) {
+      expect(body.mintedNewRevision).toBe(false);
+      expect(body.record.revision).toBe(before.body.current.revision);
+    } else {
+      expect(body.mintedNewRevision, 'locked already: an edit mints a new version').toBe(true);
+      expect(body.record.revision).toBe(before.body.current.revision + 1);
+    }
+  });
+
+  // B3 - drives a REAL guided exploration step (the LLM-free nine-step plan's governed run) and
+  // asserts the lock flips off the platform's own run rows, then that an edit mints a new version.
+  test('FR3 - after the REAL guided run produces exploration runs the roles lock and an edit mints revision N+1, original unchanged', async () => {
+    const SETTLED = new Set(['SUCCEEDED', 'REUSED', 'FAILED', 'BLOCKED', 'SKIPPED', 'CANCELLED']);
+    let nodes: any[] = [];
+    for (let i = 0; i < 120; i++) {
+      const st = (await api.get(`/api/v1/governed-execution/status?projectId=${projectId}&runId=${runId}`, t.headers)).body;
+      nodes = st?.nodes ?? [];
+      for (const n of nodes.filter((n: any) => n.status === 'AWAITING_APPROVAL')) {
+        await api.post('/api/v1/governed-execution/resolve', { projectId, runId, nodeId: n.nodeId, approved: true, note: 'AXI-1720 e2e' }, t.headers);
+      }
+      if (nodes.length > 0 && nodes.every((n: any) => SETTLED.has(n.status))) break;
+      await new Promise((r) => setTimeout(r, 2_500));
+    }
+    expect(nodes.length, 'the guided run has nodes').toBeGreaterThan(0);
+    const before = await api.get(rolesUrl(), t.headers);
+    expect(before.body.locked, 'a real guided run exists on this analysis, so the roles must be locked').toBe(true);
+    const originalRevision = before.body.current.revision;
+    const originalRoles = before.body.current.roles;
+    const put = await api.ctx.put(apiUrl(rolesUrl()), { data: { roles: declaration('locked-edit-site'), confirm: true }, headers: t.headers });
+    const body = await put.json();
+    expect(put.status(), JSON.stringify(body)).toBeLessThan(300);
+    expect(body.mintedNewRevision).toBe(true);
+    expect(body.record.revision).toBe(originalRevision + 1);
+    const after = await api.get(rolesUrl(), t.headers);
+    expect(after.body.current.revision).toBe(originalRevision + 1);
+    expect(after.body.current.roles.site).toEqual({ state: 'declared', column: 'locked-edit-site' });
+    expect(originalRoles.site.column, 'the original declaration object read earlier is unchanged').not.toBe('locked-edit-site');
   });
 
   test('FR1 - an inadmissible declaration is a 400 listing every error and stores nothing', async () => {
@@ -255,7 +296,7 @@ test.describe('AXI-1720 - roles record and API (real backend)', { tag: ['@SI-014
     expect(withWs.status()).toBe(400);
     const other = await api.post('/api/v1/workspaces', { name: 'AXI-1720 Other Workspace', type: 'internal', ownerOrganizationId: t.orgId });
     const otherWs = other.body?.id;
-    test.skip(!otherWs, 'could not create a second workspace to probe confinement');
+    expect(otherWs, 'a second workspace is needed to probe confinement').toBeTruthy();
     const res = await api.get(rolesUrl(), workspaceHeader(otherWs));
     expect([403, 404]).toContain(res.status);
   });
