@@ -139,7 +139,10 @@ test.describe('AXI-1690 s4.7 - the Phase-1 three-group overflow is terminal (AC1
     requireBack();
     const patterns = readFileSync(PATTERNS(), 'utf8');
     const block = patterns.slice(patterns.indexOf('  compare_groups: {'), patterns.indexOf('  compare_paired: {'));
-    expect(block).toMatch(/arity: \{ groups: \{ min: 2, max: 2 \} \}/);
+    // AXI-1740: main carries `{ min: 2 }` (AXI-1695 widened Phase 1's exactly-two to two-or-more,
+    // index-versus-each, and AXI-1730 the three-group omnibus). The old `max: 2` assertion was stale.
+    expect(block).toMatch(/arity: \{ groups: \{ min: 2 \} \}/);
+    expect(block).not.toMatch(/max: 2/);
 
     // The seven three-group goldens (Q01-Q05, Q20, Q43) and the three-site Q35 are gap rows with no golden intent.
     const ledger = readJson(LEDGER());
