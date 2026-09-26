@@ -46,7 +46,7 @@ test.describe('AXI-1729 gateway additive projections (back)', () => {
 
   test('GW1729.5 AC30 no third plan-identity re-baseline; kernel export surface stays exact @SI-017', () => {
     const dir = path.join(BACK_ROOT as string, `${SRC}/guided-analysis/plan/compile/__fixtures__/rebaselines`);
-    expect(readdirSync(dir).filter((f) => f.endsWith('.json')).length).toBe(2);
+    expect(readdirSync(dir).filter((f) => f.endsWith('.json')).length).toBe(3);
     const r = jest([`${SRC}/rule-runs/kernel/index.spec.ts`, `${SRC}/guided-analysis/plan/compile/plan-identity-rebaseline.spec.ts`]);
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });

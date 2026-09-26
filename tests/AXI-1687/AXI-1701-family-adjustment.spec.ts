@@ -59,7 +59,7 @@ test.describe('AXI-1701 governed family adjustment (back)', () => {
 
   test('M.7 AC30 the frozen corpus identity is untouched (exactly two manifests) @SI-045', () => {
     const dir = path.join(BACK_ROOT as string, GA, 'plan/compile/__fixtures__/rebaselines');
-    expect(readdirSync(dir).filter((f) => f.endsWith('.json')).length).toBe(2);
+    expect(readdirSync(dir).filter((f) => f.endsWith('.json')).length).toBe(3);
     const r = jest([`${GA}/plan/compile/plan-identity-rebaseline.spec.ts`, `${GA}/plan/compile/grados-golden.spec.ts`]);
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });

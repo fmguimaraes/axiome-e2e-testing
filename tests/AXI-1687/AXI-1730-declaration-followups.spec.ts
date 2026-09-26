@@ -51,6 +51,6 @@ test.describe('AXI-1730 AXI-1693 follow-ups', () => {
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
     const dir = path.join(BACK_ROOT as string, GA, 'plan/compile/__fixtures__/rebaselines');
     expect(existsSync(dir)).toBe(true);
-    expect(readdirSync(dir).filter((f) => f.endsWith('.json'))).toHaveLength(2);
+    expect(readdirSync(dir).filter((f) => f.endsWith('.json'))).toHaveLength(3);
   });
 });
