@@ -137,3 +137,33 @@ sibling `axiome-back` checkout exists.
 | UT-GRADOS-1677-3 | The cohort and longitudinal structure the bank asks about is present (3 groups, 2 timepoints for treated subjects, both representation levels) | Pass |
 | UT-GRADOS-1677-4 | The committed CSV regenerates byte-identically from its generator | Pass |
 | UT-GRADOS-1677-5 | The copied schema still matches `GRADOS_DATASET` in `axiome-back` | Pass |
+
+## AXI-1604/synthetic-grados-seed-fidelity.spec.ts
+
+AXI-1694 (epic AXI-1687 — FR56/FR57, SI-044). Before this story `absolute_count`
+was `pct × the subject's ONE total lymphocyte count`, applied FLAT to every
+column regardless of nesting; lymphocyte count was one draw per subject, same
+distribution in every disease group; timepoints were independent draws with no
+shared subject term. So the two unit readings could never disagree for a fixed
+subject, pSS lymphopenia could not exist, and pairing baseline against
+post-treatment could not show a real subject effect. This story fixes all
+three (see the provenance block in `generate-synthetic-grados-cohort.ts`) and
+these tests pin the fix, read off the regenerated committed CSV. Bank intents
+are unchanged (FR57) — nothing here alters `GRADOS_DATASET`, `grados-golden-
+intents.ts` or `synthetic-grados-schema.ts`'s column contract.
+
+**Not covered here (FR58, recorded not hidden).** "Pairing changes a paired
+result" (AC57) is a property of the STATISTIC that consumes paired rows, not
+of the seed — it is asserted where that statistic runs. UT-GRADOS-1694-5
+proves the seed now carries the subject effect (`r(baseline, post) > 0`) a
+paired statistic needs in order to differ from its unpaired twin; it does not
+run that statistic itself.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-GRADOS-1694-1 | The TFH-compartment triad (`tfh1+tfh2+tfh17`) stays within its declared 100% total except on the declared `n % 17 === 0` overflow rows, which exceed it by a guaranteed margin | Pass |
+| UT-GRADOS-1694-2 | Every nested `absolute_count` child (`foxp3_pct` of CD4, `plasmablast_pct` of B cells) is at most its real parent's absolute value — the parent chain, not the flat lymphocyte count | Pass |
+| UT-GRADOS-1694-3 | Baseline total lymphocyte count is lower for pSS than for the other two disease groups (pSS lymphopenia) | Pass |
+| UT-GRADOS-1694-4 | Post-rituximab lymphocyte count is lower than the same subjects' own baseline | Pass |
+| UT-GRADOS-1694-5 | Baseline and post-treatment lymphocyte counts are positively correlated within a subject — the subject effect is real, not accidental | Pass |
+| UT-GRADOS-1694-6 | The two unit readings of a nested measure (`foxp3_pct`) can disagree — a subject pair can rank differently under `pct_of_parent` than under `absolute_count` | Pass |

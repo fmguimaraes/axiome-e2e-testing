@@ -104,3 +104,61 @@ export function declaredCategories(): Map<string, readonly string[]> {
   }
   return out;
 }
+
+/**
+ * AXI-1694 (epic AXI-1687 — FR56, SI-044). The parent chain
+ * `generate-synthetic-grados-cohort.ts` derives `absolute_count` through —
+ * NOT a flat `pct × total lymphocyte count` for every column. Read as: each
+ * entry's `children` are `pct_of_parent`-representation shares of `parent`
+ * (a real column, in cells/µL once resolved through ITS OWN row of this
+ * table if it also has one — `cd4_pct` is both a child of `lymphocytes` and
+ * the parent of `foxp3_pct`/`tfh_compartment`).
+ *
+ * `tfh_compartment` is virtual — no literal column carries the TFH
+ * compartment's own size, only shares of it (`tfh1_pct`, `tfh2_pct`,
+ * `tfh17_pct`, `pd1_tfh_pct`, `tfh_residual_pct`). Its absolute size is
+ * `tfhFractionOfCd4% of cd4_pct's absolute value`; there is no declared
+ * column for the fraction itself.
+ *
+ * THIS IS SHAPE, NOT A DECISION. It documents what the seed generator already
+ * computes; it does not choose containment sets for AXI-1693 (dataset
+ * semantic declaration) — that story reads this shape when it decides its own
+ * `containmentSets[]` (see `SYNTHETIC_GRADOS_CONTAINMENT_SETS` below for the
+ * ONE relationship a bank question actually depends on).
+ */
+export const SYNTHETIC_GRADOS_VALUE_CHAIN = [
+  { parent: 'lymphocytes', children: ['cd4_pct', 'cd8_pct', 'nk_pct', 'b_pct'] },
+  { parent: 'cd4_pct', children: ['foxp3_pct', 'tfh_compartment'] },
+  { parent: 'tfh_compartment', children: ['tfh1_pct', 'tfh2_pct', 'tfh17_pct', 'pd1_tfh_pct', 'tfh_residual_pct'] },
+  { parent: 'b_pct', children: ['plasmablast_pct'] },
+] as const;
+
+/**
+ * AXI-1694 (epic AXI-1687 — FR56, SI-044). The ONE containment relationship
+ * the bank actually tests (Q38, "do any child populations exceed their
+ * parent in comparable units?"). `tfh1_pct + tfh2_pct + tfh17_pct` are shares
+ * of the SAME 100%-by-construction TFH compartment (`tfh_residual_pct` is
+ * literally `100 - Σchildren`, so the check IS `residual < 0`), and it is
+ * evaluated in `pct_of_parent` units only — the two readings are declared
+ * `comparableAcrossLevels: false`, so a containment check does not mix them.
+ *
+ * FORMAT FOR THE CONSUMER (AXI-1693, dataset semantic declaration, IMM-QC-10):
+ * `parent` is a literal column when `parentKind` is `'column'`, or a fixed
+ * constant (never a column) when `'virtual_total'`. `children` are column
+ * names whose `pct_of_parent` values are declared shares of `parent`, checked
+ * within `comparableUnit` only. `deliberateViolationPredicate` is a plain-
+ * English predicate over the generator's OWN row index (not exposed as a CSV
+ * column) that a consumer can use to assert the check fires on exactly the
+ * rows the seed deliberately violates — AXI-1693 does not need to reproduce
+ * the predicate, only to confirm its own count of flagged rows against it.
+ */
+export const SYNTHETIC_GRADOS_CONTAINMENT_SETS = [
+  {
+    id: 'tfh-compartment-shares',
+    parent: 100,
+    parentKind: 'virtual_total' as const,
+    children: ['tfh1_pct', 'tfh2_pct', 'tfh17_pct'] as const,
+    comparableUnit: 'pct_of_parent' as const,
+    deliberateViolationPredicate: 'subject index (1-based, across all 120 subjects) % 17 === 0',
+  },
+] as const;
