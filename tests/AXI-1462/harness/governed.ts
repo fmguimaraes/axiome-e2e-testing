@@ -1,9 +1,11 @@
+import { test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Api } from '../../AXI-1435/harness/api';
 import { workspaceHeader, sleep } from '../../AXI-1435/harness/api';
 import type { GradosQuestion } from '../../AXI-1458/fixtures/gradosQuestions';
 import type { AnchoredDataset } from '../../AXI-1604/harness/anchor-dataset';
+import { LIVE_LLM, LIVE_LLM_SKIP_REASON } from '../../../config/env';
 
 /**
  * AXI-1473 — Grados-corpus governed-path harness (@SI-047).
@@ -92,6 +94,9 @@ export function buildEnvelope(
 
 /** Ask the planner for a plan (LLM or deterministic fallback) for one question. */
 export async function planQuestion(api: Api, workspaceId: string, projectId: string, envelope: ReturnType<typeof buildEnvelope>): Promise<any | null> {
+  // Real Anthropic spend (AXI-1678 review A2): the gate lives in the helper that makes
+  // the call, so no spec can inherit an ungated call. Opt in with E2E_LIVE_LLM=1.
+  test.skip(!LIVE_LLM, LIVE_LLM_SKIP_REASON);
   const res = await api.post('/api/v1/guided-analysis/plan', { projectId, envelope }, workspaceHeader(workspaceId));
   if (res.status >= 300 || !res.body?.plan) return null;
   return res.body.plan;

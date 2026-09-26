@@ -1,7 +1,9 @@
+import { test } from '@playwright/test';
 import type { Api } from '../../AXI-1435/harness/api';
 import { workspaceHeader, asList } from '../../AXI-1435/harness/api';
 import type { Tenant } from '../../AXI-1435/harness/seed';
 import type { AnchoredDataset } from '../../AXI-1604/harness/anchor-dataset';
+import { LIVE_LLM, LIVE_LLM_SKIP_REASON } from '../../../config/env';
 
 /**
  * AXI-1603 — Intent-Compiled Planner epic E2E harness (@SI-045/@SI-046).
@@ -123,6 +125,9 @@ export async function planQuestion(
   envelope: PlannerEnvelope,
   promptId?: string,
 ): Promise<{ status: number; body: PlanResponse }> {
+  // Real Anthropic spend (AXI-1678 review A2): the gate lives in the helper that makes
+  // the call, so no spec can inherit an ungated call. Opt in with E2E_LIVE_LLM=1.
+  test.skip(!LIVE_LLM, LIVE_LLM_SKIP_REASON);
   return api.post('/api/v1/guided-analysis/plan', { projectId, envelope, ...(promptId ? { promptId } : {}), sessionId: null }, workspaceHeader(workspaceId));
 }
 

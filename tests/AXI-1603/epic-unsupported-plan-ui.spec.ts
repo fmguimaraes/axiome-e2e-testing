@@ -3,6 +3,7 @@ import { adminApi, type Api } from '../AXI-1435/harness/api';
 import { ingestFixture } from '../AXI-1435/harness/seed';
 import { buildEnvelope, planQuestion, ensureTenant1603 } from './harness/planner';
 import { anchorDataset } from '../AXI-1604/harness/anchor-dataset';
+import { LIVE_LLM, LIVE_LLM_SKIP_REASON } from '../../config/env';
 
 /**
  * AXI-1603 — Intent-Compiled Planner (epic acceptance), UI half.
@@ -30,6 +31,8 @@ import { anchorDataset } from '../AXI-1604/harness/anchor-dataset';
 // TEST's outcome (only on the shared `beforeAll` seed), so one test's failure
 // must not skip the rest — each AC's real result stays independently visible.
 test.describe.configure({ mode: 'parallel', timeout: 180_000 });
+// Real Anthropic spend: opt in with E2E_LIVE_LLM=1 (README § Environment targeting).
+test.skip(!LIVE_LLM, LIVE_LLM_SKIP_REASON);
 
 const UNSUPPORTED_QUESTION =
   'Show how score and score2 co-vary across three ordered timepoints, adjusting for cohort as a covariate.';
