@@ -65,4 +65,12 @@ test.describe('AXI-1697 AUC narration', () => {
     ]);
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });
+
+  test('K.7 AC79 FR79 the interval default is safe: reported only on an asserted true, unverified grain is a named withholding @SI-045', () => {
+    const src = codeOnly(NARRATION);
+    expect(src).toMatch(/referent_grain_unverified/);
+    expect(src).toMatch(/referent_not_one_row_per_subject/);
+    expect(src).toMatch(/oneRowPerSubject\s*!==\s*true/);
+    expect(src).not.toMatch(/referentIsOneRowPerSubject\s*===\s*false\s*\)\s*\{[^}]*\}\s*else if\s*\(low/);
+  });
 });
