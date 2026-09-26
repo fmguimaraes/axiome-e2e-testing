@@ -151,7 +151,7 @@ test.describe('AXI-1721 - step resolver API (real backend)', { tag: ['@SI-045', 
 
   test('FR7 FR8 FR9 AC3 - the screen step resolves fully bound: every value carries its source, nothing is asked of the user', async () => {
     const res = await s.api.post(stepUrl(s.viewAnalysisId, 'screen', 'resolve'), { operationId: SCREEN_OP, datasetId: s.datasetId }, s.t.headers);
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body).toMatchObject({ nodeId: 'd6', stepId: 'screen', operationId: SCREEN_OP, fullyBound: true, disabledReason: null, unresolved: [] });
     const byName = Object.fromEntries(res.body.bindings.map((b: any) => [b.name, b]));
     expect(byName.comparisons).toMatchObject({ slot: 'param', value: [{ from: 'R', to: 'NR' }], source: 'upstream:d6', sourceKind: 'upstream' });
@@ -164,7 +164,7 @@ test.describe('AXI-1721 - step resolver API (real backend)', { tag: ['@SI-045', 
 
   test('FR8 FR9 FR13 - the split step with no upstream node binds from the plan, the dataset ROLES and the approved POLICY - three sources, one step; the undeclared seed stays OPEN', async () => {
     const res = await s.api.post(stepUrl(s.viewAnalysisId, 'split', 'resolve'), { operationId: SPLIT_OP, datasetId: s.datasetId }, s.t.headers);
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
     const byName = Object.fromEntries(res.body.bindings.map((b: any) => [b.name, b]));
     expect(byName.questionKey).toMatchObject({ value: LABEL, source: 'upstream:plan' });
     expect(byName.patientKey).toMatchObject({ slot: 'role', value: 'patient_id', source: 'role:subject', sourceKind: 'role' });
@@ -172,10 +172,10 @@ test.describe('AXI-1721 - step resolver API (real backend)', { tag: ['@SI-045', 
     expect(byName.holdoutRatio).toMatchObject({ value: 0.3, source: `policy:${SPLIT_OP}.holdoutRatio`, sourceKind: 'policy' });
     expect(byName.minPatientsPerArm).toMatchObject({ value: 20, source: `policy:${SPLIT_OP}.minPatientsPerArm` });
     expect(byName.minPatientsPerClass).toMatchObject({ value: 5, source: `policy:${SPLIT_OP}.minPatientsPerClass` });
-    // This question DECLINED the split, so it declared no seed — and the seed is a
-    // governed knob the approved config does not carry either. The resolver must
-    // leave it open (FR13, EC4-shaped) rather than invent one (NFR7): the step is
-    // honest about being not fully bound, with the ONE missing name stated.
+    // The kernel REQUIRES the seed and only the question can declare it (NFR7) — this
+    // question DECLINED the split, so none exists. The resolver must leave it open
+    // (FR13) rather than invent one: the step is honest about being not fully bound,
+    // with the ONE missing name stated. (It is not a governed knob: those bind `policy:`.)
     expect(res.body.fullyBound).toBe(false);
     expect(res.body.disabledReason).toBeNull();
     expect(res.body.unresolved).toEqual([expect.objectContaining({ name: 'splitSeed', slot: 'param', domain: { kind: 'open' } })]);
@@ -192,7 +192,7 @@ test.describe('AXI-1721 - step resolver API (real backend)', { tag: ['@SI-045', 
     const res = await s.api.post(stepUrl(s.viewAnalysisId, 'screen', 'resolve'), {
       operationId: SCREEN_OP, datasetId: s.datasetId, selection: { kind: 'candidate', nodeId: 'd6', runId: s.instanceRunId, values: {} },
     }, s.t.headers);
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body.fullyBound).toBe(false);
     expect(res.body.disabledReason).toContain('does not accept a candidate selection');
   });
@@ -216,7 +216,7 @@ test.describe('AXI-1721 - step resolver API (real backend)', { tag: ['@SI-045', 
     const res = await s.api.post(stepUrl(s.viewAnalysisId, 'cutoff', 'resolve'), {
       operationId: CUTOFF_OP, datasetId: s.datasetId, selection: { kind: 'shortlist_row', nodeId: 'd6', runId: screenRunId, values: { marker: 'CD8A_pre' } },
     }, s.t.headers);
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body).toMatchObject({ nodeId: 'd7', stepId: 'cutoff', operationId: CUTOFF_OP, fullyBound: false, disabledReason: null });
     const byName = Object.fromEntries(res.body.bindings.map((b: any) => [b.name, b]));
     expect(byName.valueColumns).toMatchObject({ slot: 'pivot', value: ['CD8A_pre'], source: 'upstream:d6' });
@@ -230,7 +230,7 @@ test.describe('AXI-1721 - step resolver API (real backend)', { tag: ['@SI-045', 
     const res = await s.api.post(stepUrl(s.viewAnalysisId, 'cutoff', 'resolve'), {
       operationId: CUTOFF_OP, datasetId: s.datasetId, selection: { kind: 'shortlist_row', nodeId: 'd6', runId: screenRunId, values: { marker: 'NOT_A_MARKER' } },
     }, s.t.headers);
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     expect(res.body.fullyBound).toBe(false);
     expect(res.body.disabledReason).toContain('never ranked');
   });
@@ -252,7 +252,7 @@ test.describe('AXI-1721 - step resolver API (real backend)', { tag: ['@SI-045', 
     // declares the measurement family, so a shortlist row naming one of them is a row the screen WILL rank.
     const selection = { kind: 'shortlist_row', nodeId: 'd6', runId: s.declaredInstanceRunId, values: { marker: 'CD8A_pre' } };
     const res = await s.api.post(stepUrl(s.declaredAnalysisId, 'cutoff', 'resolve'), { operationId: CUTOFF_OP, datasetId: s.datasetId, selection }, s.t.headers);
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body).toMatchObject({ nodeId: 'd7', fullyBound: true, disabledReason: null, unresolved: [] });
     const byName = Object.fromEntries(res.body.bindings.map((b: any) => [b.name, b]));
     expect(byName.valueColumns).toMatchObject({ value: ['CD8A_pre'], source: 'upstream:d6' });
