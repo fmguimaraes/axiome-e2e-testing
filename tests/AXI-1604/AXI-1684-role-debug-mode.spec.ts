@@ -38,7 +38,7 @@ async function send(
 async function login(email: string, password: string): Promise<Tokens> {
   const bootstrap = await apiRequest.newContext();
   try {
-    return await send(bootstrap, 'post', '/auth/login', { email, password });
+    return await send(bootstrap, 'post', '/api/v1/auth/login', { email, password });
   } finally {
     await bootstrap.dispose();
   }
@@ -74,7 +74,7 @@ test.describe('AXI-1684 — role debug mode fan-out (AC1-AC4)', { tag: ['@SI-011
     const holderEmail = `axi1684-${Date.now()}@axiome.local`;
     const holderPassword = 'AXI1684-e2e-pw!';
     const bootstrap = await apiRequest.newContext();
-    const registeredTokens: Tokens = await send(bootstrap, 'post', '/auth/register', {
+    const registeredTokens: Tokens = await send(bootstrap, 'post', '/api/v1/auth/register', {
       email: holderEmail,
       password: holderPassword,
       firstName: 'AXI1684',
@@ -83,7 +83,7 @@ test.describe('AXI-1684 — role debug mode fan-out (AC1-AC4)', { tag: ['@SI-011
     const registeredApi = await apiRequest.newContext({
       extraHTTPHeaders: { Authorization: `Bearer ${registeredTokens.accessToken}` },
     });
-    const holderMe = await send(registeredApi, 'get', '/auth/me');
+    const holderMe = await send(registeredApi, 'get', '/api/v1/auth/me');
     holderUserId = holderMe.id;
     await registeredApi.dispose();
     await bootstrap.dispose();
@@ -104,7 +104,7 @@ test.describe('AXI-1684 — role debug mode fan-out (AC1-AC4)', { tag: ['@SI-011
       extraHTTPHeaders: { Authorization: `Bearer ${holderTokens.accessToken}` },
     });
     try {
-      const me = await send(holderApi, 'get', '/auth/me');
+      const me = await send(holderApi, 'get', '/api/v1/auth/me');
       expect(me.debugMode).toBe(true);
     } finally {
       await holderApi.dispose();
@@ -137,7 +137,7 @@ test.describe('AXI-1684 — role debug mode fan-out (AC1-AC4)', { tag: ['@SI-011
       extraHTTPHeaders: { Authorization: `Bearer ${holderTokens.accessToken}` },
     });
     try {
-      const me = await send(holderApi, 'get', '/auth/me');
+      const me = await send(holderApi, 'get', '/api/v1/auth/me');
       expect(me.debugMode).toBe(false);
     } finally {
       await holderApi.dispose();
