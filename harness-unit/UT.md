@@ -199,3 +199,6 @@ STRUCTURAL PIN of the row shape against `axiome-back`'s
 | UT-ABORT-1689-2 | With a go, the first HTTP 400 aborts the run — the 400 question and every later one are `not_answered: aborted`, status `INVALID` | Pass |
 | UT-ABORT-1689-3 | With a go and no 400 the subset completes and the rows are the ordinary ones | Pass |
 | UT-SIDECAR-1689-1 | The run summary sidecar records status, guard decision, subset and abort point beside the rows | Pass |
+| UT-GRADOS-1700-1 | The staged seed filename carries a 12-hex content digest and keeps the .csv suffix | Pass |
+| UT-GRADOS-1700-2 | Identical bytes stage under the same name (idempotent re-run) | Pass |
+| UT-GRADOS-1700-3 | Changed bytes stage under a NEW name (a new dataset version, never the old one served stale) | Pass |
