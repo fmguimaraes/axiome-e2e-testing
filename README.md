@@ -53,6 +53,9 @@ changing only these values — no spec, selector, or config edit:
 | `OBJECT_PUBLIC_URL` | `http://localhost:9000` | public, browser-reachable object storage (MinIO/S3) |
 | `METABASE_BASE_URL` | `http://localhost:3001` | Behavior Tracking read layer (AXI-1048); the `make analytics-up` overlay. Read-layer specs skip when it is unreachable. |
 | `E2E_LIVE_LLM` | unset | Opt-in for specs that call the real planner (`POST /guided-analysis/plan` unmocked → Anthropic, billed). Unset, those specs skip and a full suite run spends zero LLM tokens. Set `1` deliberately per run. The FR30 bank (`AXI-1614-…shadow-run`) additionally needs its own `SHADOW_RUN_*` variables. |
+| `GUIDED_ANALYSIS_LIVE_SPEND_GO` | unset | AXI-1689 (FR53) — the ONE live-spend guard, read by the shadow-run harness (`runShadowBankGuarded`) and by the backend's provider-client construction site. Carries the registry row id of a HELD run (`RUN-YYYY-MM-DD-NN`); the harness also needs that row to carry a written go in the registry (`SHADOW_RUN_REGISTRY_PATH`). Unset, every paid call is refused and recorded `not_answered: guard`. `E2E_LIVE_LLM` does NOT stand in for it. |
+| `SHADOW_RUN_REGISTRY_PATH` | unset | AXI-1689 — path of the run registry the guard reads the go from. Unset or unreadable ⇒ refused. |
+| `SHADOW_RUN_QUESTIONS` | unset | AXI-1689 (FR50) — comma-separated bank ids to run instead of the whole bank (`3,7,12`). An id the bank does not carry throws. The run aborts on the first HTTP 400 and writes `<provider>.run.json` beside the rows. |
 
 The Behavior Tracking read-layer round-trip (`tests/AXI-1043/`) additionally
 reads back through Metabase's query API; it skips unless a Metabase admin is

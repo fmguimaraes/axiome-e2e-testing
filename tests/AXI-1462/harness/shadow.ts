@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { Api } from '../../AXI-1435/harness/api';
 import { adminApi, resetAdminToken, workspaceHeader } from '../../AXI-1435/harness/api';
@@ -45,7 +45,32 @@ export interface ShadowRunUsage {
   readonly outputTokens: number;
 }
 
-export type ShadowRunOutcome = 'planned' | 'fallback' | 'unsupported' | 'refused' | 'unavailable';
+/**
+ * AXI-1689 (epic AXI-1687 — FR50/FR51/FR53/FR55). The outcome vocabulary is a
+ * STRUCTURAL COPY of `libs/contracts/src/guided-analysis/shadow-run-row.contract.ts`
+ * in `axiome-back` (SI-002): this repo cannot import that package, so the copy
+ * is pinned by `harness-unit/AXI-1687/shadow-subset.spec.ts` against
+ * `SHADOW_RUN_ROW_KEYS` below, and the back's strict `isShadowRunRow` guard
+ * refuses a row carrying any other key. `not_answered` is the row that was NOT
+ * ANSWERED for a reason the harness or the planner states — never a planner
+ * verdict dressed as one.
+ */
+export type ShadowRunOutcome =
+  | 'planned'
+  | 'fallback'
+  | 'unsupported'
+  | 'refused'
+  | 'unavailable'
+  | 'not_answered';
+
+/**
+ * Why a `not_answered` row was not answered (closed, mirrors the back contract):
+ * `guard`    — the live-spend guard refused the call before it was made (FR53);
+ * `deadline` — the planner reached its deadline and, per FR51, ran NO fallback;
+ * `aborted`  — the run was aborted after a provider HTTP 400 (FR50) and this
+ *              question was never asked.
+ */
+export type ShadowRunNotAnsweredReason = 'guard' | 'deadline' | 'aborted';
 
 export interface ShadowRunRow {
   readonly questionId: number;
@@ -65,7 +90,26 @@ export interface ShadowRunRow {
    * key for such a row.
    */
   readonly correlationId?: string;
+  /** AXI-1689 — present iff `outcome === 'not_answered'`; omitted otherwise. */
+  readonly notAnsweredReason?: ShadowRunNotAnsweredReason;
 }
+
+/**
+ * AXI-1689 (FR55) — the closed key set of a row, pinned against the back
+ * contract's `SHADOW_RUN_ROW_KEYS`. Presence is what is asserted; order is not.
+ */
+export const SHADOW_RUN_ROW_KEYS = [
+  'questionId',
+  'provider',
+  'outcome',
+  'attempts',
+  'ruleIdsPerAttempt',
+  'shape',
+  'latencyMs',
+  'usage',
+  'correlationId',
+  'notAnsweredReason',
+] as const;
 
 export interface PlanApiBody {
   plan?: {
@@ -81,6 +125,14 @@ export interface PlanApiBody {
   };
   plannerFallback?: boolean;
   intentUnsupported?: boolean;
+  /**
+   * AXI-1689 (FR51) — `PlanResponse.unsupportedReason`, present iff
+   * `intentUnsupported`. The one value this harness reads is `deadline`: the
+   * planner did not reach a verdict in time and, since AXI-1689, ran NO
+   * wrong-shaped fallback (the AXI-1683 regression). Every other reason is an
+   * honest `unsupported` verdict and is recorded as before.
+   */
+  unsupportedReason?: string;
   /** AXI-1631 — `PlanResponse.correlationId`, echoed at the top level (AXI-1624). */
   correlationId?: string;
 }
@@ -168,10 +220,28 @@ export function isRefusalPlan(plan: PlanApiBody['plan']): boolean {
  */
 export function outcomeOf(body: PlanApiBody, status: number): ShadowRunOutcome {
   if (status >= 300 || !body.plan) return 'unavailable';
+  // AXI-1689 (FR51): a deadline is NOT a planner verdict about the question. It
+  // is recorded as `not_answered: deadline` so the report never counts it with
+  // the honest `none` intents, and never as a plan.
+  if (body.intentUnsupported && body.unsupportedReason === 'deadline') return 'not_answered';
   if (body.intentUnsupported) return 'unsupported';
   if (body.plannerFallback) return 'fallback';
   if (isRefusalPlan(body.plan)) return 'refused';
   return 'planned';
+}
+
+/**
+ * AXI-1689 — the reason a response is recorded `not_answered`, or `undefined`
+ * for every other outcome so `rowOf` never writes the key on an answered row
+ * (the back's strict guard refuses a `notAnsweredReason` beside any other
+ * outcome). The only reason a RESPONSE can carry is `deadline`; `guard` and
+ * `aborted` are decided by the run loop, before or instead of a response.
+ */
+export function notAnsweredReasonOf(
+  body: PlanApiBody,
+  status: number,
+): ShadowRunNotAnsweredReason | undefined {
+  return outcomeOf(body, status) === 'not_answered' ? 'deadline' : undefined;
 }
 
 /** The HTTP status that means "your token is no longer good", never an outcome. */
@@ -334,7 +404,216 @@ function rowOf(questionId: number, provider: string, attempt: PlanAttempt): Shad
     latencyMs: attempt.latencyMs,
     usage: null,
     correlationId: correlationIdOf(attempt.body),
+    notAnsweredReason: notAnsweredReasonOf(attempt.body, attempt.status),
   };
+}
+
+// ─── AXI-1689 (epic AXI-1687 — FR50, FR53, FR55, NFR1, EC23–EC25) ───────────
+//
+// The harness half of the ONE live-spend guard. The other half sits in the
+// adapter's single provider-client construction site (`provider/anthropic-client.ts`
+// in `axiome-back`) and is the real wall: it refuses a call in any test/CI
+// environment and outside a registered run whatever this harness says. This
+// half exists so that a paid bank is never even ATTEMPTED without a registry
+// row with a written go — unset, the harness refuses every call and reports
+// `not_answered: guard` (FR53), spending nothing and writing an honest row.
+//
+// The knob is `GUIDED_ANALYSIS_LIVE_SPEND_GO` (ruling 33), carrying the
+// registry row id of the held run, `RUN-YYYY-MM-DD-NN`. `E2E_LIVE_LLM` is a
+// DIFFERENT, older opt-in for the route-free Playwright specs and is never
+// consulted here: one knob, one grammar (NFR1).
+
+/** The registry row-id grammar (FR9): `RUN-` + ISO date + two-digit ordinal. */
+export const LIVE_SPEND_ROW_ID = /^RUN-\d{4}-\d{2}-\d{2}-\d{2}$/;
+
+export type HarnessLiveSpendRefusal =
+  | 'not_configured'
+  | 'invalid_row_id'
+  | 'no_registry'
+  | 'row_not_registered'
+  | 'row_not_go';
+
+export interface HarnessLiveSpendDecision {
+  readonly allowed: boolean;
+  /** `allowed` when `allowed` is true; the refusal otherwise. */
+  readonly reason: HarnessLiveSpendRefusal | 'allowed';
+  /** The row id the decision was made for, when the variable parsed as one. */
+  readonly rowId?: string;
+}
+
+/**
+ * Pure. Decides whether THIS harness process may make a paid call.
+ *
+ * `registryText` is the text of the run registry (`SHADOW_RUN_REGISTRY_PATH`)
+ * when the caller could read it; the registry line for a row must carry the
+ * row id AND a `GO:` marker with a non-empty value (the written go). The
+ * registry's full grammar is AXI-1690's; this check reads only what a go
+ * needs and refuses on anything less — a registry it cannot read is a refusal,
+ * never a pass.
+ */
+export function decideHarnessLiveSpend(
+  env: Record<string, string | undefined>,
+  registryText: string | undefined,
+): HarnessLiveSpendDecision {
+  const raw = env.GUIDED_ANALYSIS_LIVE_SPEND_GO?.trim();
+  if (!raw) return { allowed: false, reason: 'not_configured' };
+  if (!LIVE_SPEND_ROW_ID.test(raw)) return { allowed: false, reason: 'invalid_row_id' };
+  if (registryText === undefined) return { allowed: false, reason: 'no_registry', rowId: raw };
+  const line = registryText.split(/\r?\n/).find((l) => l.includes(raw));
+  if (!line) return { allowed: false, reason: 'row_not_registered', rowId: raw };
+  if (!/\bGO:\s*\S+/.test(line)) return { allowed: false, reason: 'row_not_go', rowId: raw };
+  return { allowed: true, reason: 'allowed', rowId: raw };
+}
+
+/** Reads the registry named by `SHADOW_RUN_REGISTRY_PATH`; `undefined` when unset or unreadable. */
+export function readRunRegistry(env: Record<string, string | undefined>): string | undefined {
+  const path = env.SHADOW_RUN_REGISTRY_PATH?.trim();
+  if (!path) return undefined;
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * AXI-1689 (FR50). The subset of the bank `SHADOW_RUN_QUESTIONS` names, in BANK
+ * order (the order the report expects), deduplicated. Unset or blank ⇒ the
+ * whole bank, exactly as before. An id the bank does not carry THROWS — a
+ * paid subset that silently ran the wrong questions would be a waste with a
+ * clean-looking artefact (the `SHADOW_RUN_DATASET_ID` precedent).
+ */
+export function selectQuestions<Q extends { id: number }>(
+  bank: readonly Q[],
+  questionsEnv: string | undefined,
+): Q[] {
+  const wanted = (questionsEnv ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (wanted.length === 0) return [...bank];
+  const ids = new Set<number>();
+  for (const token of wanted) {
+    if (!/^\d+$/.test(token)) {
+      throw new Error(`SHADOW_RUN_QUESTIONS: '${token}' is not a bank question id`);
+    }
+    ids.add(Number(token));
+  }
+  const known = new Set(bank.map((q) => q.id));
+  const missing = [...ids].filter((id) => !known.has(id));
+  if (missing.length > 0) {
+    throw new Error(`SHADOW_RUN_QUESTIONS names question(s) not in the bank: ${missing.join(', ')}`);
+  }
+  return bank.filter((q) => ids.has(q.id));
+}
+
+export type ShadowRunStatus = 'complete' | 'refused' | 'INVALID';
+
+export interface ShadowRunResult {
+  readonly rows: ShadowRunRow[];
+  /**
+   * `complete` — every selected question was asked and answered (or honestly
+   *              recorded as unsupported/refused/unavailable/deadline);
+   * `refused`  — the guard refused before ANY call; every row is `not_answered: guard`;
+   * `INVALID`  — a provider HTTP 400 aborted the run (FR50); the 400'd question
+   *              and every question after it are `not_answered: aborted`.
+   */
+  readonly status: ShadowRunStatus;
+  readonly guard: HarnessLiveSpendDecision;
+  readonly questionIds: readonly number[];
+  readonly abortedAtQuestionId?: number;
+}
+
+export interface GuardedShadowRunOptions extends ShadowRunOptions {
+  /** Defaults to `process.env`; injectable so the policy is unit-testable. */
+  readonly env?: Record<string, string | undefined>;
+  /** Defaults to the file `SHADOW_RUN_REGISTRY_PATH` names; injectable likewise. */
+  readonly registryText?: string;
+}
+
+/** The HTTP status that aborts a run: the provider (or the gateway) rejected the request itself. */
+const BAD_REQUEST = 400;
+
+function notAnsweredRow(
+  questionId: number,
+  provider: string,
+  reason: ShadowRunNotAnsweredReason,
+): ShadowRunRow {
+  return {
+    questionId,
+    provider,
+    outcome: 'not_answered',
+    attempts: 0,
+    ruleIdsPerAttempt: [],
+    shape: 'unknown',
+    latencyMs: 0,
+    usage: null,
+    notAnsweredReason: reason,
+  };
+}
+
+/**
+ * AXI-1689 (FR50/FR53). `runShadowBank` behind the guard and over the selected
+ * subset, aborting on the first HTTP 400. `runShadowBank`'s own signature and
+ * behaviour are unchanged for its existing callers; this is the entry point
+ * every paid run goes through from now on.
+ *
+ * A refusal or an abort still yields ONE row per selected question, so the
+ * artefact is total over the subset and a report reads "not answered — guard"
+ * rather than a missing line.
+ */
+export async function runShadowBankGuarded(
+  auth: ShadowRunAuth,
+  workspaceId: string,
+  projectId: string,
+  provider: string,
+  datasets: Parameters<typeof buildEnvelope>[2],
+  opts: GuardedShadowRunOptions = {},
+): Promise<ShadowRunResult> {
+  const env = opts.env ?? process.env;
+  const registryText = opts.registryText ?? readRunRegistry(env);
+  const guard = decideHarnessLiveSpend(env, registryText);
+  const questions = selectQuestions(loadGradosBank(), env.SHADOW_RUN_QUESTIONS);
+  const questionIds = questions.map((q) => q.id);
+
+  if (!guard.allowed) {
+    return {
+      rows: questionIds.map((id) => notAnsweredRow(id, provider, 'guard')),
+      status: 'refused',
+      guard,
+      questionIds,
+    };
+  }
+
+  const every = opts.reauthEveryQuestions ?? DEFAULT_REAUTH_EVERY_QUESTIONS;
+  const rows: ShadowRunRow[] = [];
+  for (const [index, q] of questions.entries()) {
+    if (every > 0 && index > 0 && index % every === 0) await auth.refresh();
+    const envelope = buildEnvelope(projectId, q.question, datasets);
+    const attempt = await planWithRefresh(auth, workspaceId, projectId, q.id, envelope);
+    if (attempt.status === BAD_REQUEST) {
+      for (const rest of questions.slice(index)) rows.push(notAnsweredRow(rest.id, provider, 'aborted'));
+      return { rows, status: 'INVALID', guard, questionIds, abortedAtQuestionId: q.id };
+    }
+    rows.push(rowOf(q.id, provider, attempt));
+  }
+  return { rows, status: 'complete', guard, questionIds };
+}
+
+/** The run's sidecar (`<provider>.run.json`): status, guard decision and subset, beside the rows. */
+export function writeShadowRunSummary(
+  provider: string,
+  result: Omit<ShadowRunResult, 'rows'>,
+  dir = join(process.cwd(), 'tests', 'AXI-1462', 'harness', 'shadow-run'),
+): string {
+  const path = join(dir, `${provider}.run.json`);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    path,
+    JSON.stringify({ provider, writtenAt: new Date().toISOString(), ...result }, null, 2),
+    'utf8',
+  );
+  return path;
 }
 
 /**
