@@ -53,6 +53,6 @@ test.describe('AXI-1710 governed correlation trim', () => {
     expect(reg).toContain("operationId: 'stats.correlation'");
     expect(reg).toContain("columns: Object.freeze(['coefficient', 'pValue', 'ciLow', 'ciHigh', 'n', 'reason'])");
     const dir = path.join(BACK_ROOT as string, 'apps/organization-service/src/guided-analysis/plan/compile/__fixtures__/rebaselines');
-    expect(readdirSync(dir).filter((f) => f.endsWith('.json'))).toHaveLength(2);
+    expect(readdirSync(dir).filter((f) => f.endsWith('.json'))).toHaveLength(3);
   });
 });
