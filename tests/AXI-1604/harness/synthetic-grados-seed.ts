@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { copyFileSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Api } from '../../AXI-1435/harness/api';
 import { asList, workspaceHeader } from '../../AXI-1435/harness/api';
@@ -56,13 +59,32 @@ export const SYNTHETIC_GRADOS_FIXTURES_DIR = join(process.cwd(), 'tests', 'AXI-1
  */
 export async function seedSyntheticGrados(api: Api): Promise<SyntheticGradosSeed> {
   const tenant = await resolveTenant(api);
-  const datasetId = await ingestFixture(
-    api,
-    tenant,
-    SYNTHETIC_GRADOS_CSV_FILENAME,
-    SYNTHETIC_GRADOS_FIXTURES_DIR,
-  );
+  const { filename, dir } = stageableFixture();
+  const datasetId = await ingestFixture(api, tenant, filename, dir);
   return { tenant, datasetId };
+}
+
+/**
+ * AXI-1700 (epic AXI-1687 - FR57): the filename a re-stage uploads under is CONTENT-ADDRESSED
+ * (`synthetic-grados-cohort-<first 12 hex of sha256>.csv`).
+ *
+ * `ingestFixture` reuses an existing dataset BY ORIGINAL FILENAME, so a regenerated CSV staged
+ * under the fixed name would silently keep serving the OLD numbers (a stale dataset under the
+ * new file's name) - the opposite of a re-stage. Naming the upload by its content makes changed
+ * bytes a NEW dataset (a new version hash) and identical bytes idempotent, and never overwrites
+ * or renames the dataset the demo narratives and screenshots already use.
+ */
+export function stagedFixtureFilename(bytes: Uint8Array): string {
+  const digest = createHash('sha256').update(bytes).digest('hex').slice(0, 12);
+  return SYNTHETIC_GRADOS_CSV_FILENAME.replace(/\.csv$/, `-${digest}.csv`);
+}
+
+function stageableFixture(): { filename: string; dir: string } {
+  const source = join(SYNTHETIC_GRADOS_FIXTURES_DIR, SYNTHETIC_GRADOS_CSV_FILENAME);
+  const filename = stagedFixtureFilename(readFileSync(source));
+  const dir = mkdtempSync(join(tmpdir(), 'axi-1700-stage-'));
+  copyFileSync(source, join(dir, filename));
+  return { filename, dir };
 }
 
 /**
