@@ -167,3 +167,35 @@ run that statistic itself.
 | UT-GRADOS-1694-4 | Post-rituximab lymphocyte count is lower than the same subjects' own baseline | Pass |
 | UT-GRADOS-1694-5 | Baseline and post-treatment lymphocyte counts are positively correlated within a subject — the subject effect is real, not accidental | Pass |
 | UT-GRADOS-1694-6 | The two unit readings of a nested measure (`foxp3_pct`) can disagree — a subject pair can rank differently under `pct_of_parent` than under `absolute_count` | Pass |
+
+## AXI-1687/shadow-subset.spec.ts
+
+AXI-1689 (epic AXI-1687 — FR50, FR51, FR53, FR55, NFR1, EC23–EC25). Covers the
+harness half of the ONE live-spend guard (`decideHarnessLiveSpend`), the bank
+subset (`selectQuestions`), the FR51 `not_answered: deadline` outcome
+(`outcomeOf`/`notAnsweredReasonOf`), the FR50 abort-on-400 loop
+(`runShadowBankGuarded`), the run sidecar (`writeShadowRunSummary`) and the
+STRUCTURAL PIN of the row shape against `axiome-back`'s
+`libs/contracts/src/guided-analysis/shadow-run-row.contract.ts` — all in
+`tests/AXI-1462/harness/shadow.ts`. The backend half of the guard is
+`provider/live-spend-guard.spec.ts` on the back side; nothing here can spend.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-SUBSET-1689-1 | An unset or blank `SHADOW_RUN_QUESTIONS` selects the whole bank, in bank order | Pass |
+| UT-SUBSET-1689-2 | A comma-separated subset is returned in BANK order, deduplicated, whitespace-tolerant | Pass |
+| UT-SUBSET-1689-3 | An id the bank does not carry THROWS naming it — never a silent whole-bank run | Pass |
+| UT-HGUARD-1689-1 | Unset ⇒ refused `not_configured` — the default spends nothing (EC23) | Pass |
+| UT-HGUARD-1689-2 | A value that is not a registry row id is refused `invalid_row_id` (EC25) | Pass |
+| UT-HGUARD-1689-3 | A valid row id with no readable registry is refused `no_registry` | Pass |
+| UT-HGUARD-1689-4 | A row the registry does not carry is refused `row_not_registered` | Pass |
+| UT-HGUARD-1689-5 | A registered row with no written go is refused `row_not_go` | Pass |
+| UT-HGUARD-1689-6 | A registered row with a written go is allowed and the row id is echoed | Pass |
+| UT-HGUARD-1689-7 | `E2E_LIVE_LLM` is NOT a go — the older opt-in never unlocks a paid bank (NFR1) | Pass |
+| UT-OUTCOME-1689-1 | A deadline is `not_answered: deadline`, never an honest `unsupported` and never a plan (FR51) | Pass |
+| UT-OUTCOME-1689-2 | Every other unsupported reason stays `unsupported`; an answered row carries NO reason key | Pass |
+| UT-ROWKEYS-1689-1 | The harness row key set is byte-identical to the axiome-back contract (structural pin, FR55) | Pass |
+| UT-ABORT-1689-1 | An unconfigured guard refuses BEFORE any call — one `not_answered: guard` row per selected question, zero requests | Pass |
+| UT-ABORT-1689-2 | With a go, the first HTTP 400 aborts the run — the 400 question and every later one are `not_answered: aborted`, status `INVALID` | Pass |
+| UT-ABORT-1689-3 | With a go and no 400 the subset completes and the rows are the ordinary ones | Pass |
+| UT-SIDECAR-1689-1 | The run summary sidecar records status, guard decision, subset and abort point beside the rows | Pass |
