@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -39,8 +39,18 @@ export const GLOBAL_ROOT =
     : undefined) ??
   firstExisting([path.join(parent, `axiome-global${suffix}`), parent, path.join(parent, 'axiome-global')], 'scripts/hooks');
 
-export const DOCTRINE_DOC = DOCS_ROOT
-  ? path.join(DOCS_ROOT, '05 - product', 'features', 'BACKLOG-Guided-Analysis-Intent-Compiled-Planner.md')
+/** The owning doc, whichever lifecycle prefix it carries today (BACKLOG-/IN-PROGRESS-/bare). */
+const OWNING_DOC = /^(BACKLOG-|IN-PROGRESS-)?Guided-Analysis-Intent-Compiled-Planner\.md$/;
+function owningDoc(root: string | undefined): string | undefined {
+  if (!root) return undefined;
+  const dir = path.join(root, '05 - product', 'features');
+  const matches = readdirSync(dir).filter((f) => OWNING_DOC.test(f));
+  return matches.length === 1 ? path.join(dir, matches[0]) : undefined;
+}
+/** `undefined` with a docs root present means the owning doc is MISSING — the spec fails, never skips. */
+export const DOCTRINE_DOC = owningDoc(DOCS_ROOT);
+export const HOOK_DIFF_SCRIPT = GLOBAL_ROOT
+  ? path.join(GLOBAL_ROOT, 'scripts', 'hooks', 'guard-gate-rulings-diff.py')
   : undefined;
 export const DOCTRINE_TS = BACK_ROOT
   ? path.join(BACK_ROOT, 'libs', 'contracts', 'src', 'guided-analysis', 'answer-as-asked-doctrine.ts')
