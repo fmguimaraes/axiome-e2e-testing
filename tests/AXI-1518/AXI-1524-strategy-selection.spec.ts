@@ -309,9 +309,12 @@ test('AC14 (rendering half) — a reported planner fallback under a strategy ren
 
   // Exact copy from `strategySelection.ts`'s `strategyFallbackNotice()` — a
   // fallback plan must never be presented as though it answered the question
-  // under the selected strategy.
+  // under the selected strategy. AXI-1678: this mock sends NO `fallbackReason`,
+  // so the notice is the neutral no-cause sentence — it no longer claims the
+  // planner "was unavailable" (a statement nothing here can support); the
+  // cause-specific sentences are asserted in tests/AXI-1604/AXI-1678-loud-failure.spec.ts.
   const expectedNotice =
-    `The configured planner was unavailable, so this plan was produced by the deterministic ` +
+    `The configured planner did not produce this plan, so this plan was produced by the deterministic ` +
     `fallback while the "${STRATEGY_TITLE}" strategy was selected — it answers what the data ` +
     `supports, not necessarily that strategy's guidance.`;
   await expect(page.getByTestId('ga-strategy-fallback-notice')).toHaveText(expectedNotice, { timeout: 15_000 });
