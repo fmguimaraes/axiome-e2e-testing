@@ -42,6 +42,20 @@ export const METABASE_BASE_URL = normalizeOrigin(fromEnv('METABASE_BASE_URL', 'h
 /** True when running under CI (used for retry/artifact policy). */
 export const IS_CI = /^(1|true)$/i.test(process.env.CI ?? '');
 
+/**
+ * Opt-in for specs that make REAL planner calls (`POST /guided-analysis/plan`
+ * unmocked, which reaches Anthropic and is billed). Default OFF: an ordinary
+ * suite run spends zero LLM tokens; a spec that needs the live provider skips
+ * with {@link LIVE_LLM_SKIP_REASON} instead of silently running the bank.
+ * Set `E2E_LIVE_LLM=1` deliberately, per run, when the spend is intended.
+ * Route-intercepted planner specs (`page.route`) are free and never gated.
+ */
+export const LIVE_LLM = /^(1|true)$/i.test(process.env.E2E_LIVE_LLM ?? '');
+
+/** Skip reason shared by every live-provider spec, so the report reads uniformly. */
+export const LIVE_LLM_SKIP_REASON =
+  'real Anthropic planner calls are opt-in — set E2E_LIVE_LLM=1 to run this spec (billed)';
+
 /** Join an API path onto {@link API_BASE_URL} (leading slash optional). */
 export function apiUrl(path: string): string {
   return `${API_BASE_URL}/${path.replace(/^\/+/, '')}`;
@@ -56,4 +70,4 @@ export function objectUrl(path: string): string {
   return `${OBJECT_PUBLIC_URL}/${path.replace(/^\/+/, '')}`;
 }
 
-export const env = { BASE_URL, API_BASE_URL, OBJECT_PUBLIC_URL, METABASE_BASE_URL, IS_CI };
+export const env = { BASE_URL, API_BASE_URL, OBJECT_PUBLIC_URL, METABASE_BASE_URL, IS_CI, LIVE_LLM };

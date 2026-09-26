@@ -3,6 +3,7 @@ import { adminApi, type Api } from '../AXI-1435/harness/api';
 import { ingestFixture } from '../AXI-1435/harness/seed';
 import { buildEnvelope, planQuestion, ensureTenant1603 } from '../AXI-1603/harness/planner';
 import { anchorDataset } from './harness/anchor-dataset';
+import { LIVE_LLM, LIVE_LLM_SKIP_REASON } from '../../config/env';
 
 /**
  * AXI-1678 — loud planner failure (epic AXI-1604): the Guided Analysis panel's
@@ -200,6 +201,8 @@ test.describe('AXI-1678 — cause-specific fallback notice (AC2/AC3/AC5)', { tag
 });
 
 test.describe('AXI-1678 — real response schema (AC3/AC5, API)', { tag: ['@SI-045'] }, () => {
+  // The only real planner call in this file — everything above is route-intercepted and free.
+  test.skip(!LIVE_LLM, LIVE_LLM_SKIP_REASON);
   test('AC3 §4.9.6 — one real plan carries a correlationId; fallbackReason is a closed token iff plannerFallback', async ({}, testInfo) => {
     // ONE real planner call (the compiled arm's repair loop can run 5 attempts).
     testInfo.setTimeout(240_000);

@@ -3,6 +3,7 @@ import { adminApi, type Api } from '../AXI-1435/harness/api';
 import { ingestFixture } from '../AXI-1435/harness/seed';
 import { buildEnvelope, planQuestion, findPersistedPlan, ensureStrategy, submitPlanRun, ensureTenant1603 } from './harness/planner';
 import { anchorDataset } from '../AXI-1604/harness/anchor-dataset';
+import { LIVE_LLM, LIVE_LLM_SKIP_REASON } from '../../config/env';
 
 /**
  * AXI-1603 — Intent-Compiled Planner (epic acceptance).
@@ -31,6 +32,8 @@ import { anchorDataset } from '../AXI-1604/harness/anchor-dataset';
  * response, maximising real, reported signal from one live run.
  */
 test.describe.configure({ mode: 'parallel', timeout: 300_000 });
+// Real Anthropic spend: opt in with E2E_LIVE_LLM=1 (README § Environment targeting).
+test.skip(!LIVE_LLM, LIVE_LLM_SKIP_REASON);
 
 const ORDINARY_QUESTION = 'Compare score between cohort 0 and cohort 1 (a two-group comparison).';
 const UNSUPPORTED_QUESTION =

@@ -1,5 +1,5 @@
 import { test, expect, request, type APIResponse } from '@playwright/test';
-import { apiUrl } from '../../config/env';
+import { apiUrl, LIVE_LLM, LIVE_LLM_SKIP_REASON } from '../../config/env';
 import { adminApi, workspaceHeader, type Api } from '../AXI-1435/harness/api';
 import type { Tenant } from '../AXI-1435/harness/seed';
 import { seedSyntheticGrados } from './harness/synthetic-grados-seed';
@@ -43,6 +43,8 @@ import { declaredCategories, SYNTHETIC_GRADOS_COLUMNS } from './fixtures/synthet
  * here — that run is the gate measurement itself (AXI-1670).
  */
 test.describe.configure({ mode: 'serial', timeout: 10 * 60_000 });
+// Real Anthropic spend: opt in with E2E_LIVE_LLM=1 (README § Environment targeting).
+test.skip(!LIVE_LLM, LIVE_LLM_SKIP_REASON);
 
 let api: Api;
 let tenant: Tenant;

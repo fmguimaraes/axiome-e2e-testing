@@ -52,6 +52,7 @@ changing only these values — no spec, selector, or config edit:
 | `API_BASE_URL` | `http://localhost:3000` | backend API (setup/teardown, API-only specs) |
 | `OBJECT_PUBLIC_URL` | `http://localhost:9000` | public, browser-reachable object storage (MinIO/S3) |
 | `METABASE_BASE_URL` | `http://localhost:3001` | Behavior Tracking read layer (AXI-1048); the `make analytics-up` overlay. Read-layer specs skip when it is unreachable. |
+| `E2E_LIVE_LLM` | unset | Opt-in for specs that call the real planner (`POST /guided-analysis/plan` unmocked → Anthropic, billed). Unset, those specs skip and a full suite run spends zero LLM tokens. Set `1` deliberately per run. The FR30 bank (`AXI-1614-…shadow-run`) additionally needs its own `SHADOW_RUN_*` variables. |
 
 The Behavior Tracking read-layer round-trip (`tests/AXI-1043/`) additionally
 reads back through Metabase's query API; it skips unless a Metabase admin is

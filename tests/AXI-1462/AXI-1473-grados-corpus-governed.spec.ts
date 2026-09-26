@@ -3,6 +3,7 @@ import { adminApi, type Api } from '../AXI-1435/harness/api';
 import { ensureTenant } from '../AXI-1435/harness/seed';
 import { buildEnvelope, planQuestion, submitPlan, drainRun, ranWithoutError, loadGradosBank } from './harness/governed';
 import { anchorDataset } from '../AXI-1604/harness/anchor-dataset';
+import { LIVE_LLM, LIVE_LLM_SKIP_REASON } from '../../config/env';
 
 /**
  * AXI-1473 — Grados-corpus governed-path E2E (@SI-047), covers AC6(a) of feature
@@ -26,6 +27,8 @@ import { anchorDataset } from '../AXI-1604/harness/anchor-dataset';
  * GRADOS_CORPUS_LIMIT=<n> to cap the slice for a fast smoke run (default: full).
  */
 test.describe.configure({ mode: 'serial', timeout: 900_000 });
+// Real Anthropic spend: opt in with E2E_LIVE_LLM=1 (README § Environment targeting).
+test.skip(!LIVE_LLM, LIVE_LLM_SKIP_REASON);
 
 let api: Api;
 let workspaceId: string;

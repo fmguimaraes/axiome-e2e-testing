@@ -5,6 +5,7 @@ import { anchorDataset, SHA256_VERSION_HASH_RE } from './harness/anchor-dataset'
 import { buildEnvelope as buildGovernedEnvelope } from '../AXI-1462/harness/governed';
 import { buildEnvelope as buildPlannerEnvelope } from '../AXI-1603/harness/planner';
 import { workspaceHeader } from '../AXI-1435/harness/api';
+import { LIVE_LLM, LIVE_LLM_SKIP_REASON } from '../../config/env';
 
 /**
  * AXI-1662 (epic AXI-1604 — FR28/FR30, SI-042). The live half of the collapse.
@@ -31,6 +32,8 @@ import { workspaceHeader } from '../AXI-1435/harness/api';
  *       npx playwright test tests/AXI-1604/AXI-1662-shared-anchor-resolver
  */
 test.describe.configure({ mode: 'serial', timeout: 5 * 60_000 });
+// Real Anthropic spend: opt in with E2E_LIVE_LLM=1 (README § Environment targeting).
+test.skip(!LIVE_LLM, LIVE_LLM_SKIP_REASON);
 
 let api: Api;
 let workspaceId: string;
