@@ -46,7 +46,6 @@ const JEST_DRIFT_SUITES = [
 ];
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const DECISION_COUNT = 51;
 
 function requireRepos(needed: readonly ('back' | 'docs' | 'global')[]): void {
   const missing = missingRepos(needed);
@@ -93,10 +92,10 @@ function runHook(payload: unknown, projectDir: string): HookRun {
 
 const bash = (command: string) => ({ tool_name: 'Bash', tool_input: { command } });
 
-/** Drive the PostToolUse/Stop diff guard against an explicit checkout list. */
-function runDiffGuard(roots: string[], projectDir: string): HookRun {
+/** Drive the PostToolUse/Stop diff guard against an explicit checkout list, with the payload Claude Code would send. */
+function runDiffGuard(roots: string[], projectDir: string, payload: unknown = {}): HookRun {
   const r = spawnSync('python3', [HOOK_DIFF_SCRIPT as string], {
-    input: '{}',
+    input: JSON.stringify(payload),
     env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir, GATE_RULINGS_HOOK_OFF: '', GATE_RULINGS_DIFF_ROOTS: roots.join(':') },
     encoding: 'utf8',
   });
@@ -134,14 +133,16 @@ test.describe('AXI-1688 §4.1 — doctrine carriers agree (AC1, AC6, AC7)', { ta
 });
 
 test.describe('AXI-1688 §4.2 — the rulings file carries the grain rulings as rows, well-formed in either status (AC4, AC2)', { tag: ['@SI-045'] }, () => {
-  test('51 well-formed decisions, four grain tags, well-formed bank rows, and no row for an impossible bank id — invariants only', async () => {
+  test('decision ids contiguous from 1, every row well-formed in either status, four grain tags, well-formed bank rows, no row for an impossible bank id — invariants only', async () => {
     requireRepos(['back']);
     const file = JSON.parse(readFileSync(RULINGS_JSON as string, 'utf8'));
 
     expect(file.version).toBe(1);
     expect(typeof file.sessionHeld).toBe('boolean');
-    const ids: number[] = file.decisions.map((d: { id: number }) => d.id);
-    expect([...ids].sort((a, b) => a - b)).toEqual(Array.from({ length: DECISION_COUNT }, (_, i) => i + 1));
+    const ids: number[] = [...file.decisions.map((d: { id: number }) => d.id)].sort((a, b) => a - b);
+    const maxId = ids[ids.length - 1];
+    expect(maxId).toBeGreaterThan(0);
+    expect(ids).toEqual(Array.from({ length: maxId }, (_, i) => i + 1)); // contiguous from 1, length = max id — never a literal
     for (const d of file.decisions) {
       expect(['assumed_default', 'ruled'], `decision ${d.id} status`).toContain(d.status);
       expect(d.story, `decision ${d.id} story`).toMatch(/^AXI-\d+$/);
@@ -254,7 +255,7 @@ test.describe('AXI-1688 §5.2 — the rulings hash moves only when the file does
 });
 
 test.describe('AXI-1688 §5.3 — the diff guard catches a protected-file change no indicator saw (AC3, AC127)', { tag: ['@SI-041'] }, () => {
-  test('clean tree exits 0; a modified protected file exits 2 naming repo and file; an untracked copy exits 2 too', async () => {
+  test('clean tree exits 0; a modified protected file exits 2 naming repo and file; an untracked copy exits 2 too; a re-invoked Stop (stop_hook_active) exits 0 — block once', async () => {
     requireRepos(['global']);
     const projectDir = mkdtempSync(path.join(tmpdir(), 'axi-1688-diff-'));
     const repo = path.join(projectDir, 'repo');
@@ -283,5 +284,13 @@ test.describe('AXI-1688 §5.3 — the diff guard catches a protected-file change
 
     const decisions = untracked.logLines.map((l) => JSON.parse(l));
     expect(decisions.map((d) => d.hook)).toEqual(['guard-gate-rulings-diff', 'guard-gate-rulings-diff']);
+
+    // Same dirty tree, but Claude Code re-invoking Stop after a block: exit 0 so the session can end.
+    const reinvoked = runDiffGuard([repo], projectDir, { hook_event_name: 'Stop', stop_hook_active: true });
+    expect(reinvoked.status).toBe(0);
+    expect(reinvoked.stderr).toBe('');
+    expect(readLog(projectDir)).toHaveLength(2); // nothing new logged
+    // A PostToolUse payload never carries the flag → still blocked.
+    expect(runDiffGuard([repo], projectDir, { hook_event_name: 'PostToolUse', tool_name: 'Bash' }).status).toBe(2);
   });
 });
