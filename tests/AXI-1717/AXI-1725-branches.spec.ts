@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { workspaceHeader } from '../AXI-1435/harness/api';
 import {
-  seedLiveWorkbench, driveToScreen, branchUrl, stepUrl, submitStepAndWait,
+  seedLiveWorkbench, driveToScreen, branchUrl, stepUrl, submitStepAndWait, waitForNode, primeWorkspace,
   SCREEN_OP, CUTOFF_OP, FISHER_OP, type Seeded,
 } from './harness/live-workbench';
 
@@ -25,9 +25,11 @@ test.describe('AXI-1725 - fork, discard and count (API, real backend)', { tag: [
 
   test.beforeAll(async () => {
     s = await seedLiveWorkbench(`axi-1725-api-${Date.now().toString(36)}`, 'AXI-1725 Branches API');
-    const submit = await s.api.post(stepUrl(s.viewAnalysisId, 'screen', 'submit'), { operationId: SCREEN_OP, datasetId: s.datasetId, projectId: s.projectId, datasetVersionHash: s.hash }, s.t.headers);
-    expect(submit.status, JSON.stringify(submit.body)).toBe(201);
-    screenRunId = submit.body.runId;
+    // `submitStepAndWait` posts the submit AND waits for the node to settle
+    // (`SUCCEEDED`/`REUSED`) before returning — a bare `POST .../submit` returns
+    // as soon as the run is ACCEPTED, not once it has run, and every test below
+    // that forks or reads "screen" assumes it has already completed.
+    screenRunId = await submitStepAndWait(s, s.viewAnalysisId, 'screen', SCREEN_OP);
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 
@@ -117,10 +119,107 @@ test.describe('AXI-1725 - fork, discard and count (API, real backend)', { tag: [
   });
 
   test('FR9, NFR8 - the fork does not touch governed execution: the forked-from run is unchanged (runs are never mutated)', async () => {
-    const status = await s.api.get(`/api/v1/governed-execution/status?projectId=${s.projectId}&runId=${screenRunId}`, s.t.headers);
-    expect(status.status, JSON.stringify(status.body)).toBe(200);
-    const node = status.body.nodes.find((n: any) => n.nodeId.endsWith('__d6'));
+    // The reconciler that settles a run's node status polls every 2s
+    // (`ReconcilerScheduler`); by the time this LAST serial test runs the
+    // screen run is normally long settled, but nothing here should assert on
+    // a race with that poller — wait for the node the same way every other
+    // step-completion assertion in this harness does.
+    const { node } = await waitForNode(s, screenRunId, 'd6');
     expect(node.status).toMatch(/SUCCEEDED|REUSED/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * EC6 (this story's own acceptance criterion, not AXI-1724's — "Given two
+ * branches with different candidates Then both are visible and only one can be
+ * declared for the question"). Two DECISIONS, each with its own real captured
+ * cutoff choice, both try to declare a candidate against the SAME `questionKey`;
+ * the second is refused server-side (`CandidateApplicationService`,
+ * `DiscoveryQuestionCandidate` unique on `(workspaceId, questionKey)`).
+ *
+ * Proposals are captured as `expert`-sourced (a value entered, not computed) so
+ * the capture needs no cited cutoff-proposal run — this test is about the
+ * one-candidate-per-question guard, not about re-deriving AXI-1511/1630's own
+ * proposal-verification coverage.
+ */
+test.describe('AXI-1725 - one declared candidate per question (API, real backend, EC6)', { tag: ['@SI-045', '@SI-034'] }, () => {
+  test.describe.configure({ mode: 'serial', timeout: 300_000 });
+
+  let s: Seeded;
+  // The tenant is a SHARED workspace across every e2e run against this stack
+  // (`ensureTenant` finds-or-creates by a fixed name), so the question key must
+  // be unique per run or a re-run collides with a row an EARLIER run declared —
+  // which is a fixture hazard, not the EC6 guard failing.
+  const QUESTION_KEY = `ec6-pd1-predicts-response-${Date.now().toString(36)}`;
+
+  const decisionsUrl = () => `/api/v1/workspaces/${s.t.workspaceId}/decisions`;
+  const cutoffChoicesUrl = () => `/api/v1/workspaces/${s.t.workspaceId}/cutoff-choices`;
+  const declareUrl = () => `/api/v1/workspaces/${s.t.workspaceId}/candidate-validations/declare`;
+
+  const makeDecision = async (label: string) => {
+    const res = await s.api.post(decisionsUrl(), {
+      label,
+      type: 'biomarker_threshold',
+      projectId: s.projectId,
+      context: { intendedUse: 'RUO' },
+      evidenceLinks: [],
+      // At least one evidence link OR value is required (`validateEvidence`); an
+      // explicit `projectId` above means this value's `sourceSnapshotId` is never
+      // resolved (only the derive-from-evidence path reads it), so a placeholder
+      // is enough — this test is about the candidate-declare guard, not evidence.
+      evidenceValues: [{ metric: 'ec6_e2e_placeholder', value: 1, sourceSnapshotId: 'ec6-e2e-placeholder-snapshot' }],
+    }, s.t.headers);
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    return res.body.id as string;
+  };
+
+  const captureChoice = async (measurement: string) => {
+    const res = await s.api.post(cutoffChoicesUrl(), {
+      measurement,
+      projectId: s.projectId,
+      presentedProposals: [{
+        proposalId: 'expert:ec6-e2e',
+        sourceType: 'expert',
+        label: 'Entered for EC6 e2e coverage',
+        operator: 'gte',
+        valueLow: 5,
+      }],
+      chosenProposalId: 'expert:ec6-e2e',
+      rationale: 'EC6 e2e: any entered cut-point serves — this test is about the one-per-question guard.',
+    }, s.t.headers);
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    return res.body.id as string;
+  };
+
+  const declare = async (decisionDraftId: string, cutoffChoiceId: string) =>
+    s.api.post(declareUrl(), {
+      decisionDraftId,
+      cutoffChoiceId,
+      citedAssociationRunId: 'ec6-e2e-cited-run',
+      discoverySnapshotId: 'ec6-e2e-discovery-snapshot',
+      questionKey: QUESTION_KEY,
+    }, s.t.headers);
+
+  test.beforeAll(async () => {
+    s = await seedLiveWorkbench(`axi-1725-ec6-${Date.now().toString(36)}`, 'AXI-1725 EC6 Candidates');
+  });
+  test.afterAll(async () => { await s?.api.ctx.dispose(); });
+
+  test('EC6 - a first decision declares a candidate for the question and succeeds', async () => {
+    const decisionA = await makeDecision('EC6 e2e — decision A');
+    const choiceA = await captureChoice('CD27_pre');
+    const res = await declare(decisionA, choiceA);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+  });
+
+  test('EC6 - a SECOND decision declaring against the SAME question is refused, naming the reason', async () => {
+    const decisionB = await makeDecision('EC6 e2e — decision B');
+    const choiceB = await captureChoice('CD274_pre');
+    const res = await declare(decisionB, choiceB);
+    expect(res.status, JSON.stringify(res.body)).toBe(400);
+    expect(JSON.stringify(res.body)).toMatch(/only one candidate may be declared per question \(EC6\)/);
   });
 });
 
@@ -132,11 +231,19 @@ test.describe('AXI-1725 - the branch strip renders the real count (UI, real back
   let s: Seeded;
 
   test.beforeAll(async () => {
-    s = await seedLiveWorkbench(`axi-1725-ui-${Date.now().toString(36)}`, 'AXI-1725 Branches UI');
+    // The project NAME (unlike `label`, the plan-instance discriminator) is what
+    // `ensureProject` finds-or-creates by — a fixed name across runs reuses a
+    // project whose dataset link/auto_default materialization may have stuck
+    // from an earlier, interrupted run (observed in this story's own sidecar:
+    // an `ensureDefaultAnalysis` poll timeout that a fresh project never hit),
+    // and once linked, `ensureLink` no-ops so no fresh materialization is ever
+    // retried. Unique per run, same fix already applied to EC6's `QUESTION_KEY`.
+    s = await seedLiveWorkbench(`axi-1725-ui-${Date.now().toString(36)}`, `AXI-1725 Branches UI ${Date.now().toString(36)}`);
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 
   test('FR20 - a freshly opened LIVE workbench reports "reported after 1 branch"', async ({ page }) => {
+    await primeWorkspace(page, s);
     await driveToScreen(page, s.projectId, s.viewAnalysisId);
     const strip = page.getByTestId('phase-rail-live-branches');
     await expect(strip).toBeVisible();
@@ -145,6 +252,7 @@ test.describe('AXI-1725 - the branch strip renders the real count (UI, real back
 
   test('FR18, FR20 - "Reopen here" on Split forks a branch and the strip\'s count follows', async ({ page }) => {
     await submitStepAndWait(s, s.viewAnalysisId, 'screen', SCREEN_OP, { datasetId: s.datasetId, projectId: s.projectId });
+    await primeWorkspace(page, s);
     await driveToScreen(page, s.projectId, s.viewAnalysisId);
     // The Split node's "Reopen here" only appears once the branch's OWN split is decided;
     // this LIVE-mode workbench's canvas split decision is still the AXI-1719 preview state,
@@ -153,12 +261,33 @@ test.describe('AXI-1725 - the branch strip renders the real count (UI, real back
     const fork = await s.api.post(branchUrl(s.viewAnalysisId), { nodeRef: 'screen' }, s.t.headers);
     expect(fork.status, JSON.stringify(fork.body)).toBe(200);
     expect(fork.body.forked).toBe(true);
-    await page.reload();
-    await expect(page.getByTestId('phase-rail-live-branch-count')).toHaveText('reported after 2 branches');
+    // "Reopen" is a fresh navigation to the SAME bare, unscoped route
+    // `driveToScreen` itself uses — not `page.reload()`. A bare reload of
+    // *this* URL is unsound here for a reason outside this story's own scope:
+    // `useScopeSync` (src/hooks/useScopeSync.ts) rewrites the address bar to a
+    // slug-prefixed URL once org/workspace/project resolve, but if the
+    // workspace list hasn't loaded a match yet at that moment it silently
+    // drops the workspace segment from the rewritten URL (`buildScopePrefix`
+    // returns `''` for an unmatched id) — producing `/org-slug/PROJECT-slug/
+    // projects/:id/...` with no workspace segment at all. Reloading that URL
+    // sends `ScopeRedirect` down `parseScopePath`, which then misreads the
+    // project's slug as the workspace slug, fails to match any workspace by
+    // that name, and — because `setActiveOrganizationId` unconditionally
+    // clears the active workspace/project as a side effect (topMenuStore.ts)
+    // — leaves the workspace cleared with nothing to restore it. Confirmed
+    // live (localStorage's `axiome-active-workspace` reads `null` after such a
+    // reload while `axiome-top-org`/`axiome-active-project` are intact) and is
+    // a pre-existing defect in shared top-nav code, not in this story's own
+    // files — flagged to the lead as a follow-up rather than patched here.
+    // A fresh `goto` of the known-good bare route sidesteps it exactly as
+    // `driveToScreen`'s own first navigation already does.
+    await driveToScreen(page, s.projectId, s.viewAnalysisId);
+    await expect(page.getByTestId('phase-rail-live-branch-count')).toHaveText('reported after 2 branches', { timeout: 30_000 });
     await expect(page.getByTestId(/^live-branch-chip-/)).toHaveCount(2);
   });
 
   test('the preview path (no analysisId) is structurally unchanged: no live branch strip', async ({ page }) => {
+    await primeWorkspace(page, s);
     await driveToScreen(page, s.projectId, null);
     await expect(page.getByTestId('phase-rail-live-branches')).toHaveCount(0);
   });
