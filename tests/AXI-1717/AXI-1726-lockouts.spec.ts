@@ -24,6 +24,13 @@ import {
  * e2e-pass: `npx playwright test tests/AXI-1717/AXI-1726-lockouts.spec.ts`
  * against a stack whose `axiome-back` is at or after `origin/main`'s
  * AXI-1725 merge.
+ *
+ * Review-bounce pass (B1): two cases added for the OTHER leg of
+ * `discoveryWorkbenchHref` — `GuidedAnalysisPanel.tsx`'s `viewOnly` Guided tab
+ * (`ProjectViewAnalysisDetail.tsx`'s `?tab=guided`), mocking the resume-on-reload
+ * chain (`governed-execution/in-flight`, `/latest-run-for-analysis`, `/status`)
+ * alongside the existing `guided-analysis/plans*` mock. Authored only this
+ * pass too, per the explicit instruction not to attempt the E2E run this bounce.
  */
 
 const MARKER = 'CD8A_pre';
@@ -116,6 +123,87 @@ test.describe('AXI-1726 - FR0f reopen leg from GuidedAnalysisHistory (mocked pla
     const link = page.getByTestId('history-bound-analysis').getByRole('link');
     await expect(link).toBeVisible({ timeout: 15_000 });
     await expect(link).toHaveAttribute('href', `/projects/${s.projectId}/view-analyses/${s.declaredAnalysisId}`);
+  });
+
+  // AXI-1726 review bounce (B1): the OTHER leg of `discoveryWorkbenchHref` —
+  // `GuidedAnalysisPanel.tsx`'s `viewOnly` Guided tab, embedded in
+  // `ProjectViewAnalysisDetail.tsx` (`?tab=guided`). Mocks the same
+  // `guided-analysis/plans*` route as the history-leg tests above, plus the
+  // resume-on-reload chain `loadResumedRun`/`useResumableGovernedRunId` reads
+  // (`governed-execution/in-flight`, `/latest-run-for-analysis`, `/status`) —
+  // never a live planner or governed-execution call. AUTHORED ONLY this
+  // review-bounce pass, not run against a live stack (no sidecar stood up
+  // this pass — see manual-e2e §16.6).
+  test('review bounce B1 - the viewOnly Guided tab offers "Open Discovery Workbench" for a guided_discovery plan, never for one with no strategy', async ({ page }) => {
+    const RUN_ID = 'RUN-1726-viewonly-mock';
+    const PLAN_ID = 'PL-1726-viewonly-mock';
+
+    await primeWorkspace(page, s);
+    await page.route('**/api/v1/governed-execution/in-flight*', async (route: Route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ runId: null }) });
+    });
+    await page.route('**/api/v1/governed-execution/latest-run-for-analysis*', async (route: Route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ runId: RUN_ID }) });
+    });
+    await page.route('**/api/v1/governed-execution/status*', async (route: Route) => {
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ runId: RUN_ID, status: 'completed', nodes: [], planId: PLAN_ID }),
+      });
+    });
+    await page.route('**/api/v1/guided-analysis/plans*', async (route: Route) => {
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([{
+          planId: PLAN_ID, question: 'AXI-1726 viewOnly leg', planner: 'anthropic', revision: 1, status: 'run',
+          createdAt: new Date().toISOString(),
+          plan: { planId: PLAN_ID, question: 'AXI-1726 viewOnly leg', nodes: [] },
+          strategy: 'guided_discovery', analysisId: s.viewAnalysisId,
+        }]),
+      });
+    });
+
+    await page.goto(`/projects/${s.projectId}/view-analyses/${s.viewAnalysisId}?tab=guided`);
+    const workbenchLink = page.getByTestId('ga-open-discovery-workbench');
+    await expect(workbenchLink).toBeVisible({ timeout: 20_000 });
+    await expect(workbenchLink).toHaveAttribute('href', `/projects/${s.projectId}/discovery-workbench?analysisId=${s.viewAnalysisId}`);
+    await expect(workbenchLink).toHaveText('Open Discovery Workbench');
+  });
+
+  test('review bounce B1 (NFR8) - the viewOnly Guided tab offers NO discovery-workbench link for a plan with no strategy', async ({ page }) => {
+    const RUN_ID = 'RUN-1726-viewonly-none';
+    const PLAN_ID = 'PL-1726-viewonly-none';
+
+    await primeWorkspace(page, s);
+    await page.route('**/api/v1/governed-execution/in-flight*', async (route: Route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ runId: null }) });
+    });
+    await page.route('**/api/v1/governed-execution/latest-run-for-analysis*', async (route: Route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ runId: RUN_ID }) });
+    });
+    await page.route('**/api/v1/governed-execution/status*', async (route: Route) => {
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ runId: RUN_ID, status: 'completed', nodes: [], planId: PLAN_ID }),
+      });
+    });
+    await page.route('**/api/v1/guided-analysis/plans*', async (route: Route) => {
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([{
+          planId: PLAN_ID, question: 'AXI-1726 viewOnly leg, no strategy', planner: 'anthropic', revision: 1, status: 'run',
+          createdAt: new Date().toISOString(),
+          plan: { planId: PLAN_ID, question: 'AXI-1726 viewOnly leg, no strategy', nodes: [] },
+          analysisId: s.viewAnalysisId,
+        }]),
+      });
+    });
+
+    await page.goto(`/projects/${s.projectId}/view-analyses/${s.viewAnalysisId}?tab=guided`);
+    // The panel itself renders (proof the mocked resume chain worked, not a
+    // false negative from a page that never loaded the Guided tab at all).
+    await expect(page.getByTestId('ga-run-status-chip')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('ga-open-discovery-workbench')).toHaveCount(0);
   });
 });
 
