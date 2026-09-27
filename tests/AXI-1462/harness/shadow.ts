@@ -641,9 +641,31 @@ export function shouldRunArm(armsEnv: string | undefined, provider: string): boo
   return declared.includes(provider.trim().toLowerCase());
 }
 
-/** Writes the raw rows a run produced to a fixed, per-provider JSON artifact. */
-export function writeShadowRunRows(provider: string, rows: readonly ShadowRunRow[]): string {
-  const path = join(process.cwd(), 'tests', 'AXI-1462', 'harness', 'shadow-run', `${provider}.json`);
+/**
+ * Writes the raw rows a run produced to a per-provider JSON artifact.
+ *
+ * AXI-1749 (B2): `filenameSuffix` is OPTIONAL and defaults to `''`, so every
+ * existing caller keeps writing the fixed `<provider>.json` it always has
+ * (`AXI-1677-synthetic-grados-seed.spec.ts`'s own call is untouched). A
+ * caller running a NAMED subset (`SHADOW_RUN_QUESTIONS`, a Haiku smoke run
+ * against three questions rather than the full bank) passes one so its rows
+ * land beside, never overwriting, a prior full-bank `compiled.json` —
+ * `harness/shadow.ts`'s own header already warns `compiled.json` is not a
+ * valid frozen corpus for exactly this reason.
+ */
+export function writeShadowRunRows(
+  provider: string,
+  rows: readonly ShadowRunRow[],
+  filenameSuffix = '',
+): string {
+  const path = join(
+    process.cwd(),
+    'tests',
+    'AXI-1462',
+    'harness',
+    'shadow-run',
+    `${provider}${filenameSuffix}.json`,
+  );
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(rows, null, 2), 'utf8');
   return path;

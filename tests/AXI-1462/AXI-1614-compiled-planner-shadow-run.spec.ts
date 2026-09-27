@@ -3,9 +3,10 @@ import { ensureTenant } from '../AXI-1435/harness/seed';
 import { anchorDataset } from '../AXI-1604/harness/anchor-dataset';
 import {
   createAdminShadowRunAuth,
-  runShadowBank,
+  runShadowBankGuarded,
   shouldRunArm,
   writeShadowRunRows,
+  writeShadowRunSummary,
   type ShadowRunAuth,
 } from './harness/shadow';
 
@@ -75,6 +76,27 @@ import {
  *                           on 2026-09-25 it expired at Q8 of the legacy arm and
  *                           39 of 46 rows were 401s recorded as `unavailable`.
  *                           A 401 that survives a refresh now FAILS the run.
+ *
+ * AXI-1749 (owner go on AXI-1716, B2): this spec now goes through
+ * `runShadowBankGuarded`, never the unguarded `runShadowBank` — the FR50/FR53
+ * guard (`GUIDED_ANALYSIS_LIVE_SPEND_GO` + a `GO:`-marked run-registry row,
+ * `decideHarnessLiveSpend`) and `SHADOW_RUN_QUESTIONS` (a NAMED subset of the
+ * bank, in bank order) both now apply. A cheap Haiku 4.5 smoke run against
+ * three questions, rather than a full 46-question live bank, is:
+ *
+ *     GUIDED_ANALYSIS_LIVE_SPEND_GO=RUN-2026-09-27-01 \
+ *     SHADOW_RUN_REGISTRY_PATH=<path-to-REGISTRY.md-with-that-row-GO:-marked> \
+ *     SHADOW_RUN_QUESTIONS=3,4,5,6,8,13,21,31,39 \
+ *     SHADOW_RUN_PROVIDER=compiled \
+ *     npx playwright test AXI-1614-compiled-planner-shadow-run
+ *
+ * The assertion below is `rows.length === result.questionIds.length` — the
+ * SELECTED subset's size, never a hardcoded 46 — so the same spec runs the
+ * full bank (unset `SHADOW_RUN_QUESTIONS`) or a named subset without an edit.
+ * A subset run's rows and summary land at a PER-RUN filename (suffixed by the
+ * go's registry row id) rather than overwriting a prior full-bank
+ * `<provider>.json` — see `writeShadowRunRows`'s own doc for why that file is
+ * never a valid frozen corpus to overwrite.
  */
 test.describe.configure({ mode: 'serial', timeout: 30 * 60_000 });
 
@@ -118,13 +140,43 @@ test(
     if (!dataset) return;
 
     const reauthEvery = process.env.SHADOW_RUN_REAUTH_EVERY;
-    const rows = await runShadowBank(auth, workspaceId, projectId, provider, [dataset], {
+    // AXI-1749 (B2): `runShadowBankGuarded` — the FR50/FR53 guarded entry
+    // point, not the unguarded `runShadowBank` this spec called before. It
+    // reads `GUIDED_ANALYSIS_LIVE_SPEND_GO` + the run registry itself
+    // (`decideHarnessLiveSpend`) and honours `SHADOW_RUN_QUESTIONS` (a NAMED
+    // subset, e.g. a 3-question Haiku smoke run), aborting on the first
+    // provider 400 rather than burning the rest of a bank a bad request has
+    // already shown is wrong-shaped for this provider/schema combination.
+    const result = await runShadowBankGuarded(auth, workspaceId, projectId, provider, [dataset], {
       ...(reauthEvery === undefined ? {} : { reauthEveryQuestions: Number(reauthEvery) }),
     });
-    expect(rows).toHaveLength(46);
+    // The bank's size (46) is no longer the invariant — `SHADOW_RUN_QUESTIONS`
+    // can select any non-empty subset. What is invariant is that the result
+    // carries exactly one row per question the guard actually SELECTED,
+    // whether the run completed, was refused before any call, or aborted
+    // partway on a 400 (every remaining selected question still gets a
+    // `not_answered` row — see `runShadowBankGuarded`'s own doc).
+    expect(result.rows).toHaveLength(result.questionIds.length);
 
-    const path = writeShadowRunRows(provider, rows);
+    // AXI-1749 (B2): a NAMED subset writes to a per-run filename, never
+    // overwriting a prior full-bank `<provider>.json` — `compiled.json` is
+    // explicitly NOT a valid frozen corpus for exactly that overwrite reason
+    // (`harness/shadow.ts`'s own header). The full, unselected bank run keeps
+    // the original fixed filename (empty suffix), so this is a no-op for
+    // every invocation that predates AXI-1749.
+    const questionsEnv = process.env.SHADOW_RUN_QUESTIONS?.trim();
+    const filenameSuffix = questionsEnv ? `-${result.guard.rowId ?? 'unregistered'}` : '';
+    const path = writeShadowRunRows(provider, result.rows, filenameSuffix);
+    const summaryPath = writeShadowRunSummary(provider, {
+      status: result.status,
+      guard: result.guard,
+      questionIds: result.questionIds,
+      abortedAtQuestionId: result.abortedAtQuestionId,
+    });
     // eslint-disable-next-line no-console
-    console.log(`wrote ${rows.length} shadow-run rows for provider '${provider}' to ${path}`);
+    console.log(
+      `wrote ${result.rows.length} shadow-run rows for provider '${provider}' to ${path} ` +
+        `(status=${result.status}, summary=${summaryPath})`,
+    );
   },
 );

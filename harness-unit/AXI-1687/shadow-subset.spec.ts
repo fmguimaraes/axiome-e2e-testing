@@ -10,6 +10,7 @@ import {
   outcomeOf,
   runShadowBankGuarded,
   selectQuestions,
+  writeShadowRunRows,
   writeShadowRunSummary,
   type ShadowRunAuth,
 } from '../../tests/AXI-1462/harness/shadow';
@@ -228,6 +229,35 @@ test('UT-ABORT-1689-3: with a go and no 400 the subset completes and the rows ar
     result.rows.map((r) => [r.questionId, r.outcome, r.notAnsweredReason]),
     [[3, 'not_answered', 'deadline']],
   );
+});
+
+// ── writeShadowRunRows filename suffix (AXI-1749, B2) ───────────────────────
+
+test('UT-SUBSET-1749-1: an omitted suffix writes the same fixed filename as before AXI-1749', () => {
+  const path = writeShadowRunRows('axi1749-probe-unsuffixed', []);
+  try {
+    assert.equal(
+      path,
+      join(process.cwd(), 'tests', 'AXI-1462', 'harness', 'shadow-run', 'axi1749-probe-unsuffixed.json'),
+    );
+  } finally {
+    rmSync(path, { force: true });
+  }
+});
+
+test('UT-SUBSET-1749-2: a filename suffix (e.g. the go registry row id) writes beside, not over, the fixed filename', () => {
+  const suffixed = writeShadowRunRows('axi1749-probe', [], `-${ROW_ID}`);
+  const unsuffixed = writeShadowRunRows('axi1749-probe', []);
+  try {
+    assert.equal(
+      suffixed,
+      join(process.cwd(), 'tests', 'AXI-1462', 'harness', 'shadow-run', `axi1749-probe-${ROW_ID}.json`),
+    );
+    assert.notEqual(suffixed, unsuffixed);
+  } finally {
+    rmSync(suffixed, { force: true });
+    rmSync(unsuffixed, { force: true });
+  }
 });
 
 // ── sidecar ─────────────────────────────────────────────────────────────────
