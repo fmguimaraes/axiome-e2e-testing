@@ -102,3 +102,68 @@ test.describe('AXI-1755 - server-side draft/checks endpoint (API, real backend)'
     expect(res.status, JSON.stringify(res.body)).toBe(200);
   });
 });
+
+/**
+ * Rebase addendum (onto AXI-1756) — the lifecycle guard: drafting is refused,
+ * a 200 `{refused:true, reasons}` (never a 4xx — NFR8), once the question's
+ * evidence document is published (frozen — `revise` is the only path off it)
+ * or discarded (terminal). A separate question per scenario — publish/discard
+ * are irreversible-by-drafting once applied.
+ */
+const evidenceUrl = (va: string) => `/api/v1/discovery/analyses/${va}/evidence`;
+const publishUrl = (va: string) => `/api/v1/discovery/analyses/${va}/evidence/publish`;
+const discardUrl = (va: string) => `/api/v1/discovery/analyses/${va}/evidence/discard`;
+const DECLARE_SECTIONS = { ...EMPTY, found: [{ text: 'n={fact:F1}.', provenance: 'template' }] };
+const DECLARE_FACT_SHEET = [{ id: 'F1', key: 'n', value: '40', unit: null, sourceRunId: null, evidenceVersionId: null }];
+
+test.describe('AXI-1755 - drafting is refused once published/discarded (rebase onto AXI-1756)', { tag: ['@SI-045', '@SI-047'] }, () => {
+  test.describe.configure({ mode: 'serial', timeout: 300_000 });
+
+  test('drafting is refused, without altering the frozen content, once the document is published', async () => {
+    const s2 = await seedLiveWorkbench(`axi-1755-published-${Date.now().toString(36)}`, `AXI-1755 Published ${Date.now().toString(36)}`);
+    try {
+      const declared = await s2.api.post(evidenceUrl(s2.viewAnalysisId), { factSheet: DECLARE_FACT_SHEET, sections: DECLARE_SECTIONS }, s2.t.headers);
+      expect(declared.status, JSON.stringify(declared.body)).toBe(200);
+      const published = await s2.api.post(publishUrl(s2.viewAnalysisId), { approverNote: 'reviewed', claimLevel: 'exploratory' }, s2.t.headers);
+      expect(published.status, JSON.stringify(published.body)).toBe(200);
+      expect(published.body.published).toBe(true);
+
+      const res = await s2.api.post(draftUrl(s2.viewAnalysisId), { facts: FACTS, items: [], status: 'exploratory', sections: DECLARE_SECTIONS }, s2.t.headers);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(res.body.refused).toBe(true);
+      expect(res.body.reasons.join(' ')).toMatch(/published.*frozen|revise/i);
+      expect(res.body.sections).toEqual(DECLARE_SECTIONS);
+    } finally {
+      await s2.api.ctx.dispose();
+    }
+  });
+
+  test('drafting is refused once the document is discarded', async () => {
+    const s3 = await seedLiveWorkbench(`axi-1755-discarded-${Date.now().toString(36)}`, `AXI-1755 Discarded ${Date.now().toString(36)}`);
+    try {
+      const declared = await s3.api.post(evidenceUrl(s3.viewAnalysisId), { factSheet: DECLARE_FACT_SHEET, sections: DECLARE_SECTIONS }, s3.t.headers);
+      expect(declared.status, JSON.stringify(declared.body)).toBe(200);
+      const discarded = await s3.api.post(discardUrl(s3.viewAnalysisId), { reason: 'wrong question' }, s3.t.headers);
+      expect(discarded.status, JSON.stringify(discarded.body)).toBe(200);
+      expect(discarded.body.discarded).toBe(true);
+
+      const res = await s3.api.post(draftUrl(s3.viewAnalysisId), { facts: FACTS, items: [], status: 'exploratory', sections: DECLARE_SECTIONS }, s3.t.headers);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(res.body.refused).toBe(true);
+      expect(res.body.reasons.join(' ')).toMatch(/discarded/i);
+    } finally {
+      await s3.api.ctx.dispose();
+    }
+  });
+
+  test('drafting still runs as normal on a DRAFT (undeclared or not-yet-published) document', async () => {
+    const s4 = await seedLiveWorkbench(`axi-1755-stilldraft-${Date.now().toString(36)}`, `AXI-1755 StillDraft ${Date.now().toString(36)}`);
+    try {
+      const res = await s4.api.post(draftUrl(s4.viewAnalysisId), { facts: FACTS, items: [], status: 'exploratory', sections: DECLARE_SECTIONS }, s4.t.headers);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(res.body.refused).toBeFalsy();
+    } finally {
+      await s4.api.ctx.dispose();
+    }
+  });
+});
