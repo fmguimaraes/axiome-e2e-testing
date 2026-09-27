@@ -48,11 +48,11 @@ test.describe('AXI-1710 governed correlation trim', () => {
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });
 
-  test('O.S4.3 AC30 the stats.correlation definition is unchanged and exactly four plan-identity manifests exist @SI-017', () => {
+  test('O.S4.3 AC30 the stats.correlation definition is unchanged and exactly five plan-identity manifests exist @SI-017', () => {
     const reg = codeOnly(`${K}/operation-registry.ts`);
     expect(reg).toContain("operationId: 'stats.correlation'");
     expect(reg).toContain("columns: Object.freeze(['coefficient', 'pValue', 'ciLow', 'ciHigh', 'n', 'reason'])");
     const dir = path.join(BACK_ROOT as string, 'apps/organization-service/src/guided-analysis/plan/compile/__fixtures__/rebaselines');
-    expect(readdirSync(dir).filter((f) => f.endsWith('.json'))).toHaveLength(4);
+    expect(readdirSync(dir).filter((f) => f.endsWith('.json'))).toHaveLength(5);
   });
 });
