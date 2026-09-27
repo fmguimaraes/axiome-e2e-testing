@@ -299,10 +299,11 @@ test.describe('AXI-1725 - the branch strip renders the real count (UI, real back
     await expect(page.getByTestId('phase-rail-live-branches')).toHaveCount(0);
   });
 
-  // Moved to last in this serial describe block, and marked fixme, so it never
-  // gates the two real assertions above it (AXI-1725 review-bounce E2E pass).
+  // Moved to last in this serial describe block (AXI-1725 review-bounce E2E pass).
+  // Re-enabled by AXI-1750 (R12): `driveToScreen`'s live decline now goes
+  // through the real governed decline-holdout endpoint, so Split settles
+  // (declined) and "Reopen here" is no longer refused with "has not completed".
   test('FR18, FR20 - "Reopen here" on Split forks a branch and the strip\'s count follows, in place (no remount/navigation)', async ({ page }) => {
-    test.fixme(true, 'Split has no governed completion path (splitSeed unresolved) — AXI-1728 gap; re-enable when Split submission is wired');
     await primeWorkspace(page, s);
     // `driveToScreen` already confirms population, picks the stratification
     // contrast and declines the holdout on its way to the Screen node — Split

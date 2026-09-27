@@ -58,7 +58,9 @@ test.describe('AXI-1727 - AC-DEMO: roles to a declared candidate, no typed param
     await driveToScreen(page, s.projectId, s.declaredAnalysisId);
     // Everything driveToScreen did was a click/selection: population-confirm,
     // population-continue, a stratify radio + "select all levels", "Run rule",
-    // "decline the holdout" — no `fill()` anywhere on this leg.
+    // "decline the holdout" (AXI-1750: the ONE typed field on this leg is the
+    // governed decline's reason, FR15's rationale exception — not an operation
+    // parameter; see `split-decline-reason-input` in `workbenchNoFreeText.test.ts`).
     await expect(page.getByTestId('workbench-screen-node')).toBeVisible();
   });
 
@@ -135,10 +137,20 @@ test.describe('AXI-1727 - AC-DEMO: roles to a declared candidate, no typed param
 
   // --- Blocked legs, both filed on AXI-1728 --------------------------------
 
-  test('AC-DEMO - taking the Split (a governed holdout) needs a seed with no declared source', async () => {
-    test.fixme(true, 'splitSeed is a kernel-required param with no governed/declared source (AXI-1721 gotcha) — AXI-1728 gap; re-enable once a seed source is ruled');
+  // Re-enabled by AXI-1750 (R12): splitSeed is no longer an unresolvable open
+  // domain — the resolver's `generatedPolicy` tier generates and records it on
+  // first resolve (a system-generated fact, not a client-suppliable value).
+  test('AC-DEMO - taking the Split (a governed holdout) resolves splitSeed with no pick, generated server-side', async () => {
     const res = await s.api.post(stepUrl(s.declaredAnalysisId, 'split', 'resolve'), { operationId: SPLIT_OP, datasetId: s.datasetId }, s.t.headers);
-    expect(res.body.unresolved).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'splitSeed', domain: { kind: 'open' } })]));
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    // splitSeed itself is never in `unresolved` any more (the ONE thing this
+    // AC's original gap named) — whatever else the container leaves open
+    // (e.g. holdoutRatio, out of this story's scope) is not this test's concern.
+    expect(res.body.unresolved.map((u: any) => u.name)).not.toContain('splitSeed');
+    const seedBinding = res.body.bindings.find((b: any) => b.name === 'splitSeed');
+    expect(seedBinding, JSON.stringify(res.body.bindings)).toBeTruthy();
+    expect(typeof seedBinding.value).toBe('number');
+    expect(seedBinding.source).toMatch(/^policy:/);
   });
 
   test('AC-DEMO, NFR2 - the Validation act (Apply/Compare/Pool) reaching a verdict', async ({ page }) => {

@@ -123,6 +123,9 @@ export const stepUrl = (va: string, nodeRef: string, action: 'resolve' | 'submit
 /** AXI-1725 — the branch endpoints: `POST/GET …/branches`, `POST …/branches/:id/discard`. */
 export const branchUrl = (va: string, branchId?: string) => `/api/v1/discovery/analyses/${va}/branches${branchId ? `/${branchId}/discard` : ''}`;
 
+/** AXI-1750 (R12) — the governed holdout-decline record: `POST …/steps/:nodeRef/decline-holdout`. */
+export const declineHoldoutUrl = (va: string, nodeRef: string) => `/api/v1/discovery/analyses/${va}/steps/${nodeRef}/decline-holdout`;
+
 /** Poll the governed status until the step's OWN node (`<runId>__<nodeId>`) settles. */
 export async function waitForNode(s: Seeded, runId: string, nodeId: string, attempts = 90): Promise<any> {
   let node: any = null;
@@ -179,6 +182,13 @@ export async function driveToScreen(page: Page, projectId: string, analysisId: s
   await page.getByTestId('stratify-select-all-levels').click();
   await page.getByRole('button', { name: 'Run rule' }).click();
   await page.getByTestId('split-decline-holdout').click();
+  if (analysisId) {
+    // AXI-1750 (R12): in LIVE mode the decline is a governed record with a
+    // reason — the button opens a modal instead of declining immediately
+    // (the PREVIEW path below still declines on the one click, unchanged).
+    await page.getByTestId('split-decline-reason-input').fill('e2e: exploratory arm, holdout not needed');
+    await page.getByTestId('split-decline-confirm').click();
+  }
   await expect(page.getByTestId('workbench-screen-node')).toBeVisible({ timeout: 30_000 });
 }
 
