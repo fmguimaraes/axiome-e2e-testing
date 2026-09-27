@@ -67,7 +67,7 @@ test.describe('AXI-1703 cut-off back', () => {
     expect(ops).toMatch(/'rocCoordinates'/);
   });
 
-  test('L.5 AC30 AC128 the claim, plan-identity, golden-bank and surface-spec drift suites still pass (no third re-baseline) @SI-045', () => {
+  test('L.5 AC30 AC128 the claim, plan-identity, golden-bank and surface-spec drift suites still pass (no fifth re-baseline) @SI-045', () => {
     const claims = codeOnly(`${KERNEL}/claim-declarations.ts`);
     expect(claims).toMatch(/'stats\.cutoff_tally':\s*\[\.\.\.CUTOFF,\s*'sampling_design'\]/);
     const r = jest([

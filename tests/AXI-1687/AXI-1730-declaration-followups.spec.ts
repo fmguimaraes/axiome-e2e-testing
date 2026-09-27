@@ -46,11 +46,11 @@ test.describe('AXI-1730 AXI-1693 follow-ups', () => {
     expect(script).toMatch(/process\.argv\.includes\('--apply'\)/);
   });
 
-  test('FU1730.4 FR41 independenceKey is declared and stamp-only; exactly two plan-identity manifests @SI-002', () => {
+  test('FU1730.4 FR41 independenceKey is declared and stamp-only; exactly four plan-identity manifests @SI-002', () => {
     const r = jest(['libs/contracts/src/guided-analysis/independence-key.spec.ts']);
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
     const dir = path.join(BACK_ROOT as string, GA, 'plan/compile/__fixtures__/rebaselines');
     expect(existsSync(dir)).toBe(true);
-    expect(readdirSync(dir).filter((f) => f.endsWith('.json'))).toHaveLength(3);
+    expect(readdirSync(dir).filter((f) => f.endsWith('.json'))).toHaveLength(4);
   });
 });

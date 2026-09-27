@@ -54,7 +54,7 @@ test.describe('AXI-1699 discovery envelope', () => {
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });
 
-  test('N.6 AC30 the frozen plan identities are untouched: exactly two re-baseline manifests @SI-045', () => {
+  test('N.6 AC30 the frozen plan identities are untouched: exactly four re-baseline manifests @SI-045', () => {
     const r = jest([`${GA}/plan/compile/plan-identity-rebaseline.spec.ts`, `${GA}/plan/compile/grados-golden.spec.ts`]);
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });

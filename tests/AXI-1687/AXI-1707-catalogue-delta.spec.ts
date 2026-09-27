@@ -35,9 +35,9 @@ test.describe('AXI-1707 delta referents and direction of change (back)', () => {
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });
 
-  test('CG1707.3 AC30 no third plan-identity re-baseline; kernel export surface stays exact @SI-017', () => {
+  test('CG1707.3 AC30 no fifth plan-identity re-baseline; kernel export surface stays exact @SI-017', () => {
     const dir = path.join(BACK_ROOT as string, `${SRC}/guided-analysis/plan/compile/__fixtures__/rebaselines`);
-    expect(readdirSync(dir).filter((f) => f.endsWith('.json')).length).toBe(3);
+    expect(readdirSync(dir).filter((f) => f.endsWith('.json')).length).toBe(4);
     const r = jest([`${KERNEL}/index.spec.ts`, `${SRC}/guided-analysis/plan/compile/plan-identity-rebaseline.spec.ts`]);
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });

@@ -44,9 +44,9 @@ test.describe('AXI-1735 per-member effect and screen/holdout (back)', () => {
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });
 
-  test('MFX1735.5 AC30 exactly three plan-identity manifests; kernel export surface exact @SI-017', () => {
+  test('MFX1735.5 AC30 exactly four plan-identity manifests; kernel export surface exact @SI-017', () => {
     const dir = path.join(BACK_ROOT as string, `${SRC}/guided-analysis/plan/compile/__fixtures__/rebaselines`);
-    expect(readdirSync(dir).filter((f) => f.endsWith('.json')).length).toBe(3);
+    expect(readdirSync(dir).filter((f) => f.endsWith('.json')).length).toBe(4);
     const r = jest([`${SRC}/rule-runs/kernel/index.spec.ts`, `${SRC}/guided-analysis/plan/compile/plan-identity-rebaseline.spec.ts`]);
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });

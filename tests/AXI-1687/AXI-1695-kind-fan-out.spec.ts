@@ -51,9 +51,9 @@ test.describe('AXI-1695 multi-measure fan-out and omnibus', () => {
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });
 
-  test('I.4 AC65 AC66 AC67 the frozen corpus identity is untouched (exactly two manifests) @SI-045', () => {
+  test('I.4 AC65 AC66 AC67 the frozen corpus identity is untouched (exactly four manifests) @SI-045', () => {
     const dir = path.join(BACK_ROOT as string, GA, 'plan/compile/__fixtures__/rebaselines');
-    expect(readdirSync(dir).filter((f) => f.endsWith('.json')).length).toBe(3);
+    expect(readdirSync(dir).filter((f) => f.endsWith('.json')).length).toBe(4);
     const r = jest([`${GA}/plan/compile/plan-identity-rebaseline.spec.ts`, `${GA}/plan/compile/grados-golden.spec.ts`]);
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });

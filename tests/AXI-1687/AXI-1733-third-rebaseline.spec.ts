@@ -33,9 +33,9 @@ test.describe('AXI-1733 third re-baseline', () => {
     test.skip(missing.length > 0, `sibling checkout(s) not found: ${missing.join(', ')}`);
   });
 
-  test('RB1733.1 AC30 exactly three plan-identity manifests exist and the third moves only the FR61 wording on the compiled plan @SI-045', () => {
+  test('RB1733.1 AC30 exactly four plan-identity manifests exist and the third moves only the FR61 wording on the compiled plan @SI-045', () => {
     const dir = path.join(BACK_ROOT as string, GA, 'plan/compile/__fixtures__/rebaselines');
-    expect(readdirSync(dir).filter((f) => f.endsWith('.json'))).toHaveLength(3);
+    expect(readdirSync(dir).filter((f) => f.endsWith('.json'))).toHaveLength(4);
     const r = jest([`${GA}/plan/compile/plan-identity-rebaseline.spec.ts`]);
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });
