@@ -14,11 +14,21 @@ import {
  * cutoff choice's OWN Fisher-exact association run — this spec seeds that run
  * through the SAME step-resolver submit route AXI-1721/1722/1724 already
  * exercise (never a canvas-only fixture), reads the run's REAL lineage
- * (`GET /view-analyses/:id/snapshots`) so the captured cutoff choice's
- * `snapshotId` is set to the run's ACTUAL `fittedOnSnapshotId` — never assumed
- * — and reads the run's REAL contingency table
- * (`GET /rule-runs/:id/table`) so the asserted counts/p are the numbers the
- * kernel actually computed, not fixture literals.
+ * (`GET /view-analyses/:id/snapshots`) so every id the test asserts against
+ * is one the backend actually recorded, and reads the run's REAL contingency
+ * table (`GET /rule-runs/:id/table`) so the asserted counts/p are the numbers
+ * the kernel actually computed, not fixture literals.
+ *
+ * REVIEW FIX (bounce 1, H1): the cutoff choice is captured through the SAME
+ * API the UI uses (`POST .../cutoff-choices`), citing the REAL cutoff run via
+ * `presentedProposals[0].ruleRunId` — never a hand-set `snapshotId` bypassing
+ * `resolveDiscoverySnapshot`. `choice.snapshotId` is the cutoff run's OWN
+ * `fittedOnSnapshotId` (the discovery/screen snapshot every proposal reads
+ * against — what `resolveDiscoverySnapshot` resolves in production); the
+ * choice's `proposedByRuleRunId` (server-stamped from the cited proposal, per
+ * `CutoffChoiceService.capture()`) is the anchor `actDerivation.ts#fisherRunsForChoice`
+ * actually matches on — the CITED cutoff run's own `producedSnapshotId`, one
+ * lineage level past the discovery snapshot.
  */
 
 const MARKER = 'CD8A_pre';
@@ -34,12 +44,27 @@ async function snapshotFor(s: Seeded, viewAnalysisId: string, ruleRunId: string)
   return row as SnapshotRow;
 }
 
+interface CutoffRow { measurement?: string; cutoff?: number }
+
+/** The cutoff-proposal run's OWN result row for `MARKER` — the exact cut-point it proposed. */
+async function cutoffRowFor(s: Seeded, cutoffRunId: string): Promise<CutoffRow> {
+  const res = await s.api.get(`/api/v1/rule-runs/${cutoffRunId}/table?page=1&limit=50`, s.t.headers);
+  expect(res.status, JSON.stringify(res.body)).toBe(200);
+  const rows: CutoffRow[] = res.body?.rows ?? [];
+  const row = rows.find((r) => r.measurement === MARKER);
+  expect(row, `the cutoff run must have proposed a cut-point for ${MARKER}`).toBeTruthy();
+  return row as CutoffRow;
+}
+
 test.describe('AXI-1751 - validation act inputs derived from a real Fisher-exact run', { tag: ['@SI-034', '@SI-046'] }, () => {
   test.describe.configure({ mode: 'serial', timeout: 300_000 });
 
   let s: Seeded;
   let fisherRunId: string;
-  let discoverySnapshotId: string;
+  /** The discovery/screen snapshot every cutoff-proposal run was fitted on (renamed from the
+   *  review's flagged `discoverySnapshotId`, which had been hand-set to the WRONG lineage
+   *  level — the Fisher run's own snapshot, one level past this one). */
+  let cutoffFittedOnSnapshotId: string;
   let fisherProducedSnapshotId: string;
   let cutoffChoiceId: string;
   let decisionDraftId: string;
@@ -63,13 +88,18 @@ test.describe('AXI-1751 - validation act inputs derived from a real Fisher-exact
       selection: { kind: 'cutoff_choice', nodeId: 'd7', runId: cutoffRunId, values: { marker: MARKER } },
     });
 
-    // Read the Fisher run's OWN recorded lineage — never assumed — so the
-    // captured choice below cites the snapshot the run ACTUALLY reports fitting
-    // on (`actDerivation.ts#fisherRunsForChoice` matches on this exact field).
+    // Read the Fisher run's OWN produced snapshot — never assumed — for the
+    // AC1 assertions below (the value the derivation must show as the target).
     const fisherSnapshot = await snapshotFor(s, s.declaredAnalysisId, fisherRunId);
     fisherProducedSnapshotId = fisherSnapshot.id;
-    discoverySnapshotId = fisherSnapshot.parentSnapshotId as string;
-    expect(discoverySnapshotId, 'the Fisher run must record a fitted-on anchor').toBeTruthy();
+
+    // The cutoff run's OWN recorded lineage: the discovery/screen snapshot every
+    // cutoff-proposal run was fitted on (what `resolveDiscoverySnapshot` resolves
+    // in production — never the Fisher run's own snapshot, a different lineage
+    // level; that conflation was review bounce 1's H1).
+    const cutoffSnapshot = await snapshotFor(s, s.declaredAnalysisId, cutoffRunId);
+    cutoffFittedOnSnapshotId = cutoffSnapshot.parentSnapshotId as string;
+    expect(cutoffFittedOnSnapshotId, 'the cutoff run must record a fitted-on anchor').toBeTruthy();
 
     // The run's OWN result row — the exact numbers the derivation must show.
     const tableRes = await s.api.get(`/api/v1/rule-runs/${fisherRunId}/table?page=1&limit=10`, s.t.headers);
@@ -77,17 +107,31 @@ test.describe('AXI-1751 - validation act inputs derived from a real Fisher-exact
     table = tableRes.body;
     expect(table.rows.length, 'the Fisher-exact run must have produced a result row').toBeGreaterThan(0);
 
-    // A captured cutoff choice CITING that exact snapshot (real API route, AXI-1598).
+    // The cutoff run's OWN proposed cut-point for MARKER — the choice below must
+    // cite EXACTLY this number, or the server's own provenance verification
+    // (`cutoff-proposal-verification.ts`) refuses the capture (FR12/FR13/FR14).
+    const cutoffRow = await cutoffRowFor(s, cutoffRunId);
+
+    // A captured cutoff choice through the SAME API the UI uses (AXI-1598),
+    // citing the REAL cutoff-proposal run via `presentedProposals[0].ruleRunId`
+    // — the server stamps `proposedByRuleRunId` from THIS (`CutoffChoiceService
+    // .capture()`), which is what `actDerivation.ts#fisherRunsForChoice` anchors
+    // on. `snapshotId` is the discovery/screen snapshot (FR12's own field, kept
+    // for the record), never hand-set to the Fisher run's own snapshot.
     const choiceRes = await s.api.post(cutoffChoicesUrl(), {
       measurement: MARKER,
       projectId: s.projectId,
-      snapshotId: discoverySnapshotId,
-      presentedProposals: [{ proposalId: `data:${MARKER}`, sourceType: 'data_derived', label: 'ROC/Youden', operator: 'gte', valueLow: 3 }],
+      snapshotId: cutoffFittedOnSnapshotId,
+      presentedProposals: [{
+        proposalId: `data:${MARKER}`, sourceType: 'data_derived', label: 'ROC/Youden', operator: 'gte',
+        valueLow: cutoffRow.cutoff, ruleRunId: cutoffRunId,
+      }],
       chosenProposalId: `data:${MARKER}`,
       rationale: 'AXI-1751 e2e: the ROC/Youden proposal on this run.',
     }, s.t.headers);
     expect(choiceRes.status, JSON.stringify(choiceRes.body)).toBe(201);
     cutoffChoiceId = choiceRes.body.id as string;
+    expect(choiceRes.body.proposedByRuleRunId, 'the server must stamp the cited cutoff run').toBe(cutoffRunId);
 
     // A decision to hang the candidate on (AXI-1725's own seed shape).
     const decisionRes = await s.api.post(decisionsUrl(), {
@@ -99,7 +143,7 @@ test.describe('AXI-1751 - validation act inputs derived from a real Fisher-exact
     decisionDraftId = decisionRes.body.id as string;
 
     const declareRes = await s.api.post(declareUrl(), {
-      decisionDraftId, cutoffChoiceId, citedAssociationRunId: fisherRunId, discoverySnapshotId, questionKey: QUESTION_KEY,
+      decisionDraftId, cutoffChoiceId, citedAssociationRunId: fisherRunId, discoverySnapshotId: cutoffFittedOnSnapshotId, questionKey: QUESTION_KEY,
     }, s.t.headers);
     expect(declareRes.status, JSON.stringify(declareRes.body)).toBe(201);
   });
@@ -131,13 +175,23 @@ test.describe('AXI-1751 - validation act inputs derived from a real Fisher-exact
     // No typed target-snapshot input renders at all (AC2's "no input box" also holds on the happy path).
     await expect(apply.getByTestId('act-apply-target')).toHaveCount(0);
 
-    // Read-only counts, matching the run's OWN row exactly.
+    // Read-only counts, matching the run's OWN row exactly — the ORIENTATION
+    // (which side is the biomarker) is read off the run's own recorded
+    // `operandRoles`, never assumed row=biomarker (review A1).
     const row = table.rows[0] as Record<string, unknown>;
+    const runDetailRes = await s.api.get(`/api/v1/rule-runs/${fisherRunId}`, s.t.headers);
+    expect(runDetailRes.status, JSON.stringify(runDetailRes.body)).toBe(200);
+    const operandRoles = runDetailRes.body?.operandRoles as Record<string, string> | null;
+    expect(operandRoles, 'the Fisher run must record its own rowColumn/columnColumn bindings').toBeTruthy();
+    const markerIsColumn = operandRoles?.columnColumn === MARKER;
+    expect(markerIsColumn || operandRoles?.rowColumn === MARKER, 'the run must bind MARKER on one side of its 2x2').toBe(true);
+    const expectedFalsePositive = markerIsColumn ? row.nColumnOnly : row.nRowOnly;
+    const expectedFalseNegative = markerIsColumn ? row.nRowOnly : row.nColumnOnly;
     const counts = apply.getByTestId('act-apply-derived-counts');
     await expect(counts).toContainText(`True positives: ${row.nBoth}`);
-    await expect(counts).toContainText(`False positives: ${row.nRowOnly}`);
+    await expect(counts).toContainText(`False positives: ${expectedFalsePositive}`);
     await expect(counts).toContainText(`True negatives: ${row.nNeither}`);
-    await expect(counts).toContainText(`False negatives: ${row.nColumnOnly}`);
+    await expect(counts).toContainText(`False negatives: ${expectedFalseNegative}`);
     for (const f of ['truePositive', 'falsePositive', 'trueNegative', 'falseNegative']) await expect(apply.getByTestId(`act-apply-${f}`)).toHaveCount(0);
 
     // Read-only Fisher p and the cited run id.
@@ -158,14 +212,19 @@ test.describe('AXI-1751 - validation act inputs derived from a real Fisher-exact
     await expect(apply.getByTestId('act-apply-target-cohort')).toHaveCount(0);
   });
 
-  test('AC2 - a captured choice with no matching Fisher-exact run disables every act with the stated reason; no input box appears', async ({ page }) => {
-    // A second choice on a snapshot no association run was ever fitted on.
+  test('AC2 - a captured choice citing no cutoff-proposal run disables every act with the stated reason; no input box appears', async ({ page }) => {
+    // A DECLARED choice (expert-entered, not computed) cites no run at all —
+    // `proposedByRuleRunId` is null (H1), so there is nothing to anchor a
+    // derivation on. The ambiguity / no-Fisher-fitted-on-the-real-anchor cases
+    // are covered by the unit suite (`actDerivation.test.ts`,
+    // UT-FE-GUIDED-1751-03/04), which does not need a second live run.
     const orphanChoice = await s.api.post(cutoffChoicesUrl(), {
-      measurement: MARKER, projectId: s.projectId, snapshotId: 'axi-1751-e2e-orphan-snapshot',
-      presentedProposals: [{ proposalId: 'expert:orphan', sourceType: 'expert', label: 'No association run cites this snapshot', operator: 'gte', valueLow: 1 }],
-      chosenProposalId: 'expert:orphan', rationale: 'AXI-1751 e2e: deliberately no Fisher-exact run fitted on this snapshot.',
+      measurement: MARKER, projectId: s.projectId, snapshotId: cutoffFittedOnSnapshotId,
+      presentedProposals: [{ proposalId: 'expert:orphan', sourceType: 'expert', label: 'Expert-entered, no run cited', operator: 'gte', valueLow: 1 }],
+      chosenProposalId: 'expert:orphan', rationale: 'AXI-1751 e2e: deliberately no cutoff-proposal run cited.',
     }, s.t.headers);
     expect(orphanChoice.status, JSON.stringify(orphanChoice.body)).toBe(201);
+    expect(orphanChoice.body.proposedByRuleRunId, 'an expert choice cites no run').toBeNull();
 
     await primeWorkspace(page, s);
     await driveToScreen(page, s.projectId, s.declaredAnalysisId);
@@ -179,7 +238,7 @@ test.describe('AXI-1751 - validation act inputs derived from a real Fisher-exact
     await panel.getByTestId('validation-choice-select').selectOption(orphanChoice.body.id);
 
     const apply = panel.getByTestId('act-apply');
-    await expect(apply.getByTestId('act-apply-derivation-blocked')).toContainText('No finished Fisher-exact association run was found');
+    await expect(apply.getByTestId('act-apply-derivation-blocked')).toContainText('does not cite the specific cutoff-proposal run');
     // No input box appears for any of the four values.
     await expect(apply.getByTestId('act-apply-target')).toHaveCount(0);
     for (const f of ['truePositive', 'falsePositive', 'trueNegative', 'falseNegative']) await expect(apply.getByTestId(`act-apply-${f}`)).toHaveCount(0);
