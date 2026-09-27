@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
   seedLiveWorkbench, driveToScreen, runLiveScreen, publishedRuleCode, primeWorkspace, submitStepAndWait,
-  SCREEN_OP, CUTOFF_OP, SPLIT_OP, stepUrl, type Seeded,
+  SCREEN_OP, CUTOFF_OP, SPLIT_OP, FISHER_OP, stepUrl, type Seeded,
 } from './harness/live-workbench';
 
 /**
@@ -135,7 +135,7 @@ test.describe('AXI-1727 - AC-DEMO: roles to a declared candidate, no typed param
     await expect(page.getByTestId('cutoff-record')).toContainText(rationale);
   });
 
-  // --- Blocked legs, both filed on AXI-1728 --------------------------------
+  // --- Formerly-blocked legs — both re-enabled, neither filed on AXI-1728 any more ---
 
   // Re-enabled by AXI-1750 (R12): splitSeed is no longer an unresolvable open
   // domain — the resolver's `generatedPolicy` tier generates and records it on
@@ -153,23 +153,54 @@ test.describe('AXI-1727 - AC-DEMO: roles to a declared candidate, no typed param
     expect(seedBinding.source).toMatch(/^policy:/);
   });
 
-  test('AC-DEMO, NFR2 - the Validation act (Apply/Compare/Pool) reaching a verdict', async ({ page }) => {
-    // NEW FINDING (not previously filed): `ActPanel` (`candidateValidation/ActPanel.tsx`,
-    // wrapped unmodified per AXI-1724's "wrap, never fork" ruling) requires TYPING a
-    // target snapshot id, a 2x2 count set and/or a Fisher p — none of those are a
-    // rationale field. NFR2 as literally worded ("no parameter typed except
-    // rationales") is not met by the existing, signed-off Validation surface this
-    // story wraps — a real gap distinct from splitSeed, filed on AXI-1728 for a
-    // ruling (pre-bind the 2x2/target from the live run, or scope NFR2 to stop at
-    // a declared candidate). `workbenchNoFreeText.test.ts` structurally does not
-    // cover this directory (`components/candidateValidation/**`), which is why
-    // this was never caught by the AC5 static scan either.
-    test.fixme(true, 'ActPanel (Apply/Compare/Pool) requires typed target/2x2/Fisher-p fields, not rationale-only — NFR2 gap, AXI-1728');
+  // Un-fixme'd by AXI-1751 (ruling R13): target/2x2/Fisher-p are now DERIVED,
+  // read-only and cited from the cutoff choice's own Fisher-exact association
+  // run — never typed. Full coverage (real numbers, the blocked/ambiguous
+  // case) is `AXI-1751-validation-prefill.spec.ts`; this test restates the
+  // AC-DEMO/NFR2 claim on ITS OWN seeded state (a fresh decision/choice/run,
+  // not the canvas-driven candidate from the test above — the canvas' own
+  // Candidate→Validation decisionDraftId bridge remains the open item AXI-1724
+  // filed, unrelated to this gap): no free-text input renders on the act.
+  test('AC-DEMO, NFR2 - the Validation act has no typed parameter (target/2x2/Fisher-p derived and cited)', async ({ page }) => {
+    const screenRunId = await submitStepAndWait(s, s.declaredAnalysisId, 'screen', SCREEN_OP);
+    const cutoffRunId = await submitStepAndWait(s, s.declaredAnalysisId, 'cutoff', CUTOFF_OP, {
+      selection: { kind: 'shortlist_row', nodeId: 'd6', runId: screenRunId, values: { marker: MARKER } },
+    });
+    const fisherRunId = await submitStepAndWait(s, s.declaredAnalysisId, 'outcome_association', FISHER_OP, {
+      selection: { kind: 'cutoff_choice', nodeId: 'd7', runId: cutoffRunId, values: { marker: MARKER } },
+    });
+    const snapshots = await s.api.get(`/api/v1/view-analyses/${s.declaredAnalysisId}/snapshots?limit=200`, s.t.headers);
+    const rows: any[] = Array.isArray(snapshots.body) ? snapshots.body : snapshots.body?.data ?? [];
+    const fisherSnapshot = rows.find((r) => r.ruleRunId === fisherRunId);
+    expect(fisherSnapshot, 'the Fisher run must record a snapshot').toBeTruthy();
+    const discoverySnapshotId = fisherSnapshot.parentSnapshotId as string;
+
+    const choiceRes = await s.api.post(`/api/v1/workspaces/${s.t.workspaceId}/cutoff-choices`, {
+      measurement: MARKER, projectId: s.projectId, snapshotId: discoverySnapshotId,
+      presentedProposals: [{ proposalId: `data:${MARKER}`, sourceType: 'data_derived', label: 'ROC/Youden', operator: 'gte', valueLow: 3 }],
+      chosenProposalId: `data:${MARKER}`, rationale: 'AXI-1727 e2e: re-verified after AXI-1751.',
+    }, s.t.headers);
+    expect(choiceRes.status, JSON.stringify(choiceRes.body)).toBe(201);
+    const decisionRes = await s.api.post(`/api/v1/workspaces/${s.t.workspaceId}/decisions`, {
+      label: 'AXI-1727 e2e decision (post-1751)', type: 'biomarker_threshold', projectId: s.projectId,
+      context: { intendedUse: 'RUO' }, evidenceLinks: [],
+      evidenceValues: [{ metric: 'axi_1727_post_1751_e2e', value: 1, unit: 'count', sourceSnapshotId: 'axi-1727-post-1751-e2e-snapshot' }],
+    }, s.t.headers);
+    expect(decisionRes.status, JSON.stringify(decisionRes.body)).toBe(201);
+
     await primeWorkspace(page, s);
     await driveToScreen(page, s.projectId, s.declaredAnalysisId);
     await page.getByTestId('validation-expand').click();
     const panel = page.getByTestId('workbench-live-validation-panel');
     await expect(panel).toBeVisible({ timeout: 20_000 });
-    await panel.getByTestId('act-apply-submit').click();
+    await panel.getByTestId('validation-decision-select').selectOption(decisionRes.body.id);
+    await panel.getByTestId('validation-choice-select').selectOption(choiceRes.body.id);
+
+    const apply = panel.getByTestId('act-apply');
+    await expect(apply.getByTestId('act-apply-derived-target')).toContainText(fisherRunId);
+    await expect(apply.getByTestId('act-apply-target')).toHaveCount(0);
+    for (const f of ['truePositive', 'falsePositive', 'trueNegative', 'falseNegative']) await expect(apply.getByTestId(`act-apply-${f}`)).toHaveCount(0);
+    await expect(apply.getByTestId('act-apply-fisher')).toHaveCount(0);
+    await expect(apply.getByTestId('act-apply-run')).toHaveCount(0);
   });
 });
