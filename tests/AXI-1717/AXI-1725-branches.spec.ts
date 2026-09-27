@@ -169,7 +169,10 @@ test.describe('AXI-1725 - one declared candidate per question (API, real backend
       // explicit `projectId` above means this value's `sourceSnapshotId` is never
       // resolved (only the derive-from-evidence path reads it), so a placeholder
       // is enough — this test is about the candidate-declare guard, not evidence.
-      evidenceValues: [{ metric: 'ec6_e2e_placeholder', value: 1, sourceSnapshotId: 'ec6-e2e-placeholder-snapshot' }],
+      // AXI-1725 (B1): `unit` is set so a later `-> invalidated` transition
+      // (this describe block's third test) clears `validateEvidenceUnitsForReview`
+      // — a unitless numeric value is refused before review/valid/invalidated.
+      evidenceValues: [{ metric: 'ec6_e2e_placeholder', value: 1, unit: 'count', sourceSnapshotId: 'ec6-e2e-placeholder-snapshot' }],
     }, s.t.headers);
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     return res.body.id as string;
@@ -202,24 +205,55 @@ test.describe('AXI-1725 - one declared candidate per question (API, real backend
       questionKey: QUESTION_KEY,
     }, s.t.headers);
 
+  // AXI-1725 review bounce (B1) — the general decision-status endpoint
+  // (`decision-drafts.controller.ts`'s `POST :id/transition`), reachable
+  // through the SAME gateway every candidate move is. Used here instead of a
+  // full Apply (which would additionally require a real cohort split and a
+  // pre-specified criteria declaration, AXI-1511/1630's own territory) — this
+  // test is about the EC6 slot release at the transition seam, not about
+  // re-deriving how a verdict gets scored.
+  const transitionUrl = (decisionDraftId: string) =>
+    `/api/v1/workspaces/${s.t.workspaceId}/decisions/${decisionDraftId}/transition`;
+
+  let decisionA: string;
+  let decisionB: string;
+
   test.beforeAll(async () => {
     s = await seedLiveWorkbench(`axi-1725-ec6-${Date.now().toString(36)}`, 'AXI-1725 EC6 Candidates');
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 
   test('EC6 - a first decision declares a candidate for the question and succeeds', async () => {
-    const decisionA = await makeDecision('EC6 e2e — decision A');
+    decisionA = await makeDecision('EC6 e2e — decision A');
     const choiceA = await captureChoice('CD27_pre');
     const res = await declare(decisionA, choiceA);
     expect(res.status, JSON.stringify(res.body)).toBe(200);
   });
 
   test('EC6 - a SECOND decision declaring against the SAME question is refused, naming the reason', async () => {
-    const decisionB = await makeDecision('EC6 e2e — decision B');
+    decisionB = await makeDecision('EC6 e2e — decision B');
     const choiceB = await captureChoice('CD274_pre');
     const res = await declare(decisionB, choiceB);
     expect(res.status, JSON.stringify(res.body)).toBe(400);
     expect(JSON.stringify(res.body)).toMatch(/only one candidate may be declared per question \(EC6\)/);
+  });
+
+  // AXI-1725 review bounce (B1) — the defect this closes: the slot used to be
+  // claimed forever, so a candidate that failed validation permanently locked
+  // its question. `candidate -> invalidated` now releases it at the
+  // transition seam (`DecisionDraftsService.applyStatusTransition`), so
+  // decision B — refused above — can now declare for real.
+  test('EC6 - invalidating decision A frees the question for decision B to declare', async () => {
+    const invalidated = await s.api.post(transitionUrl(decisionA), { targetStatus: 'invalidated' }, s.t.headers);
+    // 201, NestJS's default `@Post` status — this endpoint has no `@HttpCode`
+    // override (unlike the branch fork/discard endpoints, which do, since a
+    // refusal there is a normal response body, NFR8). A status TRANSITION is
+    // a genuine mutation, so the default Created is correct as-is.
+    expect(invalidated.status, JSON.stringify(invalidated.body)).toBe(201);
+    expect(invalidated.body.status, JSON.stringify(invalidated.body)).toBe('invalidated');
+
+    const res = await declare(decisionB, (await captureChoice('PD1_pre')));
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
   });
 });
 
