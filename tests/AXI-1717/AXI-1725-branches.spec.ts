@@ -284,38 +284,24 @@ test.describe('AXI-1725 - the branch strip renders the real count (UI, real back
     await expect(page.getByTestId('phase-rail-live-branch-count')).toHaveText('reported after 1 branch');
   });
 
-  test('FR18, FR20 - "Reopen here" on Split forks a branch and the strip\'s count follows', async ({ page }) => {
-    await submitStepAndWait(s, s.viewAnalysisId, 'screen', SCREEN_OP, { datasetId: s.datasetId, projectId: s.projectId });
+  test('FR18, FR20 - "Reopen here" on Split forks a branch and the strip\'s count follows, in place (no remount/navigation)', async ({ page }) => {
     await primeWorkspace(page, s);
+    // `driveToScreen` already confirms population, picks the stratification
+    // contrast and declines the holdout on its way to the Screen node — Split
+    // is therefore ALREADY `decided` (contrast + holdout both set) once this
+    // returns, so `split-reopen` is visible with no extra setup.
     await driveToScreen(page, s.projectId, s.viewAnalysisId);
-    // The Split node's "Reopen here" only appears once the branch's OWN split is decided;
-    // this LIVE-mode workbench's canvas split decision is still the AXI-1719 preview state,
-    // so this assertion is scoped to the strip reacting to a fork made directly through the API
-    // (the same one the button calls) rather than driving the preview split UI to "decided" here.
-    const fork = await s.api.post(branchUrl(s.viewAnalysisId), { nodeRef: 'screen' }, s.t.headers);
-    expect(fork.status, JSON.stringify(fork.body)).toBe(200);
-    expect(fork.body.forked).toBe(true);
-    // "Reopen" is a fresh navigation to the SAME bare, unscoped route
-    // `driveToScreen` itself uses — not `page.reload()`. A bare reload of
-    // *this* URL is unsound here for a reason outside this story's own scope:
-    // `useScopeSync` (src/hooks/useScopeSync.ts) rewrites the address bar to a
-    // slug-prefixed URL once org/workspace/project resolve, but if the
-    // workspace list hasn't loaded a match yet at that moment it silently
-    // drops the workspace segment from the rewritten URL (`buildScopePrefix`
-    // returns `''` for an unmatched id) — producing `/org-slug/PROJECT-slug/
-    // projects/:id/...` with no workspace segment at all. Reloading that URL
-    // sends `ScopeRedirect` down `parseScopePath`, which then misreads the
-    // project's slug as the workspace slug, fails to match any workspace by
-    // that name, and — because `setActiveOrganizationId` unconditionally
-    // clears the active workspace/project as a side effect (topMenuStore.ts)
-    // — leaves the workspace cleared with nothing to restore it. Confirmed
-    // live (localStorage's `axiome-active-workspace` reads `null` after such a
-    // reload while `axiome-top-org`/`axiome-active-project` are intact) and is
-    // a pre-existing defect in shared top-nav code, not in this story's own
-    // files — flagged to the lead as a follow-up rather than patched here.
-    // A fresh `goto` of the known-good bare route sidesteps it exactly as
-    // `driveToScreen`'s own first navigation already does.
-    await driveToScreen(page, s.projectId, s.viewAnalysisId);
+    await expect(page.getByTestId('phase-rail-live-branch-count')).toHaveText('reported after 1 branch');
+
+    // Review-bounce regression coverage (AXI-1725): `useLiveBranches` used to
+    // keep its fetch state per call site, so `SplitNode`'s OWN hook instance
+    // and `LiveBranchStrip`'s were two independent copies — clicking the REAL
+    // "Reopen here" button (not a direct API call standing in for it) refreshed
+    // only SplitNode's unread copy, and the strip never moved without a full
+    // remount. There is deliberately NO `page.goto`/`page.reload` anywhere
+    // below this point — the assertion is that the SAME mounted page updates
+    // itself once the shared store is notified.
+    await page.getByTestId('split-reopen').click();
     await expect(page.getByTestId('phase-rail-live-branch-count')).toHaveText('reported after 2 branches', { timeout: 30_000 });
     await expect(page.getByTestId(/^live-branch-chip-/)).toHaveCount(2);
   });
