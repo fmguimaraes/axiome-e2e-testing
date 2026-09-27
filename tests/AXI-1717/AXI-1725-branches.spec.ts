@@ -24,7 +24,12 @@ test.describe('AXI-1725 - fork, discard and count (API, real backend)', { tag: [
   let screenRunId: string;
 
   test.beforeAll(async () => {
-    s = await seedLiveWorkbench(`axi-1725-api-${Date.now().toString(36)}`, 'AXI-1725 Branches API');
+    // Unique project name per run (same fix as the UI describe block below):
+    // a fixed name is reused across runs, and a project stuck mid-materialization
+    // from an earlier interrupted run (this sidecar hit that during rework) makes
+    // `ensureDefaultAnalysis`'s poll — and this whole `beforeAll` — hang past its
+    // 30s hook timeout with no server-side error to show for it.
+    s = await seedLiveWorkbench(`axi-1725-api-${Date.now().toString(36)}`, `AXI-1725 Branches API ${Date.now().toString(36)}`);
     // `submitStepAndWait` posts the submit AND waits for the node to settle
     // (`SUCCEEDED`/`REUSED`) before returning — a bare `POST .../submit` returns
     // as soon as the run is ACCEPTED, not once it has run, and every test below
@@ -219,7 +224,11 @@ test.describe('AXI-1725 - one declared candidate per question (API, real backend
   let decisionB: string;
 
   test.beforeAll(async () => {
-    s = await seedLiveWorkbench(`axi-1725-ec6-${Date.now().toString(36)}`, 'AXI-1725 EC6 Candidates');
+    // Unique project name per run — same fix, same reason as the API describe
+    // block above (a fixed name reused across runs can hit a project stuck
+    // mid-materialization and hang `ensureDefaultAnalysis`'s poll past the
+    // 30s `beforeAll` hook timeout).
+    s = await seedLiveWorkbench(`axi-1725-ec6-${Date.now().toString(36)}`, `AXI-1725 EC6 Candidates ${Date.now().toString(36)}`);
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 
