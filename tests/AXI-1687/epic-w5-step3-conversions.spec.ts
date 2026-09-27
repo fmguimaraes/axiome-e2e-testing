@@ -43,10 +43,24 @@ const codeOnly = (file: string): string =>
     .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
     .join('\n');
 
-/** Sibling checkouts the harness does not resolve on its own (front + bio-compute). */
+/**
+ * Sibling checkouts the shared harness does not resolve on its own (front + bio-compute).
+ * FOLLOW-UP (review advisory, W5 step 3 rework 2026-09-27): this local resolver silently
+ * falls back to a worktree-suffix/primary guess when the env var is unset or wrong,
+ * unlike the shared `harness/sibling-repos.ts` `missingRepos()` gate every other spec in
+ * this suite uses. Left as-is here deliberately (the shared AXI-1688 harness itself is out
+ * of this story's ownership boundary and is not touched) but the next story to touch this
+ * file should fold FRONT_ROOT/BIO_ROOT into that shared harness so both repos fail loudly
+ * exactly like BACK_ROOT/DOCS_ROOT/GLOBAL_ROOT do instead of guessing a directory.
+ */
 function resolveSibling(envName: string, dirName: string, marker: string): string | undefined {
   const fromEnv = process.env[envName];
-  if (fromEnv && existsSync(path.join(fromEnv, marker))) return fromEnv;
+  if (fromEnv) {
+    if (!existsSync(path.join(fromEnv, marker))) {
+      throw new Error(`${envName}=${fromEnv} does not look like ${dirName} (missing ${marker})`);
+    }
+    return fromEnv;
+  }
   const parent = path.dirname(BACK_ROOT ?? '');
   const suffix = path.basename(BACK_ROOT ?? '').replace(/^axiome-back/, '');
   return [path.join(parent, `${dirName}${suffix}`), path.join(parent, dirName)].find((c) =>
@@ -57,14 +71,19 @@ const FRONT_ROOT = resolveSibling('AXIOME_FRONT_ROOT', 'axiome-front', 'src/comp
 const BIO_ROOT = resolveSibling('AXIOME_BIO_COMPUTE_ROOT', 'axiome-bio-compute', 'src/pipelines/stats_execution.py');
 
 function vitest(specs: string[], grep?: string) {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  delete env.E2E_LIVE_LLM;
   const args = grep ? ['vitest', 'run', ...specs, '-t', grep] : ['vitest', 'run', ...specs];
-  return spawnSync('npx', args, { cwd: FRONT_ROOT, encoding: 'utf8', timeout: 5 * 60_000 });
+  return spawnSync('npx', args, { cwd: FRONT_ROOT, encoding: 'utf8', env, timeout: 5 * 60_000 });
 }
 
 function pytest(args: string[]) {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  delete env.E2E_LIVE_LLM;
   return spawnSync('uv', ['run', '--all-extras', 'pytest', ...args, '-q'], {
     cwd: BIO_ROOT,
     encoding: 'utf8',
+    env,
     timeout: 5 * 60_000,
   });
 }
@@ -73,14 +92,22 @@ test.describe('AXI-1687 W5 step 3 — manual-e2e reasons re-checked and converte
   test.beforeEach(requireBack);
 
   // ---- C.4 (AXI-1691 section) — claimDisclaimers rendering shipped with AXI-1705 ----
-  test('C.4 AC28 PlanPreview.tsx renders the plan\'s claimDisclaimers — the FR77-later-story blocker closed with AXI-1705 @SI-046', () => {
+  test('C.4 AC28 the plan\'s claimDisclaimers render exactly as declared, none added/dropped — the FR77-later-story blocker closed with AXI-1705 (UT-HONEST-1705-020/-024) @SI-046', () => {
     test.skip(!FRONT_ROOT, 'axiome-front checkout not found');
+    // Corroborating: PlanPreview actually wires plan.claimDisclaimers into <ClaimDisclaimers>, the
+    // component the behavioural run below exercises — a real run of the wrong component would be
+    // a vacuous pass, so this pins that PlanPreview is not orphaned from ResultHonesty's exports.
     const preview = readFileSync(path.join(FRONT_ROOT as string, 'src/components/guidedAnalysis/PlanPreview.tsx'), 'utf8');
     expect(preview).toMatch(/plan\.claimDisclaimers/);
     expect(preview).toMatch(/ClaimDisclaimers/);
-    const honesty = readFileSync(path.join(FRONT_ROOT as string, 'src/components/guidedAnalysis/ResultHonesty.tsx'), 'utf8');
-    expect(honesty).toMatch(/ga-claim-disclaimers/);
-    // Same fact already exercised end to end by AXI-1705's own J.2 (tests/AXI-1687/AXI-1705-frontend-honesty.spec.ts).
+    // Behavioural: renders the declared disclaimers and nothing else (UT-HONEST-1705-020),
+    // renders nothing when none are declared (UT-HONEST-1705-024).
+    const r = vitest(
+      ['src/components/guidedAnalysis/ResultHonesty.test.tsx'],
+      'UT-HONEST-1705-020|UT-HONEST-1705-024',
+    );
+    expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
+    expect(r.stdout + r.stderr).toMatch(/2 passed/);
   });
 
   // ---- K.5 (AXI-1697 section) — AXI-1698 IS merged on axiome-bio-compute main ----
