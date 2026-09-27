@@ -120,6 +120,9 @@ export async function seedLiveWorkbench(label: string, projectName: string): Pro
 
 export const stepUrl = (va: string, nodeRef: string, action: 'resolve' | 'submit') => `/api/v1/discovery/analyses/${va}/steps/${nodeRef}/${action}`;
 
+/** AXI-1725 — the branch endpoints: `POST/GET …/branches`, `POST …/branches/:id/discard`. */
+export const branchUrl = (va: string, branchId?: string) => `/api/v1/discovery/analyses/${va}/branches${branchId ? `/${branchId}/discard` : ''}`;
+
 /** Poll the governed status until the step's OWN node (`<runId>__<nodeId>`) settles. */
 export async function waitForNode(s: Seeded, runId: string, nodeId: string, attempts = 90): Promise<any> {
   let node: any = null;
