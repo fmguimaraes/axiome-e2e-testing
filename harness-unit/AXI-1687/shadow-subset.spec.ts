@@ -43,6 +43,8 @@ const BACK_CONTRACT_ROW_KEYS = [
   'usage',
   'correlationId',
   'notAnsweredReason',
+  // AXI-1811 — 'transport' ('live' | 'claude-code'), see harness-unit/AXI-1811.
+  'transport',
 ];
 
 const ROW_ID = 'RUN-2026-09-26-01';

@@ -65,12 +65,17 @@ export type ShadowRunOutcome =
 
 /**
  * Why a `not_answered` row was not answered (closed, mirrors the back contract):
- * `guard`    — the live-spend guard refused the call before it was made (FR53);
- * `deadline` — the planner reached its deadline and, per FR51, ran NO fallback;
- * `aborted`  — the run was aborted after a provider HTTP 400 (FR50) and this
- *              question was never asked.
+ * `guard`             — the live-spend guard refused the call before it was made (FR53);
+ * `deadline`          — the planner reached its deadline and, per FR51, ran NO fallback;
+ * `aborted`           — the run was aborted after a provider HTTP 400 (FR50) and this
+ *                        question was never asked;
+ * `recording_missing` — AXI-1811: the recorded transport had no committed answer for
+ *                        this exact request (`RecordingMissingError`, `axiome-back`
+ *                        `llm-transport.ts`). Never scored as an `unsupported` verdict —
+ *                        a missing recording is an infrastructure miss, not the planner
+ *                        judging the question.
  */
-export type ShadowRunNotAnsweredReason = 'guard' | 'deadline' | 'aborted';
+export type ShadowRunNotAnsweredReason = 'guard' | 'deadline' | 'aborted' | 'recording_missing';
 
 export interface ShadowRunRow {
   readonly questionId: number;
@@ -92,6 +97,14 @@ export interface ShadowRunRow {
   readonly correlationId?: string;
   /** AXI-1689 — present iff `outcome === 'not_answered'`; omitted otherwise. */
   readonly notAnsweredReason?: ShadowRunNotAnsweredReason;
+  /**
+   * AXI-1811 (R-LLM-1) — `'live'` or `'claude-code'`, present on every row an
+   * actual call was attempted under (i.e. the run was not guard-refused before
+   * any call). Never absent for such a row and never inferred by a reader —
+   * `transportLabelFor()` is the one place that decides it, from THIS harness's
+   * OWN `decideHarnessLiveSpend` decision for the run.
+   */
+  readonly transport?: ShadowRunTransport;
 }
 
 /**
@@ -109,6 +122,7 @@ export const SHADOW_RUN_ROW_KEYS = [
   'usage',
   'correlationId',
   'notAnsweredReason',
+  'transport',
 ] as const;
 
 export interface PlanApiBody {
@@ -127,12 +141,20 @@ export interface PlanApiBody {
   intentUnsupported?: boolean;
   /**
    * AXI-1689 (FR51) — `PlanResponse.unsupportedReason`, present iff
-   * `intentUnsupported`. The one value this harness reads is `deadline`: the
-   * planner did not reach a verdict in time and, since AXI-1689, ran NO
-   * wrong-shaped fallback (the AXI-1683 regression). Every other reason is an
-   * honest `unsupported` verdict and is recorded as before.
+   * `intentUnsupported`. The values this harness reads specially are `deadline`
+   * and, since AXI-1811, `recording_missing`: neither is the planner judging
+   * the question, so neither is recorded as an honest `unsupported` verdict.
+   * Every other reason stays an honest `unsupported` verdict, as before.
    */
   unsupportedReason?: string;
+  /**
+   * AXI-1811 — `PlanResponse.unsupportedDetail`, present iff `unsupportedReason
+   * === 'recording_missing'`. Carries the pending payload sha the operator
+   * needs (`RecordingMissingError`'s message, `LLM recording missing <sha>
+   * (<callSite>) - run llm-debug:record`) — read here only to surface it, never
+   * to gate on.
+   */
+  unsupportedDetail?: string;
   /** AXI-1631 — `PlanResponse.correlationId`, echoed at the top level (AXI-1624). */
   correlationId?: string;
 }
@@ -224,6 +246,11 @@ export function outcomeOf(body: PlanApiBody, status: number): ShadowRunOutcome {
   // is recorded as `not_answered: deadline` so the report never counts it with
   // the honest `none` intents, and never as a plan.
   if (body.intentUnsupported && body.unsupportedReason === 'deadline') return 'not_answered';
+  // AXI-1811 (R-LLM-1): a missing recording is a TRANSPORT miss, not a planner
+  // verdict either — the model was never actually asked. Scoring it
+  // `unsupported` would look like an honest `none` and could pass a subset
+  // through the gate on an answer that was never given.
+  if (body.intentUnsupported && body.unsupportedReason === 'recording_missing') return 'not_answered';
   if (body.intentUnsupported) return 'unsupported';
   if (body.plannerFallback) return 'fallback';
   if (isRefusalPlan(body.plan)) return 'refused';
@@ -234,14 +261,29 @@ export function outcomeOf(body: PlanApiBody, status: number): ShadowRunOutcome {
  * AXI-1689 — the reason a response is recorded `not_answered`, or `undefined`
  * for every other outcome so `rowOf` never writes the key on an answered row
  * (the back's strict guard refuses a `notAnsweredReason` beside any other
- * outcome). The only reason a RESPONSE can carry is `deadline`; `guard` and
- * `aborted` are decided by the run loop, before or instead of a response.
+ * outcome). A RESPONSE can carry `deadline` or, since AXI-1811,
+ * `recording_missing`; `guard` and `aborted` are decided by the run loop,
+ * before or instead of a response.
  */
 export function notAnsweredReasonOf(
   body: PlanApiBody,
   status: number,
 ): ShadowRunNotAnsweredReason | undefined {
-  return outcomeOf(body, status) === 'not_answered' ? 'deadline' : undefined;
+  if (outcomeOf(body, status) !== 'not_answered') return undefined;
+  return body.unsupportedReason === 'recording_missing' ? 'recording_missing' : 'deadline';
+}
+
+/**
+ * AXI-1811 — the pending payload sha named in `RecordingMissingError`'s
+ * message (`LLM recording missing <sha> (<callSite>) - run llm-debug:record`),
+ * read off `unsupportedDetail` for a `recording_missing` row so the operator
+ * can find the exact file under `llm-debug/pending/` without re-deriving the
+ * hash by hand. `undefined` when the detail carries no recognisable sha (never
+ * invented).
+ */
+export function pendingRecordingShaOf(body: PlanApiBody): string | undefined {
+  const match = body.unsupportedDetail?.match(/recording missing ([a-f0-9]{6,})/i);
+  return match?.[1];
 }
 
 /** The HTTP status that means "your token is no longer good", never an outcome. */
@@ -392,8 +434,30 @@ export async function runShadowBank(
   return rows;
 }
 
-/** One `ShadowRunRow` from one completed plan attempt. Pure. */
-function rowOf(questionId: number, provider: string, attempt: PlanAttempt): ShadowRunRow {
+/**
+ * One `ShadowRunRow` from one completed plan attempt. `transport` is
+ * `undefined` for this function's own (unguarded, legacy) caller — only
+ * `runShadowBankGuarded` knows the run's transport decision. AXI-1811: a
+ * `recording_missing` row logs its pending sha to stderr so an operator
+ * scanning console output sees the miss without grepping the JSON artefact —
+ * never SILENTLY recorded as an ordinary `unsupported` answer.
+ */
+function rowOf(
+  questionId: number,
+  provider: string,
+  attempt: PlanAttempt,
+  transport?: ShadowRunTransport,
+): ShadowRunRow {
+  const notAnsweredReason = notAnsweredReasonOf(attempt.body, attempt.status);
+  if (notAnsweredReason === 'recording_missing') {
+    const sha = pendingRecordingShaOf(attempt.body);
+    // eslint-disable-next-line no-console -- AXI-1811: deliberately loud, mirrors the back's own logger.error on the same miss.
+    console.error(
+      `[shadow-run] Q${questionId}: recording missing` +
+        (sha ? ` — pending payload llm-debug/pending/${sha}.request.json` : ' (no sha recovered from the response)') +
+        ' — run `npm --workspace organization-service run llm-debug:record` after authoring a blind response; NOT recorded as an answer.',
+    );
+  }
   return {
     questionId,
     provider,
@@ -404,7 +468,8 @@ function rowOf(questionId: number, provider: string, attempt: PlanAttempt): Shad
     latencyMs: attempt.latencyMs,
     usage: null,
     correlationId: correlationIdOf(attempt.body),
-    notAnsweredReason: notAnsweredReasonOf(attempt.body, attempt.status),
+    notAnsweredReason,
+    transport,
   };
 }
 
@@ -422,27 +487,72 @@ function rowOf(questionId: number, provider: string, attempt: PlanAttempt): Shad
 // registry row id of the held run, `RUN-YYYY-MM-DD-NN`. `E2E_LIVE_LLM` is a
 // DIFFERENT, older opt-in for the route-free Playwright specs and is never
 // consulted here: one knob, one grammar (NFR1).
+//
+// AXI-1811 (epic AXI-1687 — R-LLM-1, FR113–FR115). A SECOND, explicit axis on
+// the SAME decision: `SHADOW_RUN_TRANSPORT=recorded` allows the run with NO
+// spend-go and NO registry row, because it never reaches `LiveAnthropicTransport`
+// at all — it is a labelling/permission knob for THIS harness, never a second
+// gate. The real wall stays server-side: `assertLlmTransportModeConfigured` /
+// `resolveLlmTransportMode` in `axiome-back`'s `provider/llm-transport.ts` is
+// what actually decides whether the backend process this harness is talking to
+// can ever construct `LiveAnthropicTransport`. This flag cannot see that
+// server-side setting and does not try to — it only says "the OPERATOR is
+// telling this harness the backend is running recorded, so label the rows
+// `claude-code` and don't demand a paid-run go for a run that will spend
+// nothing." A backend actually misconfigured to `live` would still refuse the
+// call itself (FR53), so a mislabelled harness flag cannot buy a live call.
+//
+// Setting BOTH `SHADOW_RUN_TRANSPORT=recorded` AND `GUIDED_ANALYSIS_LIVE_SPEND_GO`
+// is refused as ambiguous — a caller who wrote both did not decide which of
+// "no spend" or "a paid run" the artefact represents, and this harness has no
+// tie-break rule to prefer one over the other. `E2E_LIVE_LLM` is never read by
+// either axis (NFR1, one knob, one grammar) — that is a DIFFERENT, older
+// opt-in for the route-free Playwright specs.
 
 /** The registry row-id grammar (FR9): `RUN-` + ISO date + two-digit ordinal. */
 export const LIVE_SPEND_ROW_ID = /^RUN-\d{4}-\d{2}-\d{2}-\d{2}$/;
+
+/** AXI-1811 — the recorded-transport opt-in env var, a labelling/permission knob only. */
+export const SHADOW_RUN_TRANSPORT_ENV = 'SHADOW_RUN_TRANSPORT';
 
 export type HarnessLiveSpendRefusal =
   | 'not_configured'
   | 'invalid_row_id'
   | 'no_registry'
   | 'row_not_registered'
-  | 'row_not_go';
+  | 'row_not_go'
+  /** AXI-1811 — both `SHADOW_RUN_TRANSPORT=recorded` AND a spend-go were set. */
+  | 'ambiguous_transport';
+
+/** AXI-1811 — the label an allowed run's rows carry (never inferred downstream). */
+export type ShadowRunTransport = 'live' | 'claude-code';
 
 export interface HarnessLiveSpendDecision {
   readonly allowed: boolean;
-  /** `allowed` when `allowed` is true; the refusal otherwise. */
-  readonly reason: HarnessLiveSpendRefusal | 'allowed';
-  /** The row id the decision was made for, when the variable parsed as one. */
+  /** `allowed` (live) or `recorded` when `allowed` is true; the refusal otherwise. */
+  readonly reason: HarnessLiveSpendRefusal | 'allowed' | 'recorded';
+  /** The row id the decision was made for, when the variable parsed as one. Live only. */
   readonly rowId?: string;
 }
 
 /**
- * Pure. Decides whether THIS harness process may make a paid call.
+ * AXI-1811 — pure. The transport label an allowed decision's rows carry;
+ * `undefined` for a refusal, since no call was made and nothing may be
+ * labelled for one (never inferred). The SINGLE mapping from decision reason
+ * to label — never restated at a call site.
+ */
+export function transportLabelFor(
+  decision: Pick<HarnessLiveSpendDecision, 'reason'>,
+): ShadowRunTransport | undefined {
+  if (decision.reason === 'allowed') return 'live';
+  if (decision.reason === 'recorded') return 'claude-code';
+  return undefined;
+}
+
+/**
+ * Pure. Decides whether THIS harness process may run the bank, and under
+ * which transport label. The SINGLE authority for both axes (AXI-1811) — do
+ * not add a second gate.
  *
  * `registryText` is the text of the run registry (`SHADOW_RUN_REGISTRY_PATH`)
  * when the caller could read it; the registry line for a row must carry the
@@ -456,6 +566,13 @@ export function decideHarnessLiveSpend(
   registryText: string | undefined,
 ): HarnessLiveSpendDecision {
   const raw = env.GUIDED_ANALYSIS_LIVE_SPEND_GO?.trim();
+  const recordedRequested = (env[SHADOW_RUN_TRANSPORT_ENV] ?? '').trim().toLowerCase() === 'recorded';
+
+  if (recordedRequested) {
+    if (raw) return { allowed: false, reason: 'ambiguous_transport' };
+    return { allowed: true, reason: 'recorded' };
+  }
+
   if (!raw) return { allowed: false, reason: 'not_configured' };
   if (!LIVE_SPEND_ROW_ID.test(raw)) return { allowed: false, reason: 'invalid_row_id' };
   if (registryText === undefined) return { allowed: false, reason: 'no_registry', rowId: raw };
@@ -538,6 +655,7 @@ function notAnsweredRow(
   questionId: number,
   provider: string,
   reason: ShadowRunNotAnsweredReason,
+  transport?: ShadowRunTransport,
 ): ShadowRunRow {
   return {
     questionId,
@@ -549,6 +667,7 @@ function notAnsweredRow(
     latencyMs: 0,
     usage: null,
     notAnsweredReason: reason,
+    transport,
   };
 }
 
@@ -573,6 +692,7 @@ export async function runShadowBankGuarded(
   const env = opts.env ?? process.env;
   const registryText = opts.registryText ?? readRunRegistry(env);
   const guard = decideHarnessLiveSpend(env, registryText);
+  const transport = transportLabelFor(guard);
   const questions = selectQuestions(loadGradosBank(), env.SHADOW_RUN_QUESTIONS);
   const questionIds = questions.map((q) => q.id);
 
@@ -592,10 +712,10 @@ export async function runShadowBankGuarded(
     const envelope = buildEnvelope(projectId, q.question, datasets);
     const attempt = await planWithRefresh(auth, workspaceId, projectId, q.id, envelope);
     if (attempt.status === BAD_REQUEST) {
-      for (const rest of questions.slice(index)) rows.push(notAnsweredRow(rest.id, provider, 'aborted'));
+      for (const rest of questions.slice(index)) rows.push(notAnsweredRow(rest.id, provider, 'aborted', transport));
       return { rows, status: 'INVALID', guard, questionIds, abortedAtQuestionId: q.id };
     }
-    rows.push(rowOf(q.id, provider, attempt));
+    rows.push(rowOf(q.id, provider, attempt, transport));
   }
   return { rows, status: 'complete', guard, questionIds };
 }

@@ -202,3 +202,32 @@ STRUCTURAL PIN of the row shape against `axiome-back`'s
 | UT-GRADOS-1700-1 | The staged seed filename carries a 12-hex content digest and keeps the .csv suffix | Pass |
 | UT-GRADOS-1700-2 | Identical bytes stage under the same name (idempotent re-run) | Pass |
 | UT-GRADOS-1700-3 | Changed bytes stage under a NEW name (a new dataset version, never the old one served stale) | Pass |
+
+## AXI-1811/shadow-recorded-transport.spec.ts
+
+AXI-1811 (epic AXI-1687 — R-LLM-1, FR113–FR115). The recorded-transport axis
+of `decideHarnessLiveSpend` (`SHADOW_RUN_TRANSPORT=recorded`, no spend-go
+needed, refused as `ambiguous_transport` alongside a spend-go), the ONE
+`transportLabelFor` mapping to the `transport` row label (`'live'` |
+`'claude-code'`, present only on a row an actual call was attempted under),
+and the loud `recording_missing` miss (`not_answered: recording_missing`,
+never an honest `unsupported` verdict, pending sha named via
+`pendingRecordingShaOf` and logged to stderr). Extends AXI-1689's
+`shadow-subset.spec.ts` coverage of the same decision function; no second
+gate was added. No live backend; nothing here can spend.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-HGUARD-1811-001 | `SHADOW_RUN_TRANSPORT=recorded` is allowed with NO spend-go and no registry | Pass |
+| UT-HGUARD-1811-002 | `SHADOW_RUN_TRANSPORT=recorded` is case/whitespace tolerant | Pass |
+| UT-HGUARD-1811-003 | `SHADOW_RUN_TRANSPORT=recorded` together with a spend-go is refused `ambiguous_transport` | Pass |
+| UT-HGUARD-1811-004 | An unset or non-"recorded" `SHADOW_RUN_TRANSPORT` leaves the live-spend decision byte-for-byte unchanged | Pass |
+| UT-HGUARD-1811-005 | `E2E_LIVE_LLM` is still NOT a go on the recorded axis either (NFR1, one knob) | Pass |
+| UT-HGUARD-1811-006 | `transportLabelFor` maps allowed→live, recorded→claude-code, any refusal→undefined | Pass |
+| UT-HGUARD-1811-007 | A recorded-transport run labels every answered row `claude-code`, never `live` | Pass |
+| UT-HGUARD-1811-008 | A live-go run labels every answered row `live` | Pass |
+| UT-HGUARD-1811-009 | A guard-refused run carries no transport label — no call was made to label | Pass |
+| UT-HGUARD-1811-010 | Every row key stays within the closed `SHADOW_RUN_ROW_KEYS` set (`transport` included) | Pass |
+| UT-HGUARD-1811-011 | A `recording_missing` response is `not_answered`, never an honest `unsupported` verdict | Pass |
+| UT-HGUARD-1811-012 | `pendingRecordingShaOf` names the pending payload sha from the miss detail | Pass |
+| UT-HGUARD-1811-013 | A `recording_missing` row from a guarded run is scored `not_answered` and named in the result, never counted as an answer | Pass |
