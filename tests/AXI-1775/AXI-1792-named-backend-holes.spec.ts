@@ -102,6 +102,8 @@ test.describe('AXI-1792 - qc_check ancestors in the dependency scan (EC10, FR33)
    * It is split in two: what is REACHABLE is asserted without a branch, and the half that is
    * NOT reachable is recorded as a gap with its own probe (the AXI-1507 spec's `GAP` precedent),
    * rather than left as a conditional that silently never fires.
+   * AXI-1819 made that half reachable (the `qc_guards` step submit); the gap probe below is
+   * flipped, and the reached branch is driven by `AXI-1819-qc-guards-submit.spec.ts`.
    */
   test('AC10 EC10 FR33 NFR1 - the three qc_check ancestors are declared, NEVER attempted, and an unattempted guard disables nothing', async () => {
     const status = (await s.api.get(`/api/v1/governed-execution/status?projectId=${s.projectId}&runId=${s.instanceRunId}`, s.t.headers)).body;
@@ -124,16 +126,18 @@ test.describe('AXI-1792 - qc_check ancestors in the dependency scan (EC10, FR33)
     expect(resolved.body.disabledReason ?? '', 'an unattempted guard is not a failed one (NFR1)').not.toMatch(/QC check/);
   });
 
-  test('AC10 EC10 FR33 - GAP: no product surface runs a discovery qc_check node, so the QC-disabled branch is unreachable end to end', async () => {
-    // The guards live ONLY in the instantiation run, which AXI-1779 leaves DRAFT for ever; the
-    // step-submit path builds a ONE-node plan of the requested OPERATION, and the `qc_guards`
-    // step declares no operation ids, so it cannot be submitted. There is no cancel/start route
-    // for a declared run either. Recorded as the boundary this e2e stops at rather than driven
-    // by a conditional that never fires. Filed as AXI-1819.
-    const submitted = await s.api.post(stepUrl(s.viewAnalysisId, 'qc_guards', 'submit'), {
-      operationId: 'qc.rule_gate', datasetId: s.datasetId, projectId: s.projectId, datasetVersionHash: s.hash,
+  test('AC10 EC10 FR33 - qc_guards is now a runnable step (AXI-1819 closed the GAP this test used to pin)', async () => {
+    // Was: `POST .../steps/qc_guards/submit` answered 400 "does not run qc.rule_gate", so no
+    // product surface could run a discovery qc_check node and the QC-disabled branch was
+    // unreachable end to end (AXI-1819, owner ruling 2026-09-29: add the submit surface).
+    // The step now resolves to the three declared guards and is runnable on a fresh, approved
+    // container. It is RESOLVED here, not submitted, so this spec's own container keeps its
+    // guards unattempted for the test above; the submit, the verdicts and the FR33 invariant
+    // are driven end to end by `tests/AXI-1775/AXI-1819-qc-guards-submit.spec.ts`.
+    const resolved = await s.api.post(stepUrl(s.viewAnalysisId, 'qc_guards', 'resolve'), {
+      operationId: 'qc.rule_gate', datasetId: s.datasetId,
     }, s.t.headers);
-    expect(submitted.status, `qc_guards must not become submittable without this gap being revisited: ${JSON.stringify(submitted.body)}`).toBeGreaterThanOrEqual(400);
-    expect(JSON.stringify(submitted.body)).toMatch(/does not run|unknown (operation|discovery step)/);
+    expect(resolved.status, JSON.stringify(resolved.body)).toBe(200);
+    expect(resolved.body, JSON.stringify(resolved.body)).toMatchObject({ stepId: 'qc_guards', operationId: 'qc.rule_gate', nodeIds: ['d2', 'd3', 'd4'], fullyBound: true, disabledReason: null });
   });
 });

@@ -62,15 +62,14 @@ import {
  * SUBJECT of the assertions changed: the same shortlist, the same four cutoff
  * proposals, the same split ledger, the same lineage.
  *
- * Two assertions of the previous model could NOT be preserved, and are stated here
- * rather than dropped quietly:
+ * Two assertions of the previous model could NOT be preserved at first, and are stated
+ * here rather than dropped quietly:
  *
- *   1. AC2/AC6's QC half (`d1`–`d4` reach SUCCEEDED). The profile and the three
- *      `qc_check` guards live only in the instantiation run, and no product surface
- *      submits them: the step path builds a one-node plan of a requested OPERATION
- *      and the `qc_guards` step declares no operation ids. They are asserted as
- *      DECLARED-and-unattempted instead, and the gap is filed (see the AXI-1807
- *      report; filed as AXI-1819, also recorded in `tests/AXI-1775/AXI-1792-*`).
+ *   1. AC2/AC6's QC half (`d2`–`d4` reach a verdict). RESTORED by AXI-1819: the three
+ *      `qc_check` guards are now submitted as the `qc_guards` step (operation
+ *      `qc.rule_gate`), one click, before the screen, and each guard's verdict is read
+ *      back off the plan read. The profile `d1` is still only DECLARED — no surface runs
+ *      it, and nothing downstream reads it — and is asserted as unattempted.
  *   2. The split's seed is no longer a seed the scientist declares.
  *      AXI-1781 made the seed a SERVER-derived fact of the plan instance, and
  *      AXI-1820 (owner ruling 2026-09-29) settled the contradiction with AXI-1507
@@ -400,12 +399,12 @@ test.describe('AXI-1507 Riaz — block A: the plan through screen → cutoffs �
    * executed the whole template on a container the scientist had only just declared.
    *
    * The half that survives is the SCREEN, and it is stronger now: the scientist submits it and
-   * it is HER run that reaches the verdict. The half that does not survive is the QC guards'
-   * own verdicts (d2–d4) — they are declared and, with no surface that submits a `qc_check`
-   * node, permanently unattempted. That is asserted as what it is, so the loss is visible in
-   * the suite instead of being quietly deleted.
+   * it is HER run that reaches the verdict. AXI-1819 restored the QC guards' own verdicts
+   * (d2–d4): the scientist submits the `qc_guards` step FIRST — the guards judge the base
+   * population the screen reads — and each guard's recorded verdict is read off the plan.
+   * A `block` would (correctly, FR33) disable the screen, so it is named here if it happens.
    */
-  test('AC2/AC6 — the scientist\'s screen step reaches a verdict; the envelope and QC guards stand DECLARED and unattempted', { tag: ['@SI-047', '@SI-017'] }, async () => {
+  test('AC2/AC6 — the scientist\'s QC guards and screen step each reach a verdict; the profile stands DECLARED and unattempted', { tag: ['@SI-047', '@SI-017'] }, async () => {
     const declared = await c.api.get(`/api/v1/discovery/analyses/${analysisA}/plan`, c.t.headers);
     expect(declared.status, JSON.stringify(declared.body)).toBe(200);
     const nodes: Array<{ nodeId: string; status: string | null; runId: string | null }> = declared.body.nodes;
@@ -417,6 +416,24 @@ test.describe('AXI-1507 Riaz — block A: the plan through screen → cutoffs �
       // no activity at all — not `PENDING` against the instance run, but nothing.
       expect(node, `${id} was never attempted by the platform`).toMatchObject({ status: null, runId: null });
     }
+
+    // AXI-1819 (FR2): the scientist's one click on the QC guards step.
+    const qc = await runStep(c, analysisA, 'qc_guards', 'qc.rule_gate');
+    for (const id of ['d2', 'd3', 'd4']) {
+      expect(byNode(qc.run, id)?.status, `QC guard ${id}: ${byNode(qc.run, id)?.error ?? ''}`).toMatch(/SUCCEEDED|REUSED/);
+    }
+    const guarded = (await c.api.get(`/api/v1/discovery/analyses/${analysisA}/plan`, c.t.headers)).body.nodes as Array<{
+      nodeId: string; status: string | null; runId: string | null; verdict?: { outcome: string; reason: string | null } | null;
+    }>;
+    rec.qcGuardsA = guarded.filter((n) => /^d[1-4]$/.test(n.nodeId));
+    for (const id of ['d2', 'd3', 'd4']) {
+      const node = guarded.find((n) => n.nodeId === id)!;
+      expect(node, `${id} reads its own attempt`).toMatchObject({ runId: qc.runId });
+      // A SUCCEEDED guard carries the recorded verdict; a REUSED one has no readable output (AXI-1792 follow-up b).
+      if (node.status === 'SUCCEEDED') expect(node.verdict?.outcome, `${id} verdict`).toMatch(/^(pass|degrade|block)$/);
+      expect(node.verdict?.outcome, `${id} blocked the screen (FR33): ${node.verdict?.reason}`).not.toBe('block');
+    }
+    expect(guarded.find((n) => n.nodeId === 'd1'), 'd1 (profile) is still only declared').toMatchObject({ status: null, runId: null });
 
     screenA = await runStep(c, analysisA, 'screen', SCREEN_OP);
     const run = screenA.run;
