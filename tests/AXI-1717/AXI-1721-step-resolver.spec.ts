@@ -162,7 +162,7 @@ test.describe('AXI-1721 - step resolver API (real backend)', { tag: ['@SI-045', 
     expect(res.body.producesOutputTypes).toContain('shortlist_row');
   });
 
-  test('FR8 FR9 FR13 - the split step with no upstream node binds from the plan, the dataset ROLES and the approved POLICY - three sources, one step; the undeclared seed stays OPEN', async () => {
+  test('FR8 FR9 FR13 - the split step with no upstream node binds from the plan, the dataset ROLES and the approved POLICY - three sources, one step; since R12 the seed is server-resolved so the step is fully bound', async () => {
     const res = await s.api.post(stepUrl(s.viewAnalysisId, 'split', 'resolve'), { operationId: SPLIT_OP, datasetId: s.datasetId }, s.t.headers);
     expect(res.status, JSON.stringify(res.body)).toBe(200);
     const byName = Object.fromEntries(res.body.bindings.map((b: any) => [b.name, b]));
@@ -172,13 +172,30 @@ test.describe('AXI-1721 - step resolver API (real backend)', { tag: ['@SI-045', 
     expect(byName.holdoutRatio).toMatchObject({ value: 0.3, source: `policy:${SPLIT_OP}.holdoutRatio`, sourceKind: 'policy' });
     expect(byName.minPatientsPerArm).toMatchObject({ value: 20, source: `policy:${SPLIT_OP}.minPatientsPerArm` });
     expect(byName.minPatientsPerClass).toMatchObject({ value: 5, source: `policy:${SPLIT_OP}.minPatientsPerClass` });
-    // The kernel REQUIRES the seed and only the question can declare it (NFR7) — this
-    // question DECLINED the split, so none exists. The resolver must leave it open
-    // (FR13) rather than invent one: the step is honest about being not fully bound,
-    // with the ONE missing name stated. (It is not a governed knob: those bind `policy:`.)
-    expect(res.body.fullyBound).toBe(false);
+    // R12 (AXI-1750) changed this contract. The kernel REQUIRES the seed; before R12 no
+    // one could declare it, so the resolver left it OPEN and the step was not fully bound.
+    // Since R12 `SplitDecisionService.resolveSeed` resolves it server-side, idempotently
+    // per question, so the step resolves fully bound with nothing left to ask.
+    expect(res.body.fullyBound).toBe(true);
     expect(res.body.disabledReason).toBeNull();
-    expect(res.body.unresolved).toEqual([expect.objectContaining({ name: 'splitSeed', slot: 'param', domain: { kind: 'open' } })]);
+    expect(res.body.unresolved).toEqual([]);
+    // The seed must be a real, stated value — never absent, never a placeholder constant
+    // (the fabrication AXI-1761 removed from the front end's display path).
+    expect(byName.splitSeed).toMatchObject({ name: 'splitSeed', slot: 'param' });
+    expect(typeof byName.splitSeed.value, 'the seed is a stated number').toBe('number');
+    // `randomInt(0, MAX_SEED)` is half-open, so 0 is a legal seed — asserting > 0 would
+    // flake once in MAX_SEED runs. What matters is that it is a stated integer in range,
+    // not that it is non-zero.
+    expect(Number.isInteger(byName.splitSeed.value), 'the seed is an integer').toBe(true);
+    expect(byName.splitSeed.value).toBeGreaterThanOrEqual(0);
+    // ⚠ The tag below is pinned as CURRENT BEHAVIOUR, not as endorsed behaviour: the seed is
+    // minted per question with `randomInt`, yet binds as `policy:` because FR9's source
+    // vocabulary has no kind for a server-generated value. Filed as AXI-1781 (D1), together
+    // with the fact that this preview call PERSISTS the seed (D2). When AXI-1781 lands, this
+    // expectation changes to the new source kind — it is here so that change is deliberate
+    // and visible, rather than silently absorbed.
+    expect(byName.splitSeed.source).toBe(`policy:${SPLIT_OP}.splitSeed`);
+    expect(byName.splitSeed.sourceKind).toBe('policy');
   });
 
   test('NFR5 - the same inputs resolve to the same answer, twice', async () => {

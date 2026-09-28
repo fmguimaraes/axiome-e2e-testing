@@ -112,19 +112,55 @@ async function ensureLink(api: Api, t: Tenant, projectId: string, datasetId: str
 const DEFAULT_ANALYSIS_TIMEOUT_MS = 30_000;
 const DEFAULT_ANALYSIS_POLL_MS = 1_500;
 
+const ANALYSIS_PAGE_SIZE = 100;
+const MAX_ANALYSIS_PAGES = 50;
+
+/**
+ * AXI-1782 — every page of the project's analyses, not just the first.
+ *
+ * The list endpoint pages at 20 by default, ordered by `createdAt` DESC, and it
+ * SILENTLY IGNORES `datasetId`/`origin` query params (it does not 400 on them —
+ * verified 2026-09-28; filed on AXI-1783). So a scan that reads one page is
+ * scanning the 20 most recent rows and nothing else. As the suite accumulates
+ * `user_created` analyses in a reused project, an older `auto_default` slides off
+ * page 1 and becomes permanently invisible to a single-page reader.
+ */
+async function allProjectAnalyses(api: Api, t: Tenant, projectId: string): Promise<any[]> {
+  const rows: any[] = [];
+  for (let page = 1; page <= MAX_ANALYSIS_PAGES; page += 1) {
+    const url = `/api/v1/view-analyses?projectId=${projectId}&page=${page}&limit=${ANALYSIS_PAGE_SIZE}`;
+    const res = await api.get(url, t.headers);
+    rows.push(...asList(res.body));
+    if (!res.body?.meta?.hasNextPage) return rows;
+  }
+  // The walk trusts the server's `hasNextPage`; cap it so a server that never says "no"
+  // fails here, naming the cause, instead of silently burning the hook's whole budget.
+  throw new Error(
+    `view-analyses paging did not terminate for project ${projectId}: ` +
+    `still hasNextPage after ${MAX_ANALYSIS_PAGES} pages of ${ANALYSIS_PAGE_SIZE}`,
+  );
+}
+
 /** Link the dataset, then poll for its `auto_default` view analysis. */
 export async function ensureDefaultAnalysis(
   api: Api, t: Tenant, projectId: string, datasetId: string,
 ): Promise<string> {
   await ensureLink(api, t, projectId, datasetId);
   const deadline = Date.now() + DEFAULT_ANALYSIS_TIMEOUT_MS;
+  let scanned = 0;
   while (Date.now() < deadline) {
-    const list = await api.get(`/api/v1/view-analyses?projectId=${projectId}`, t.headers);
-    const found = asList(list.body).find((a: any) => a.datasetId === datasetId && a.origin === 'auto_default');
+    const rows = await allProjectAnalyses(api, t, projectId);
+    scanned = rows.length;
+    const found = rows.find((a: any) => a.datasetId === datasetId && a.origin === 'auto_default');
     if (found) return found.id;
     await sleep(DEFAULT_ANALYSIS_POLL_MS);
   }
-  throw new Error(`auto_default view analysis for dataset ${datasetId} in project ${projectId} did not appear`);
+  // State what was actually checked: the old message said "did not appear", which
+  // read as a slow pipeline even when the row had existed for days on page 2.
+  throw new Error(
+    `no auto_default view analysis for dataset ${datasetId} in project ${projectId} ` +
+    `after scanning all ${scanned} of the project's analyses for ${DEFAULT_ANALYSIS_TIMEOUT_MS}ms`,
+  );
 }
 
 /** A second, user-created analysis on the same dataset — an ordinary, non-default container. */

@@ -56,7 +56,11 @@ test.describe('AXI-1757 - the check-only endpoint (review advisory A1)', { tag: 
   test('an over-claiming section at an exploratory claim level is flagged — the SAME rule publish would enforce', async () => {
     const res = await s.api.post(checkUrl(s.viewAnalysisId), { factSheet: [], sections: OVER_CLAIM_SECTIONS, claimLevel: 'exploratory' }, s.t.headers);
     expect(res.status, JSON.stringify(res.body)).toBe(200);
-    expect(res.body.checks.some((c: { detail: string }) => /over-claim/.test(c.detail))).toBe(true);
+    // AXI-1782: this asserted /over-claim/ against `c.detail`, which can never match —
+    // the finding's NAME lives in `c.check` and `detail` carries its explanation
+    // ('claim exceeds the status'). `toContainEqual` is used rather than `.some()` so a
+    // missing finding fails with the actual check list instead of a bare `false`.
+    expect(res.body.checks).toContainEqual(expect.objectContaining({ check: 'over-claim' }));
   });
 
   test('publishing the SAME over-claiming sections at the SAME claim level is refused for the identical reason (one authority, never a second copy)', async () => {

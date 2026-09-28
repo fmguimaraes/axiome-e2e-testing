@@ -20,6 +20,16 @@ export default defineConfig({
   // epic, or a single story with no config change (AC2, FR4).
   fullyParallel: true,
   forbidOnly: IS_CI,
+  // Baseline timeout (AXI-1782). This governs TESTS that do not set their own, and —
+  // the reason it is here — every `beforeAll`/`afterAll` HOOK in the suite:
+  // `test.describe.configure({ timeout })` applies to tests only, never to hooks, so
+  // before this line every AXI-1717 seeding hook ran on the Playwright default of 30s
+  // while the tests it seeded were given 300s–420s. A hook that instantiates a plan and
+  // waits on real backend runs cannot finish in 30s under load, which surfaced as hook
+  // timeouts that moved between describe blocks from run to run. Per-describe overrides
+  // still govern individual test budgets; this only raises the floor (NFR11: extend this
+  // file in place, never fork it).
+  timeout: 120_000,
   // Retry policy: capped at one in CI, zero locally, so a retry-pass stays visible
   // rather than hidden (FR40, formalized by AXI-1268).
   retries: IS_CI ? 1 : 0,
