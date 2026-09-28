@@ -40,7 +40,10 @@ test.describe('AXI-1750 - split seed resolves server-side; holdout decline is a 
       operationId: SPLIT_OP, datasetId: s.datasetId, projectId: s.projectId,
       picks: { splitSeed: 42 },
     }, s.t.headers);
-    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    // 201: `submitStep` is the one POST in discovery.controller.ts without @HttpCode(200),
+    // and a refusal is an output of a successful submit, not an error (NFR8). AXI-1721,
+    // AXI-1722 and AXI-1752 all assert 201 here too.
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
     expect(res.body.submitted).toBe(false);
     expect(JSON.stringify(res.body.reasons)).toMatch(/outside its allowed domain/);
   });
