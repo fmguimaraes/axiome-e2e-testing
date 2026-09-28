@@ -3,6 +3,7 @@ import {
   seedLiveWorkbench, primeWorkspace, declineHoldoutUrl, stepUrl, waitForNode, associationAttemptsUrl, submitStepAndWait,
   SCREEN_OP, CUTOFF_OP, FISHER_OP, type Seeded,
 } from '../AXI-1717/harness/live-workbench';
+import { approveCarriersFor } from '../AXI-1762/seeded-rule-approval';
 
 /**
  * AXI-1797 - Validation wiring: time-to-event Apply, Safe Compare client, per-branch restore,
@@ -59,6 +60,7 @@ async function seedToAttempt(s: Seeded, va: string): Promise<{ cutoffRunId: stri
   const cutoffRunId = await submitStepAndWait(s, va, 'cutoff', CUTOFF_OP, { selection: { kind: 'shortlist_row', nodeId: 'd6', runId: screenRunId, values: { marker: MARKER } } });
   const cutoffNodeId = ((await planRead(s, va)).nodes ?? []).find((n: any) => n.runId === cutoffRunId)?.nodeId;
   expect(cutoffNodeId, 'the plan read names the settled cutoff node').toBeTruthy();
+  await approveCarriersFor([FISHER_OP]); // AXI-1809: a governed step runs only a SERVED carrier
   const res = await s.api.post(stepUrl(va, 'outcome_association', 'submit'), {
     operationId: FISHER_OP, datasetId: s.datasetId, projectId: s.projectId, branchId: null,
     selection: { kind: 'cutoff_choice', nodeId: cutoffNodeId, runId: cutoffRunId, values: { marker: MARKER } },
