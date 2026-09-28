@@ -3,6 +3,7 @@ import { adminApi, type Api } from '../AXI-1435/harness/api';
 import {
   ensureTenant, ensureProject, ingestFixture, datasetVersionHash, ensureDefaultAnalysis, createViewAnalysis, bindEnvelope, ensureApprovedDiscoveryConfig,
 } from '../AXI-1507/harness/seed';
+import { driveToScreen, runLiveScreen } from './harness/live-workbench';
 
 /**
  * AXI-1723 — Constrained pickers, no free-text parameters (epic AXI-1717).
@@ -149,23 +150,9 @@ test.describe('AXI-1723 - pickInDomain refusals through the live resolver (real 
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function driveToChosenMarker(page: Page, projectId: string, viewAnalysisId: string, screenRuleCode: string): Promise<void> {
-  await page.goto(`/projects/${projectId}/discovery-workbench?analysisId=${viewAnalysisId}`);
-  await expect(page.getByTestId('discovery-workbench')).toBeVisible({ timeout: 30_000 });
-  const confirm = page.getByTestId('population-confirm');
-  await expect(confirm).toBeEnabled({ timeout: 60_000 });
-  await confirm.click();
-  await page.getByTestId('population-continue').click();
-  const field = page.getByTestId('stratify-partition-field');
-  await expect(field).toBeVisible({ timeout: 30_000 });
-  await field.getByRole('radio', { name: /response/i }).click();
-  await page.getByTestId('stratify-select-all-levels').click();
-  await page.getByRole('button', { name: 'Run rule' }).click();
-  await page.getByTestId('split-decline-holdout').click();
-  await expect(page.getByTestId('workbench-screen-node')).toBeVisible({ timeout: 30_000 });
-  await page.getByTestId('screen-choose-rule').click();
-  await page.getByTestId(`screen-rule-run-${screenRuleCode}`).click();
+  await driveToScreen(page, projectId, viewAnalysisId);
+  await runLiveScreen(page, screenRuleCode);
   const result = page.getByTestId(`workbench-screen-result-${screenRuleCode}`);
-  await expect(result.getByTestId('screen-result-count')).toBeVisible({ timeout: 240_000 });
   await result.getByTestId('screen-result-expand').click();
   const table = page.getByTestId('screen-shortlist-table');
   await expect(table).toBeVisible();
