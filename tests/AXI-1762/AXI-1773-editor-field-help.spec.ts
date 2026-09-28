@@ -179,6 +179,9 @@ async function openEditor(page: Page): Promise<void> {
   const row = page.getByRole('radio').filter({ hasText: carrierCode });
   await expect(row).toBeVisible({ timeout: 20_000 });
   await row.click();
+  // AXI-1772 (FR28): a click opens the rule's DETAIL PANE, not its editor; the
+  // editor is one explicit step further, behind "Adjust parameters".
+  await page.getByTestId('rule-detail-pane').getByRole('button', { name: 'Adjust parameters' }).click();
   await expect(page.getByRole('heading', { name: /^Configure / })).toBeVisible({ timeout: 20_000 });
   // The resolver has answered once the Measurements field offers its columns.
   const measurements = page.locator('[data-testid="rule-run-field"][data-field="role:valueColumns"]');

@@ -113,12 +113,16 @@ async function openRunRulePicker(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: /Run relationship rule/i })).toBeVisible({ timeout: 15_000 });
 }
 
-/** Select a per-operation statistical rule by its code and wait for the config,
- *  which opens PRE-BOUND to that operation (no in-config method picker). */
+/** Select a per-operation statistical rule by its code, open its editor from the
+ *  detail pane, and wait for the config, which opens PRE-BOUND to that operation
+ *  (no in-config method picker). */
 async function selectMethodRule(page: Page, ruleCode: string): Promise<void> {
   const row = page.getByRole('radio').filter({ hasText: ruleCode });
   await expect(row).toBeVisible({ timeout: 15_000 });
   await row.click();
+  // AXI-1772 (epic AXI-1762 — FR28): a click opens the rule's DETAIL PANE, not its
+  // editor; the editor is one explicit step further, behind "Adjust parameters".
+  await page.getByRole('button', { name: 'Adjust parameters' }).click();
   // AXI-1456 split the surface into one rule per operation; the config modal now
   // renders "Configure {rule.title}" (the selected op's own title), so match the
   // method-agnostic prefix rather than the old single "Configure Statistical".
