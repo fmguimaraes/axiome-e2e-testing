@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Api } from './api';
 import { sleep, workspaceHeader, asList } from './api';
+import { systemRuleCatalogue } from '../../AXI-1762/seeded-rule-approval';
 
 /**
  * Idempotent, REST-only seeding for the AXI-1435 statistical-trigger-surface
@@ -11,13 +12,16 @@ import { sleep, workspaceHeader, asList } from './api';
  * Mirrors the ordering `tests/AXI-1400/harness/seed.ts` verified live for the
  * same feature: a dataset must be LINKED to the project before the semantic
  * profile is assigned (profile assignment recomputes field-mappings over the
- * project's linked datasets); the statistical rule itself is the
- * relationship-rule-family "Statistical" member the merged AXI-1433 seed
- * (`axiome-back/scripts/create-statistical-rule.ts`, code `STATISTICAL-01`)
- * creates — this harness reuses that exact rule when the environment already
- * seeded it, and creates an identical one (same code/tags/shape) when it
- * has not, so the spec has no hidden dependency on seed-script execution
- * order.
+ * project's linked datasets).
+ *
+ * The per-operation statistical rules are the organization-service BOOT seeds
+ * (`CARRIER_SEEDS`, AXI-1766), one SYSTEM rule per operation tagged
+ * `op:<operationId>`. AXI-1809: since AXI-1768 seeding never publishes and the
+ * direct `/publish` is an alias of approve, so this harness no longer creates or
+ * publishes a rule. It only RESOLVES the boot-seeded carriers (whole system
+ * catalogue, by tag). Whether one is served is the spec's business: a spec that
+ * runs an operation approves its carrier through
+ * `tests/AXI-1762/seeded-rule-approval.ts`.
  */
 
 export const FIXTURES_DIR = join(process.cwd(), 'tests', 'AXI-1435', 'fixtures');
@@ -33,7 +37,7 @@ export interface Tenant {
   orgId: string;
   workspaceId: string;
   projectId: string;
-  /** operationId → seeded per-operation rule id (AXI-1456). */
+  /** operationId → boot-seeded per-operation carrier id (AXI-1456/1766); NOT necessarily served. */
   ruleIds: Record<string, string>;
   headers: Record<string, string>;
 }
@@ -63,7 +67,7 @@ export async function ensureTenant(api: Api): Promise<Tenant> {
     projectId = res.body.id;
   }
 
-  const ruleIds = await ensureStatisticalRules(api);
+  const ruleIds = await resolveStatisticalCarriers(api);
   return { orgId, workspaceId: workspaceId!, projectId: projectId!, ruleIds, headers };
 }
 
@@ -74,46 +78,30 @@ export function ruleCodeFor(operationId: string): string {
 }
 
 /**
- * Reuse-or-create ONE SYSTEM-scope governed rule per registered STATISTICAL
- * operation (AXI-1456 — FR40, FR41, FR43), descriptor-driven so the seed
- * tracks the registry. Mirrors `axiome-back/scripts/create-statistical-rule.ts`:
- * each rule carries an `op:<operationId>` tag and the FEATURE_RULE-compliant
- * `feature_name`/`value` output contract. Returns operationId → ruleId.
+ * The boot-seeded SYSTEM carrier of every registered STATISTICAL operation
+ * (AXI-1456 — FR40, FR41, FR43; seeded by `CARRIER_SEEDS`, AXI-1766), resolved
+ * by its `op:<operationId>` tag over the whole system catalogue. Returns
+ * operationId → ruleId. Read-only: an operation with no carrier fails loudly (a
+ * boot-seed gap), and nothing is created or published (AXI-1809).
  */
-async function ensureStatisticalRules(api: Api): Promise<Record<string, string>> {
+async function resolveStatisticalCarriers(api: Api): Promise<Record<string, string>> {
   const descriptors = await api.get('/api/v1/rule-runs/operations?runKind=STATISTICAL');
   const ops = (asList(descriptors.body?.operations ?? descriptors.body) as any[]).filter(
     (o) => (o.runKind ?? 'STATISTICAL') === 'STATISTICAL',
   );
-  const existing = await api.get('/api/v1/rules?category=relationship_rule&search=STAT-');
-  const byCode = new Map<string, string>(asList(existing.body).map((r: any) => [r.code, r.id]));
-
+  const catalogue = await systemRuleCatalogue(async (path) => {
+    const res = await api.get(path);
+    if (res.status >= 300) throw new Error(`GET ${path} -> ${res.status}: ${JSON.stringify(res.body)}`);
+    return res.body;
+  });
   const ids: Record<string, string> = {};
+  const missing: string[] = [];
   for (const op of ops) {
-    const code = ruleCodeFor(op.operationId);
-    if (byCode.has(code)) { ids[op.operationId] = byCode.get(code)!; continue; }
-    const title = op.label ?? op.operationId;
-    const created = await api.post('/api/v1/rules', {
-      code,
-      title,
-      question: `What does a governed ${title} say about this referent?`,
-      logicSummary: `Runs the governed statistical operation ${op.operationId} over a pinned referent; role bindings and parameters are chosen per run.`,
-      scope: 'system',
-      category: 'relationship_rule',
-      protocolType: 'FEATURE_RULE',
-      tags: ['relationship-rule', 'statistical', `op:${op.operationId}`],
-    });
-    const ruleId = created.body.id;
-    await api.patch(`/api/v1/rules/${ruleId}`, {
-      outputFields: [
-        { key: 'feature_name', type: 'string', description: 'Name of the computed feature' },
-        { key: 'value', type: 'number', description: 'Numeric feature value per row' },
-      ],
-    });
-    const pub = await api.post(`/api/v1/rules/${ruleId}/publish`, {});
-    if (pub.status >= 300) throw new Error(`Statistical rule ${code} publish failed (${pub.status}): ${JSON.stringify(pub.body)}`);
-    ids[op.operationId] = ruleId;
+    const carrier = catalogue.find((r) => (r.tags ?? []).includes(`op:${op.operationId}`));
+    if (carrier) ids[op.operationId] = carrier.id;
+    else missing.push(op.operationId);
   }
+  if (missing.length) throw new Error(`no boot-seeded system carrier tagged op:<id> for ${missing.join(', ')}`);
   return ids;
 }
 

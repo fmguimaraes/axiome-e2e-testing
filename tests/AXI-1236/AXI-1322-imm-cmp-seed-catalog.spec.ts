@@ -1,4 +1,5 @@
 import { test, expect, APIRequestContext } from '@playwright/test';
+import { apiUrl } from '../../config/env';
 import { adminApiContext, fetchRuleCatalog, type CatalogRule } from './rules-fixtures';
 
 /**
@@ -17,6 +18,13 @@ import { adminApiContext, fetchRuleCatalog, type CatalogRule } from './rules-fix
  * batch axis scores rather than vetoes (AC18), and every rule declares an output
  * field rather than a bare label (AC12). Read-only against the ambient seed (NFR3);
  * no mutation of the shared catalog.
+ *
+ * AXI-1809 (epic AXI-1762, after the AXI-1768 gate): seeding never publishes. The
+ * family used to be asserted `published`; a seed is now served ONLY once an
+ * approver has approved it, and these QC seeds cannot even be submitted today
+ * (FR9 `protocol_compliance`: no `include_mask`/`qc_fail_reasons` outputs, AXI-1815).
+ * So the status assertion is the gate's own contract: a seeded rule is never
+ * `published` without an approval record, and an unapproved one is not served.
  */
 
 /** The comparability family the seed installs (AXI-1243). */
@@ -45,6 +53,31 @@ function byCode(code: string): CatalogRule {
   return rule;
 }
 
+/**
+ * AXI-1768 / AXI-1809: the seed arrives unpublished and is served only through an
+ * approval. `published` is legitimate only with an `approve` record for the served
+ * version (the owner may have approved it on this stack); otherwise the rule sits on
+ * the review ladder below `published` with no served version.
+ */
+async function expectServedOnlyThroughApproval(code: string): Promise<void> {
+  const rule = byCode(code);
+  const res = await api.get(apiUrl(`/api/v1/rules/${rule.id}`));
+  if (!res.ok()) throw new Error(`GET /rules/${rule.id} → ${res.status()}: ${await res.text()}`);
+  const detail = (await res.json()) as {
+    status: string;
+    servedVersion: { id: string } | null;
+    approvalHistory?: Array<{ decision: string; ruleVersionId: string | null }>;
+  };
+  if (detail.servedVersion) {
+    const approved = (detail.approvalHistory ?? []).some(
+      (r) => r.decision === 'approve' && r.ruleVersionId === detail.servedVersion!.id,
+    );
+    expect(approved, `${code} is served, so its served version carries an approval record`).toBe(true);
+  } else {
+    expect(['draft', 'checked', 'in_review'], `${code} is unserved and below published`).toContain(detail.status);
+  }
+}
+
 test.beforeAll(async () => {
   api = await adminApiContext();
   catalog = await fetchRuleCatalog(api);
@@ -55,18 +88,16 @@ test.afterAll(async () => {
 });
 
 test.describe('AXI-1322 — Safe Compare seed & catalog (§8e.1)', { tag: ['@SI-017'] }, () => {
-  test('AC17 — the full IMM-CMP-01..14 family is present and published in the running catalog', async () => {
+  test('AC17 FR16 — the full IMM-CMP-01..14 family is present in the running catalog, and served only through an approval', async () => {
     const found = catalog.filter((r) => IMM_CMP_CODES.includes(r.code)).map((r) => r.code).sort();
     expect(found).toEqual([...IMM_CMP_CODES].sort());
-    for (const code of IMM_CMP_CODES) {
-      expect(byCode(code).status, `${code} must be published`).toBe('published');
-    }
+    for (const code of IMM_CMP_CODES) await expectServedOnlyThroughApproval(code);
   });
 
   test('AC17 — the family is distinct from the pre-existing IMM-COMP-01 (no naming collision, no shared family tag)', async () => {
     const neighbour = byCode(DISTINCT_NEIGHBOUR);
-    // The composite classification rule exists…
-    expect(neighbour.status).toBe('published');
+    // The composite classification rule exists (served only through an approval, FR16)…
+    await expectServedOnlyThroughApproval(DISTINCT_NEIGHBOUR);
     // …but carries none of the comparability family markers — it is a different
     // family, not a re-labelled member (AC17: IMM-CMP ≠ IMM-COMP-01).
     expect(neighbour.tags ?? []).not.toContain('imm-cmp');

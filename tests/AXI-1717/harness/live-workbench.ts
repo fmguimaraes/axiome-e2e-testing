@@ -3,6 +3,7 @@ import { adminApi, type Api } from '../../AXI-1435/harness/api';
 import {
   ensureTenant, ensureProject, ingestFixture, datasetVersionHash, ensureDefaultAnalysis, createViewAnalysis, bindEnvelope, ensureApprovedDiscoveryConfig,
 } from '../../AXI-1507/harness/seed';
+import { approveCarriersFor, serveApprovableSeededRules, carrierCodesFor } from '../../AXI-1762/seeded-rule-approval';
 import { ensureAuthTokens, type AuthTokens } from '../../../config/auth';
 import { ROLES } from '../../../config/roles';
 
@@ -23,6 +24,42 @@ export const CUTOFF_OP = 'stats.cutoff_roc_youden';
 export const SPLIT_OP = 'split.exploration_holdout';
 export const FISHER_OP = 'stats.fisher_exact';
 export const SETTLED = new Set(['SUCCEEDED', 'REUSED', 'FAILED', 'BLOCKED', 'SKIPPED', 'CANCELLED']);
+
+/**
+ * AXI-1809 — what the live workbench runs, and so what must be SERVED for it to run
+ * (AXI-1768: nothing is served without an approval record; seeding never publishes).
+ * The operations the DISCOVERY-BIOMARKER-9 template binds (split, screen, the four cutoff
+ * proposals, the three association operations), the Stratify step's family carrier
+ * (`STRATIFY-01`, run through the statistical run-config modal) and the QC guard rules
+ * the template CITES (`discovery-qc-guards.ts`).
+ */
+export const WORKBENCH_CARRIER_OPS = [
+  SPLIT_OP, SCREEN_OP,
+  'stats.cutoff_roc_youden', 'stats.cutoff_maxstat', 'stats.cutoff_distribution', 'stats.cutoff_reference',
+  FISHER_OP, 'stats.log_rank', 'stats.kaplan_meier',
+];
+export const WORKBENCH_RULE_CODES = ['STRATIFY-01', 'IMM-QC-01', 'IMM-QC-02', 'IMM-QC-05'];
+
+/**
+ * AXI-1809 — serve every workbench rule that CAN be approved (best effort: a draft seed is
+ * a content gap that only a product change fixes, and a spec that never touches it keeps
+ * running). The seams that need one particular carrier — {@link publishedRuleCode},
+ * {@link submitStepAndWait} — demand it through `approveCarriersFor`, which fails LOUDLY
+ * naming the failing check (e.g. AXI-1771 guidance for split/screen/cutoff/STRATIFY-01,
+ * AXI-1815 protocol compliance for the IMM-QC guards).
+ */
+export async function serveWorkbenchRules(): Promise<void> {
+  const carriers = await carrierCodesFor(WORKBENCH_CARRIER_OPS);
+  const result = await serveApprovableSeededRules([...Object.values(carriers), ...WORKBENCH_RULE_CODES], {
+    justification: 'AXI-1809 e2e: the live discovery workbench runs these template rules.',
+  });
+  if (result.blocked.length || result.withheld.length) {
+    console.warn(
+      `[live-workbench] not served — blocked (content): ${result.blocked.map((b) => `${b.code}=${b.status}`).join(', ') || 'none'}; ` +
+        `withheld (protected stack): ${result.withheld.join(', ') || 'none'}`,
+    );
+  }
+}
 
 export interface Seeded {
   api: Api;
@@ -82,6 +119,7 @@ export async function ensureSubjectKeyMapped(api: Api, t: Awaited<ReturnType<typ
  */
 export async function seedLiveWorkbench(label: string, projectName: string): Promise<Seeded> {
   const api = await adminApi();
+  await serveWorkbenchRules();
   const t = await ensureTenant(api);
   const projectId = await ensureProject(api, t, projectName);
   const datasetId = await ingestFixture(api, t, FIXTURE);
@@ -177,6 +215,7 @@ export async function waitForNode(s: Seeded, runId: string, nodeId: string, atte
 
 /** Submit a step through the resolver and wait for its node to SUCCEED; returns the governed run id. */
 export async function submitStepAndWait(s: Seeded, viewAnalysisId: string, nodeRef: string, operationId: string, body: Record<string, unknown> = {}): Promise<string> {
+  await approveCarriersFor([operationId]); // AXI-1809: a governed step runs only a SERVED carrier
   const res = await s.api.post(stepUrl(viewAnalysisId, nodeRef, 'submit'), { operationId, datasetId: s.datasetId, projectId: s.projectId, datasetVersionHash: s.hash, ...body }, s.t.headers);
   expect(res.status, JSON.stringify(res.body)).toBe(201);
   expect(res.body.submitted, `refused: ${JSON.stringify(res.body.reasons)}`).toBe(true);
@@ -185,13 +224,16 @@ export async function submitStepAndWait(s: Seeded, viewAnalysisId: string, nodeR
   return res.body.runId as string;
 }
 
-/** The published library rule tagged `op:<operationId>` — the card the Screen step offers. */
-export async function publishedRuleCode(s: Seeded, operationId: string): Promise<string> {
-  const rules = await s.api.get('/api/v1/rules?limit=500', s.t.headers);
-  const list: any[] = Array.isArray(rules.body) ? rules.body : rules.body?.rules ?? rules.body?.data ?? [];
-  const rule = list.find((r) => (r.tags ?? []).includes(`op:${operationId}`) && r.status === 'published');
-  expect(rule, `a published rule tagged op:${operationId}`).toBeTruthy();
-  return rule.code as string;
+/**
+ * The SERVED library rule tagged `op:<operationId>` — the card the Screen step offers.
+ * AXI-1809: since AXI-1768 a boot-seeded carrier is served only once approved, so it is
+ * walked through review here (`approveCarriersFor`), never looked up as `published` and
+ * never published directly. A carrier that cannot be approved (draft content) fails
+ * loudly with the failing check instead of "no published rule".
+ */
+export async function publishedRuleCode(_s: Seeded, operationId: string): Promise<string> {
+  const [carrier] = Object.values(await approveCarriersFor([operationId]));
+  return carrier.code;
 }
 
 /**

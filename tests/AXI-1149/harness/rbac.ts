@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test as base } from './fixtures';
 import { API, wsHeader, type Principal, type Topology } from './tenancy';
+import { approveSeededRules } from '../../AXI-1762/seeded-rule-approval';
 
 /**
  * AXI-1149-validation (Workflow 5) — rule-access / entitlement / audit harness
@@ -23,8 +24,15 @@ import { API, wsHeader, type Principal, type Topology } from './tenancy';
  *  - a dedicated org + workspace + project (`ORG_R`/`WS_R`/`PROJ_R`) so toggling
  *    the org's OrgRuleAccess mode never perturbs the shared two-tenant topology.
  *  - two ingested datasets (a QC fixture, and a subject-keyed one for STRATIFY),
- *    a published project-scope QC rule (cloned from seeded IMM-QC-01), and the
+ *    an APPROVED project-scope QC rule (cloned from seeded IMM-QC-01), and the
  *    seeded system rules IMM-QC-01 / STRATIFY-01.
+ *
+ * AXI-1809 (epic AXI-1762): since AXI-1768 the direct `/publish` is an alias of
+ * approve and nothing runs without an approval record. The clone therefore walks
+ * the review: the admin (its author) submits it, and a separate throwaway approver
+ * (`uappr`, a `rule:publish` role, workspace member) approves it against the
+ * reviewed content hash. `stratRun` serves STRATIFY-01 through the shared seed
+ * fixture (`tests/AXI-1762/seeded-rule-approval.ts`) before running it.
  *
  * Rule permissions are resolved per user with a 60s gateway cache and no
  * invalidation, so each role state has its OWN user, assigned before first use.
@@ -47,7 +55,7 @@ export interface Rbac {
   uShared: Principal;
   /** department-only member of ORG_R (DepartmentUser row, NO WorkspaceMember row) holding role-shared. */
   uDan: Principal;
-  RULE_WS: string; // published project-scope QC_RULE in WS_R
+  RULE_WS: string; // approved (served) project-scope QC_RULE in WS_R
   RULE_SYS: string; // seeded system QC rule IMM-QC-01
   RULE_STRAT: string; // seeded system STRATIFY-01
   DS_QC: string;
@@ -209,7 +217,35 @@ export async function provisionRbac(topo: Topology): Promise<Rbac> {
     }),
     'patch clone',
   );
-  await json(await admin.ctx.post(`${API}/rules/${RULE_WS}/publish`, { data: {}, headers: h }), 'publish clone');
+  // AXI-1809: submit (author) → approve (a second user holding rule:publish), never a direct publish.
+  const readRule = async (id: string) => json(await admin.ctx.get(`${API}/rules/${id}`, { headers: h }), `read rule ${id}`);
+  const patched = await readRule(RULE_WS);
+  if (patched.status !== 'checked') {
+    const failing = (patched.checks ?? []).filter((c: any) => !c.passed).map((c: any) => `${c.id}: ${c.message}`);
+    throw new Error(`the IMM-QC-01 clone is ${patched.status}, not checked, so it cannot be submitted for review: ${failing.join(' | ')}`);
+  }
+  await json(await admin.ctx.post(`${API}/rules/bulk/submit-for-review`, { data: { ruleIds: [RULE_WS] }, headers: h }), 'submit clone');
+  const inReview = await readRule(RULE_WS);
+  if (inReview.status !== 'in_review' || !inReview.review?.contentHash) {
+    throw new Error(`the IMM-QC-01 clone did not reach in_review: ${inReview.status}`);
+  }
+  const roleApprover = await mkRole('approver', ['rule:read', 'rule:publish']);
+  const uAppr = await mkUser('uappr');
+  await assign(uAppr, roleApprover);
+  await json(await admin.ctx.post(`${API}/workspaces/${WS_R}/members`, { data: { userId: uAppr.id, organizationId: ORG_R, role: 'editor' } }), 'member uappr');
+  const approval = await json(
+    await uAppr.ctx.post(`${API}/rules/bulk/approve`, {
+      data: {
+        ruleIds: [RULE_WS],
+        justification: 'AXI-1149 e2e: approving the project-scope QC clone so the rule-access probes run against a served rule.',
+        expectedContentHashes: { [RULE_WS]: inReview.review.contentHash },
+      },
+      headers: h,
+    }),
+    'approve clone',
+  );
+  const served = await readRule(RULE_WS);
+  if (!served.servedVersion) throw new Error(`the IMM-QC-01 clone is not served after approval: ${JSON.stringify(approval).slice(0, 300)}`);
 
   let strat: Promise<string> | undefined;
   const execQc: Rbac['execQc'] = (who, ruleId, extra = {}) =>
@@ -223,6 +259,7 @@ export async function provisionRbac(topo: Topology): Promise<Rbac> {
     setMode, execQc, mkUser,
     stratRun() {
       strat ??= (async () => {
+        await approveSeededRules(['STRATIFY-01']); // AXI-1809: served only once approved (loud if not approvable)
         const res = await uShared.ctx.post(`${API}/rule-runs`, {
           data: {
             ruleId: RULE_STRAT, runKind: 'STRATIFY', projectId: PROJ_R, workspaceId: WS_R, datasetId: DS_STRAT,
@@ -243,8 +280,11 @@ export async function provisionRbac(topo: Topology): Promise<Rbac> {
       return strat;
     },
     async dispose() {
-      // best effort: the API has no hard delete for orgs/rules/datasets (uniquely tagged, left behind).
+      // best effort: the API has no hard delete for orgs/rules/datasets (uniquely tagged, left behind);
+      // rules are soft-deleted so they leave the catalogue.
       await radmCtx.put(`${API}/organizations/${ORG_R}/rule-access/mode`, { data: { mode: 'ALL' } }).catch(() => undefined);
+      // AXI-1809: the clone is a project-scope rule named IMM-QC-01-clone; left behind it accumulates, one per run.
+      await admin.ctx.delete(`${API}/rules/${RULE_WS}`, { headers: h }).catch(() => undefined);
       await admin.ctx.delete(`${API}/projects/${PROJ_R}`, { headers: h }).catch(() => undefined);
       await admin.ctx.delete(`${API}/workspaces/${WS_R}`).catch(() => undefined);
       for (const u of createdUsers) {

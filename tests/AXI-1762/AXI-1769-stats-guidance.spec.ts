@@ -3,6 +3,7 @@ import { apiUrl } from '../../config/env';
 import { ensureAuthTokens } from '../../config/auth';
 import { ROLES } from '../../config/roles';
 import { ReviewWorld, send } from './AXI-1765-rule-review-fixtures';
+import { systemRuleCatalogue } from './seeded-rule-approval';
 
 /**
  * AXI-1769 (epic AXI-1762 — FR1, FR2, FR5, FR7, FR9, FR11, NFR8; SI-017):
@@ -148,7 +149,8 @@ async function statisticalCarriers(
   request: APIRequestContext,
   headers: Record<string, string>,
 ): Promise<Array<{ operationId: string; carrier: CatalogRule }>> {
-  const catalog: CatalogRule[] = (await getJson(request, headers, '/api/v1/rules?limit=200')).data;
+  // AXI-1809 (AXI-1822): the whole SYSTEM catalogue, every page — never the first page of every scope.
+  const catalog: CatalogRule[] = await systemRuleCatalogue((path) => getJson(request, headers, path));
   return STATISTICAL_TEST_OPERATION_IDS.map((operationId) => {
     const carrier = catalog.find((rule) => (rule.tags ?? []).includes(`op:${operationId}`));
     expect(carrier, `${operationId} has a carrier rule`).toBeDefined();

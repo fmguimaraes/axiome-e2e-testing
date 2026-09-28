@@ -4,6 +4,7 @@ import { test, expect, request as apiRequest, type APIRequestContext, type Locat
 import { apiUrl } from '../../config/env';
 import { adminApi, asList, sleep, workspaceHeader, type Api } from '../AXI-1400/harness/api';
 import { ReviewWorld, send } from './AXI-1765-rule-review-fixtures';
+import { systemRuleCatalogue } from './seeded-rule-approval';
 
 /**
  * AXI-1773 (epic AXI-1762 — FR26, FR27, FR30, NFR7, NFR9; AC2, AC4, EC8):
@@ -72,8 +73,9 @@ async function servedOperation(): Promise<OperationDescriptor> {
 
 /** Walk the carrier checked -> in_review -> published through a SECOND platform admin. */
 async function ensureCarrierOffered(): Promise<string> {
-  const catalog = await ok(api.get('/api/v1/rules?limit=200'), 'GET /rules');
-  const carrier = asList(catalog).find((r: any) => (r.tags ?? []).includes(`op:${OPERATION}`));
+  // AXI-1809 (AXI-1822): the whole SYSTEM catalogue, every page — a workspace fixture carrying the tag must never win.
+  const catalog = await systemRuleCatalogue((path) => ok(api.get(path), 'GET /rules'));
+  const carrier = catalog.find((r) => (r.tags ?? []).includes(`op:${OPERATION}`));
   if (!carrier) throw new Error(`no carrier rule for ${OPERATION}`);
   const detail = await ok(api.get(`/api/v1/rules/${carrier.id}`), 'GET carrier');
   if (detail.status === 'published') return carrier.code;

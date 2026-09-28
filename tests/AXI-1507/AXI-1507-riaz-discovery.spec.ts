@@ -2,6 +2,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { test, expect } from '@playwright/test';
 import { adminApi, asList, sleep, workspaceHeader, type Api } from '../AXI-1400/harness/api';
+import { serveWorkbenchRules } from '../AXI-1717/harness/live-workbench';
 import {
   FIXTURES_DIR, ingestFixture, datasetVersionHash, createViewAnalysis, type Tenant,
 } from './harness/seed';
@@ -23,11 +24,16 @@ import {
  * creates fresh view analyses under a per-run label, so it is re-runnable.
  *
  * PRECONDITIONS (stack, not spec): `make demo-up`; `npm run stage:riaz`; and the
- * `op:<operationId>` carrier rules seeded — `npx tsx scripts/create-statistical-rule.ts`
- * in `axiome-back` (descriptor-driven, idempotent; the discovery operations
- * declare `runKind: STATISTICAL`, so it covers them). Without it every discovery
- * step fails at submit with "no seeded system rule for stats.screen_shortlist" —
- * the same class of precondition the runbook records for the `DESC-*` carriers.
+ * `op:<operationId>` carrier rules SERVED. The carriers are seeded at
+ * organization-service boot (`CARRIER_SEEDS`, AXI-1766; the old
+ * `create-statistical-rule.ts` script is deleted), but since AXI-1768 seeding never
+ * publishes: a carrier is served only once approved. `bootstrap` therefore calls
+ * the workbench's best-effort `serveWorkbenchRules` (AXI-1809), which approves
+ * every approvable template rule on a scratch stack. On the shared demo gateway
+ * (`:3000`) it approves nothing unless `E2E_ALLOW_SEED_APPROVAL=1`: there the
+ * owner approves the carriers first (demo/Rule-Approval-After-FR16-Migration.md).
+ * Otherwise every discovery step is refused with the carrier "awaiting approval",
+ * and the warning printed by `serveWorkbenchRules` names the unserved rules.
  *
  * Two independent serial blocks, on purpose: block A follows the plan through
  * screen → cutoffs → association and stops at the first defect; block B exercises
@@ -167,6 +173,7 @@ async function ensureLinked(a: Api, tn: Tenant, pid: string, dsId: string): Prom
 
 /** Tenant + WIDE dataset + link, shared by both blocks (idempotent: ingestion reuses by filename). */
 async function bootstrap(): Promise<Ctx> {
+  await serveWorkbenchRules(); // AXI-1809: nothing is served without an approval record (AXI-1768)
   const api = await adminApi();
   const { t, projectId } = await resolveRiazTenant(api);
   const datasetId = await ingestFixture(api, t, RIAZ.fixture);

@@ -3,7 +3,8 @@ import { adminApi, workspaceHeader, type Api } from '../AXI-1435/harness/api';
 // AXI-1800: the ONE drive to the Screen node lives in the shared harness. This spec used to keep a
 // private copy, which never learned AXI-1750's governed decline (reason + confirm) nor AXI-1793's
 // restore fast path and so stalled on the open modal in LIVE mode. Never fork it again.
-import { driveToScreen } from './harness/live-workbench';
+import { driveToScreen, serveWorkbenchRules } from './harness/live-workbench';
+import { approveCarriersFor } from '../AXI-1762/seeded-rule-approval';
 import {
   ensureTenant, ensureProject, ingestFixture, datasetVersionHash, ensureDefaultAnalysis, createViewAnalysis, bindEnvelope, ensureApprovedDiscoveryConfig,
 } from '../AXI-1507/harness/seed';
@@ -84,6 +85,8 @@ async function ensureSubjectKeyMapped(api: Api, t: Awaited<ReturnType<typeof ens
 
 async function seed(): Promise<Seeded> {
   const api = await adminApi();
+  // AXI-1809: nothing is served without an approval record (AXI-1768) — serve what the workbench runs.
+  await serveWorkbenchRules();
   const t = await ensureTenant(api);
   const projectId = await ensureProject(api, t, PROJECT_NAME);
   const datasetId = await ingestFixture(api, t, FIXTURE);
@@ -221,6 +224,7 @@ test.describe('AXI-1721 - step resolver API (real backend)', { tag: ['@SI-045', 
   });
 
   test('FR11 FR9 AC4 - a fully bound screen submits in one click; the governed run records the source tags beside the node', async () => {
+    await approveCarriersFor([SCREEN_OP]); // AXI-1809: a governed step runs only a SERVED carrier
     const res = await s.api.post(stepUrl(s.viewAnalysisId, 'screen', 'submit'), { operationId: SCREEN_OP, datasetId: s.datasetId, projectId: s.projectId, datasetVersionHash: s.hash }, s.t.headers);
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     expect(res.body).toMatchObject({ submitted: true, viewAnalysisId: s.viewAnalysisId, nodeId: 'd6' });
@@ -317,11 +321,9 @@ test.describe('AXI-1721 - Screen and Cutoff steps live in the workbench (UI, rea
 
   test.beforeAll(async () => {
     s = await seed();
-    const rules = await s.api.get('/api/v1/rules?limit=500', s.t.headers);
-    const list: any[] = Array.isArray(rules.body) ? rules.body : rules.body?.rules ?? rules.body?.data ?? [];
-    const rule = list.find((r) => (r.tags ?? []).includes(`op:${SCREEN_OP}`) && r.status === 'published');
-    expect(rule, `a published rule tagged op:${SCREEN_OP}`).toBeTruthy();
-    screenRuleCode = rule.code;
+    // AXI-1809: the screen carrier is SERVED only once approved (AXI-1768) — walk it through review;
+    // a carrier that cannot be approved fails here naming its failing check, not "no published rule".
+    screenRuleCode = (await approveCarriersFor([SCREEN_OP]))[SCREEN_OP].code;
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 

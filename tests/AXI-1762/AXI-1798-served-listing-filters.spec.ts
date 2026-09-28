@@ -3,6 +3,7 @@ import {
   Actor,
   COMPLETE_GUIDANCE,
   COMPLETE_OUTPUT_FIELDS,
+  deleteFixtureRules,
   inReviewRule,
   ReviewWorld,
   RuleResponse,
@@ -110,6 +111,8 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  // AXI-1809: soft-delete every rule inReviewRule made, so reruns do not accumulate fixtures.
+  if (world) await deleteFixtureRules(world.admin);
   await world?.dispose();
 });
 

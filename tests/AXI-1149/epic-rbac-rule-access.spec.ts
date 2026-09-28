@@ -3,6 +3,7 @@ import { expectIndistinguishableFromMiss, expectStatus } from './harness/asserti
 import { API, randomUuid, type Topology } from './harness/tenancy';
 import type { Principal } from './harness/tenancy';
 import type { Rbac } from './harness/rbac';
+import { approveSeededRules } from '../AXI-1762/seeded-rule-approval';
 
 /**
  * AXI-1149 — Workflow 5 API-level probes, rule-access RBAC side (AXI-1290):
@@ -97,6 +98,9 @@ test.describe('AXI-1149 rule-access RBAC (AXI-1290)', () => {
 
   test('AC25 §5.19 — revoking the grant retains prior runs but hides them on list/get/results/table and denies future executions', async ({ rbac }) => {
     const { uShared, radm, RULE_SYS } = rbac;
+    // AXI-1809: a run needs a SERVED rule, and the seed is served only once approved. The fixture
+    // refuses LOUDLY, naming the failing FR9 check, when IMM-QC-01 is still draft (AXI-1815).
+    await approveSeededRules(['IMM-QC-01']);
     await rbac.setMode('ALL');
     const submit = await expectStatus(await rbac.execQc(uShared, RULE_SYS), 201);
     const RUN = submit.ruleRunId as string;

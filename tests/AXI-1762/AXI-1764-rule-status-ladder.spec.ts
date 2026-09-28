@@ -1,7 +1,7 @@
 import { test, expect, APIRequestContext } from '@playwright/test';
 import { apiUrl } from '../../config/env';
 import { adminApiContext } from '../AXI-1236/rules-fixtures';
-import { inReviewRule, ReviewWorld } from './AXI-1765-rule-review-fixtures';
+import { deleteFixtureRules, inReviewRule, ReviewWorld, trackFixtureRule } from './AXI-1765-rule-review-fixtures';
 
 /**
  * AXI-1764 (epic AXI-1762 — FR8/FR9/FR10/FR14): the merged rule status ladder
@@ -36,6 +36,8 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  // AXI-1809: remove the (system-scope) rules this file created, so the catalogue does not grow run after run.
+  await deleteFixtureRules(api);
   await api.dispose();
 });
 
@@ -64,7 +66,9 @@ async function createFeatureRule(overrides: Record<string, unknown> = {}): Promi
     },
   });
   expect(res.status(), await res.text()).toBe(201);
-  return (await res.json()) as RuleResponse;
+  const created = (await res.json()) as RuleResponse;
+  trackFixtureRule(created.id);
+  return created;
 }
 
 test.describe('AXI-1764 — merged rule status ladder and the checked gate', () => {

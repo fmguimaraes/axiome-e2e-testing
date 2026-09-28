@@ -3,6 +3,7 @@ import { apiUrl } from '../../config/env';
 import { ensureAuthTokens } from '../../config/auth';
 import { ROLES } from '../../config/roles';
 import { ReviewWorld, send } from './AXI-1765-rule-review-fixtures';
+import { systemRuleCatalogue } from './seeded-rule-approval';
 
 /**
  * AXI-1770 (epic AXI-1762 — FR1, FR2, FR3, FR5, FR7, FR9, NFR8; SI-017):
@@ -190,7 +191,8 @@ async function getJson(request: APIRequestContext, headers: Record<string, strin
 type CatalogRule = { id: string; code: string; tags: string[] | null };
 
 async function catalog(request: APIRequestContext, headers: Record<string, string>): Promise<CatalogRule[]> {
-  return (await getJson(request, headers, '/api/v1/rules?limit=200')).data;
+  // AXI-1809 (AXI-1822): the whole SYSTEM catalogue, every page — fixture rules pushed IMM-QC-01 off page one.
+  return systemRuleCatalogue((path) => getJson(request, headers, path));
 }
 
 async function byCode(

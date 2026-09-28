@@ -4,6 +4,7 @@ import { apiUrl } from '../../config/env';
 import { ensureAuthTokens } from '../../config/auth';
 import { ROLES } from '../../config/roles';
 import { ReviewWorld, send } from './AXI-1765-rule-review-fixtures';
+import { systemRuleCatalogue } from './seeded-rule-approval';
 
 /**
  * AXI-1771 (epic AXI-1762 — FR1, FR2, FR5, FR7, FR9, NFR2, NFR8; SI-017): guidance content for
@@ -158,7 +159,8 @@ async function operations(request: APIRequestContext, headers: Record<string, st
 type CatalogRule = { id: string; code: string; tags: string[] | null };
 
 async function catalog(request: APIRequestContext, headers: Record<string, string>): Promise<CatalogRule[]> {
-  return (await getJson(request, headers, '/api/v1/rules?limit=200')).data;
+  // AXI-1809 (AXI-1822): the whole SYSTEM catalogue, every page — never the first page of every scope.
+  return systemRuleCatalogue((path) => getJson(request, headers, path));
 }
 
 /** The single-operation carrier of `operationId` (its `op:` tag). */

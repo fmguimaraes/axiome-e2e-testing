@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { apiUrl } from '../../config/env';
-import { Actor, inReviewRule, ReviewWorld, RuleResponse, send } from './AXI-1765-rule-review-fixtures';
+import { Actor, deleteFixtureRules, inReviewRule, ReviewWorld, RuleResponse, send } from './AXI-1765-rule-review-fixtures';
 
 /**
  * AXI-1765 (epic AXI-1762 — FR11, FR12, FR13, EC9, EC10, EC14, EC17, NFR3, NFR4):
@@ -30,6 +30,8 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  // AXI-1809: remove the rules this file created, so the catalogue does not grow run after run.
+  if (world) await deleteFixtureRules(world.admin);
   await world?.dispose();
 });
 

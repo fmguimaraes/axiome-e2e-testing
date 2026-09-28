@@ -3,6 +3,7 @@ import { apiUrl } from '../../config/env';
 import { adminApi, asList, sleep, workspaceHeader, type Api } from '../AXI-1400/harness/api';
 import { ReviewWorld, send } from './AXI-1765-rule-review-fixtures';
 import { bindEnvelope, ensureApprovedDiscoveryConfig, type Tenant } from '../AXI-1507/harness/seed';
+import { systemRuleCatalogue } from './seeded-rule-approval';
 
 /**
  * AXI-1772 (epic AXI-1762 — FR18, FR19, FR28, FR29; EC16; NFR7, NFR9): the Run
@@ -115,7 +116,8 @@ async function secondApprover(): Promise<{ userId: string; api: APIRequestContex
 
 /** The system carrier of `operationId`, walked to `published` through review (idempotent). */
 async function ensurePublishedCarrier(operationId: string): Promise<Carrier> {
-  const library = (await ok(api.get('/api/v1/rules?scope=system&limit=200'), 'library')).data as Array<Carrier & { tags?: string[] }>;
+  // AXI-1809 (AXI-1822): the whole SYSTEM catalogue, every page.
+  const library = (await systemRuleCatalogue((path) => ok(api.get(path), 'library'))) as unknown as Array<Carrier & { tags?: string[] | null }>;
   const carrier = library.find((r) => (r.tags ?? []).includes(`op:${operationId}`));
   expect(carrier, `${operationId} has a boot-seeded carrier`).toBeDefined();
   let detail = await ok(api.get(`/api/v1/rules/${carrier!.id}`), 'rule');

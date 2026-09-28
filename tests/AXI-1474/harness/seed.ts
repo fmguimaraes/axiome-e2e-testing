@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Api } from '../../AXI-1400/harness/api';
 import { sleep, workspaceHeader, asList } from '../../AXI-1400/harness/api';
+import { approveSeededRules } from '../../AXI-1762/seeded-rule-approval';
 
 /**
  * AXI-1474-validation (W5 E2E) — idempotent, REST-only seeding for the
@@ -62,12 +63,17 @@ export async function ensureProject(api: Api, t: Tenant, name: string): Promise<
   return res.body.id;
 }
 
-/** The seeded system QC rule (`IMM-QC-01`) — declarative, never authored here. */
-export async function findQcRuleId(api: Api, t: Tenant): Promise<string> {
-  const res = await api.get(`/api/v1/rules?search=${NAMES.qcRuleCode}&scope=system`, t.headers);
-  const found = asList(res.body).find((r: any) => r.code === NAMES.qcRuleCode);
-  if (!found) throw new Error(`seeded system rule ${NAMES.qcRuleCode} not found`);
-  return found.id;
+/**
+ * The seeded system QC rule (`IMM-QC-01`) — declarative, never authored here —
+ * SERVED. AXI-1809: since AXI-1768 a seed runs only once approved, so it is walked
+ * through review by the shared fixture (`tests/AXI-1762/seeded-rule-approval.ts`).
+ * While IMM-QC-01 is still `draft` (its seed lacks the QC output fields, AXI-1815)
+ * this refuses LOUDLY, naming the failing check, instead of a later
+ * "has no published version" 400.
+ */
+export async function findQcRuleId(_api: Api, _t: Tenant): Promise<string> {
+  const ids = await approveSeededRules([NAMES.qcRuleCode]);
+  return ids[NAMES.qcRuleCode];
 }
 
 const INGEST_TIMEOUT_MS = 90_000;

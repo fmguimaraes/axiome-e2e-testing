@@ -3,7 +3,8 @@ import { adminApi, type Api } from '../AXI-1435/harness/api';
 import {
   ensureTenant, ensureProject, ingestFixture, datasetVersionHash, ensureDefaultAnalysis, createViewAnalysis, bindEnvelope, ensureApprovedDiscoveryConfig,
 } from '../AXI-1507/harness/seed';
-import { driveToScreen, runLiveScreen } from './harness/live-workbench';
+import { approveCarriersFor } from '../AXI-1762/seeded-rule-approval';
+import { serveWorkbenchRules, driveToScreen, runLiveScreen } from './harness/live-workbench';
 
 /**
  * AXI-1723 — Constrained pickers, no free-text parameters (epic AXI-1717).
@@ -77,6 +78,8 @@ async function ensureSubjectKeyMapped(api: Api, t: Awaited<ReturnType<typeof ens
 
 async function seed(): Promise<Seeded> {
   const api = await adminApi();
+  // AXI-1809: nothing is served without an approval record (AXI-1768) — serve what the workbench runs.
+  await serveWorkbenchRules();
   const t = await ensureTenant(api);
   const projectId = await ensureProject(api, t, PROJECT_NAME);
   const datasetId = await ingestFixture(api, t, FIXTURE);
@@ -172,11 +175,9 @@ test.describe('AXI-1723 - the OPEN container shows the plan\'s decline, never a 
 
   test.beforeAll(async () => {
     s = await seed();
-    const rules = await s.api.get('/api/v1/rules?limit=500', s.t.headers);
-    const list: any[] = Array.isArray(rules.body) ? rules.body : rules.body?.rules ?? rules.body?.data ?? [];
-    const rule = list.find((r) => (r.tags ?? []).includes(`op:${SCREEN_OP}`) && r.status === 'published');
-    expect(rule, `a published rule tagged op:${SCREEN_OP}`).toBeTruthy();
-    screenRuleCode = rule.code;
+    // AXI-1809: the screen carrier is SERVED only once approved (AXI-1768) — walk it through review;
+    // a carrier that cannot be approved fails here naming its failing check, not "no published rule".
+    screenRuleCode = (await approveCarriersFor([SCREEN_OP]))[SCREEN_OP].code;
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 

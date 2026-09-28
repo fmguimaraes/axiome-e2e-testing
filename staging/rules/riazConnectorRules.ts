@@ -158,8 +158,9 @@ async function ensureOne(
 }
 
 /**
- * AXI-1565 — the three DESCRIBE **carrier** rules (AXI-1556's
- * `axiome-back/scripts/create-describe-rules.ts`). A connector rule says WHICH
+ * AXI-1565 — the three DESCRIBE **carrier** rules, boot-seeded by the
+ * organization-service (`CARRIER_SEEDS`, AXI-1766; the AXI-1556 script
+ * `create-describe-rules.ts` is deleted). A connector rule says WHICH
  * describe operation to run and with what parameters; the carrier is the
  * SYSTEM rule the run itself cites — `RuleRunsAnalysisRunner.resolveRuleId`
  * resolves it by the `op:<operationId>` tag, not by code, and a describe node
@@ -175,7 +176,13 @@ export const DESCRIBE_CARRIERS: ReadonlyArray<{ code: string; operationId: strin
   { code: 'DESC-TOP-N', operationId: 'describe.top_n' },
 ]);
 
-const REMEDY = 'seed it with `npx tsx scripts/create-describe-rules.ts` in axiome-back (idempotent, API-only)';
+/**
+ * AXI-1809: carriers are seeded at organization-service boot and, since AXI-1768,
+ * seeding never publishes. So a carrier is either absent (the service build does
+ * not seed it) or present but not yet approved: two different remedies.
+ */
+const REMEDY_MISSING = 'the carrier is seeded at organization-service boot (`CARRIER_SEEDS`): restart organization-service on a build that seeds it';
+const REMEDY_UNAPPROVED = 'approve it in the Review queue (demo/Rule-Approval-After-FR16-Migration.md): seeding never publishes (AXI-1768)';
 
 /**
  * The rule the runner would resolve for `operationId`, resolved by the SAME
@@ -196,9 +203,19 @@ export function findCarrier(rules: readonly RuleDetail[], operationId: string): 
     .sort((a, b) => b.version - a.version)[0];
 }
 
-export function carrierProblems(code: string, operationId: string, rule: RuleDetail | undefined): string[] {
-  if (!rule) return [`no published rule tagged op:${operationId} — describe runs citing ${code} cannot resolve a ruleId; ${REMEDY}`];
-  return [];
+/** The seeded SYSTEM carrier for `operationId` that is present but not served (any status but published). */
+export function findUnservedCarrier(rules: readonly RuleDetail[], operationId: string): RuleDetail | undefined {
+  return rules
+    .filter((r) => r.scope === 'system' && r.status !== 'published' && (r.tags ?? []).includes(`op:${operationId}`))
+    .sort((a, b) => b.version - a.version)[0];
+}
+
+export function carrierProblems(code: string, operationId: string, rule: RuleDetail | undefined, unserved?: RuleDetail): string[] {
+  if (rule) return [];
+  if (unserved) {
+    return [`carrier ${unserved.code} tagged op:${operationId} is ${unserved.status}, not approved — describe runs citing ${code} are refused "awaiting approval"; ${REMEDY_UNAPPROVED}`];
+  }
+  return [`no seeded system rule tagged op:${operationId} — describe runs citing ${code} cannot resolve a ruleId; ${REMEDY_MISSING}`];
 }
 
 /**
@@ -233,7 +250,7 @@ export async function checkDescribeCarriers(client: RestClient, opts: EnsureConn
   const rules = await listAllRules(client);
   return DESCRIBE_CARRIERS.map(({ code, operationId }) => {
     const rule = findCarrier(rules, operationId);
-    const problems = carrierProblems(code, operationId, rule);
+    const problems = carrierProblems(code, operationId, rule, rule ? undefined : findUnservedCarrier(rules, operationId));
     if (!problems.length) log(`carrier ${rule?.code ?? code} v${rule?.version ?? '?'} resolves op:${operationId}`);
     return { code, ruleId: rule?.id ?? null, version: rule?.version ?? null, scope: rule?.scope ?? null, operationId: rule ? operationId : null, action: (problems.length ? 'missing' : 'visible') as ConnectorAction, problems };
   });

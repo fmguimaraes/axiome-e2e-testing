@@ -4,11 +4,14 @@ import {
   Actor,
   COMPLETE_GUIDANCE,
   COMPLETE_OUTPUT_FIELDS,
+  deleteFixtureRules,
   inReviewRule,
   ReviewWorld,
   RuleResponse,
   send,
+  trackFixtureRule,
 } from './AXI-1765-rule-review-fixtures';
+import { systemRuleCatalogue } from './seeded-rule-approval';
 
 /**
  * AXI-1768 (epic AXI-1762 — FR16, D1, AC13, EC12): the honest status
@@ -54,6 +57,8 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  // AXI-1809: remove the rules this file created, so the catalogue does not grow run after run.
+  if (world) await deleteFixtureRules(world.admin);
   await world?.dispose();
 });
 
@@ -76,6 +81,7 @@ async function workspaceRule(author: Actor, workspaceId: string, complete: boole
     scope: 'workspace',
     workspaceId,
   })) as RuleResponse;
+  trackFixtureRule(created.id);
   if (!complete) return created;
   const checked = (await send(author.api, 'patch', `/api/v1/rules/${created.id}`, {
     outputFields: COMPLETE_OUTPUT_FIELDS,
@@ -85,9 +91,9 @@ async function workspaceRule(author: Actor, workspaceId: string, complete: boole
   return checked;
 }
 
+/** The whole system catalogue (every page, system scope only — AXI-1822/AXI-1809). */
 async function systemRules(): Promise<RuleResponse[]> {
-  const page = await send(world.admin, 'get', '/api/v1/rules?scope=system&limit=200');
-  return page.data as RuleResponse[];
+  return (await systemRuleCatalogue(world.admin)) as unknown as RuleResponse[];
 }
 
 async function auditActions(id: string): Promise<string[]> {

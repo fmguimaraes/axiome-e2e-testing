@@ -6,6 +6,7 @@ import {
   connectorProblems,
   DESCRIBE_CARRIERS,
   findCarrier,
+  findUnservedCarrier,
   isEntitled,
   needsGrant,
   RIAZ_CONNECTORS,
@@ -63,8 +64,20 @@ test('UT-E2E-DESC-025: a missing carrier reports the operation that cannot resol
   const problems = carrierProblems('DESC-TOP-N', 'describe.top_n', undefined);
   assert.equal(problems.length, 1);
   assert.match(problems[0], /op:describe\.top_n/);
-  assert.match(problems[0], /create-describe-rules\.ts/);
+  assert.match(problems[0], /organization-service/, 'carriers are boot-seeded: the remedy names the service, not a deleted script');
+  assert.doesNotMatch(problems[0], /create-describe-rules/);
   assert.deepEqual(carrierProblems('DESC-TOP-N', 'describe.top_n', published({ tags: ['op:describe.top_n'] })), []);
+});
+
+test('UT-E2E-DESC-035: AXI-1809 — a seeded carrier awaiting approval is reported as unapproved, with the Review-queue remedy', () => {
+  const checked = { ...published({ tags: ['op:describe.top_n'] }), status: 'checked', code: 'DESC-TOP-N' };
+  const rules = [checked];
+  assert.equal(findCarrier(rules, 'describe.top_n'), undefined, 'an unapproved carrier does not resolve');
+  assert.equal(findUnservedCarrier(rules, 'describe.top_n'), checked);
+  const problems = carrierProblems('SUM-TOPN-01', 'describe.top_n', undefined, checked);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /DESC-TOP-N tagged op:describe\.top_n is checked, not approved/);
+  assert.match(problems[0], /Review queue/);
 });
 
 test('UT-E2E-DESC-026: the staged surface is the ten cited connectors over the three describe operations', () => {

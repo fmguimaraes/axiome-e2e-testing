@@ -1,7 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 import { adminApi, asList, sleep, type Api } from './harness/api';
 import {
-  ensureTenant, ingestFixture, ensureAnalysis,
+  ensureTenant, ingestFixture, ensureAnalysis, carrierRuleId,
   type Tenant, type Analysis,
 } from './harness/seed';
 
@@ -84,7 +84,7 @@ async function pollTerminal(ruleRunId: string): Promise<any> {
  *  the submit response (which names the existing snapshot on a DEDUPE). */
 async function runDifferentialAbundance(): Promise<{ run: any; submit: any }> {
   const body = {
-    ruleId: tenant.ruleId, runKind: 'STATISTICAL', operationId: OP,
+    ruleId: await carrierRuleId(OP), runKind: 'STATISTICAL', operationId: OP,
     operationParams: { groupFrom: 'A', groupTo: 'B' },
     roleBindings: { featureColumns: TAXA, groupColumn: 'arm' },
     projectId: tenant.projectId, workspaceId: tenant.workspaceId, datasetId,
@@ -313,7 +313,7 @@ test.describe('AXI-1400 — explorable statistical result table', { tag: ['@SI-0
     // explorable (above) yet, because differential_abundance does not declare
     // referent-eligibility, a rule run pinned to the result snapshot is refused.
     const asReferent = await api.post('/api/v1/rule-runs', {
-      ruleId: tenant.ruleId, runKind: 'STATISTICAL', operationId: 'stats.correlation',
+      ruleId: await carrierRuleId('stats.correlation'), runKind: 'STATISTICAL', operationId: 'stats.correlation',
       operationParams: { method: 'pearson' },
       roleBindings: { xColumn: 'pValue', yColumn: 'qValue' },
       projectId: tenant.projectId, workspaceId: tenant.workspaceId, datasetId: resultSnap.datasetId,

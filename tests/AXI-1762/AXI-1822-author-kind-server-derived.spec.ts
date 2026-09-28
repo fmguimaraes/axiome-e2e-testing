@@ -7,6 +7,7 @@ import {
   ReviewWorld,
   send,
 } from './AXI-1765-rule-review-fixtures';
+import { systemRuleCatalogue } from './seeded-rule-approval';
 
 /**
  * AXI-1822 (epic AXI-1762 — FR7, FR12, FR13; D4; SI-017, SI-010): a rule's
@@ -108,9 +109,8 @@ test.describe('AXI-1822 — server-derived rule authorKind @SI-017 @SI-010', () 
     // relabel a bypass.
     workspaceId = await world.workspace(LABEL, [actor]);
 
-    const catalog: Array<{ id: string; code: string; tags: string[] | null; authorKind?: string }> = (
-      await send(world.admin, 'get', '/api/v1/rules?limit=200&scope=system')
-    ).data;
+    // AXI-1809: the WHOLE system catalogue, not one page (fixture rules can push a seed off it).
+    const catalog = await systemRuleCatalogue(world.admin);
     const found = catalog.find((r) => (r.tags ?? []).includes(`op:${CARRIER_OPERATION}`));
     expect(found, `${CARRIER_OPERATION} has a carrier rule`).toBeDefined();
     carrier = { id: found!.id, code: found!.code };

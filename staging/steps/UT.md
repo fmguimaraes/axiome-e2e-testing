@@ -585,9 +585,10 @@ node error.
 | UT-E2E-DESC-022 | rule access `ALL` entitles without a grant, `NONE` cannot be granted, `CUSTOM` needs one | Pass |
 | UT-E2E-DESC-023 | a connector absent, unpublished or bound to the wrong operation is a problem; a correct one is silent | Pass |
 | UT-E2E-DESC-024 | the carrier is resolved by the runner's own predicate — system scope, published, `op:` tag, newest version | Pass |
-| UT-E2E-DESC-025 | a missing carrier reports the operation that cannot resolve, and the remedy | Pass |
+| UT-E2E-DESC-025 | a missing carrier reports the operation that cannot resolve, and the remedy (AXI-1809: restart organization-service, which boot-seeds carriers; the deleted `create-describe-rules.ts` is no longer named) | Pass |
 | UT-E2E-DESC-026 | the staged surface is the ten cited connectors over the three describe operations | Pass |
 | UT-E2E-DESC-033 | the rule listing pages until the server says there is no next page (a truncated listing would report a present carrier missing) | Pass |
+| UT-E2E-DESC-035 | AXI-1809: a seeded carrier present but not approved does not resolve, and is reported as unapproved with the Review-queue remedy | Pass |
 
 ## `rules/connectorShapes.spec.ts` (AXI-1581 — epic AXI-1575, FR13–FR16)
 

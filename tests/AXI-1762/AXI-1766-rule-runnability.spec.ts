@@ -3,11 +3,14 @@ import { apiUrl } from '../../config/env';
 import {
   COMPLETE_GUIDANCE,
   COMPLETE_OUTPUT_FIELDS,
+  deleteFixtureRules,
   inReviewRule,
+  trackFixtureRule,
   ReviewWorld,
   RuleResponse,
   send,
 } from './AXI-1765-rule-review-fixtures';
+import { systemRuleCatalogue } from './seeded-rule-approval';
 
 /**
  * AXI-1766 (epic AXI-1762 — FR17, FR18, FR20, FR21): rule runnability and the
@@ -67,6 +70,8 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  // AXI-1809: remove the (system-scope) rules this file created, so the catalogue does not grow run after run.
+  if (world) await deleteFixtureRules(world.admin);
   await world?.dispose();
 });
 
@@ -86,8 +91,9 @@ async function offeredRules(): Promise<OfferedRules> {
  * LIBRARY, not in the offering, on a stack nobody has reviewed yet.
  */
 async function systemRulesByCode(): Promise<Map<string, OfferedRule & { tags?: string[] }>> {
-  const page = await send(api, 'get', '/api/v1/rules?scope=system&limit=200');
-  return new Map((page.data as Array<OfferedRule & { tags?: string[] }>).map((r) => [r.code, r]));
+  // AXI-1809 (AXI-1822): the whole SYSTEM catalogue, every page.
+  const rows = (await systemRuleCatalogue(api)) as unknown as Array<OfferedRule & { tags?: string[] }>;
+  return new Map(rows.map((r) => [r.code, r]));
 }
 
 async function getRule(id: string): Promise<OfferedRule> {
@@ -198,6 +204,7 @@ test.describe('AXI-1766 — rule runnability and the offering predicate', () => 
       signals: ['marker:cd4_count'],
       tags: ['relationship-rule', 'statistical', 'op:stats.axi1766_not_registered'],
     })) as RuleResponse;
+    trackFixtureRule(created.id);
     const completed = (await send(api, 'patch', `/api/v1/rules/${created.id}`, {
       outputFields: COMPLETE_OUTPUT_FIELDS,
       guidance: COMPLETE_GUIDANCE,

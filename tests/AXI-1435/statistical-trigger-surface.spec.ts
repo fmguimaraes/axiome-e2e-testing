@@ -4,6 +4,10 @@ import {
   ensureTenant, ingestFixture, assignProfileAndVerify, ensureAnalysis, pollTerminal, ruleCodeFor,
   type Tenant, type Analysis,
 } from './harness/seed';
+import { approveCarriersFor, isServed } from '../AXI-1762/seeded-rule-approval';
+
+/** The operations this spec RUNS: their carriers must be served (approved), loudly. */
+const RUN_OPS = ['stats.correlation', 'stats.chi_square', 'stats.kruskal_wallis'];
 
 /**
  * AXI-1435 — E2E: statistical trigger surface (picker → config → run →
@@ -14,8 +18,8 @@ import {
  * (`DeltaRuleSelectionModal`, reused for every relationship-rule family member),
  * the per-operation statistical rules (AXI-1456 — one governed rule per
  * registered operation, code `STAT-<METHOD>`, tags
- * `['relationship-rule','statistical','op:<operationId>']`, seeded by
- * `axiome-back/scripts/create-statistical-rule.ts`), and the descriptor-driven
+ * `['relationship-rule','statistical','op:<operationId>']`, boot-seeded by the
+ * organization-service `CARRIER_SEEDS`, AXI-1766), and the descriptor-driven
  * `StatisticalRunConfigModal`. It seeds its own additive project/dataset via
  * the REST API (mirroring `tests/AXI-1400/harness/seed.ts`), then drives a real
  * browser through: open the picker → select an operation's rule → the config
@@ -37,6 +41,15 @@ import {
  * precondition (`sufficient_group_members`, min 2 per group) still refuses the
  * run at execute time (AC22's second, server-side clause).
  *
+ * APPROVAL NOTE (AXI-1809, epic AXI-1762): since AXI-1768 nothing is served
+ * without an approval record and seeding never publishes, so the picker offers
+ * only APPROVED carriers. `beforeAll` approves the three this spec runs
+ * (correlation, chi_square, kruskal_wallis) through the shared fixture
+ * (`tests/AXI-1762/seeded-rule-approval.ts`); AC21 asserts each registered
+ * operation is offered exactly when its carrier is served, and absent otherwise.
+ * The fixture refuses to approve on the shared demo gateway (`:3000`) unless
+ * `E2E_ALLOW_SEED_APPROVAL=1`: there the owner approves the carriers first.
+ *
  * LOCATOR NOTE (AXI-1773): since AXI-1773 every field of the editor is a
  * `RuleRunField` whose `<label>` names its control (`htmlFor`), and whose
  * text is the operation descriptor's served help label (e.g. "X variable"),
@@ -54,6 +67,7 @@ let analysis: Analysis;
 test.beforeAll(async () => {
   api = await adminApi();
   tenant = await ensureTenant(api);
+  await approveCarriersFor(RUN_OPS);
   const datasetId = await ingestFixture(api, tenant, 'statistical-trigger.csv');
   await assignProfileAndVerify(api, tenant, ['patient_id', 'timepoint']);
   analysis = await ensureAnalysis(api, tenant, 'AXI-1435 statistical trigger surface', datasetId);
@@ -135,7 +149,7 @@ function selectAfterLabel(page: Page, role: string) {
 }
 
 test.describe('AXI-1435 — statistical trigger surface (picker → config → run → result)', { tag: ['@SI-035'] }, () => {
-  test('AC21 — every registered statistical operation is selectable; a compatible one runs to SUCCEEDED and renders', async ({ page }) => {
+  test('AC21 — every registered statistical operation with an approved carrier is in the picker, an unapproved one is not; a compatible one runs to SUCCEEDED and renders', async ({ page }) => {
     const descriptors = await api.get('/api/v1/rule-runs/operations');
     const rawList = Array.isArray(descriptors.body) ? descriptors.body : (descriptors.body?.operations ?? descriptors.body?.data ?? []);
     const statisticalOps = (rawList as any[]).filter((op) => op.runKind === 'STATISTICAL');
@@ -143,13 +157,35 @@ test.describe('AXI-1435 — statistical trigger surface (picker → config → r
 
     await openRunRulePicker(page);
 
-    // FR40 — each REGISTERED operation is its own selectable rule in the picker,
-    // one per live descriptor (not a hardcoded list, not a single rule).
-    for (const op of statisticalOps) {
+    // FR40 — each REGISTERED operation has its own rule, one per live descriptor
+    // (not a hardcoded list, not a single rule). AXI-1809 (FR16): the picker offers
+    // it exactly when that carrier is SERVED; an unapproved carrier is not offered.
+    // Visibility is asserted for the served ones first, so the negative checks run
+    // against a picker that has already rendered its list.
+    const carriers = await Promise.all(statisticalOps.map(async (op) => {
+      const id = tenant.ruleIds[op.operationId];
+      expect(id, `operation ${op.operationId} has a boot-seeded carrier`).toBeTruthy();
+      const detail = await api.get(`/api/v1/rules/${id}`);
+      expect(detail.status, JSON.stringify(detail.body)).toBe(200);
+      return { op, code: detail.body.code as string, title: detail.body.title as string, served: isServed(detail.body) };
+    }));
+    for (const op of RUN_OPS) expect(carriers.find((c) => c.op.operationId === op)?.served, `${op} carrier served by beforeAll`).toBe(true);
+    // A served rule is either runnable (a radio naming its code) or listed under
+    // "Not available for this dataset" by its title with the reason (AXI-1772 picker).
+    const notAvailable = page.getByRole('region', { name: 'Not available for this dataset' });
+    const unavailableItem = (title: string) => notAvailable.getByRole('listitem').filter({ hasText: title });
+    for (const c of carriers.filter((x) => x.served)) {
       await expect(
-        page.getByRole('radio').filter({ hasText: ruleCodeFor(op.operationId) }),
-        `operation "${op.label}" (${op.operationId}) has no rule in the picker`,
+        page.getByRole('radio').filter({ hasText: c.code }).or(unavailableItem(c.title)),
+        `operation "${c.op.label}" (${c.op.operationId}) is served but the picker neither offers nor lists ${c.code}`,
       ).toBeVisible();
+    }
+    for (const c of carriers.filter((x) => !x.served)) {
+      await expect(
+        page.getByRole('radio').filter({ hasText: c.code }),
+        `operation "${c.op.label}" (${c.op.operationId}) is NOT approved, so the picker must not offer ${c.code}`,
+      ).toHaveCount(0);
+      await expect(unavailableItem(c.title), `${c.code} is not approved, so it is not listed either`).toHaveCount(0);
     }
 
     // A compatible operation: correlation needs two NUMERIC columns
@@ -220,13 +256,16 @@ test.describe('AXI-1435 — statistical trigger surface (picker → config → r
 
   test("AC22 — an operation whose required roles can't bind is shown disabled with a reason; a count-based BLOCK still refuses at execute time", async ({ page }) => {
     // Structural half (FE, `evaluateStatisticalCompatibility`): the Chi-square
-    // rule needs two CATEGORICAL columns and this referent has none — its config
-    // opens PRE-BOUND but names the incompatible reason for its first declared
-    // role, with Run disabled (not hidden).
+    // rule needs two CATEGORICAL columns and this referent has none. Since AXI-1772
+    // the picker shows it DISABLED, not hidden: it is not a selectable radio but a
+    // "Not available for this dataset" entry naming the unbindable role. (Its carrier
+    // is served by beforeAll, so this is the compatibility gate, not the approval gate.)
     await openRunRulePicker(page);
-    await selectMethodRule(page, ruleCodeFor('stats.chi_square'));
-    await expect(page.getByText("No categorical column available for 'rowColumn'.")).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Run rule' }).last()).toBeDisabled();
+    await expect(page.getByRole('radio').filter({ hasText: ruleCodeFor('stats.chi_square') })).toHaveCount(0);
+    await expect(
+      page.getByRole('region', { name: 'Not available for this dataset' }).getByRole('listitem')
+        .filter({ hasText: 'Chi-square test of independence' }),
+    ).toContainText('no categorical column to bind as "Row variable"');
     await page.getByRole('button', { name: 'Cancel' }).click();
 
     // Kruskal-Wallis's groupColumn is 'any'-shaped (structurally bindable on ANY

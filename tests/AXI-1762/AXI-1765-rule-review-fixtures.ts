@@ -182,6 +182,30 @@ export const COMPLETE_OUTPUT_FIELDS = [
 ];
 
 /**
+ * AXI-1809 (the AXI-1822 finding): fixture rules used to be left behind on every
+ * run. Several of them are SYSTEM scope, so after a few runs they pushed boot seeds
+ * such as `IMM-QC-01` off the first catalogue page, and a later spec's lookup failed.
+ * Every rule a fixture creates is recorded here. The spec that created it deletes
+ * it in `afterAll` with {@link deleteFixtureRules} (soft delete, as the platform
+ * admin: system scope needs that).
+ */
+const fixtureRuleIds = new Set<string>();
+
+/** Record a rule a spec created outside {@link inReviewRule}, so {@link deleteFixtureRules} removes it too. */
+export function trackFixtureRule(id: string): void {
+  fixtureRuleIds.add(id);
+}
+
+/** Soft-delete every fixture rule recorded in this worker so far (best effort; each id once). */
+export async function deleteFixtureRules(admin: APIRequestContext): Promise<void> {
+  const ids = [...fixtureRuleIds];
+  fixtureRuleIds.clear();
+  for (const id of ids) {
+    await admin.delete(apiUrl(`/api/v1/rules/${id}`)).catch(() => undefined);
+  }
+}
+
+/**
  * Create a complete FEATURE_RULE as `author` and walk it to `in_review`
  * (draft → checked by the FR9 gate → submitted by the author).
  */
@@ -199,6 +223,7 @@ export async function inReviewRule(
     ...scope,
     ...overrides,
   })) as RuleResponse;
+  trackFixtureRule(created.id);
   const completed = (await send(author, 'patch', `/api/v1/rules/${created.id}`, {
     outputFields: COMPLETE_OUTPUT_FIELDS,
     guidance: COMPLETE_GUIDANCE,

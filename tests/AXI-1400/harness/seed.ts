@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Api } from './api';
 import { sleep, workspaceHeader, asList } from './api';
+import { approveCarriersFor } from '../../AXI-1762/seeded-rule-approval';
 
 /**
  * Idempotent, REST-only seeding for the Statistical Surface validation project.
@@ -16,10 +17,13 @@ import { sleep, workspaceHeader, asList } from './api';
  *  - `POST /api/v1/rule-runs` needs `datasetId` even when a `snapshotId` referent
  *    is supplied (input-source validation), and `workspaceId` for object-level
  *    auth on a scoped run;
- *  - a statistical run needs a *published* rule; publish enforces protocol
- *    compliance, so the rule is authored as a FEATURE_RULE with its two required
- *    output fields (the run never consumes them — the rule is the governance
- *    wrapper, exactly as the demo's own paired_ttest reused a published QC rule).
+ *  - a statistical run needs a SERVED rule whose executor matches the run
+ *    (FR20 `ruleExecutorMismatch`): the boot-seeded carrier tagged
+ *    `op:<operationId>`. AXI-1809: since AXI-1768 seeding never publishes and the
+ *    direct `/publish` is an alias of approve, so the carrier is walked through
+ *    review by the shared fixture (`carrierRuleId` → `approveCarriersFor`). The
+ *    old workspace FEATURE_RULE "governance wrapper" is gone: the executor match
+ *    refuses it for a STATISTICAL run, and it could no longer be published.
  */
 
 export const FIXTURES_DIR = join(process.cwd(), 'tests', 'AXI-1400', 'fixtures');
@@ -28,7 +32,6 @@ export const NAMES = {
   org: 'Axiome Validation Org',
   workspace: 'Statistical Surface Validation',
   project: 'Statistical Surface Validation',
-  ruleCode: 'AXI-1400-STATSURFACE-E2E',
   profileId: 'immuno_oncology',
 };
 
@@ -36,7 +39,6 @@ export interface Tenant {
   orgId: string;
   workspaceId: string;
   projectId: string;
-  ruleId: string;
   headers: Record<string, string>;
 }
 
@@ -65,30 +67,26 @@ export async function ensureTenant(api: Api): Promise<Tenant> {
     projectId = res.body.id;
   }
 
-  const ruleId = await ensureRule(api, workspaceId!, projectId!, headers);
-  return { orgId, workspaceId: workspaceId!, projectId: projectId!, ruleId, headers };
+  return { orgId, workspaceId: workspaceId!, projectId: projectId!, headers };
 }
 
-/** Reuse-or-create a published FEATURE_RULE governance wrapper for the runs. */
-async function ensureRule(api: Api, workspaceId: string, projectId: string, headers: Record<string, string>): Promise<string> {
-  const existing = await api.get(`/api/v1/rules?search=${NAMES.ruleCode}`, headers);
-  const found = asList(existing.body).find((r: any) => r.code === NAMES.ruleCode && r.status === 'published');
-  if (found) return found.id;
+const carrierIds = new Map<string, Promise<string>>();
 
-  const created = await api.post('/api/v1/rules', {
-    code: NAMES.ruleCode, title: 'Statistical Surface Validation',
-    workspaceId, projectId, protocolType: 'FEATURE_RULE',
-  }, headers);
-  const ruleId = created.body.id;
-  await api.patch(`/api/v1/rules/${ruleId}`, {
-    outputFields: [
-      { key: 'feature_name', type: 'string', description: 'feature' },
-      { key: 'value', type: 'number', description: 'value' },
-    ],
-  }, headers);
-  const pub = await api.post(`/api/v1/rules/${ruleId}/publish`, {}, headers);
-  if (pub.status >= 300) throw new Error(`rule publish failed (${pub.status}): ${JSON.stringify(pub.body)}`);
-  return ruleId;
+/**
+ * AXI-1809 — the served system carrier for `operationId` (the rule a STATISTICAL
+ * run of that operation executes under). Approved through review on first use
+ * (submit → second approver → approve, see `tests/AXI-1762/seeded-rule-approval.ts`);
+ * a carrier whose seed content cannot pass review fails loudly with its failing
+ * checks rather than a later "has no published version" 400. Memoised per worker.
+ */
+export function carrierRuleId(operationId: string): Promise<string> {
+  let id = carrierIds.get(operationId);
+  if (!id) {
+    id = approveCarriersFor([operationId]).then((m) => m[operationId].ruleId);
+    id.catch(() => carrierIds.delete(operationId));
+    carrierIds.set(operationId, id);
+  }
+  return id;
 }
 
 const INGEST_TIMEOUT_MS = 90_000;

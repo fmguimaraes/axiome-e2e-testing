@@ -1,16 +1,28 @@
 /**
- * Find-or-create-or-publish for one library rule over the REST API.
+ * Find-or-create-or-approve for one library rule over the REST API.
  *
- * The rule lifecycle the gateway exposes is
- *   POST  /api/v1/rules               (create a draft — metadata + scope)
- *   PATCH /api/v1/rules/:id           (author the body: evaluations, expression,
- *                                      outputFields, guard, heuristic …)
- *   POST  /api/v1/rules/:id/publish   (protocol validation → immutable version)
+ * The rule lifecycle the gateway exposes (AXI-1768 approval gate) is
+ *   POST  /api/v1/rules                        (create a draft — metadata + scope)
+ *   PATCH /api/v1/rules/:id                    (author the body: evaluations, expression,
+ *                                               outputFields, guard, heuristic …; the FR9
+ *                                               checks then place it at `draft` or `checked`)
+ *   POST  /api/v1/rules/:id/submit-for-review  (author: checked → in_review)
+ *   POST  /api/v1/rules/:id/approve            (a rule:publish holder, against the reviewed
+ *                                               content hash → immutable served version)
  *
- * `ensureRule` walks that ladder once per code and is idempotent: a published
- * version is reused as-is (a new version is NOT minted — edit the library and
- * bump the code, e.g. `-02`, when the logic changes), an existing draft is
- * re-authored and published, nothing else is touched.
+ * AXI-1809: the old direct `POST /rules/:id/publish` is now an alias of approve
+ * (it needs `in_review` and a justification), so this helper walks submit →
+ * approve instead. It approves AS THE STAGING ADMIN: the backend allows that only
+ * as a recorded self-approval of human-authored content when the admin is the
+ * workspace's only approver. Otherwise it refuses (`SELF_APPROVAL_*`), and this
+ * helper stops LOUDLY with the rule left `in_review`, for another approver to
+ * decide in the Review queue; a re-run then reuses the served rule. It never
+ * mints a throwaway approver on the owner's stack and never writes the database.
+ *
+ * `ensureRule` is idempotent: a served (published) version is reused as-is (a new
+ * version is NOT minted — edit the library and bump the code, e.g. `-02`, when the
+ * logic changes); an existing unserved row is re-authored (unless already
+ * `in_review`) and walked through review; nothing else is touched.
  *
  * Scope: a governed `qc_check` resolves its cited rule by `{scope:'system'} OR
  * {organizationId}` (`rule-runs-analysis-runner.ts` `findCitedRule`), so a
@@ -35,6 +47,12 @@ export interface RuleRow {
   scope: string;
   protocolType?: string;
   title?: string;
+}
+
+interface RuleDetail extends RuleRow {
+  servedVersion?: { id: string } | null;
+  review?: { contentHash?: string | null } | null;
+  checks?: Array<{ id: string; passed: boolean; message: string }>;
 }
 
 export interface RuleScope {
@@ -71,6 +89,8 @@ export async function findRuleVersions(client: RestClient, code: string): Promis
 
 export type EnsureRuleAction = 'reused' | 'created' | 'published' | 'would-create' | 'would-publish';
 
+const UNSERVED = new Set(['draft', 'checked', 'in_review']);
+
 export async function ensureRule(client: RestClient, draft: RuleDraft, scope: RuleScope, opts: EnsureRuleOptions = {}): Promise<{ row: RuleRow; action: EnsureRuleAction }> {
   const code = draft.create.code as string;
   const log = opts.log ?? (() => undefined);
@@ -80,7 +100,7 @@ export async function ensureRule(client: RestClient, draft: RuleDraft, scope: Ru
     log(`rule ${code} v${published.version} already published (${published.id})`);
     return { row: published, action: 'reused' };
   }
-  let draftRow = listed.find((r) => r.status === 'draft');
+  let draftRow = listed.find((r) => UNSERVED.has(r.status));
   const stamp = scope.organizationId ? { scope: 'workspace', organizationId: scope.organizationId, workspaceId: scope.workspaceId } : { scope: 'system' };
   if (opts.dryRun) {
     const action: EnsureRuleAction = draftRow ? 'would-publish' : 'would-create';
@@ -93,11 +113,36 @@ export async function ensureRule(client: RestClient, draft: RuleDraft, scope: Ru
     log(`created rule ${code} (${draftRow.id}, scope ${stamp.scope})`);
     action = 'created';
   }
-  must(await client.as(ADMIN_HANDLE, 'PATCH', `/api/v1/rules/${draftRow.id}`, draft.body), `authoring rule ${code}`);
-  const pub = must(
-    await client.as<RuleRow>(ADMIN_HANDLE, 'POST', `/api/v1/rules/${draftRow.id}/publish`, { justification: opts.justification ?? `Published by staging ensureRule for ${code}` }),
-    `publishing rule ${code}`,
-  );
-  log(`published rule ${code} v${pub.version ?? '?'} (${draftRow.id})`);
-  return { row: { ...draftRow, ...pub, id: draftRow.id }, action };
+  const id = draftRow.id;
+  const read = async () => must(await client.as<RuleDetail>(ADMIN_HANDLE, 'GET', `/api/v1/rules/${id}`), `reading rule ${code}`);
+  // An in_review row is frozen for its reviewer: re-authoring it would move it back and void the hash.
+  if (draftRow.status !== 'in_review') {
+    must(await client.as(ADMIN_HANDLE, 'PATCH', `/api/v1/rules/${id}`, draft.body), `authoring rule ${code}`);
+  }
+  let detail = await read();
+  if (detail.status === 'draft') {
+    const failing = (detail.checks ?? []).filter((c) => !c.passed).map((c) => `${c.id}: ${c.message}`);
+    throw new Error(`rule ${code} (${id}) is draft after authoring, so it cannot be submitted for review — fix the library entry: ${failing.join(' | ') || 'no failing check reported'}`);
+  }
+  if (detail.status === 'checked') {
+    must(await client.as(ADMIN_HANDLE, 'POST', `/api/v1/rules/${id}/submit-for-review`), `submitting rule ${code} for review`);
+    detail = await read();
+  }
+  if (detail.status !== 'in_review' || !detail.review?.contentHash) {
+    throw new Error(`rule ${code} (${id}) did not reach in_review (status ${detail.status})`);
+  }
+  const approved = await client.as<unknown>(ADMIN_HANDLE, 'POST', `/api/v1/rules/${id}/approve`, {
+    note: opts.justification ?? `Approved by staging ensureRule for ${code}`,
+    expectedContentHash: detail.review.contentHash,
+  });
+  if (!approved.ok) {
+    throw new Error(
+      `rule ${code} (${id}) is in_review but the staging admin may not approve it (status ${approved.status}): ` +
+        `${JSON.stringify(approved.body).slice(0, 400)}. Another approver must approve it in the Review queue; re-run staging afterwards.`,
+    );
+  }
+  detail = await read();
+  if (!detail.servedVersion) throw new Error(`rule ${code} (${id}) is not served after approval (status ${detail.status})`);
+  log(`approved rule ${code} v${detail.version ?? '?'} (${id})`);
+  return { row: { ...draftRow, ...detail, id }, action };
 }

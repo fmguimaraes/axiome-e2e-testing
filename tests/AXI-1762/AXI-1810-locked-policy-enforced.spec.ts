@@ -1,7 +1,7 @@
-import { test, expect, request as apiRequest, type APIRequestContext } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { adminApi, asList, sleep, workspaceHeader, type Api } from '../AXI-1400/harness/api';
 import { ensureAnalysis, ingestFixture, type Analysis, type Tenant } from '../AXI-1400/harness/seed';
-import { ReviewWorld, send } from './AXI-1765-rule-review-fixtures';
+import { approveSeededRules } from './seeded-rule-approval';
 
 /**
  * AXI-1810 (epic AXI-1762 — EC8, FR23, FR27, FR33; SI-017, SI-045): a value the
@@ -19,7 +19,8 @@ import { ReviewWorld, send } from './AXI-1765-rule-review-fixtures';
  * profiled referent. The operation is `stats.unpaired_ttest` over the AXI-1400
  * `grouped_comparisons.csv` fixture (a two-level `arm` column, a numeric
  * `score`), cited through its system carrier `STAT-UNPAIRED-TTEST` (approved
- * here when it is not already — AXI-1768 seeding never publishes).
+ * here through `approveSeededRules` when it is not already — AXI-1768 seeding
+ * never publishes).
  *
  * Each scenario group runs in its OWN freshly created workspace: a policy is
  * per-workspace, append-only and its latest version applies, so sharing a
@@ -59,56 +60,12 @@ async function ok<T = any>(res: Promise<{ status: number; body: T }>, label: str
   return r.body;
 }
 
-/**
- * AXI-1768: an unapproved carrier is not offered. Walk it through review
- * (idempotent). Its content is Claude-authored, so the submitter may not approve
- * it (AXI-1765): a SECOND platform admin holding `rule:publish` — a throwaway
- * user promoted for this call and demoted again in `finally`, the AXI-1771
- * recipe — approves it.
- */
-async function ensureApproved(code: string): Promise<string> {
-  const library = (await ok(api.get('/api/v1/rules?scope=system&limit=200'), 'library')).data as Array<{ id: string; code: string }>;
-  const rule = library.find((r) => r.code === code);
-  expect(rule, `${code} is boot-seeded`).toBeDefined();
-  const id = rule!.id;
-  let detail = await ok(api.get(`/api/v1/rules/${id}`), 'rule');
-  if (detail.status === 'published') return id;
-  expect(detail.status, `${code} carries registry guidance, so it is at least checked`).not.toBe('draft');
-  if (detail.status === 'checked') {
-    await ok(api.post(`/api/v1/rules/${id}/submit-for-review`, {}), 'submit-for-review');
-    detail = await ok(api.get(`/api/v1/rules/${id}`), 'rule');
-  }
-  const world = await ReviewWorld.create();
-  let approverApi: APIRequestContext | undefined;
-  let approverId: string | undefined;
-  try {
-    const publisherRole = await world.role('locked-policy-1810-approver', ['rule:read', 'rule:publish']);
-    const actor = await world.actor('locked-policy-1810-approver', publisherRole);
-    approverId = actor.userId;
-    await send(world.admin, 'patch', `/api/v1/users/${actor.userId}`, { role: 'ADMIN' });
-    const login = await apiRequest.newContext();
-    const tokens = await send(login, 'post', '/api/v1/auth/login', { email: actor.email, password: 'AXI1765-e2e-pw!' });
-    await login.dispose();
-    approverApi = await apiRequest.newContext({ extraHTTPHeaders: { Authorization: `Bearer ${tokens.accessToken}` } });
-    const approved = await send(approverApi, 'post', `/api/v1/rules/${id}/approve`, {
-      note: 'AXI-1810 e2e — the locked-policy runs need an offered carrier.',
-      expectedContentHash: detail.review.contentHash,
-    });
-    expect(approved.status).toBe('published');
-  } finally {
-    await approverApi?.dispose();
-    if (approverId) await send(world.admin, 'patch', `/api/v1/users/${approverId}`, { role: 'USER' }).catch(() => undefined);
-    await world.dispose();
-  }
-  return id;
-}
-
 async function makeScope(label: string): Promise<Scope> {
   const ws = await ok(api.post('/api/v1/workspaces', { name: unique(label), type: 'internal', ownerOrganizationId: orgId }), 'workspace');
   const workspaceId = ws.id as string;
   const headers = workspaceHeader(workspaceId);
   const project = await ok(api.post('/api/v1/projects', { name: unique(`${label} project`), workspaceId }, headers), 'project');
-  const tenant: Tenant = { orgId, workspaceId, projectId: project.id, ruleId, headers };
+  const tenant: Tenant = { orgId, workspaceId, projectId: project.id, headers };
   const datasetId = await ingestFixture(api, tenant, FIXTURE);
   const analysis = await ensureAnalysis(api, tenant, unique(`${label} analysis`), datasetId);
   return { ...tenant, datasetId, analysis };
@@ -181,7 +138,9 @@ test.beforeAll(async () => {
   orgId =
     orgs.find((o: any) => o.name === 'AXI-1810 Locked Policy Org')?.id ??
     (await ok(api.post('/api/v1/organizations', { name: 'AXI-1810 Locked Policy Org', type: 'biotech' }), 'org')).id;
-  ruleId = await ensureApproved(CARRIER);
+  // AXI-1809: the shared fixture walks the seed through review with a second
+  // approver (it is Claude-authored), reading the whole system catalogue.
+  ruleId = (await approveSeededRules([CARRIER]))[CARRIER];
   lockScope = await makeScope('AXI-1810 lock');
   pinScope = await makeScope('AXI-1810 pin');
 });

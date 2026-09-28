@@ -1,6 +1,7 @@
 import { test, expect, request as apiRequest } from '@playwright/test';
 import { apiUrl } from '../../config/env';
 import { adminApi, asList, sleep, workspaceHeader, type Api } from '../AXI-1400/harness/api';
+import { approveSeededRules, systemRuleCatalogue } from './seeded-rule-approval';
 
 /**
  * AXI-1767 (epic AXI-1762 — FR22..FR27, FR24, FR33; EC4, EC8, EC12; NFR5, NFR6,
@@ -18,12 +19,13 @@ import { adminApi, asList, sleep, workspaceHeader, type Api } from '../AXI-1400/
  *
  * Since AXI-1768 nothing is offered without an approval record and the boot
  * seeder never publishes. The resolver needs an OFFERED rule, so `beforeAll`
- * walks the `DELTA-01` family carrier through review (guidance → checked →
- * in_review → bulk approve) when — and only when — it is not already offered.
- * `DELTA-01` is chosen because, on today's registry, no STATISTICAL carrier can
- * pass the checked gate (its operation's field help is not declared yet), while
- * the delta operations' help is. §12.3.7 uses exactly that: a STATISTICAL
- * carrier that has never been published is the EC12 "awaiting approval" case.
+ * serves the `DELTA-01` family carrier through the shared seed fixture
+ * (`seeded-rule-approval.ts`, AXI-1809): submit as the admin, approve as a SECOND
+ * approver. Since AXI-1771 the carrier's guidance is Claude-authored, so the
+ * admin's self-approval is refused (`SELF_APPROVAL_CLAUDE_AUTHORED`). The fixture
+ * never edits seed content: if DELTA-01 is still `draft` it refuses loudly.
+ * §12.3.7 uses a STATISTICAL carrier that was never approved as the EC12
+ * "awaiting approval" case.
  *
  * Every scenario runs in DEDICATED workspaces created here, so authoring an
  * AnalysisPolicy never moves another spec's workspace.
@@ -32,13 +34,6 @@ import { adminApi, asList, sleep, workspaceHeader, type Api } from '../AXI-1400/
 const CARRIER = 'DELTA-01';
 const OPERATION = 'delta.difference';
 const PROFILE_NOT_READY = 'profiling has not finished for this dataset';
-const DELTA_GUIDANCE = {
-  whatItDoes: 'Computes a per-subject, per-feature change between two chosen levels (timepoints).',
-  whenToUse: 'Paired measurements of the same subjects at two timepoints.',
-  whenNotToUse: 'Independent groups, or subjects measured only once.',
-  example: 'Baseline to week 12 change in CD4 count per patient.',
-  youWillGet: 'A delta table: one row per subject per feature.',
-};
 
 interface ResolvedField {
   name: string;
@@ -73,7 +68,7 @@ interface LibraryRule {
   id: string;
   code: string;
   status: string;
-  tags?: string[];
+  tags?: string[] | null;
 }
 
 // One worker for the file: `beforeAll` approves the carrier on a fresh stack, and
@@ -110,38 +105,9 @@ async function makeScope(orgId: string, label: string): Promise<Scope> {
   return { orgId, workspaceId, projectId: project.id, datasetId: init.dataset.id, headers };
 }
 
+/** The whole system catalogue, every page, `scope === 'system'` only (AXI-1822). */
 async function systemLibrary(): Promise<LibraryRule[]> {
-  return (await ok(api.get('/api/v1/rules?scope=system&limit=200'), 'library')).data as LibraryRule[];
-}
-
-/**
- * AXI-1768: an unapproved carrier is not offered. Walk it through review
- * (idempotent — each step runs only from the state that needs it).
- */
-async function ensureApproved(code: string): Promise<string> {
-  const rule = (await systemLibrary()).find((r) => r.code === code);
-  expect(rule, `${code} is boot-seeded`).toBeDefined();
-  const id = rule!.id;
-  let detail = await ok(api.get(`/api/v1/rules/${id}`), 'rule');
-  if (detail.status === 'published') return id;
-  if (detail.status === 'draft') {
-    detail = await ok(api.patch(`/api/v1/rules/${id}`, { guidance: DELTA_GUIDANCE }), 'complete guidance');
-    expect(detail.status, `${code} passes the checked gate`).toBe('checked');
-  }
-  if (detail.status === 'checked') {
-    await ok(api.post(`/api/v1/rules/${id}/submit-for-review`, {}), 'submit-for-review');
-    detail = await ok(api.get(`/api/v1/rules/${id}`), 'rule');
-  }
-  const approved = await ok(
-    api.post('/api/v1/rules/bulk/approve', {
-      ruleIds: [id],
-      justification: 'AXI-1767 e2e — the resolver needs an offered carrier.',
-      expectedContentHashes: { [id]: detail.review.contentHash },
-    }),
-    'bulk approve',
-  );
-  expect(approved).toMatchObject({ published: 1, failed: 0 });
-  return id;
+  return systemRuleCatalogue(async (path) => ok(api.get(path), 'library'));
 }
 
 const body = (scope: Scope, extra: Record<string, unknown> = {}) => ({
@@ -167,7 +133,8 @@ test.beforeAll(async () => {
     (await ok(api.post('/api/v1/organizations', { name: 'AXI-1767 Resolver Org', type: 'biotech' }), 'org')).id;
   home = await makeScope(orgId, 'AXI-1767 resolver');
   foreign = await makeScope(orgId, 'AXI-1767 foreign');
-  ruleId = await ensureApproved(CARRIER);
+  // AXI-1768: an unapproved carrier is not offered. AXI-1809: served through the shared fixture.
+  ruleId = (await approveSeededRules([CARRIER]))[CARRIER];
 
   const offered = await ok(api.get(`/api/v1/rule-runs/offered-rules?workspaceId=${home.workspaceId}`, home.headers), 'offered');
   expect((offered.offered as Array<{ id: string }>).some((r) => r.id === ruleId), `${CARRIER} is offered once approved`).toBe(true);

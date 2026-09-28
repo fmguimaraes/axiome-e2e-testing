@@ -51,20 +51,31 @@ export async function adminApiContext(): Promise<APIRequestContext> {
   });
 }
 
-/** Fetch the full rule catalog (paged high enough to include the whole IMM-CMP
- *  family in one call). Fails loudly so a provisioning fault is never mistaken
- *  for a product defect. */
+/** Fetch the full SYSTEM rule catalog: every page, `scope === 'system'` only.
+ *  AXI-1809 (the AXI-1822 finding): one unscoped page let other specs' fixture
+ *  rules in (e.g. AXI-1149's project-scope `IMM-QC-01-clone`, one per run) and,
+ *  as they accumulate, push seeds off the page. The seeded catalog is what these
+ *  specs assert on. (Paging is inlined rather than imported from
+ *  `tests/AXI-1762/seeded-rule-approval.ts`, which imports this file.) Fails
+ *  loudly so a provisioning fault is never mistaken for a product defect. */
 export async function fetchRuleCatalog(api: APIRequestContext): Promise<CatalogRule[]> {
-  const res = await api.get(apiUrl('/api/v1/rules?limit=200'));
-  if (!res.ok()) throw new Error(`GET /rules → ${res.status()}: ${await res.text()}`);
-  const body = await res.json();
-  if (!Array.isArray(body?.data)) throw new Error('rule catalog response missing data[]');
-  return body.data as CatalogRule[];
+  const rows: CatalogRule[] = [];
+  for (let page = 1; ; page++) {
+    const res = await api.get(apiUrl(`/api/v1/rules?scope=system&limit=200&page=${page}`));
+    if (!res.ok()) throw new Error(`GET /rules → ${res.status()}: ${await res.text()}`);
+    const body = await res.json();
+    if (!Array.isArray(body?.data)) throw new Error('rule catalog response missing data[]');
+    rows.push(...(body.data as CatalogRule[]));
+    if (!body.meta?.hasNextPage || body.data.length === 0) break;
+  }
+  return rows.filter((r) => r.scope === 'system');
 }
 
 /** The subset of a catalog rule the Safe Compare specs assert on. */
 export interface CatalogRule {
+  id: string;
   code: string;
+  scope: string;
   status: string;
   category: string;
   isMandatory: boolean;
