@@ -1,5 +1,9 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { adminApi, workspaceHeader, type Api } from '../AXI-1435/harness/api';
+// AXI-1800: the ONE drive to the Screen node lives in the shared harness. This spec used to keep a
+// private copy, which never learned AXI-1750's governed decline (reason + confirm) nor AXI-1793's
+// restore fast path and so stalled on the open modal in LIVE mode. Never fork it again.
+import { driveToScreen } from './harness/live-workbench';
 import {
   ensureTenant, ensureProject, ingestFixture, datasetVersionHash, ensureDefaultAnalysis, createViewAnalysis, bindEnvelope, ensureApprovedDiscoveryConfig,
 } from '../AXI-1507/harness/seed';
@@ -302,25 +306,6 @@ test.describe('AXI-1721 - step resolver API (real backend)', { tag: ['@SI-045', 
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-
-async function driveToScreen(page: Page, projectId: string, viewAnalysisId: string): Promise<void> {
-  await page.goto(`/projects/${projectId}/discovery-workbench?analysisId=${viewAnalysisId}`);
-  await expect(page.getByTestId('discovery-workbench')).toBeVisible({ timeout: 30_000 });
-  // Population → confirm the base dataset (the one dataset of this project).
-  const confirm = page.getByTestId('population-confirm');
-  await expect(confirm).toBeEnabled({ timeout: 60_000 });
-  await confirm.click();
-  await page.getByTestId('population-continue').click();
-  // Stratify (the existing run-config modal): partition on `response`, every level.
-  const field = page.getByTestId('stratify-partition-field');
-  await expect(field).toBeVisible({ timeout: 30_000 });
-  await field.getByRole('radio', { name: /response/i }).click();
-  await page.getByTestId('stratify-select-all-levels').click();
-  await page.getByRole('button', { name: 'Run rule' }).click();
-  // Split: decline the holdout (preview) — the Screen then runs on the whole contrast.
-  await page.getByTestId('split-decline-holdout').click();
-  await expect(page.getByTestId('workbench-screen-node')).toBeVisible({ timeout: 30_000 });
-}
 
 test.describe('AXI-1721 - Screen and Cutoff steps live in the workbench (UI, real backend)', { tag: ['@SI-046', '@SI-045'] }, () => {
   test.describe.configure({ mode: 'serial', timeout: 420_000 });
