@@ -82,7 +82,7 @@ test.describe('AXI-1788 - screening policy keys (API, real backend)', { tag: ['@
         key: `${SPLIT}.minPatientsPerClass`,
         value: 5,
         origin: 'customer_config',
-        appliedToRuns: false,
+        appliedToRuns: true,
       },
     ]);
   });
@@ -103,7 +103,7 @@ test.describe('AXI-1788 - screening policy keys (API, real backend)', { tag: ['@
       value: 'benjamini_hochberg',
     });
     expect(entryOf(cfg, `${SCREEN}.alpha`)).toMatchObject({ origin: 'customer_config', value: 0.1 });
-    expect(cfg.guardBackings[0]).toMatchObject({ value: 6, origin: 'customer_config', appliedToRuns: false });
+    expect(cfg.guardBackings[0]).toMatchObject({ value: 6, origin: 'customer_config', appliedToRuns: true });
   });
 
   test('FR11 - an out-of-vocabulary correction or procedure is refused and the policy does not advance', async () => {
