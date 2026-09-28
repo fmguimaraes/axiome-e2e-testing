@@ -178,8 +178,10 @@ test.describe('AXI-1721 - step resolver API (real backend)', { tag: ['@SI-045', 
     expect(byName.minPatientsPerClass).toMatchObject({ value: 5, source: `policy:${SPLIT_OP}.minPatientsPerClass` });
     // R12 (AXI-1750) changed this contract. The kernel REQUIRES the seed; before R12 no
     // one could declare it, so the resolver left it OPEN and the step was not fully bound.
-    // Since R12 `SplitDecisionService.resolveSeed` resolves it server-side, idempotently
-    // per question, so the step resolves fully bound with nothing left to ask.
+    // Since R12 the server resolves it, idempotently per question, so the step resolves
+    // fully bound with nothing left to ask. AXI-1781 (D2) kept the seed VISIBLE here while
+    // removing the write: `previewSeed` states the seed and persists nothing; the
+    // `DiscoverySplitDecision` row is written by the SUBMIT, never by this preview.
     expect(res.body.fullyBound).toBe(true);
     expect(res.body.disabledReason).toBeNull();
     expect(res.body.unresolved).toEqual([]);
@@ -187,19 +189,19 @@ test.describe('AXI-1721 - step resolver API (real backend)', { tag: ['@SI-045', 
     // (the fabrication AXI-1761 removed from the front end's display path).
     expect(byName.splitSeed).toMatchObject({ name: 'splitSeed', slot: 'param' });
     expect(typeof byName.splitSeed.value, 'the seed is a stated number').toBe('number');
-    // `randomInt(0, MAX_SEED)` is half-open, so 0 is a legal seed — asserting > 0 would
-    // flake once in MAX_SEED runs. What matters is that it is a stated integer in range,
-    // not that it is non-zero.
+    // 0 is a legal seed, so asserting > 0 would flake. What matters is that it is a
+    // stated integer in range, not that it is non-zero.
     expect(Number.isInteger(byName.splitSeed.value), 'the seed is an integer').toBe(true);
     expect(byName.splitSeed.value).toBeGreaterThanOrEqual(0);
-    // ⚠ The tag below is pinned as CURRENT BEHAVIOUR, not as endorsed behaviour: the seed is
-    // minted per question with `randomInt`, yet binds as `policy:` because FR9's source
-    // vocabulary has no kind for a server-generated value. Filed as AXI-1781 (D1), together
-    // with the fact that this preview call PERSISTS the seed (D2). When AXI-1781 lands, this
-    // expectation changes to the new source kind — it is here so that change is deliberate
-    // and visible, rather than silently absorbed.
-    expect(byName.splitSeed.source).toBe(`policy:${SPLIT_OP}.splitSeed`);
-    expect(byName.splitSeed.sourceKind).toBe('policy');
+    // AXI-1781 (D1) UNPINNED the mislabel this block used to record. The seed is minted by
+    // the SERVER for this question; it now carries FR9's fifth source kind, `generated`, and
+    // must NEVER read as `policy` — `policy.approved` is surfaced separately as a governance
+    // fact, so the old tag presented a per-question draw as an approved governed knob.
+    expect(byName.splitSeed.source).toBe(`generated:${SPLIT_OP}.splitSeed`);
+    expect(byName.splitSeed.sourceKind).toBe('generated');
+    // An approved governed knob on the SAME step still reads `policy` — the two kinds are
+    // distinct, and no consumer falls back from one to the other.
+    expect(byName.holdoutRatio.sourceKind).toBe('policy');
   });
 
   test('NFR5 - the same inputs resolve to the same answer, twice', async () => {
