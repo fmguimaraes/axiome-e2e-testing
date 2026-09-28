@@ -184,15 +184,36 @@ test.describe('AXI-1765 — rule review, approval records and server-side permis
   test('FR12 — Claude-authored content is never self-approved, even by a sole approver @SI-017', async () => {
     const conduit = await world.actor('conduit', publisherRole);
     const ws = await world.workspace('claude', [conduit]);
-    const rule = await inReviewRule(conduit.api, { scope: 'workspace', workspaceId: ws }, { authorKind: 'claude' });
+    // AXI-1822: `authorKind` is server-derived. A client can no longer create a
+    // rule "as Claude" (`POST /rules {authorKind}` is a 400). The Claude line is
+    // a clone of a Claude-authored seeded carrier, and the clone copies the
+    // author server-side.
+    const catalog: Array<{ id: string; tags: string[] | null }> = (
+      await send(world.admin, 'get', '/api/v1/rules?limit=200&scope=system')
+    ).data;
+    const carrier = catalog.find((r) => (r.tags ?? []).includes('op:stats.mann_whitney_u'));
+    expect(carrier, 'the seeded Claude-authored statistical carrier').toBeDefined();
+    const cloned = await send(conduit.api, 'post', `/api/v1/rules/${carrier!.id}/clone`, {
+      targetScope: 'workspace',
+      targetWorkspaceId: ws,
+    });
+    try {
+      expect((await detail(conduit, cloned.id)).authorKind).toBe('claude');
+      const rule = await send(conduit.api, 'post', `/api/v1/rules/${cloned.id}/submit-for-review`);
+      expect(rule.status).toBe('in_review');
 
-    const view = await detail(conduit, rule.id);
-    expect(view.review?.approveBlockedCode).toBe('SELF_APPROVAL_CLAUDE_AUTHORED');
+      const view = await detail(conduit, rule.id);
+      expect(view.review?.approveBlockedCode).toBe('SELF_APPROVAL_CLAUDE_AUTHORED');
 
-    const refused = await approve(conduit, rule.id, { note: 'I only pasted it' });
-    expect(refused.status(), await refused.text()).toBe(403);
-    expect(await refused.text()).toContain('SELF_APPROVAL_CLAUDE_AUTHORED');
-    expect((await detail(conduit, rule.id)).status).toBe('in_review');
+      const refused = await approve(conduit, rule.id, { note: 'I only pasted it' });
+      expect(refused.status(), await refused.text()).toBe(403);
+      expect(await refused.text()).toContain('SELF_APPROVAL_CLAUDE_AUTHORED');
+      expect((await detail(conduit, rule.id)).status).toBe('in_review');
+    } finally {
+      // The clone carries the carrier's `op:` tag; never leave it to shadow the
+      // real carrier in another spec's catalogue lookup.
+      await world.admin.delete(apiUrl(`/api/v1/rules/${cloned.id}`)).catch(() => undefined);
+    }
   });
 
   // §8.3.7 (FR11, FR13, AC11)
