@@ -157,7 +157,16 @@ test.describe('AXI-1726 - FR0f reopen leg from GuidedAnalysisHistory (mocked pla
         body: JSON.stringify([{
           planId: PLAN_ID, question: 'AXI-1726 viewOnly leg', planner: 'anthropic', revision: 1, status: 'run',
           createdAt: new Date().toISOString(),
-          plan: { planId: PLAN_ID, question: 'AXI-1726 viewOnly leg', nodes: [] },
+          // AXI-1780: a plan mock MUST carry the `reasoning` block the contract
+          // declares (`AnalysisPlan.reasoning`). Without it these two tests never
+          // mounted the tab they assert on at all — `PlanPreview` threw on
+          // `plan.reasoning.whyThisApproach` and the page went blank, which is how
+          // AXI-1780 was found. A mock that under-states the contract makes a
+          // passing assertion meaningless too.
+          plan: {
+            planId: PLAN_ID, question: 'AXI-1726 viewOnly leg', nodes: [],
+            reasoning: { restatedQuestion: 'AXI-1726 viewOnly leg', whyThisApproach: 'Mocked plan list leg.', whatThisWillNotEstablish: 'Nothing analytic — this is a routing assertion.', alternativesConsidered: [] },
+          },
           strategy: 'guided_discovery', analysisId: s.viewAnalysisId,
         }]),
       });
@@ -193,7 +202,12 @@ test.describe('AXI-1726 - FR0f reopen leg from GuidedAnalysisHistory (mocked pla
         body: JSON.stringify([{
           planId: PLAN_ID, question: 'AXI-1726 viewOnly leg, no strategy', planner: 'anthropic', revision: 1, status: 'run',
           createdAt: new Date().toISOString(),
-          plan: { planId: PLAN_ID, question: 'AXI-1726 viewOnly leg, no strategy', nodes: [] },
+          // AXI-1780: same — the mocked plan must carry `reasoning`, or the tab
+          // never mounts and the NFR8 assertion below proves nothing.
+          plan: {
+            planId: PLAN_ID, question: 'AXI-1726 viewOnly leg, no strategy', nodes: [],
+            reasoning: { restatedQuestion: 'AXI-1726 viewOnly leg, no strategy', whyThisApproach: 'Mocked plan list leg.', whatThisWillNotEstablish: 'Nothing analytic — this is a routing assertion.', alternativesConsidered: [] },
+          },
           analysisId: s.viewAnalysisId,
         }]),
       });
@@ -202,7 +216,11 @@ test.describe('AXI-1726 - FR0f reopen leg from GuidedAnalysisHistory (mocked pla
     await page.goto(`/projects/${s.projectId}/view-analyses/${s.viewAnalysisId}?tab=guided`);
     // The panel itself renders (proof the mocked resume chain worked, not a
     // false negative from a page that never loaded the Guided tab at all).
-    await expect(page.getByTestId('ga-run-status-chip')).toBeVisible({ timeout: 20_000 });
+    // AXI-1780: this asserted `ga-run-status-chip`, a testId the surface has
+    // NEVER carried — the run-status chip `PlanPreview` renders is
+    // `plan-run-status`. Authored-but-never-run, so the wrong selector went
+    // unnoticed behind the blank page it could not have distinguished anyway.
+    await expect(page.getByTestId('plan-run-status')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('ga-open-discovery-workbench')).toHaveCount(0);
   });
 });
