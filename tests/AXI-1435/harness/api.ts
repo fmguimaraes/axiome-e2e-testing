@@ -67,9 +67,12 @@ export interface Api {
   ctx: APIRequestContext;
 }
 
+/** The HTTP status that means "your token is no longer good", never a real answer. */
+const UNAUTHORIZED = 401;
+
 /** Build an admin-authenticated API context. Dispose it in an afterAll. */
 export async function adminApi(): Promise<Api> {
-  const token = await adminToken();
+  let token = await adminToken();
   const ctx = await apiRequest.newContext({
     extraHTTPHeaders: { Authorization: `Bearer ${token}` },
   });
@@ -98,16 +101,38 @@ export async function adminApi(): Promise<Api> {
     }
     throw lastErr;
   };
+  /**
+   * AXI-1818 (epic AXI-1717) — `adminToken()` caches for the whole process
+   * (see `resetAdminToken`'s own doc, added by AXI-1677 for the exact same
+   * defect in the `tests/AXI-1462` shadow-run harness). A batch that keeps
+   * this `Api` instance alive past `JWT_EXPIRES_IN` (15m default) starts
+   * getting `401`s on every call this harness makes on the caller's behalf
+   * (`seedLiveWorkbench`, `waitForNode`, `submitStepAndWait` in
+   * `tests/AXI-1717/harness/live-workbench.ts`). Re-mint once, reactively,
+   * and retry with the fresh token as an explicit per-request header — the
+   * `Authorization` header baked into `ctx` at construction cannot be
+   * mutated, but Playwright's per-request headers override the context's.
+   * A 401 that survives the retry is a real auth failure and propagates.
+   */
+  const withAuthRetry = async (
+    build: (authHeader: Record<string, string>) => () => Promise<import('@playwright/test').APIResponse>,
+  ) => {
+    const first = await withRetry(build({ Authorization: `Bearer ${token}` }));
+    if (first.status !== UNAUTHORIZED) return first;
+    resetAdminToken();
+    token = await adminToken();
+    return withRetry(build({ Authorization: `Bearer ${token}` }));
+  };
   return {
     ctx,
     async get(path, headers) {
-      return withRetry(() => ctx.get(apiUrl(path), { headers }));
+      return withAuthRetry((authHeader) => () => ctx.get(apiUrl(path), { headers: { ...authHeader, ...headers } }));
     },
     async post(path, body, headers) {
-      return withRetry(() => ctx.post(apiUrl(path), { data: body as any, headers }));
+      return withAuthRetry((authHeader) => () => ctx.post(apiUrl(path), { data: body as any, headers: { ...authHeader, ...headers } }));
     },
     async patch(path, body, headers) {
-      return withRetry(() => ctx.patch(apiUrl(path), { data: body as any, headers }));
+      return withAuthRetry((authHeader) => () => ctx.patch(apiUrl(path), { data: body as any, headers: { ...authHeader, ...headers } }));
     },
   };
 }

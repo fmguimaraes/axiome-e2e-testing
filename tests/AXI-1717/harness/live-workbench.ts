@@ -1,8 +1,10 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, request as apiRequest, type Page } from '@playwright/test';
 import { adminApi, type Api } from '../../AXI-1435/harness/api';
 import {
   ensureTenant, ensureProject, ingestFixture, datasetVersionHash, ensureDefaultAnalysis, createViewAnalysis, bindEnvelope, ensureApprovedDiscoveryConfig,
 } from '../../AXI-1507/harness/seed';
+import { ensureAuthTokens, type AuthTokens } from '../../../config/auth';
+import { ROLES } from '../../../config/roles';
 
 /**
  * AXI-1722 (epic AXI-1717) — the LIVE workbench seed, lifted out of
@@ -157,12 +159,79 @@ export async function publishedRuleCode(s: Seeded, operationId: string): Promise
   return rule.code as string;
 }
 
-/** The workspace/org the workbench reads from localStorage. */
+/**
+ * AXI-1818 (epic AXI-1717). The `admin` role's browser session — `access_token`
+ * / `refresh_token` in `localStorage` — is minted exactly ONCE, by the auth
+ * `setup` project (`tests/setup/auth.setup.ts`), and persisted to
+ * `.auth/admin.json`; every test's fresh `page.context()` is restored from
+ * that SAME file for the rest of the run. `JWT_EXPIRES_IN` (15m default,
+ * `axiome-back/apps/user-service/src/config/configuration.ts`) is not set on
+ * the `axiome-demo-backend` container, so a batch that runs longer than 15
+ * minutes reaches the login screen for every test from then on: the page
+ * loads, the app's own `apiRequest` 401-refresh (`axiome-front/src/lib/api/client.ts`)
+ * never fires because it is never given a chance — the FIRST call the fresh
+ * page makes (e.g. `/auth/me` on mount) already 401s with a token nobody
+ * refreshed. Evidence: `axiome-e2e-testing/test-results/*​/error-context.md`
+ * shows `heading "Welcome back"` where `driveToSplit`
+ * (`tests/AXI-1717/harness/live-workbench.ts`) expects
+ * `discovery-workbench`.
+ *
+ * FIX, same shape as `ShadowRunAuth`/`planWithRefresh` (AXI-1677,
+ * `tests/AXI-1462/harness/shadow.ts`) but PROACTIVE rather than
+ * reactive-on-401, because a browser page has no seam to intercept and retry
+ * the app's own fetch calls: re-mint the admin tokens and push them into the
+ * page's `localStorage` via `addInitScript` (so they land before the app's
+ * own boot code runs) whenever the ELAPSED TIME since the last mint is
+ * approaching `JWT_EXPIRES_IN` — never keyed to a test index, count, or
+ * describe block, so it stays correct regardless of how the suite is
+ * reshuffled or how many tests land in one window.
+ */
+const BROWSER_REAUTH_INTERVAL_MS = 8 * 60 * 1000; // safely under the 15m JWT_EXPIRES_IN default.
+let browserAuthMintedAt = Date.now();
+let refreshingBrowserAuth: Promise<AuthTokens> | null = null;
+
+/** Mint a fresh admin token pair for the BROWSER session, coalescing concurrent callers. */
+async function freshBrowserAuthTokens(): Promise<AuthTokens> {
+  if (!refreshingBrowserAuth) {
+    refreshingBrowserAuth = (async () => {
+      const bootstrap = await apiRequest.newContext();
+      const role = ROLES.find((r) => r.name === 'admin');
+      if (!role) throw new Error('admin role missing from ROLES registry');
+      const tokens = await ensureAuthTokens(bootstrap, role);
+      await bootstrap.dispose();
+      return tokens;
+    })().finally(() => { refreshingBrowserAuth = null; });
+  }
+  return refreshingBrowserAuth;
+}
+
+/** The workspace/org the workbench reads from localStorage, plus (AXI-1818) a
+ *  time-driven re-mint of the auth tokens `storageState` froze at suite setup. */
 export async function primeWorkspace(page: Page, s: Seeded): Promise<void> {
   await page.addInitScript(([ws, org]) => {
     localStorage.setItem('axiome-active-workspace', ws);
     localStorage.setItem('axiome-top-org', org);
   }, [s.t.workspaceId, s.t.orgId] as const);
+
+  if (Date.now() - browserAuthMintedAt >= BROWSER_REAUTH_INTERVAL_MS) {
+    const tokens = await freshBrowserAuthTokens();
+    browserAuthMintedAt = Date.now();
+    await page.addInitScript(([access, refresh]) => {
+      localStorage.setItem('access_token', access);
+      localStorage.setItem('refresh_token', refresh);
+    }, [tokens.accessToken, tokens.refreshToken] as const);
+  }
+}
+
+/**
+ * AXI-1818 test-only seam: force `primeWorkspace`'s next call to treat the
+ * browser session as stale, without waiting out `BROWSER_REAUTH_INTERVAL_MS`
+ * for real. Exercises the EXACT SAME re-mint code path `primeWorkspace` runs
+ * mid-batch — this only fast-forwards the clock check, never bypasses the
+ * mint/inject logic itself. Never called outside a spec.
+ */
+export function forceBrowserAuthStaleForTest(): void {
+  browserAuthMintedAt = 0;
 }
 
 /**
