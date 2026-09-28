@@ -166,10 +166,17 @@ export async function primeWorkspace(page: Page, s: Seeded): Promise<void> {
 }
 
 /**
- * Population → confirm → Continue → Stratify on `response` (every level) → decline the
- * holdout → the Screen node. `analysisId` null = the AXI-1719 preview path.
+ * Population → confirm → Continue → Stratify on `response` (every level) → the
+ * Split node becomes visible, whatever its holdout state already is (decided
+ * from a PRIOR session, or undecided). `analysisId` null = the AXI-1719
+ * preview path.
+ *
+ * AXI-1760 (FR4) — lifted out of `driveToScreen` so a rehydration spec can
+ * mount fresh, reach the Split node, and assert what renders WITHOUT ever
+ * clicking take/decline in this session (that click is exactly what a
+ * rehydration test must not need).
  */
-export async function driveToScreen(page: Page, projectId: string, analysisId: string | null): Promise<void> {
+export async function driveToSplit(page: Page, projectId: string, analysisId: string | null): Promise<void> {
   await page.goto(`/projects/${projectId}/discovery-workbench${analysisId ? `?analysisId=${analysisId}` : ''}`);
   await expect(page.getByTestId('discovery-workbench')).toBeVisible({ timeout: 30_000 });
   const confirm = page.getByTestId('population-confirm');
@@ -181,6 +188,15 @@ export async function driveToScreen(page: Page, projectId: string, analysisId: s
   await field.getByRole('radio', { name: /response/i }).click();
   await page.getByTestId('stratify-select-all-levels').click();
   await page.getByRole('button', { name: 'Run rule' }).click();
+  await expect(page.getByTestId('workbench-split-node')).toBeVisible({ timeout: 30_000 });
+}
+
+/**
+ * Population → confirm → Continue → Stratify on `response` (every level) → decline the
+ * holdout → the Screen node. `analysisId` null = the AXI-1719 preview path.
+ */
+export async function driveToScreen(page: Page, projectId: string, analysisId: string | null): Promise<void> {
+  await driveToSplit(page, projectId, analysisId);
   await page.getByTestId('split-decline-holdout').click();
   if (analysisId) {
     // AXI-1750 (R12): in LIVE mode the decline is a governed record with a
