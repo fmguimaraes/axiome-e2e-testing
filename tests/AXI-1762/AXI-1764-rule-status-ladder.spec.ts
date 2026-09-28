@@ -1,6 +1,7 @@
 import { test, expect, APIRequestContext } from '@playwright/test';
 import { apiUrl } from '../../config/env';
 import { adminApiContext } from '../AXI-1236/rules-fixtures';
+import { inReviewRule, ReviewWorld } from './AXI-1765-rule-review-fixtures';
 
 /**
  * AXI-1764 (epic AXI-1762 — FR8/FR9/FR10/FR14): the merged rule status ladder
@@ -163,82 +164,92 @@ test.describe('AXI-1764 — merged rule status ladder and the checked gate', () 
 
   // §7.3.4 (AC12, EC2, FR14)
   test('AC12 EC2 — editing a published rule forks a new draft version; the published version keeps serving @SI-017', async () => {
-    // CreateRuleDto does not carry outputFields (see rule-library.md §1.4) —
-    // complete the rule via update so it can publish.
-    const created = await createFeatureRule();
-    await api.patch(apiUrl(`/api/v1/rules/${created.id}`), {
-      data: {
-        outputFields: [
-          { key: 'feature_name', type: 'string', description: 'Name of the computed feature.' },
-          { key: 'value', type: 'number', description: 'The computed feature value.' },
-        ],
-        guidance: COMPLETE_GUIDANCE,
-      },
-    });
+    // AXI-1765 closed AXI-1764's compat window: publishing is now an APPROVAL
+    // of an in_review rule by a `rule:publish` holder (manual-e2e §8). The rule
+    // is therefore authored in a fresh workspace by a throwaway author and
+    // approved by a throwaway reviewer — the admin holds no assigned
+    // `rule:publish` and must not be granted one by a test.
+    const world = await ReviewWorld.create();
+    try {
+      const author = await world.actor('fork-author', await world.role('fork-reader', ['rule:read']));
+      const reviewer = await world.actor(
+        'fork-reviewer',
+        await world.role('fork-publisher', ['rule:read', 'rule:publish']),
+      );
+      const ws = await world.workspace('fork', [author, reviewer]);
+      const api = author.api;
+      const created = await inReviewRule(api, { scope: 'workspace', workspaceId: ws }, {
+        title: 'AXI-1764 status ladder fixture',
+      });
 
-    const published = await api.post(apiUrl(`/api/v1/rules/${created.id}/publish`), { data: {} });
-    expect(published.status(), await published.text()).toBe(201);
-    const publishedBody = (await published.json()) as RuleResponse;
-    expect(publishedBody.status).toBe('published');
+      const published = await reviewer.api.post(apiUrl(`/api/v1/rules/${created.id}/approve`), {
+        data: { note: 'AXI-1764 fork fixture approval' },
+      });
+      expect(published.status(), await published.text()).toBe(201);
+      const publishedBody = (await published.json()) as RuleResponse;
+      expect(publishedBody.status).toBe('published');
 
-    const versionsBeforeEdit = await api.get(apiUrl(`/api/v1/rules/${created.id}/versions`));
-    const versionsBeforeBody = (await versionsBeforeEdit.json()) as Array<{ status: string }>;
-    expect(versionsBeforeBody.filter((v) => v.status === 'published')).toHaveLength(1);
+      const versionsBeforeEdit = await api.get(apiUrl(`/api/v1/rules/${created.id}/versions`));
+      const versionsBeforeBody = (await versionsBeforeEdit.json()) as Array<{ status: string }>;
+      expect(versionsBeforeBody.filter((v) => v.status === 'published')).toHaveLength(1);
 
-    const edited = await api.patch(apiUrl(`/api/v1/rules/${created.id}`), {
-      data: { title: 'A widened title, forking the published rule' },
-    });
-    expect(edited.status(), await edited.text()).toBe(200);
-    const editedBody = (await edited.json()) as RuleResponse;
-    expect(['draft', 'checked']).toContain(editedBody.status);
+      const edited = await api.patch(apiUrl(`/api/v1/rules/${created.id}`), {
+        data: { title: 'A widened title, forking the published rule' },
+      });
+      expect(edited.status(), await edited.text()).toBe(200);
+      const editedBody = (await edited.json()) as RuleResponse;
+      expect(['draft', 'checked']).toContain(editedBody.status);
 
-    const versionsAfterEdit = await api.get(apiUrl(`/api/v1/rules/${created.id}/versions`));
-    const versionsAfterBody = (await versionsAfterEdit.json()) as Array<{ status: string }>;
-    // The original published version row is untouched...
-    expect(versionsAfterBody.filter((v) => v.status === 'published')).toHaveLength(1);
-    // ...and a new draft version row marks the fork.
-    expect(versionsAfterBody.filter((v) => v.status === 'draft').length).toBeGreaterThanOrEqual(1);
+      const versionsAfterEdit = await api.get(apiUrl(`/api/v1/rules/${created.id}/versions`));
+      const versionsAfterBody = (await versionsAfterEdit.json()) as Array<{ status: string; version: number }>;
+      // The original published version row is untouched...
+      expect(versionsAfterBody.filter((v) => v.status === 'published')).toHaveLength(1);
+      // ...and a new draft version row marks the fork.
+      expect(versionsAfterBody.filter((v) => v.status === 'draft').length).toBeGreaterThanOrEqual(1);
 
-    const live = await api.get(apiUrl(`/api/v1/rules/${created.id}`));
-    const liveBody = (await live.json()) as RuleResponse;
-    expect(liveBody.title).toBe('A widened title, forking the published rule');
+      const live = await api.get(apiUrl(`/api/v1/rules/${created.id}`));
+      const liveBody = (await live.json()) as RuleResponse;
+      expect(liveBody.title).toBe('A widened title, forking the published rule');
 
-    // Version numbers stay unique per rule — the fork row is a NEW version,
-    // never a second row at the published version's number.
-    const versionNumbers = (versionsAfterBody as Array<{ version: number }>).map((v) => v.version);
-    expect(new Set(versionNumbers).size).toBe(versionNumbers.length);
-    const publishedVersion = (versionsAfterBody as Array<{ status: string; version: number }>).find(
-      (v) => v.status === 'published',
-    )!.version;
-    const forkVersion = Math.max(
-      ...(versionsAfterBody as Array<{ status: string; version: number }>)
-        .filter((v) => v.status === 'draft')
-        .map((v) => v.version),
-    );
-    expect(forkVersion).toBeGreaterThan(publishedVersion);
+      // Version numbers stay unique per rule — the fork row is a NEW version,
+      // never a second row at the published version's number.
+      const versionNumbers = (versionsAfterBody as Array<{ version: number }>).map((v) => v.version);
+      expect(new Set(versionNumbers).size).toBe(versionNumbers.length);
+      const publishedVersion = (versionsAfterBody as Array<{ status: string; version: number }>).find(
+        (v) => v.status === 'published',
+      )!.version;
+      const forkVersion = Math.max(
+        ...(versionsAfterBody as Array<{ status: string; version: number }>)
+          .filter((v) => v.status === 'draft')
+          .map((v) => v.version),
+      );
+      expect(forkVersion).toBeGreaterThan(publishedVersion);
 
-    // AXI-1764 rework (EC2, AC12, D1): the published version KEEPS SERVING —
-    // every picker asks `GET /rules?status=published`, and the forked rule must
-    // still be listed there, as `published`, with the PUBLISHED title — never
-    // the unapproved draft edit.
-    const served = await api.get(
-      apiUrl(`/api/v1/rules?status=published&search=${encodeURIComponent(String(created.code))}&limit=50`),
-    );
-    expect(served.status(), await served.text()).toBe(200);
-    const servedBody = (await served.json()) as { data?: RuleResponse[]; rules?: RuleResponse[] } | RuleResponse[];
-    const servedRows = Array.isArray(servedBody) ? servedBody : servedBody.data ?? servedBody.rules ?? [];
-    const servedRule = servedRows.find((r) => r.id === created.id);
-    expect(servedRule, 'the forked rule must still be served under status=published').toBeDefined();
-    expect(servedRule!.status).toBe('published');
-    expect(servedRule!.title).toBe('AXI-1764 status ladder fixture');
-    expect(servedRule!.version).toBe(publishedVersion);
+      // AXI-1764 rework (EC2, AC12, D1): the published version KEEPS SERVING —
+      // every picker asks `GET /rules?status=published`, and the forked rule must
+      // still be listed there, as `published`, with the PUBLISHED title — never
+      // the unapproved draft edit.
+      const served = await api.get(
+        apiUrl(`/api/v1/rules?status=published&search=${encodeURIComponent(String(created.code))}&limit=50`),
+      );
+      expect(served.status(), await served.text()).toBe(200);
+      const servedBody = (await served.json()) as { data?: RuleResponse[]; rules?: RuleResponse[] } | RuleResponse[];
+      const servedRows = Array.isArray(servedBody) ? servedBody : servedBody.data ?? servedBody.rules ?? [];
+      const servedRule = servedRows.find((r) => r.id === created.id);
+      expect(servedRule, 'the forked rule must still be served under status=published').toBeDefined();
+      expect(servedRule!.status).toBe('published');
+      expect(servedRule!.title).toBe('AXI-1764 status ladder fixture');
+      expect(servedRule!.version).toBe(publishedVersion);
 
-    // ...and the author's own editing line is still visible under its live status.
-    const editing = await api.get(
-      apiUrl(`/api/v1/rules?status=${editedBody.status}&search=${encodeURIComponent(String(created.code))}&limit=50`),
-    );
-    const editingBody = (await editing.json()) as { data?: RuleResponse[]; rules?: RuleResponse[] } | RuleResponse[];
-    const editingRows = Array.isArray(editingBody) ? editingBody : editingBody.data ?? editingBody.rules ?? [];
-    expect(editingRows.find((r) => r.id === created.id)?.title).toBe('A widened title, forking the published rule');
+      // ...and the author's own editing line is still visible under its live status.
+      const editing = await api.get(
+        apiUrl(`/api/v1/rules?status=${editedBody.status}&search=${encodeURIComponent(String(created.code))}&limit=50`),
+      );
+      const editingBody = (await editing.json()) as { data?: RuleResponse[]; rules?: RuleResponse[] } | RuleResponse[];
+      const editingRows = Array.isArray(editingBody) ? editingBody : editingBody.data ?? editingBody.rules ?? [];
+      expect(editingRows.find((r) => r.id === created.id)?.title).toBe('A widened title, forking the published rule');
+    } finally {
+      await world.dispose();
+    }
   });
 });
