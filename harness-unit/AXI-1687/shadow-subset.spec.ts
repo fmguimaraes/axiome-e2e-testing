@@ -174,7 +174,11 @@ test('UT-ABORT-1689-1: an unconfigured guard refuses BEFORE any call — one `no
   });
   assert.equal(calls, 0);
   assert.equal(result.status, 'refused');
-  assert.deepEqual(result.guard, { allowed: false, reason: 'not_configured' });
+  // AXI-1716: the run's guard decision is now `decideHarnessBankRun`'s, which
+  // ADDS the serving backend's transport statement to the same `allowed`/
+  // `reason` it always carried. The stub backend answers nothing recognisable,
+  // so the transport is `unknown` and the FR116 refusal is verbatim what it was.
+  assert.deepEqual(result.guard, { allowed: false, reason: 'not_configured', transport: 'unknown' });
   assert.deepEqual(result.questionIds, [3, 7, 12]);
   assert.deepEqual(
     result.rows.map((r) => [r.questionId, r.outcome, r.notAnsweredReason, r.attempts]),
@@ -271,7 +275,11 @@ test('UT-SIDECAR-1689-1: the run summary sidecar records status, guard decision,
       'compiled',
       {
         status: 'INVALID',
-        guard: { allowed: true, reason: 'allowed', rowId: ROW_ID },
+        guard: { allowed: true, reason: 'allowed', rowId: ROW_ID, transport: 'live', spendMode: 'registered_live' },
+        // AXI-1716: a summary cannot be written without stating how the run's
+        // answers were obtained — see `recorded-bank-run.spec.ts`.
+        transport: { mode: 'live', source: 'backend' },
+        provenance: { transport: 'live', label: 'live', budget: `paid — see REGISTRY.md row ${ROW_ID}`, registryRowId: ROW_ID },
         questionIds: [3, 7, 12],
         abortedAtQuestionId: 7,
       },

@@ -205,6 +205,11 @@ STRUCTURAL PIN of the row shape against `axiome-back`'s
 
 ## AXI-1811/shadow-recorded-transport.spec.ts
 
+**AXI-1857 (2026-09-28): the `SHADOW_RUN_TRANSPORT` axis described next is
+DELETED** — the harness's own env could buy a free run against a `live`
+backend. 001–005 are retired; 006–013 now drive the transport through the
+backend's statement (AXI-1716), never env.
+
 AXI-1811 (epic AXI-1687 — R-LLM-1, FR113–FR115). The recorded-transport axis
 of `decideHarnessLiveSpend` (`SHADOW_RUN_TRANSPORT=recorded`, no spend-go
 needed, refused as `ambiguous_transport` alongside a spend-go), the ONE
@@ -218,16 +223,58 @@ gate was added. No live backend; nothing here can spend.
 
 | ID | Description | Status |
 |----|-------------|--------|
-| UT-HGUARD-1811-001 | `SHADOW_RUN_TRANSPORT=recorded` is allowed with NO spend-go and no registry | Pass |
-| UT-HGUARD-1811-002 | `SHADOW_RUN_TRANSPORT=recorded` is case/whitespace tolerant | Pass |
-| UT-HGUARD-1811-003 | `SHADOW_RUN_TRANSPORT=recorded` together with a spend-go is refused `ambiguous_transport` | Pass |
-| UT-HGUARD-1811-004 | An unset or non-"recorded" `SHADOW_RUN_TRANSPORT` leaves the live-spend decision byte-for-byte unchanged | Pass |
-| UT-HGUARD-1811-005 | `E2E_LIVE_LLM` is still NOT a go on the recorded axis either (NFR1, one knob) | Pass |
-| UT-HGUARD-1811-006 | `transportLabelFor` maps allowed→live, recorded→claude-code, any refusal→undefined | Pass |
-| UT-HGUARD-1811-007 | A recorded-transport run labels every answered row `claude-code`, never `live` | Pass |
+| UT-HGUARD-1811-001 | ~~`SHADOW_RUN_TRANSPORT=recorded` is allowed with NO spend-go and no registry~~ | Retired (AXI-1857) |
+| UT-HGUARD-1811-002 | ~~`SHADOW_RUN_TRANSPORT=recorded` is case/whitespace tolerant~~ | Retired (AXI-1857) |
+| UT-HGUARD-1811-003 | ~~`SHADOW_RUN_TRANSPORT=recorded` together with a spend-go is refused `ambiguous_transport`~~ | Retired (AXI-1857) |
+| UT-HGUARD-1811-004 | ~~An unset or non-"recorded" `SHADOW_RUN_TRANSPORT` leaves the live-spend decision byte-for-byte unchanged~~ | Retired (AXI-1857) |
+| UT-HGUARD-1811-005 | ~~`E2E_LIVE_LLM` is still NOT a go on the recorded axis either (NFR1, one knob)~~ | Retired (AXI-1857) |
+| UT-HGUARD-1811-006 | `transportLabelFor` maps `spendMode` free_recorded→claude-code, registered_live→live, refusal or no spend mode→undefined (AXI-1857) | Pass |
+| UT-HGUARD-1811-007 | A run against a backend stating `recorded` labels every answered row `claude-code`, never `live` | Pass |
 | UT-HGUARD-1811-008 | A live-go run labels every answered row `live` | Pass |
 | UT-HGUARD-1811-009 | A guard-refused run carries no transport label — no call was made to label | Pass |
 | UT-HGUARD-1811-010 | Every row key stays within the closed `SHADOW_RUN_ROW_KEYS` set (`transport` included) | Pass |
 | UT-HGUARD-1811-011 | A `recording_missing` response is `not_answered`, never an honest `unsupported` verdict | Pass |
 | UT-HGUARD-1811-012 | `pendingRecordingShaOf` names the pending payload sha from the miss detail | Pass |
 | UT-HGUARD-1811-013 | A `recording_missing` row from a guarded run is scored `not_answered` and named in the result, never counted as an answer | Pass |
+| UT-HGUARD-1857-001 | `SHADOW_RUN_TRANSPORT=recorded` against a LIVE backend is refused before any call; no row is labelled free | Pass |
+| UT-HGUARD-1857-002 | `SHADOW_RUN_TRANSPORT=recorded` + a registered go against a LIVE backend is a paid run labelled `live`, never `claude-code` | Pass |
+| UT-HGUARD-1857-003 | `shadowRunProvenanceOf` labels an allowed decision `live` only when it states `registered_live`; an unstated spend mode is `none`, never presumed free (Opus advisory B) | Pass |
+
+## AXI-1687/recorded-bank-run.spec.ts
+
+AXI-1716 (epic AXI-1687, area P re-scope). Covers the blocker that made a FREE
+recorded bank run impossible: `runShadowBankGuarded` gated every run on the FR116
+paid-run go, with no transport awareness, so a run against a `recorded` backend —
+which reads no key and spends nothing — was refused and every row scored
+`not_answered` at the gate, failing condition (a).
+
+The rule this file holds: a run is free **only** when the backend that will serve
+the calls says so (`GET /api/v1/guided-analysis/llm-transport`, answered by
+`organization-service`). Nothing in the harness's own environment can make a run
+free — a self-asserted `SHADOW_RUN_TRANSPORT=recorded` would be a straight bypass
+of FR116 — and the paid procedure is byte-for-byte unchanged. Nothing here can
+spend; no backend is contacted.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-SHADOW-1716-001 | A 200 naming `organization-service` with a legal mode IS the statement | Pass |
+| UT-SHADOW-1716-002 | A non-200 probe is `unknown`, never a mode | Pass |
+| UT-SHADOW-1716-003 | A reply not naming `organization-service` is `unknown`, even when it says `recorded` | Pass |
+| UT-SHADOW-1716-004 | An unrecognised or absent mode is `unknown`, never defaulted to `recorded` | Pass |
+| UT-SHADOW-1716-005 | A `live` statement reads as live — a paid backend is never mistaken for a free one | Pass |
+| UT-SHADOW-1716-006 | The probe reads the documented route and passes the workspace header | Pass |
+| UT-SHADOW-1716-007 | A backend that cannot be asked yields `unknown` and does not throw the run | Pass |
+| UT-SHADOW-1716-008 | A RECORDED backend is allowed with NO registry, NO go and NO row id (the blocker) | Pass |
+| UT-SHADOW-1716-009 | A LIVE backend keeps FR116 exactly — all five refusal reasons still reachable | Pass |
+| UT-SHADOW-1716-010 | A LIVE backend with a registered written go is allowed, `registered_live`, row id echoed | Pass |
+| UT-SHADOW-1716-011 | An UNKNOWN transport never buys a free run, and never breaks a registered live one | Pass |
+| UT-SHADOW-1716-012 | BYPASS — a harness claiming `recorded` in its OWN env against a LIVE backend is REFUSED | Pass |
+| UT-SHADOW-1716-013 | BYPASS — a `recorded` claim made by something other than `organization-service` is refused | Pass |
+| UT-SHADOW-1716-014 | `decideHarnessLiveSpend` itself is untouched — it states no transport and no spend mode | Pass |
+| UT-SHADOW-1716-015 | A recorded run is labelled `claude-code` at `0 USD (claude-code, blind)`, never `live` | Pass |
+| UT-SHADOW-1716-016 | A registered live run is labelled `live` and points at its registry row for the budget | Pass |
+| UT-SHADOW-1716-017 | A refused run is labelled `none` and names the refusal — no call, no claim | Pass |
+| UT-SHADOW-1716-018 | Against a RECORDED backend the bank actually runs with no go — the blocker is gone | Pass |
+| UT-SHADOW-1716-019 | Against a LIVE backend with no go the run is still refused before any call | Pass |
+| UT-SHADOW-1716-020 | An unreachable probe is `unknown` and the run is refused, not crashed | Pass |
+| UT-SHADOW-1716-021 | The run sidecar records the transport statement and the provenance beside the guard | Pass |

@@ -101,8 +101,9 @@ export interface ShadowRunRow {
    * AXI-1811 (R-LLM-1) — `'live'` or `'claude-code'`, present on every row an
    * actual call was attempted under (i.e. the run was not guard-refused before
    * any call). Never absent for such a row and never inferred by a reader —
-   * `transportLabelFor()` is the one place that decides it, from THIS harness's
-   * OWN `decideHarnessLiveSpend` decision for the run.
+   * `transportLabelFor()` is the one place that decides it, from the run's
+   * `decideHarnessBankRun` decision — i.e. from the backend's own transport
+   * statement, never the harness's env (AXI-1857).
    */
   readonly transport?: ShadowRunTransport;
 }
@@ -488,71 +489,75 @@ function rowOf(
 // DIFFERENT, older opt-in for the route-free Playwright specs and is never
 // consulted here: one knob, one grammar (NFR1).
 //
-// AXI-1811 (epic AXI-1687 — R-LLM-1, FR113–FR115). A SECOND, explicit axis on
-// the SAME decision: `SHADOW_RUN_TRANSPORT=recorded` allows the run with NO
-// spend-go and NO registry row, because it never reaches `LiveAnthropicTransport`
-// at all — it is a labelling/permission knob for THIS harness, never a second
-// gate. The real wall stays server-side: `assertLlmTransportModeConfigured` /
-// `resolveLlmTransportMode` in `axiome-back`'s `provider/llm-transport.ts` is
-// what actually decides whether the backend process this harness is talking to
-// can ever construct `LiveAnthropicTransport`. This flag cannot see that
-// server-side setting and does not try to — it only says "the OPERATOR is
-// telling this harness the backend is running recorded, so label the rows
-// `claude-code` and don't demand a paid-run go for a run that will spend
-// nothing." A backend actually misconfigured to `live` would still refuse the
-// call itself (FR53), so a mislabelled harness flag cannot buy a live call.
-//
-// Setting BOTH `SHADOW_RUN_TRANSPORT=recorded` AND `GUIDED_ANALYSIS_LIVE_SPEND_GO`
-// is refused as ambiguous — a caller who wrote both did not decide which of
-// "no spend" or "a paid run" the artefact represents, and this harness has no
-// tie-break rule to prefer one over the other. `E2E_LIVE_LLM` is never read by
-// either axis (NFR1, one knob, one grammar) — that is a DIFFERENT, older
-// opt-in for the route-free Playwright specs.
+// AXI-1857 (fixes AXI-1811). AXI-1811 briefly added a second axis here, a
+// harness-side `SHADOW_RUN_TRANSPORT=recorded` that allowed a run with no
+// spend-go and labelled it free. It is DELETED: the harness's own env says
+// nothing about the transport the BACKEND runs (`GUIDED_ANALYSIS_LLM_TRANSPORT`,
+// read by organization-service), so pointed at a `live` backend with a key it
+// bought an unregistered paid run whose artefact claimed 0 USD. The only way
+// into a free run is the backend's own statement — `decideHarnessBankRun`
+// below (AXI-1716). Do not re-add a transport variable to this function.
 
 /** The registry row-id grammar (FR9): `RUN-` + ISO date + two-digit ordinal. */
 export const LIVE_SPEND_ROW_ID = /^RUN-\d{4}-\d{2}-\d{2}-\d{2}$/;
-
-/** AXI-1811 — the recorded-transport opt-in env var, a labelling/permission knob only. */
-export const SHADOW_RUN_TRANSPORT_ENV = 'SHADOW_RUN_TRANSPORT';
 
 export type HarnessLiveSpendRefusal =
   | 'not_configured'
   | 'invalid_row_id'
   | 'no_registry'
   | 'row_not_registered'
-  | 'row_not_go'
-  /** AXI-1811 — both `SHADOW_RUN_TRANSPORT=recorded` AND a spend-go were set. */
-  | 'ambiguous_transport';
+  | 'row_not_go';
 
 /** AXI-1811 — the label an allowed run's rows carry (never inferred downstream). */
 export type ShadowRunTransport = 'live' | 'claude-code';
 
+/**
+ * AXI-1716. How a run that WAS allowed is paid for.
+ * `free_recorded`   — the serving backend stated `recorded`; no key, no network, no go needed.
+ * `registered_live` — the FR116 procedure, entirely unchanged: registry row + written go.
+ */
+export type ShadowRunSpendMode = 'free_recorded' | 'registered_live';
+
 export interface HarnessLiveSpendDecision {
   readonly allowed: boolean;
-  /** `allowed` (live) or `recorded` when `allowed` is true; the refusal otherwise. */
-  readonly reason: HarnessLiveSpendRefusal | 'allowed' | 'recorded';
-  /** The row id the decision was made for, when the variable parsed as one. Live only. */
+  /** `allowed` when `allowed` is true; the refusal otherwise. */
+  readonly reason: HarnessLiveSpendRefusal | 'allowed';
+  /** The row id the decision was made for, when the variable parsed as one. */
   readonly rowId?: string;
+  /**
+   * AXI-1716, additive. What the SERVING backend said about its transport, when
+   * it was asked (`decideHarnessBankRun`). `decideHarnessLiveSpend` never sets
+   * it — that function's five refusal labels and its `allowed` shape are
+   * untouched, so every report string that reads them still reads the same.
+   */
+  readonly transport?: HarnessTransportMode;
+  /** AXI-1716, additive. Present only on an allowed decision. */
+  readonly spendMode?: ShadowRunSpendMode;
 }
 
 /**
  * AXI-1811 — pure. The transport label an allowed decision's rows carry;
  * `undefined` for a refusal, since no call was made and nothing may be
- * labelled for one (never inferred). The SINGLE mapping from decision reason
- * to label — never restated at a call site.
+ * labelled for one (never inferred). The SINGLE mapping from decision to
+ * label — never restated at a call site.
+ *
+ * AXI-1857: keyed on `spendMode`, which only `decideHarnessBankRun` sets and
+ * only from the backend's own statement — never on `reason`, which reads
+ * `allowed` for a free run and a paid one alike.
  */
 export function transportLabelFor(
-  decision: Pick<HarnessLiveSpendDecision, 'reason'>,
+  decision: Pick<HarnessLiveSpendDecision, 'allowed' | 'spendMode'>,
 ): ShadowRunTransport | undefined {
-  if (decision.reason === 'allowed') return 'live';
-  if (decision.reason === 'recorded') return 'claude-code';
+  if (!decision.allowed) return undefined;
+  if (decision.spendMode === 'free_recorded') return 'claude-code';
+  if (decision.spendMode === 'registered_live') return 'live';
   return undefined;
 }
 
 /**
- * Pure. Decides whether THIS harness process may run the bank, and under
- * which transport label. The SINGLE authority for both axes (AXI-1811) — do
- * not add a second gate.
+ * Pure. Decides whether THIS harness process may run a PAID bank: the FR116
+ * procedure, nothing else. It knows nothing about transports —
+ * `decideHarnessBankRun` composes it with the backend's statement.
  *
  * `registryText` is the text of the run registry (`SHADOW_RUN_REGISTRY_PATH`)
  * when the caller could read it; the registry line for a row must carry the
@@ -566,13 +571,6 @@ export function decideHarnessLiveSpend(
   registryText: string | undefined,
 ): HarnessLiveSpendDecision {
   const raw = env.GUIDED_ANALYSIS_LIVE_SPEND_GO?.trim();
-  const recordedRequested = (env[SHADOW_RUN_TRANSPORT_ENV] ?? '').trim().toLowerCase() === 'recorded';
-
-  if (recordedRequested) {
-    if (raw) return { allowed: false, reason: 'ambiguous_transport' };
-    return { allowed: true, reason: 'recorded' };
-  }
-
   if (!raw) return { allowed: false, reason: 'not_configured' };
   if (!LIVE_SPEND_ROW_ID.test(raw)) return { allowed: false, reason: 'invalid_row_id' };
   if (registryText === undefined) return { allowed: false, reason: 'no_registry', rowId: raw };
@@ -580,6 +578,204 @@ export function decideHarnessLiveSpend(
   if (!line) return { allowed: false, reason: 'row_not_registered', rowId: raw };
   if (!/\bGO:\s*\S+/.test(line)) return { allowed: false, reason: 'row_not_go', rowId: raw };
   return { allowed: true, reason: 'allowed', rowId: raw };
+}
+
+// ─── AXI-1716 (epic AXI-1687 — the recorded-bank-run blocker) ───────────────
+//
+// `decideHarnessLiveSpend` above knows exactly one thing: whether the operator
+// registered a PAID run. That is the whole FR116 procedure and it stays exactly
+// as it is. What it does NOT know is whether the run would cost anything at all.
+//
+// Since AXI-1758 the platform's default transport is `recorded`: the backend
+// serves every LLM answer from `llm-debug/recordings/`, reads no API key and
+// reaches no network. A bank run against such a backend spends nothing — and
+// yet the guard above refused it, every question came back
+// `not_answered: 'guard'`, and `shadow-run/gate/classify.ts` scored those
+// `not_answered`, failing gate condition (a). The recorded strategy could not
+// produce a scoreable bank run at all. That is the blocker this section lifts.
+//
+// A recorded run needs no registry go because there is nothing to authorise.
+// The entire risk is in HOW the harness learns the run is free:
+//
+//   NOT from its own environment. A harness-side `SHADOW_RUN_TRANSPORT=recorded`
+//   would be a straight bypass of FR116 — set it, point at a `live` backend, and
+//   you have an unregistered paid run whose artefact says it was free. NOTHING in
+//   this file reads a transport variable out of `env`, by design.
+//
+//   FROM THE BACKEND THAT WILL SERVE THE CALLS. `GET /api/v1/guided-analysis/
+//   llm-transport` is answered by organization-service — the one process that
+//   constructs the transport — out of `resolveLlmTransportMode(process.env)`, the
+//   SAME function `DelegatingLlmTransport.send()` re-evaluates on every send. The
+//   probe travels the same base URL, the same token and the same workspace header
+//   as the run's own plan calls, so the "free" answer cannot come from one backend
+//   while the spending happens on another.
+//
+// A backend that cannot be asked, answers something else, or names a service
+// other than `organization-service` yields `unknown`, and an `unknown` transport
+// falls straight through to the UNCHANGED FR116 guard — which, with no go, is the
+// refusal it has always been. The free path needs an affirmative `recorded`
+// statement; there is no other way into it.
+
+/** The gateway route carrying the serving backend's own transport statement (AXI-1716). */
+export const LLM_TRANSPORT_PROBE_PATH = '/api/v1/guided-analysis/llm-transport';
+
+/** The only service allowed to speak for the transport: the one that constructs it. */
+export const TRANSPORT_STATEMENT_SERVICE = 'organization-service';
+
+export type HarnessTransportMode = 'live' | 'recorded' | 'unknown';
+
+/**
+ * What the SERVING backend said. `source` records where the fact came from and
+ * has exactly one trustworthy value: `backend`. `detail` explains an `unknown`.
+ */
+export interface HarnessTransportStatement {
+  readonly mode: HarnessTransportMode;
+  readonly source: 'backend' | 'unavailable';
+  readonly detail?: string;
+}
+
+const TRANSPORT_UNKNOWN = (detail: string): HarnessTransportStatement => ({
+  mode: 'unknown',
+  source: 'unavailable',
+  detail,
+});
+
+/**
+ * Pure. Turns one probe response into a statement, refusing anything short of an
+ * unambiguous, self-identifying answer.
+ *
+ * The `service` check is load-bearing, not decoration: `GUIDED_ANALYSIS_LLM_TRANSPORT`
+ * exists in the environment of more than one process, and a reply that does not
+ * name `organization-service` is a guess by something that does not own the
+ * transport seam. Treat it as no answer at all.
+ */
+export function interpretTransportProbe(status: number, body: unknown): HarnessTransportStatement {
+  if (status !== 200) return TRANSPORT_UNKNOWN(`transport probe returned HTTP ${status}`);
+  if (typeof body !== 'object' || body === null) {
+    return TRANSPORT_UNKNOWN('transport probe returned no JSON object');
+  }
+  const { mode, service } = body as { mode?: unknown; service?: unknown };
+  if (service !== TRANSPORT_STATEMENT_SERVICE) {
+    return TRANSPORT_UNKNOWN(
+      `transport statement was not made by ${TRANSPORT_STATEMENT_SERVICE} (got ${JSON.stringify(service)})`,
+    );
+  }
+  if (mode !== 'live' && mode !== 'recorded') {
+    return TRANSPORT_UNKNOWN(`transport probe returned an unrecognised mode ${JSON.stringify(mode)}`);
+  }
+  return { mode, source: 'backend' };
+}
+
+/**
+ * Asks the backend the run is about to hit. Never throws: an unreachable probe
+ * is an `unknown` statement, which refuses through the unchanged FR116 guard
+ * rather than failing the run with a stack trace.
+ */
+export async function readBackendTransportMode(
+  api: Api,
+  workspaceId: string,
+): Promise<HarnessTransportStatement> {
+  try {
+    const res = await api.get(LLM_TRANSPORT_PROBE_PATH, workspaceHeader(workspaceId));
+    return interpretTransportProbe(res.status, res.body);
+  } catch (err) {
+    return TRANSPORT_UNKNOWN(`transport probe failed: ${(err as Error)?.message ?? String(err)}`);
+  }
+}
+
+/**
+ * `readBackendTransportMode` against the run's own auth. Separate only so that
+ * `auth.api()` itself — which mints/returns the client and can fail — is inside
+ * the same catch as the request: a probe that cannot even be attempted is still
+ * just `unknown`, never a thrown run.
+ */
+async function probeTransport(
+  auth: ShadowRunAuth,
+  workspaceId: string,
+): Promise<HarnessTransportStatement> {
+  try {
+    return await readBackendTransportMode(auth.api(), workspaceId);
+  } catch (err) {
+    return TRANSPORT_UNKNOWN(`transport probe could not be attempted: ${(err as Error)?.message ?? String(err)}`);
+  }
+}
+
+/**
+ * Pure. The ONE decision a bank run is gated on, composed from two independent
+ * facts: what the backend said, and what the operator registered.
+ *
+ * `transport` must come from `readBackendTransportMode` — it is the backend's
+ * own statement. It is a parameter rather than something this function reads so
+ * the policy is testable without a backend; the one thing it is never derived
+ * from is `env`.
+ */
+export function decideHarnessBankRun(
+  env: Record<string, string | undefined>,
+  registryText: string | undefined,
+  transport: HarnessTransportStatement,
+): HarnessLiveSpendDecision {
+  if (transport.mode === 'recorded' && transport.source === 'backend') {
+    return { allowed: true, reason: 'allowed', transport: 'recorded', spendMode: 'free_recorded' };
+  }
+  const live = decideHarnessLiveSpend(env, registryText);
+  return {
+    ...live,
+    transport: transport.mode,
+    ...(live.allowed ? { spendMode: 'registered_live' as const } : {}),
+  };
+}
+
+/**
+ * The run's own record of how it obtained its answers — the thing that stops a
+ * free run being read as a paid one six months later.
+ *
+ * Authored HERE and nowhere else: the harness is the process that made (or
+ * refused) the calls. `axiome-back`'s report prints these values verbatim
+ * (`shadow-run/shadow-run-provenance.ts`) instead of re-deriving them, so the
+ * budget sentence has exactly one author.
+ */
+export type ShadowRunLabel = 'claude-code' | 'live' | 'none';
+
+export interface ShadowRunProvenance {
+  readonly transport: HarnessTransportMode;
+  readonly label: ShadowRunLabel;
+  readonly budget: string;
+  readonly registryRowId?: string;
+}
+
+/**
+ * Per `LLM-RECORDED-TRANSPORT.md` § "What a recorded run proves" and the
+ * superrepo CLAUDE.md § LLM Calls: a recorded run is labelled `claude-code`,
+ * NEVER `live`, and its budget is `0 USD (claude-code, blind)`. A live run's
+ * budget is not the harness's to state — the owner's FR116 registry row carries
+ * it — so the provenance points at the row instead of inventing a number.
+ */
+export function shadowRunProvenanceOf(decision: HarnessLiveSpendDecision): ShadowRunProvenance {
+  if (!decision.allowed) {
+    return {
+      transport: decision.transport ?? 'unknown',
+      label: 'none',
+      budget: `0 USD — no call was made (${decision.reason})`,
+    };
+  }
+  if (decision.spendMode === 'free_recorded') {
+    return { transport: 'recorded', label: 'claude-code', budget: '0 USD (claude-code, blind)' };
+  }
+  // AXI-1857: mirror `transportLabelFor` — only a stated `registered_live` is
+  // `live`; an allowed decision with no spend mode is never presumed paid or free.
+  if (decision.spendMode !== 'registered_live') {
+    return {
+      transport: decision.transport ?? 'unknown',
+      label: 'none',
+      budget: 'unknown — the decision stated no spend mode; do NOT read it as free',
+    };
+  }
+  return {
+    transport: decision.transport ?? 'live',
+    label: 'live',
+    budget: `paid — see REGISTRY.md row ${decision.rowId ?? 'unregistered'}`,
+    ...(decision.rowId ? { registryRowId: decision.rowId } : {}),
+  };
 }
 
 /** Reads the registry named by `SHADOW_RUN_REGISTRY_PATH`; `undefined` when unset or unreadable. */
@@ -637,6 +833,10 @@ export interface ShadowRunResult {
    */
   readonly status: ShadowRunStatus;
   readonly guard: HarnessLiveSpendDecision;
+  /** AXI-1716 — what the serving backend said about its own transport, verbatim. */
+  readonly transport: HarnessTransportStatement;
+  /** AXI-1716 — the run's own record of how its answers were obtained (label + budget). */
+  readonly provenance: ShadowRunProvenance;
   readonly questionIds: readonly number[];
   readonly abortedAtQuestionId?: number;
 }
@@ -646,6 +846,14 @@ export interface GuardedShadowRunOptions extends ShadowRunOptions {
   readonly env?: Record<string, string | undefined>;
   /** Defaults to the file `SHADOW_RUN_REGISTRY_PATH` names; injectable likewise. */
   readonly registryText?: string;
+  /**
+   * AXI-1716. Defaults to asking the backend this run is about to hit
+   * (`readBackendTransportMode`); injectable ONLY so the policy is unit-testable
+   * without a running stack. A live run never passes it — and passing it is not
+   * a bypass either, because a unit test is not a run: nothing here reads a
+   * transport claim out of the environment, which is the vector that matters.
+   */
+  readonly transport?: HarnessTransportStatement;
 }
 
 /** The HTTP status that aborts a run: the provider (or the gateway) rejected the request itself. */
@@ -691,8 +899,13 @@ export async function runShadowBankGuarded(
 ): Promise<ShadowRunResult> {
   const env = opts.env ?? process.env;
   const registryText = opts.registryText ?? readRunRegistry(env);
-  const guard = decideHarnessLiveSpend(env, registryText);
-  const transport = transportLabelFor(guard);
+  // AXI-1716: the backend's own statement first, then the FR116 guard. An
+  // unreachable backend yields `unknown` and falls through to the guard
+  // unchanged — never to a free pass.
+  const transport = opts.transport ?? (await probeTransport(auth, workspaceId));
+  const guard = decideHarnessBankRun(env, registryText, transport);
+  const provenance = shadowRunProvenanceOf(guard);
+  const rowTransport = transportLabelFor(guard);
   const questions = selectQuestions(loadGradosBank(), env.SHADOW_RUN_QUESTIONS);
   const questionIds = questions.map((q) => q.id);
 
@@ -701,6 +914,8 @@ export async function runShadowBankGuarded(
       rows: questionIds.map((id) => notAnsweredRow(id, provider, 'guard')),
       status: 'refused',
       guard,
+      transport,
+      provenance,
       questionIds,
     };
   }
@@ -712,15 +927,25 @@ export async function runShadowBankGuarded(
     const envelope = buildEnvelope(projectId, q.question, datasets);
     const attempt = await planWithRefresh(auth, workspaceId, projectId, q.id, envelope);
     if (attempt.status === BAD_REQUEST) {
-      for (const rest of questions.slice(index)) rows.push(notAnsweredRow(rest.id, provider, 'aborted', transport));
-      return { rows, status: 'INVALID', guard, questionIds, abortedAtQuestionId: q.id };
+      for (const rest of questions.slice(index)) rows.push(notAnsweredRow(rest.id, provider, 'aborted', rowTransport));
+      return { rows, status: 'INVALID', guard, transport, provenance, questionIds, abortedAtQuestionId: q.id };
     }
-    rows.push(rowOf(q.id, provider, attempt, transport));
+    rows.push(rowOf(q.id, provider, attempt, rowTransport));
   }
-  return { rows, status: 'complete', guard, questionIds };
+  return { rows, status: 'complete', guard, transport, provenance, questionIds };
 }
 
-/** The run's sidecar (`<provider>.run.json`): status, guard decision and subset, beside the rows. */
+/**
+ * The run's sidecar (`<provider>.run.json`): status, guard decision and subset,
+ * beside the rows.
+ *
+ * AXI-1716 — and, since this story, its `transport` and `provenance`. Both are
+ * REQUIRED by the parameter type, so a caller cannot write a summary that omits
+ * how the run's answers were obtained: an artefact silent about its transport is
+ * one a later reader can mistake for a paid run.
+ * `axiome-back`'s `generate-shadow-report.ts` reads this file's `provenance`
+ * verbatim into the report's own provenance section.
+ */
 export function writeShadowRunSummary(
   provider: string,
   result: Omit<ShadowRunResult, 'rows'>,

@@ -97,6 +97,25 @@ import {
  * go's registry row id) rather than overwriting a prior full-bank
  * `<provider>.json` — see `writeShadowRunRows`'s own doc for why that file is
  * never a valid frozen corpus to overwrite.
+ *
+ * AXI-1716 (epic AXI-1687) — a FREE bank run. Against a backend running the
+ * recorded transport (`GUIDED_ANALYSIS_LLM_TRANSPORT=recorded`, the standing
+ * default since AXI-1758) this spec needs NO registry row and NO
+ * `GUIDED_ANALYSIS_LIVE_SPEND_GO`, because there is nothing to authorise: the
+ * answers come from `llm-debug/recordings/`, no key is read and nothing is spent.
+ *
+ *     SHADOW_RUN_PROVIDER=compiled \
+ *     SHADOW_RUN_QUESTIONS=3,4,5 \
+ *     npx playwright test AXI-1614-compiled-planner-shadow-run
+ *
+ * The harness does not take the operator's word for that. It asks the backend it
+ * is about to hit (`GET /api/v1/guided-analysis/llm-transport`, answered by
+ * organization-service out of the same `resolveLlmTransportMode` the transport
+ * seam itself calls) and trusts only that answer. A `live` backend, or one that
+ * cannot be asked, still goes through the UNCHANGED FR116 procedure above. A
+ * question with no recording comes back `unsupported`/`recording_missing` and
+ * the gate scores it `not_answered` — which is correct, and means "go author
+ * that recording", not "the guard refused".
  */
 test.describe.configure({ mode: 'serial', timeout: 30 * 60_000 });
 
@@ -167,16 +186,24 @@ test(
     const questionsEnv = process.env.SHADOW_RUN_QUESTIONS?.trim();
     const filenameSuffix = questionsEnv ? `-${result.guard.rowId ?? 'unregistered'}` : '';
     const path = writeShadowRunRows(provider, result.rows, filenameSuffix);
+    // AXI-1716: the sidecar now also carries the SERVING backend's own transport
+    // statement and the run's provenance (label + budget). A recorded run is
+    // labelled `claude-code` with a budget of `0 USD (claude-code, blind)`; the
+    // back's report prints these verbatim, so a free run can never be read as a
+    // paid one later.
     const summaryPath = writeShadowRunSummary(provider, {
       status: result.status,
       guard: result.guard,
+      transport: result.transport,
+      provenance: result.provenance,
       questionIds: result.questionIds,
       abortedAtQuestionId: result.abortedAtQuestionId,
     });
     // eslint-disable-next-line no-console
     console.log(
       `wrote ${result.rows.length} shadow-run rows for provider '${provider}' to ${path} ` +
-        `(status=${result.status}, summary=${summaryPath})`,
+        `(status=${result.status}, transport=${result.transport.mode}, ` +
+        `label=${result.provenance.label}, budget=${result.provenance.budget}, summary=${summaryPath})`,
     );
   },
 );
