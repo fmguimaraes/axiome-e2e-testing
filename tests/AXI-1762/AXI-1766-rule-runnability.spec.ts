@@ -80,6 +80,16 @@ async function offeredRules(): Promise<OfferedRules> {
   return (await res.json()) as OfferedRules;
 }
 
+/**
+ * AXI-1768 (FR16, D1): carriers are boot-seeded at `checked`/`draft` and are
+ * offered only once an approver approves them — so a carrier is found in the
+ * LIBRARY, not in the offering, on a stack nobody has reviewed yet.
+ */
+async function systemRulesByCode(): Promise<Map<string, OfferedRule & { tags?: string[] }>> {
+  const page = await send(api, 'get', '/api/v1/rules?scope=system&limit=200');
+  return new Map((page.data as Array<OfferedRule & { tags?: string[] }>).map((r) => [r.code, r]));
+}
+
 async function getRule(id: string): Promise<OfferedRule> {
   const res = await api.get(apiUrl(`/api/v1/rules/${id}`));
   expect(res.status(), await res.text()).toBe(200);
@@ -121,7 +131,10 @@ function submission(ruleId: string, extra: Record<string, unknown>): Record<stri
 
 test.describe('AXI-1766 — rule runnability and the offering predicate', () => {
   // §9.3.1 (AC7, FR21)
-  test('AC7 FR21 — a fresh stack carries every submittable operation with a boot-seeded, offered carrier @SI-017', async () => {
+  // AXI-1768 (FR16, D1): the carriers are boot-seeded UNPUBLISHED; they reach
+  // the offering only through an approval, so this asserts the seeding in the
+  // library and that no unapproved carrier is offered.
+  test('AC7 FR21 — a fresh stack carries every submittable operation with a boot-seeded carrier, offered only once approved @SI-017', async () => {
     const opsRes = await api.get(apiUrl('/api/v1/rule-runs/operations'));
     expect(opsRes.status(), await opsRes.text()).toBe(200);
     const { operations } = (await opsRes.json()) as { operations: OperationDescriptor[] };
@@ -130,29 +143,32 @@ test.describe('AXI-1766 — rule runnability and the offering predicate', () => 
     );
     expect(submittable.length).toBeGreaterThan(30);
 
-    const { offered } = await offeredRules();
-    const systemCarriers = offered.filter((r) => r.scope === 'system' && r.runKind !== 'QC');
+    const library = await systemRulesByCode();
+    const carrierTags = [...library.values()].flatMap((r) => r.tags ?? []);
     const uncarried = submittable
-      .filter(
-        (op) =>
-          !systemCarriers.some(
-            (r) => r.runKind === op.runKind && (r.operationId === op.operationId || r.operationId === null),
-          ),
-      )
+      .filter((op) => op.runKind !== 'DELTA' && op.runKind !== 'STRATIFY')
+      .filter((op) => !carrierTags.includes(`op:${op.operationId}`))
       .map((op) => op.operationId);
     expect(uncarried).toEqual([]);
-
-    const codes = new Set(offered.map((r) => r.code));
     for (const code of ['DELTA-01', 'STRATIFY-01', 'JOIN-01', 'STAT-MANN-WHITNEY-U', 'DESC-COUNT']) {
-      expect(codes.has(code), `${code} is offered`).toBe(true);
+      expect(library.has(code), `${code} is boot-seeded`).toBe(true);
     }
+
+    const { offered } = await offeredRules();
     expect(offered.every((r) => r.runnable && r.status === 'published')).toBe(true);
+    for (const r of offered.filter((o) => library.has(o.code))) {
+      const full = (await send(api, 'get', `/api/v1/rules/${r.id}`)) as RuleResponse;
+      expect(
+        (full.approvalHistory ?? []).some((a) => a.decision === 'approve'),
+        `${r.code} is offered without an approval record`,
+      ).toBe(true);
+    }
   });
 
   // §9.3.2 (AC5, FR17, FR18)
-  test('AC5 FR17 — a runnable published carrier is offered and its detail says what it runs as @SI-017 @SI-035', async () => {
-    const { offered } = await offeredRules();
-    const mwu = offered.find((r) => r.code === 'STAT-MANN-WHITNEY-U');
+  // AXI-1768: read from the library — a carrier is offered only once approved.
+  test('AC5 FR17 — a runnable carrier\'s detail says what it runs as @SI-017 @SI-035', async () => {
+    const mwu = (await systemRulesByCode()).get('STAT-MANN-WHITNEY-U');
     expect(mwu).toBeDefined();
     const detail = await getRule(mwu!.id);
     expect(detail).toMatchObject({
@@ -219,13 +235,17 @@ test.describe('AXI-1766 — rule runnability and the offering predicate', () => 
   });
 
   // §9.3.4 (AC6, FR20)
+  // AXI-1768: the carrier is unapproved, so it is cited by its explicit version
+  // (as §9.3.3 does) to reach the FR20 check.
   test('AC6 FR20 — a describe carrier is never runnable as DELTA; the refusal names both kinds @SI-017', async () => {
-    const { offered } = await offeredRules();
-    const count = offered.find((r) => r.code === 'DESC-COUNT');
+    const found = (await systemRulesByCode()).get('DESC-COUNT');
+    expect(found).toBeDefined();
+    const count = await getRule(found!.id);
     expect(count).toMatchObject({ runKind: 'DESCRIBE', operationId: 'describe.count' });
+    const versions = (await send(api, 'get', `/api/v1/rules/${count.id}/versions`)) as Array<{ id: string }>;
 
     const res = await api.post(apiUrl('/api/v1/rule-runs/preflight'), {
-      data: submission(count!.id, { runKind: 'DELTA', formula: 'difference' }),
+      data: submission(count.id, { runKind: 'DELTA', formula: 'difference', ruleVersionId: versions[0].id }),
     });
     const text = await res.text();
     expect(res.status(), text).toBe(400);
