@@ -52,6 +52,36 @@ export async function ensureTenant(api: Api): Promise<Tenant> {
   return { orgId, workspaceId: workspaceId!, headers: workspaceHeader(workspaceId!) };
 }
 
+/**
+ * AXI-1869 — a genuinely DISTINCT, per-run-unique workspace, for specs that must
+ * prove a `(workspaceId, projectId)`-scoped listing returns nothing for a
+ * workspace that is real and the caller is really a verified member of (so it
+ * clears `WorkspaceGuard`), but that does not own the project under test.
+ *
+ * `ensureTenant` above always resolves the ONE fixed-name shared workspace
+ * ("Executable QC Validation"), which every other spec in this suite depends on
+ * staying stable — so this is a separate, additive function rather than a
+ * parameter added to `ensureTenant`, and it never reuses or mutates `NAMES`.
+ * `label` must be unique per call (e.g. a timestamp) so concurrent runs never
+ * collide on workspace name lookup/creation.
+ *
+ * The caller (`api`) becomes this new workspace's creator, and
+ * `WorkspacesService.create` (organization-service) auto-adds the creator as an
+ * `admin` MEMBER of exactly this workspace (never of the project's own
+ * workspace) — so a request scoped to it by `X-Workspace-Id` genuinely
+ * authenticates as "a member of workspace B", distinct from whichever workspace
+ * owns the project being queried.
+ */
+export async function ensureDistinctWorkspace(api: Api, label: string): Promise<Tenant> {
+  const orgId = (await findByName(api, '/api/v1/organizations', NAMES.org))
+    ?? (await api.post('/api/v1/organizations', { name: NAMES.org, type: 'biotech' })).body.id;
+  const res = await api.post('/api/v1/workspaces', {
+    name: `AXI-1869 Foreign Workspace ${label}`, type: 'internal', ownerOrganizationId: orgId,
+  });
+  const workspaceId = res.body.id as string;
+  return { orgId, workspaceId, headers: workspaceHeader(workspaceId) };
+}
+
 export async function ensureProject(api: Api, t: Tenant, name: string): Promise<string> {
   const projects = await api.get(`/api/v1/projects?workspaceId=${t.workspaceId}&limit=100`, t.headers);
   const found = asList(projects.body).find((p: any) => p.name === name)?.id;

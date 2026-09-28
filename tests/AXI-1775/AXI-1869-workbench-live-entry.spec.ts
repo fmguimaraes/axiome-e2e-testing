@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { seedLiveWorkbench, primeWorkspace, type Seeded } from '../AXI-1717/harness/live-workbench';
+import { ensureDistinctWorkspace } from '../AXI-1507/harness/seed';
 
 /**
  * AXI-1869 - the Discovery Workbench header button and per-row icon open a REAL
@@ -53,15 +54,20 @@ test.describe('AXI-1869 - workbench live entry (UI, real backend)', { tag: ['@SI
     await page.waitForURL(new RegExp(`/projects/${s.projectId}/discovery-workbench\\?analysisId=${s.declaredAnalysisId}$`));
   });
 
-  test('AC5 - another tenant\'s project id returns no discovery analyses', async ({ page }) => {
-    await primeWorkspace(page, s);
-    const foreign = await seedLiveWorkbench(`axi-1869-foreign-${Date.now().toString(36)}`, 'AXI-1869 foreign tenant');
-    try {
-      const res = await s.api.get(`/api/v1/discovery/projects/${foreign.projectId}/discovery-analyses`, s.t.headers);
-      expect(res.status, JSON.stringify(res.body)).toBe(200);
-      expect(res.body.analyses).toEqual([]);
-    } finally {
-      await foreign.api.ctx.dispose();
-    }
+  test('AC5 - a genuinely distinct workspace the caller belongs to sees none of another workspace\'s project analyses', async () => {
+    // `ensureDistinctWorkspace` mints a brand-new, per-run-unique workspace and the
+    // same admin caller becomes its verified `admin` MEMBER (organization-service
+    // `WorkspacesService.create` auto-adds the creator) — never a member of `s`'s
+    // shared workspace by virtue of THIS membership. Scoping the request to that
+    // workspace's id (`foreign.headers`) while asking for `s.projectId` (owned by
+    // the OTHER workspace) is exactly the boundary AC5 exists to prove: a listing
+    // scoped by `(workspaceId, projectId)` returns nothing when the two do not
+    // belong to the same workspace, even though the caller is a real, authenticated
+    // member somewhere. This clears `WorkspaceGuard` (a genuine membership) and
+    // then must fail the org-service's own `(workspaceId, projectId)` AND-filter.
+    const foreign = await ensureDistinctWorkspace(s.api, `axi-1869-${Date.now().toString(36)}`);
+    const res = await s.api.get(`/api/v1/discovery/projects/${s.projectId}/discovery-analyses`, foreign.headers);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.analyses).toEqual([]);
   });
 });
