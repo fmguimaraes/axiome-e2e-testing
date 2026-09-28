@@ -71,12 +71,13 @@ import {
  *      and the `qc_guards` step declares no operation ids. They are asserted as
  *      DECLARED-and-unattempted instead, and the gap is filed (see the AXI-1807
  *      report; filed as AXI-1819, also recorded in `tests/AXI-1775/AXI-1792-*`).
- *   2. The split's seed is no longer the scientist's declared `RIAZ.splitSeed`.
- *      AXI-1781 made the seed a SERVER-derived fact of the plan instance, and a
- *      plan that declares one can no longer submit its split step at all (the
- *      `test.fail()` GAP in block B pins that contradiction; filed as AXI-1820). The split tests run
- *      the step under the generated seed; every per-class count they assert is
- *      stratified and therefore seed-independent.
+ *   2. The split's seed is no longer a seed the scientist declares.
+ *      AXI-1781 made the seed a SERVER-derived fact of the plan instance, and
+ *      AXI-1820 (owner ruling 2026-09-29) settled the contradiction with AXI-1507
+ *      FR3/NFR7 the same way: instantiation no longer takes a seed and REFUSES one
+ *      that is stated (block B pins both halves). The split tests run the step under
+ *      the generated seed; every per-class count they assert is stratified and
+ *      therefore seed-independent.
  */
 
 const RIAZ = {
@@ -94,7 +95,8 @@ const RIAZ = {
   referenceGroup: 'NR',
   comparisons: [{ from: 'NR', to: 'R' }],
   rankBy: 'qValue',
-  splitSeed: 4172,
+  // AXI-1820: a seed a client STATES — refused at instantiation, never used.
+  statedSeed: 4172,
   // 30 % holdout of 9 responders ≈ 3 < minPatientsPerClass 5 → the split MUST
   // block naming the class (FR5 / EC4) — the natural Riaz edge case.
   splitPolicy: { holdoutRatio: 0.3, minPatientsPerArm: 5, minPatientsPerClass: 5 },
@@ -216,10 +218,11 @@ async function ensureApprovedConfig(c: Ctx, splitPolicy: Record<string, number> 
   return { policy: policy.status, configHash: cfg.body?.configHash, approval: approval.status, alreadyApproved };
 }
 
-function planBody(c: Ctx, viewAnalysisId: string, questionKey: string, question: string, split?: { seed: number }) {
+function planBody(c: Ctx, viewAnalysisId: string, questionKey: string, question: string, split?: { statedSeed?: number }) {
   return {
     viewAnalysisId, projectId: c.projectId, datasetId: c.datasetId, datasetVersionHash: c.hash, questionKey, question,
-    takeSplit: !!split, ...(split ? { splitSeed: split.seed } : {}),
+    // AXI-1820: `takeSplit` alone — the seed is the server's. `statedSeed` exists only to prove it is refused.
+    takeSplit: !!split, ...(split?.statedSeed !== undefined ? { splitSeed: split.statedSeed } : {}),
     measurementColumns: c.measurementColumns, comparisons: RIAZ.comparisons, rankBy: RIAZ.rankBy, outcomeColumn: RIAZ.outcomeColumn,
     patientKeyColumn: RIAZ.patientKeyColumn,
     outcomePositiveLevel: RIAZ.outcomePositiveLevel,
@@ -537,28 +540,39 @@ test.describe('AXI-1507 Riaz — block B: guards and refusals', () => {
   });
 
   /**
-   * AXI-1807 — GAP, expected to FAIL until the contradiction below is ruled on.
-   *
-   * AXI-1507 FR3/NFR7 makes the seed the SCIENTIST'S declaration: `POST /discovery/plans`
-   * refuses a `takeSplit` question that declares none ("Axiome will not generate the seed
-   * for you"). AXI-1781 (D2, owner ruling 2026-09-28) makes the seed the SERVER'S derived
-   * fact of the plan instance, and `commitSplitSeed` refuses a submit whose resolved seed is
-   * not the one it records. A declared seed binds `upstream:d5`, which outranks `generated:`,
-   * so the two authorities disagree by construction and the split step of a `takeSplit` plan
-   * can never be submitted — the plan instantiates and then cannot run its own split.
-   *
-   * Recorded as an expected failure (this spec's `test.fail()` precedent, AXI-1595/AXI-1632)
-   * so that whichever way the ruling goes, this test moves (filed as AXI-1820). The other split tests below run
-   * the step under the generated seed, which is the only path the product allows today.
+   * AXI-1820 (owner ruling 2026-09-29) — was the AXI-1807 `test.fail()` GAP "a plan that
+   * DECLARES its split seed cannot submit its split step". AXI-1507 FR3/NFR7 made the seed the
+   * scientist's declaration; AXI-1781 D2 made it the server's derived fact; the declared seed
+   * bound `upstream:d5` above `generated:` and `commitSplitSeed` refused every submit. The
+   * SERVER won: a takeSplit plan takes no seed and its split step submits under the generated
+   * one (this test), and a plan that STATES a seed is refused with a reason (the next).
    */
-  test.fail('FR3/NFR7 vs AXI-1781 — GAP: a plan that DECLARES its split seed cannot submit its split step', { tag: ['@SI-045', '@SI-017'] }, async () => {
-    const seeded = await createViewAnalysis(c.api, c.t, c.projectId, c.datasetId, `${LABEL} — discovery S (declared seed)`);
+  test('FR3/NFR7 (AXI-1820) — a takeSplit plan with NO seed instantiates and SUBMITS its split step under the generated seed', { tag: ['@SI-045', '@SI-017'] }, async () => {
+    const seeded = await createViewAnalysis(c.api, c.t, c.projectId, c.datasetId, `${LABEL} — discovery S (takeSplit, server seed)`);
     await bindEnvelope(c, seeded);
-    const plan = await c.api.post('/api/v1/discovery/plans', planBody(c, seeded, `${LABEL}-s`, QUESTIONS.b, { seed: RIAZ.splitSeed }), c.t.headers);
-    expect(plan.body.instantiated, `a declared seed is REQUIRED by FR3: ${JSON.stringify(plan.body.reasons)}`).toBe(true);
-    const res = await submitStep(c, seeded, 'split', SPLIT_OP);
-    rec.declaredSeedGap = { instantiated: plan.body.instantiated, submit: res.body };
-    expect(res.body.submitted, `the declared seed is refused at submit: ${JSON.stringify(res.body.reasons)}`).toBe(true);
+    const plan = await c.api.post('/api/v1/discovery/plans', planBody(c, seeded, `${LABEL}-s`, QUESTIONS.b, {}), c.t.headers);
+    rec.takeSplitPlan = plan.body;
+    expect(plan.body.instantiated, `a takeSplit plan needs no seed: ${JSON.stringify(plan.body.reasons)}`).toBe(true);
+    const { nodeId, run, bindingSources } = await runStep(c, seeded, 'split', SPLIT_OP);
+    rec.takeSplitRun = { status: run.status, nodes: nodeRows(run), bindingSources };
+    expect(nodeId, 'the step targets the plan\'s own split node').toBe('d5');
+    expect(bindingSources.splitSeed, JSON.stringify(bindingSources)).toBe(`generated:${SPLIT_OP}.splitSeed`);
+    const split = byNode(run, nodeId);
+    expect(split?.status, `split node: ${split?.error ?? ''}`).toMatch(/SUCCEEDED|REUSED/);
+  });
+
+  test('FR3 (AXI-1820) — a plan that STATES a split seed is refused with a reason naming it, and registers nothing', { tag: ['@SI-045', '@SI-010'] }, async () => {
+    const stated = await createViewAnalysis(c.api, c.t, c.projectId, c.datasetId, `${LABEL} — discovery S2 (stated seed)`);
+    await bindEnvelope(c, stated);
+    const plan = await c.api.post('/api/v1/discovery/plans', planBody(c, stated, `${LABEL}-s2`, QUESTIONS.b, { statedSeed: RIAZ.statedSeed }), c.t.headers);
+    rec.statedSeedPlan = { status: plan.status, body: plan.body };
+    expect(plan.status, JSON.stringify(plan.body)).toBeLessThan(300);
+    expect(plan.body.instantiated).toBe(false);
+    const reasons: string = (plan.body.reasons ?? []).join(' ');
+    expect(reasons).toContain(`a split seed (${RIAZ.statedSeed}) was stated`);
+    expect(reasons).toMatch(/derived by the server/);
+    const state = await c.api.get(`/api/v1/discovery/analyses/${stated}/plan`, c.t.headers);
+    expect(state.status, 'the refused plan registered no instance').toBe(404);
   });
 
   test('FR15/AC9/EC6 — a literature cutoff on a different unit scale is blocked with a reason and no cut-point', { tag: ['@SI-017', '@SI-010'] }, async () => {
