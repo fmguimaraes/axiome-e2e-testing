@@ -37,17 +37,12 @@ import {
  * precondition (`sufficient_group_members`, min 2 per group) still refuses the
  * run at execute time (AC22's second, server-side clause).
  *
- * ACCESSIBILITY-GAP NOTE (load-bearing for the locators below): every
- * `Field` in `StatisticalRunConfigModal.tsx` renders `<label>{label}</label>`
- * as a SIBLING of its control, not wrapping it, and sets no `htmlFor`/`id` —
- * so the label is not programmatically associated with its `<select>`, and
- * `page.getByLabel(...)` cannot find these controls (a real a11y gap, not
- * just a test-authoring inconvenience — flagged in the story report). This
- * spec locates the xColumn/yColumn/groupColumn selects via an explicit
- * `<label>` text match + `xpath=following-sibling::select`, rather than
- * `getByLabel`. The OperationRow radios and the Measurements checklist's
- * checkboxes ARE correctly associated (the `<input>` sits nested inside its
- * own `<label>`), so those use ordinary `getByRole(...)`.
+ * LOCATOR NOTE (AXI-1773): since AXI-1773 every field of the editor is a
+ * `RuleRunField` whose `<label>` names its control (`htmlFor`), and whose
+ * text is the operation descriptor's served help label (e.g. "X variable"),
+ * no longer the raw role key. A column-role select is therefore located by
+ * the field's SLOT (`data-field="role:<name>"`), which does not change when
+ * the help content does, rather than by label text.
  */
 
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
@@ -130,13 +125,9 @@ async function selectMethodRule(page: Page, ruleCode: string): Promise<void> {
   await expect(page.getByRole('heading', { name: /^Configure / })).toBeVisible({ timeout: 15_000 });
 }
 
-/** The `<select>` immediately following an EXACT-text `<label>` — see the
- *  ACCESSIBILITY-GAP note above for why `getByLabel` cannot be used here. */
-function selectAfterLabel(page: Page, label: string) {
-  return page
-    .locator('label')
-    .filter({ hasText: new RegExp(`^${label}$`) })
-    .locator('xpath=following-sibling::select[1]');
+/** The `<select>` of the column-role field for `role` — see the LOCATOR note above. */
+function selectAfterLabel(page: Page, role: string) {
+  return page.locator(`[data-testid="rule-run-field"][data-field="role:${role}"] > select`);
 }
 
 test.describe('AXI-1435 — statistical trigger surface (picker → config → run → result)', { tag: ['@SI-035'] }, () => {
