@@ -117,7 +117,42 @@ export async function seedLiveWorkbench(label: string, projectName: string): Pro
     const put = await api.ctx.put(`${process.env.API_BASE_URL ?? 'http://localhost:3000'}${rolesUrl}`, { data: { roles: RIAZ_ROLES, confirm: true }, headers: t.headers });
     expect(put.status(), await put.text()).toBeLessThan(300);
   }
+  // AXI-1807 item 6: every caller of this harness gets a container fresh off `instantiate`,
+  // never one the platform has already driven. Assert it here, once, for both containers.
+  await assertNothingHasRun(api, t, viewAnalysisId);
+  await assertNothingHasRun(api, t, declaredAnalysisId);
   return { api, t, projectId, datasetId, viewAnalysisId, hash, instanceRunId, declaredAnalysisId, declaredInstanceRunId };
+}
+
+export const planUrl = (va: string) => `/api/v1/discovery/analyses/${va}/plan`;
+
+/**
+ * AXI-1807 item 6 — the harness sweep. Before AXI-1779's fix, `POST /discovery/plans`
+ * EXECUTED d1-d10 on the caller's behalf, so every spec that seeded through this harness
+ * inherited a container where several steps already claimed to be done. AXI-1779 changed
+ * that: instantiating now only DECLARES the plan and starts nothing. `seedLiveWorkbench`
+ * is the one place ~20 AXI-1717/1775 specs get their container from, so the "nothing has
+ * run yet" invariant is asserted HERE, once, rather than trusted by each caller individually
+ * — a caller that silently depended on a step already being settled fails at seed time with
+ * a name, not deep inside its own assertions. Mirrors AXI-1790's per-node read (AC2/FR6).
+ */
+export async function assertNothingHasRun(api: Api, t: Awaited<ReturnType<typeof ensureTenant>>, viewAnalysisId: string): Promise<void> {
+  const res = await api.get(planUrl(viewAnalysisId), t.headers);
+  expect(res.status, `plan read: ${JSON.stringify(res.body)}`).toBe(200);
+  // AXI-1807 advisory — `?? []` makes the loops below skip cleanly if `nodes`/`branches` were ever
+  // ABSENT from the response, which would pass this assertion VACUOUSLY (the exact latent-green
+  // shape this story exists to purge). A freshly-instantiated plan always declares its template
+  // nodes, so assert the arrays are actually populated before trusting the per-item checks.
+  expect((res.body.nodes ?? []).length, 'the plan read carries its declared nodes').toBeGreaterThan(0);
+  for (const node of res.body.nodes ?? []) {
+    expect(node, `node ${node.nodeId} of a freshly seeded container must claim no activity yet`)
+      .toMatchObject({ status: null, runId: null });
+  }
+  for (const branch of res.body.branches ?? []) {
+    for (const phase of branch.phases ?? []) {
+      expect(phase.state, `phase ${phase.phase} of a freshly seeded container must not have started`).toBe('not_started');
+    }
+  }
 }
 
 export const stepUrl = (va: string, nodeRef: string, action: 'resolve' | 'submit') => `/api/v1/discovery/analyses/${va}/steps/${nodeRef}/${action}`;

@@ -13,7 +13,7 @@ import {
  * already staged as the "Riaz 2017 — Nivolumab Melanoma" demo project
  * (`axiome-docs/demo/riaz-2017/README.md`).
  *
- * Headless, REST-only, the SAME contract the canvas trigger calls
+ * Headless, REST-only, the SAME contract the workbench calls
  * (`POST /v1/discovery/*` → governed run), following the programmatic path of
  * `Riaz-Guided-Questions-Runbook.md` (submit → drain the governed run → read
  * the rule-derived snapshots' rule runs and tables). Additive to the demo
@@ -42,6 +42,35 @@ import {
  * Reads the population as "gene": the feature spec is written for gated flow
  * tables; here `measurementColumns` are the 48 `<GENE>_pre|_on` log2 CPM columns
  * and the comparison family is the single declared arm pair NR → R on `response`.
+ *
+ * ── AXI-1807: RE-AUTHORED against the one-click step path ────────────────────
+ * The owner ruled that INSTANTIATING a discovery plan must run nothing, and
+ * AXI-1779 implemented it: `POST /discovery/plans` now DECLARES the container, the
+ * run, the nodes and the edges and issues no `StartRun`, so the instance run stays
+ * `DRAFT` for ever and every declared node is unrun. This spec was written for the
+ * previous model, in which instantiating executed d1–d10, and drained that run.
+ *
+ * Every step is therefore now SUBMITTED by the scientist, one click each, through
+ * `POST /discovery/analyses/:va/steps/:nodeRef/submit` (AXI-1721 FR11) — a ONE-node
+ * governed plan per step, followed by that run's own node. Nothing about the
+ * SUBJECT of the assertions changed: the same shortlist, the same four cutoff
+ * proposals, the same split ledger, the same lineage.
+ *
+ * Two assertions of the previous model could NOT be preserved, and are stated here
+ * rather than dropped quietly:
+ *
+ *   1. AC2/AC6's QC half (`d1`–`d4` reach SUCCEEDED). The profile and the three
+ *      `qc_check` guards live only in the instantiation run, and no product surface
+ *      submits them: the step path builds a one-node plan of a requested OPERATION
+ *      and the `qc_guards` step declares no operation ids. They are asserted as
+ *      DECLARED-and-unattempted instead, and the gap is filed (see the AXI-1807
+ *      report; filed as AXI-1819, also recorded in `tests/AXI-1775/AXI-1792-*`).
+ *   2. The split's seed is no longer the scientist's declared `RIAZ.splitSeed`.
+ *      AXI-1781 made the seed a SERVER-derived fact of the plan instance, and a
+ *      plan that declares one can no longer submit its split step at all (the
+ *      `test.fail()` GAP in block B pins that contradiction; filed as AXI-1820). The split tests run
+ *      the step under the generated seed; every per-class count they assert is
+ *      stratified and therefore seed-independent.
  */
 
 const RIAZ = {
@@ -78,6 +107,21 @@ const QUESTIONS = {
   c: 'Do baseline (Pre) or on-treatment (On) immune-panel transcripts better discriminate nivolumab responders from non-responders in the Riaz 2017 melanoma cohort?',
   cRepeat: 'Is on-treatment expression of the 24-gene immune panel associated with RECIST response to nivolumab in the Riaz 2017 cohort?',
   d: 'Which immune-panel transcripts separate nivolumab responders from non-responders in the Riaz 2017 melanoma cohort, screened on an exploration arm with a sealed validation holdout?',
+};
+
+/** AXI-1807 — the operations each step runs, as the one-click submit names them. */
+const SPLIT_OP = 'split.exploration_holdout';
+const SCREEN_OP = 'stats.screen_shortlist';
+const CUTOFF_OPS = ['stats.cutoff_roc_youden', 'stats.cutoff_maxstat', 'stats.cutoff_distribution', 'stats.cutoff_reference'] as const;
+
+/** The AXI-1720 dataset roles the split step binds (`role:subject`, `role:outcome`) — Riaz's own. */
+const RIAZ_ROLES = {
+  outcome: { state: 'declared', column: RIAZ.outcomeColumn, outcomeKind: 'binary' },
+  subject: { state: 'declared', column: RIAZ.patientKeyColumn },
+  timepoint: { state: 'declared_uncaptured', reason: 'AXI-1507 e2e: Pre and On are columns, not rows' },
+  representation: { state: 'declared_uncaptured', reason: 'AXI-1507 e2e: bulk RNA-seq log2 CPM' },
+  batch: { state: 'declared_uncaptured', reason: 'AXI-1507 e2e: none recorded upstream' },
+  site: { state: 'declared_uncaptured', reason: 'AXI-1507 e2e: single cohort' },
 };
 
 const SETTLED = new Set(['SUCCEEDED', 'REUSED', 'FAILED', 'BLOCKED', 'CANCELLED']);
@@ -181,6 +225,51 @@ function planBody(c: Ctx, viewAnalysisId: string, questionKey: string, question:
   };
 }
 
+/**
+ * AXI-1807 — the AXI-1720 roles, confirmed once per (workspace, dataset). The route answers
+ * only for an analysis that already holds a plan instance, so it is called after the first
+ * instantiation of a block. Idempotent: an already-confirmed dataset is left alone.
+ */
+async function ensureConfirmedRoles(c: Ctx, viewAnalysisId: string): Promise<void> {
+  const url = `/api/v1/discovery/analyses/${viewAnalysisId}/datasets/${c.datasetId}/roles`;
+  const current = await c.api.get(url, c.t.headers);
+  expect(current.status, `GET roles: ${JSON.stringify(current.body)}`).toBe(200);
+  if (current.body?.confirmed) return;
+  const put = await c.api.ctx.put(`${process.env.API_BASE_URL ?? 'http://localhost:3000'}${url}`, {
+    data: { roles: RIAZ_ROLES, confirm: true }, headers: c.t.headers,
+  });
+  expect(put.status(), await put.text()).toBeLessThan(300);
+}
+
+/**
+ * AXI-1807 (FR11) — the scientist's one click on a step. `submit` re-resolves server-side and
+ * refuses unless every slot is bound; a refusal is a 200-family output, never a throw, so it is
+ * returned for the caller to assert on rather than swallowed.
+ */
+async function submitStep(
+  c: Ctx, viewAnalysisId: string, nodeRef: string, operationId: string, extra: Record<string, unknown> = {},
+): Promise<{ status: number; body: any }> {
+  const res = await c.api.post(`/api/v1/discovery/analyses/${viewAnalysisId}/steps/${nodeRef}/submit`, {
+    operationId, datasetId: c.datasetId, projectId: c.projectId, datasetVersionHash: c.hash, ...extra,
+  }, c.t.headers);
+  return { status: res.status, body: res.body };
+}
+
+/**
+ * Submit a step and drain ITS OWN governed run. Each step run carries the engine's appended
+ * `__interpretation` node (AXI-1721 D5), which halts AWAITING_APPROVAL — `drain` already
+ * approves that, so the step's operation node is followed to a verdict exactly as before.
+ */
+async function runStep(
+  c: Ctx, viewAnalysisId: string, nodeRef: string, operationId: string, extra: Record<string, unknown> = {},
+): Promise<{ runId: string; nodeId: string; run: RunStatus; bindingSources: Record<string, string> }> {
+  const res = await submitStep(c, viewAnalysisId, nodeRef, operationId, extra);
+  expect(res.status, `submit ${nodeRef}/${operationId}: ${JSON.stringify(res.body)}`).toBe(201);
+  expect(res.body.submitted, `step ${nodeRef}/${operationId} refused: ${JSON.stringify(res.body.reasons)}`).toBe(true);
+  const run = await drain(c, res.body.runId);
+  return { runId: res.body.runId as string, nodeId: res.body.nodeId as string, run, bindingSources: res.body.bindingSources ?? {} };
+}
+
 async function drain(c: Ctx, runId: string): Promise<RunStatus> {
   let status: RunStatus | undefined;
   for (let i = 0; i < 120; i++) {
@@ -248,7 +337,9 @@ test.describe('AXI-1507 Riaz — block A: the plan through screen → cutoffs �
   const rec: Record<string, unknown> = {};
   let c: Ctx;
   let analysisA: string;
-  let runA: RunStatus;
+  /** The scientist's OWN screen step run (AXI-1807) — the instantiation run runs nothing. */
+  let screenA: { runId: string; nodeId: string; run: RunStatus };
+  let cutoffA: Array<{ operationId: string; nodeId: string; status: string; error: string | null }> = [];
   let ruleRunsA: RuleRunRecord[] = [];
 
   test.beforeAll(async () => {
@@ -256,6 +347,7 @@ test.describe('AXI-1507 Riaz — block A: the plan through screen → cutoffs �
     rec.tenant = { orgId: c.t.orgId, workspaceId: c.t.workspaceId, projectId: c.projectId, datasetId: c.datasetId, hash: c.hash, measurementColumns: c.measurementColumns.length };
   });
   test.afterAll(async () => {
+    const runA = screenA?.run;
     rec.runA = runA ? { status: runA.status, runStatus: runA.runStatus, failReason: runA.failReason, nodes: nodeRows(runA) } : null;
     rec.ruleRunsA = ruleRunsA.map((r) => ({ ...r, rows: r.rows.slice(0, 60) }));
     writeTrace('blockA', rec);
@@ -289,19 +381,43 @@ test.describe('AXI-1507 Riaz — block A: the plan through screen → cutoffs �
     expect(res.body.instance.viewAnalysisId).toBe(analysisA);
     expect(res.body.instance.nodeIds, 'd1 profile … d6 screen').toEqual(expect.arrayContaining(['d1', 'd6']));
     await expectQuestionReadBack(c, res.body.instance, analysisA, QUESTIONS.a);
+    await ensureConfirmedRoles(c, analysisA);
   });
 
-  test('AC2/AC6 — the governed run settles; envelope + QC guards + screen reach a verdict', { tag: ['@SI-047', '@SI-017'] }, async () => {
-    runA = await drain(c, (rec.instantiateA as any).instance.runId);
-    for (const n of runA.nodes) expect(SETTLED.has(n.status), `node ${shortId(n)} settled (${n.status})`).toBe(true);
-    for (const id of ['d1', 'd2', 'd3', 'd4']) expect(byNode(runA, id)?.status, `${id} (envelope / QC guard)`).toMatch(/SUCCEEDED|REUSED/);
-    const failed = runA.nodes.filter((n) => n.status === 'FAILED').map((n) => `${shortId(n)}: ${n.error ?? 'no reason'}`);
+  /**
+   * AXI-1807. What this test used to do — drain the instantiation run and assert that d1–d4
+   * and d6 had all reached a verdict — describes the defect AXI-1779 removed: the platform
+   * executed the whole template on a container the scientist had only just declared.
+   *
+   * The half that survives is the SCREEN, and it is stronger now: the scientist submits it and
+   * it is HER run that reaches the verdict. The half that does not survive is the QC guards'
+   * own verdicts (d2–d4) — they are declared and, with no surface that submits a `qc_check`
+   * node, permanently unattempted. That is asserted as what it is, so the loss is visible in
+   * the suite instead of being quietly deleted.
+   */
+  test('AC2/AC6 — the scientist\'s screen step reaches a verdict; the envelope and QC guards stand DECLARED and unattempted', { tag: ['@SI-047', '@SI-017'] }, async () => {
+    const declared = await c.api.get(`/api/v1/discovery/analyses/${analysisA}/plan`, c.t.headers);
+    expect(declared.status, JSON.stringify(declared.body)).toBe(200);
+    const nodes: Array<{ nodeId: string; status: string | null; runId: string | null }> = declared.body.nodes;
+    rec.declaredNodesA = nodes;
+    for (const id of ['d1', 'd2', 'd3', 'd4']) {
+      const node = nodes.find((n) => n.nodeId === id);
+      expect(node, `${id} (envelope / QC guard) is declared`).toBeTruthy();
+      // AXI-1779: instantiating declares and starts nothing, so a declared node claims
+      // no activity at all — not `PENDING` against the instance run, but nothing.
+      expect(node, `${id} was never attempted by the platform`).toMatchObject({ status: null, runId: null });
+    }
+
+    screenA = await runStep(c, analysisA, 'screen', SCREEN_OP);
+    const run = screenA.run;
+    for (const n of run.nodes) expect(SETTLED.has(n.status), `node ${shortId(n)} settled (${n.status})`).toBe(true);
+    const failed = run.nodes.filter((n) => n.status === 'FAILED').map((n) => `${shortId(n)}: ${n.error ?? 'no reason'}`);
     expect(failed, 'no node FAILED (BLOCKED is a verdict, FAILED is a defect)').toEqual([]);
-    expect(byNode(runA, 'd6')?.status, `screen d6: ${byNode(runA, 'd6')?.error ?? ''}`).toMatch(/SUCCEEDED|REUSED/);
+    expect(byNode(run, 'd6')?.status, `screen d6: ${byNode(run, 'd6')?.error ?? ''}`).toMatch(/SUCCEEDED|REUSED/);
   });
 
   test('FR7/FR8/EC5 — the screen shortlist covers the family, BH-corrected, before/after correction distinguished', { tag: ['@SI-021', '@SI-022'] }, async () => {
-    ruleRunsA = await collect(c, analysisA, runA.runId);
+    ruleRunsA = await collect(c, analysisA, screenA.runId);
     const screen = ruleRunsA.find((r) => r.operationId === 'stats.screen_shortlist' || r.planNode === 'd6');
     expect(screen, `a screen rule run exists among ${ruleRunsA.map((r) => `${r.planNode}:${r.operationId}`).join(', ')}`).toBeTruthy();
     expect(screen!.rows.length, '48 measurements × 1 comparison').toBe(48);
@@ -317,17 +433,38 @@ test.describe('AXI-1507 Riaz — block A: the plan through screen → cutoffs �
     expect(onQ, 'the strongest signal is on-treatment, not baseline (Riaz 2017)').toBeLessThanOrEqual(preQ);
   });
 
-  test('AC7/FR11 — the four cutoff proposals reach a verdict over the same measurements', { tag: ['@SI-021', '@SI-022'] }, async () => {
-    const cutoffs = runA.nodes.filter((n) => /^d(7|8|9|10)$/.test(shortId(n)));
-    expect(cutoffs, 'the four cutoff proposal nodes exist').toHaveLength(4);
-    for (const n of cutoffs) expect(n.status, `${shortId(n)}: ${n.error ?? ''}`).toMatch(/SUCCEEDED|REUSED|BLOCKED/);
-    rec.cutoffs = cutoffs.map((n) => ({ id: shortId(n), status: n.status, error: n.error ?? null }));
+  /**
+   * AXI-1807: the four proposals are now the scientist's four clicks, each resolved against
+   * the shortlist ROW she chose (FR11/FR12 — `upstream:d6` for the marker, `upstream:d7…d10`
+   * for the positive class this plan declared). The subject is unchanged: all four proposal
+   * operations reach a verdict over the same measurement, and a BLOCK is a verdict.
+   */
+  test('AC7/FR11 — the four cutoff proposals reach a verdict over the same chosen measurement', { tag: ['@SI-021', '@SI-022'] }, async () => {
+    const screen = ruleRunsA.find((r) => r.operationId === SCREEN_OP);
+    expect(screen, 'the screen ran in the previous test').toBeTruthy();
+    const top = screen!.rows.find((r) => Number(r.rank) === 1) ?? screen!.rows[0];
+    const marker = String(top.measurement ?? top.valueColumn ?? '');
+    expect(marker, 'the chosen shortlist row names a measurement').toBeTruthy();
+    const selection = { kind: 'shortlist_row', nodeId: 'd6', runId: screenA.runId, values: { marker } };
+
+    cutoffA = [];
+    for (const operationId of CUTOFF_OPS) {
+      const { nodeId, run } = await runStep(c, analysisA, 'cutoff', operationId, { selection });
+      const node = byNode(run, nodeId);
+      cutoffA.push({ operationId, nodeId, status: node?.status ?? 'missing', error: node?.error ?? null });
+    }
+    rec.cutoffs = { marker, proposals: cutoffA };
+    expect(cutoffA.map((x) => x.nodeId), 'the four cutoff proposal nodes, one per declared operation').toEqual(['d7', 'd8', 'd9', 'd10']);
+    for (const x of cutoffA) expect(x.status, `${x.nodeId} (${x.operationId}): ${x.error ?? ''}`).toMatch(/SUCCEEDED|REUSED|BLOCKED/);
   });
 
   test('FR16/FR17/FR18 — the association operations are OMITTED and the omission is stated, not emitted as a node that could only refuse', { tag: ['@SI-021'] }, async () => {
     const declined = (rec.instantiateA as any).instance?.declined ?? (rec.instantiateA as any).declined ?? null;
-    const associationNodes = runA.nodes.filter((n) => /^d(11|12|13)$/.test(shortId(n)));
-    rec.association = { declined, nodes: associationNodes.map(shortId) };
+    // AXI-1807: read off the DECLARED node list, which is where "what the template emitted"
+    // has always lived; before AXI-1779 it happened to be observable on the platform's own run.
+    const declaredIds: string[] = (rec.instantiateA as any).instance.nodeIds;
+    const associationNodes = declaredIds.filter((id) => /^d(11|12|13)$/.test(id));
+    rec.association = { declined, nodes: associationNodes };
     // Riaz 2017's immune panel carries no time/event column, and the dichotomised
     // marker Fisher would cross-tabulate exists only once a cutoff CHOICE has been
     // captured — which has no surface (see the FR13/FR19 GAP test).
@@ -339,6 +476,7 @@ test.describe('AXI-1507 Riaz — block A: the plan through screen → cutoffs �
   // snapshot; what must hold is that each result snapshot is a real edge INTO that
   // baseline (the plan is not a set of dangling, parentless results).
   test('AC14/NFR7 — no split: every step result derives from the baseline snapshot (lineage edge), nothing is narrowed', { tag: ['@SI-022', '@SI-045'] }, async () => {
+    ruleRunsA = await collect(c, analysisA, screenA.runId);
     const snaps = await snapshotsOf(c, analysisA);
     const baseline = baselineOf(snaps);
     const derived = snaps.filter((s) => s.origin === 'rule_derived');
@@ -388,6 +526,32 @@ test.describe('AXI-1507 Riaz — block B: guards and refusals', () => {
     // The refused plan must not overwrite the question the container already carries.
     const detail = await c.api.get(`/api/v1/view-analyses/${analysisC}`, c.t.headers);
     expect(detail.body?.guidingQuestion, 'the refused repeat did not replace the authored question').toBe(QUESTIONS.c);
+    await ensureConfirmedRoles(c, analysisC);
+  });
+
+  /**
+   * AXI-1807 — GAP, expected to FAIL until the contradiction below is ruled on.
+   *
+   * AXI-1507 FR3/NFR7 makes the seed the SCIENTIST'S declaration: `POST /discovery/plans`
+   * refuses a `takeSplit` question that declares none ("Axiome will not generate the seed
+   * for you"). AXI-1781 (D2, owner ruling 2026-09-28) makes the seed the SERVER'S derived
+   * fact of the plan instance, and `commitSplitSeed` refuses a submit whose resolved seed is
+   * not the one it records. A declared seed binds `upstream:d5`, which outranks `generated:`,
+   * so the two authorities disagree by construction and the split step of a `takeSplit` plan
+   * can never be submitted — the plan instantiates and then cannot run its own split.
+   *
+   * Recorded as an expected failure (this spec's `test.fail()` precedent, AXI-1595/AXI-1632)
+   * so that whichever way the ruling goes, this test moves (filed as AXI-1820). The other split tests below run
+   * the step under the generated seed, which is the only path the product allows today.
+   */
+  test.fail('FR3/NFR7 vs AXI-1781 — GAP: a plan that DECLARES its split seed cannot submit its split step', { tag: ['@SI-045', '@SI-017'] }, async () => {
+    const seeded = await createViewAnalysis(c.api, c.t, c.projectId, c.datasetId, `${LABEL} — discovery S (declared seed)`);
+    await bindEnvelope(c, seeded);
+    const plan = await c.api.post('/api/v1/discovery/plans', planBody(c, seeded, `${LABEL}-s`, QUESTIONS.b, { seed: RIAZ.splitSeed }), c.t.headers);
+    expect(plan.body.instantiated, `a declared seed is REQUIRED by FR3: ${JSON.stringify(plan.body.reasons)}`).toBe(true);
+    const res = await submitStep(c, seeded, 'split', SPLIT_OP);
+    rec.declaredSeedGap = { instantiated: plan.body.instantiated, submit: res.body };
+    expect(res.body.submitted, `the declared seed is refused at submit: ${JSON.stringify(res.body.reasons)}`).toBe(true);
   });
 
   test('FR15/AC9/EC6 — a literature cutoff on a different unit scale is blocked with a reason and no cut-point', { tag: ['@SI-017', '@SI-010'] }, async () => {
@@ -419,24 +583,38 @@ test.describe('AXI-1507 Riaz — block B: guards and refusals', () => {
     expect(declare.status, 'declare refuses a candidate without a captured choice').toBeGreaterThanOrEqual(400);
   });
 
-  test('FR3/NFR4/NFR7 — the seeded 70/30 split partitions PATIENTS, stratified by outcome, with every patient accounted for', { tag: ['@SI-017', '@SI-022'] }, async () => {
+  test('FR3/NFR4/NFR7 — the 70/30 split step partitions PATIENTS, stratified by outcome, with every patient accounted for', { tag: ['@SI-017', '@SI-022'] }, async () => {
     const analysisB = await createViewAnalysis(c.api, c.t, c.projectId, c.datasetId, `${LABEL} — discovery B (split)`);
     refusedAnalysis = analysisB;
     await bindEnvelope(c, analysisB);
-    const res = await c.api.post('/api/v1/discovery/plans', planBody(c, analysisB, `${LABEL}-b`, QUESTIONS.b, { seed: RIAZ.splitSeed }), c.t.headers);
+    const res = await c.api.post('/api/v1/discovery/plans', planBody(c, analysisB, `${LABEL}-b`, QUESTIONS.b), c.t.headers);
     rec.instantiateB = res.body;
     expect(res.body.instantiated, `refused: ${JSON.stringify(res.body.reasons)}`).toBe(true);
     await expectQuestionReadBack(c, res.body.instance, analysisB, QUESTIONS.b);
-    const runB = await drain(c, res.body.instance.runId);
-    rec.runB = { status: runB.status, nodes: nodeRows(runB) };
-    const split = byNode(runB, 'd5');
-    expect(split, 'split node d5 exists').toBeTruthy();
+    // AXI-1807 — the SCIENTIST runs the split, one click, on a container where nothing has run.
+    // The seed is the server's derived fact for this question (`generated:`, AXI-1781); the
+    // partition is still stratified, so every per-class count asserted here is seed-independent.
+    const { runId: splitRunId, nodeId, run: runB, bindingSources } = await runStep(c, analysisB, 'split', SPLIT_OP);
+    rec.runB = { status: runB.status, nodes: nodeRows(runB), bindingSources };
+    const split = byNode(runB, nodeId);
+    expect(split, 'the split step ran its own d5 node').toBeTruthy();
+    expect(nodeId, 'the step targets the template\'s split node').toBe('d5');
+    // FR9 — every binding names where it came from. The seed is the SERVER's derived fact
+    // (AXI-1781), the unit and the outcome are the confirmed dataset roles (AXI-1720), and
+    // the three governed minimums are the customer's approved config (FR29) — nothing is
+    // invented and nothing is client-asserted.
+    expect(bindingSources.splitSeed, JSON.stringify(bindingSources)).toBe(`generated:${SPLIT_OP}.splitSeed`);
+    expect(bindingSources.patientKey, JSON.stringify(bindingSources)).toBe('role:subject');
+    expect(bindingSources.outcomeColumn, JSON.stringify(bindingSources)).toBe('role:outcome');
+    for (const knob of ['holdoutRatio', 'minPatientsPerArm', 'minPatientsPerClass']) {
+      expect(bindingSources[knob], `${knob} is the customer's approved config`).toBe(`policy:${SPLIT_OP}.${knob}`);
+    }
     // The run COMPLETES: the refusal is a governed verdict recorded on the ledger
     // (summary.splitLedger), not a failed node — asserted below, not here.
     expect(split!.status, `split node: ${split!.error ?? ''}`).toMatch(/SUCCEEDED|REUSED/);
 
-    splitRun = (await collect(c, res.body.instance.viewAnalysisId, res.body.instance.runId))
-      .find((r) => r.operationId === 'split.exploration_holdout') ?? null;
+    splitRun = (await collect(c, analysisB, splitRunId))
+      .find((r) => r.operationId === SPLIT_OP) ?? null;
     expect(splitRun, 'the split materialized its own arm table').toBeTruthy();
     rec.splitRun = { id: splitRun!.id, columns: splitRun!.columns, summary: splitRun!.summary, rows: splitRun!.rows };
 
@@ -491,12 +669,15 @@ test.describe('AXI-1507 Riaz — block B: guards and refusals', () => {
   // ≥ 3). This is the scenario that proves the split CHANGES what comes next — the only
   // observation the earlier 15/15-green suite could not make (AXI-1596, AXI-1595 step 4).
   test('AC5/FR23 — a TAKEN split writes a ledger row and publishes the exploration arm as a filtered child snapshot', { tag: ['@SI-017', '@SI-022', '@SI-045'] }, async () => {
-    test.setTimeout(420_000);
-    // 1. the split-free reference (analysis C from the container test) must have settled.
-    expect(freeRunId, 'the split-free reference plan was instantiated').toBeTruthy();
-    const freeRun = await drain(c, freeRunId);
+    test.setTimeout(600_000);
+    // 1. the split-free reference: analysis C (from the container test) runs its screen step
+    // with NO split taken — the comparison this test's "no dedupe" half needs.
+    expect(freeAnalysis, 'the split-free reference plan was instantiated').toBeTruthy();
+    const free = await runStep(c, freeAnalysis, 'screen', SCREEN_OP);
+    freeRunId = free.runId;
+    const freeRun = free.run;
     const freeRuns = await collect(c, freeAnalysis, freeRunId);
-    const freeScreen = freeRuns.find((r) => r.operationId === 'stats.screen_shortlist');
+    const freeScreen = freeRuns.find((r) => r.operationId === SCREEN_OP);
     expect(freeScreen, `split-free screen exists among ${freeRuns.map((r) => r.operationId).join(',')}`).toBeTruthy();
 
     // 2. declare a minimum the holdout clears; restore the Riaz-realistic minimum afterwards.
@@ -505,17 +686,18 @@ test.describe('AXI-1507 Riaz — block B: guards and refusals', () => {
       rec.relaxedConfig = await ensureApprovedConfig(c, relaxed);
       const analysisD = await createViewAnalysis(c.api, c.t, c.projectId, c.datasetId, `${LABEL} — discovery D (taken split)`);
       await bindEnvelope(c, analysisD);
-      const res = await c.api.post('/api/v1/discovery/plans', planBody(c, analysisD, `${LABEL}-d`, QUESTIONS.d, { seed: RIAZ.splitSeed }), c.t.headers);
+      const res = await c.api.post('/api/v1/discovery/plans', planBody(c, analysisD, `${LABEL}-d`, QUESTIONS.d), c.t.headers);
       expect(res.body.instantiated, `refused: ${JSON.stringify(res.body.reasons)}`).toBe(true);
       await expectQuestionReadBack(c, res.body.instance, analysisD, QUESTIONS.d);
-      const runD = await drain(c, res.body.instance.runId);
+      const taking = await runStep(c, analysisD, 'split', SPLIT_OP);
+      const runD = taking.run;
       rec.takenRun = { status: runD.status, nodes: nodeRows(runD), free: nodeRows(freeRun) };
       // What came AFTER the split is the next test's subject (AXI-1632); this one
       // asserts only what the split itself did.
       expect(byNode(runD, 'd5')?.status, 'the split node itself succeeded').toMatch(/SUCCEEDED|REUSED/);
 
-      const ruleRuns = await collect(c, analysisD, res.body.instance.runId);
-      const split = ruleRuns.find((r) => r.operationId === 'split.exploration_holdout');
+      const ruleRuns = await collect(c, analysisD, taking.runId);
+      const split = ruleRuns.find((r) => r.operationId === SPLIT_OP);
       expect(split, 'the split ran').toBeTruthy();
       const ledger = (split!.summary as any)?.splitLedger;
       rec.takenLedger = ledger;
@@ -536,7 +718,11 @@ test.describe('AXI-1507 Riaz — block B: guards and refusals', () => {
       const armPatients: unknown[] = armPredicate.values ?? armPredicate.value ?? [];
       const exploration = new Set(split!.rows.filter((r) => String(r.arm) === 'exploration' && !r.discarded).map((r) => String(r.patient)));
       expect(new Set(armPatients.map(String)), 'the arm lists exactly the exploration patients').toEqual(exploration);
-      expect(exploration.size, 'exploration arm size (Riaz 27 → 19 at ratio 0.3, seed 4172)').toBeLessThan(27);
+      // AXI-1807: WHICH patients land in which arm is the server-derived seed's business now
+      // (AXI-1781), so the arm is asserted by what stratification fixes — it narrows, and it
+      // narrows to exactly the patients the measured table calls `exploration`.
+      expect(exploration.size, 'the exploration arm is a NARROWING of the 27-patient cohort').toBeLessThan(27);
+      expect(exploration.size, 'and it is not empty').toBeGreaterThan(0);
 
       const splitSnap = snaps.find((s) => s.origin === 'rule_derived' && s.ruleRunId === split!.id);
       expect(splitSnap!.parentSnapshotId, 'the split is not narrowed onto itself').toBe(baseline.id);
@@ -557,25 +743,43 @@ test.describe('AXI-1507 Riaz — block B: guards and refusals', () => {
   // parent (origin `filter`, same dataset) answers with its parent's eligibility, while the
   // split's own `rule_derived` result — the table naming the sealed patients — stays refused.
   test('AC14/AC3/NFR7 — the steps after a TAKEN split derive from the exploration arm and do NOT dedupe onto the split-free plan', { tag: ['@SI-017', '@SI-022', '@SI-045'] }, async () => {
+    test.setTimeout(900_000);
     expect(taken, 'the taken-split plan ran in the previous test').toBeTruthy();
-    const { run: runD, ruleRuns, ledger, freeScreen } = taken!;
-    expect(runD.nodes.filter((n) => n.status === 'FAILED').map((n) => `${shortId(n)}: ${n.error}`), 'no node FAILED').toEqual([]);
+    const { analysis: analysisD, ledger, freeScreen } = taken!;
+
+    // AXI-1807 — the steps AFTER the split are the scientist's own clicks now: the screen on
+    // the published arm, then the four cutoff proposals on the row she chose from it. Running
+    // them here (rather than reading them off a platform-driven instantiation run) is what
+    // makes the FR37 regression this test was written for observable at all: if the arm were
+    // refused as a referent again, these submits would be the thing that failed.
+    const screenD = await runStep(c, analysisD, 'screen', SCREEN_OP);
+    expect(screenD.run.nodes.filter((n) => n.status === 'FAILED').map((n) => `${shortId(n)}: ${n.error}`), 'the screen on the ARM did not fail').toEqual([]);
+    const afterSplit = await collect(c, analysisD, screenD.runId);
+    const armScreen = afterSplit.find((r) => r.operationId === SCREEN_OP)!;
+    const top = armScreen.rows.find((r) => Number(r.rank) === 1) ?? armScreen.rows[0];
+    const selection = { kind: 'shortlist_row', nodeId: 'd6', runId: screenD.runId, values: { marker: String(top.measurement ?? top.valueColumn ?? '') } };
+    for (const operationId of CUTOFF_OPS) {
+      const { run, nodeId } = await runStep(c, analysisD, 'cutoff', operationId, { selection });
+      expect(byNode(run, nodeId)?.status, `${operationId} on the arm: ${byNode(run, nodeId)?.error ?? ''}`).toMatch(/SUCCEEDED|REUSED|BLOCKED/);
+    }
+
+    const ruleRuns = await collect(c, analysisD, screenD.runId);
     // 3. LINEAGE: the split itself stays on the baseline (never narrowed onto its own output);
     // every step after it derives from the ARM, not the baseline.
-    const downstream = ruleRuns.filter((r) => r.operationId === 'stats.screen_shortlist' || /^stats\.cutoff_/.test(r.operationId ?? ''));
-    expect(downstream, 'screen + four cutoff proposals ran').toHaveLength(5);
+    const downstream = ruleRuns.filter((r) => r.operationId === SCREEN_OP || /^stats\.cutoff_/.test(r.operationId ?? ''));
+    expect(downstream.map((r) => r.operationId).sort(), 'screen + four cutoff proposals ran').toEqual([SCREEN_OP, ...CUTOFF_OPS].sort());
     rec.downstreamLineage = downstream.map((r) => ({ op: r.operationId, parent: r.parentSnapshotId }));
     for (const r of downstream) {
       expect(r.parentSnapshotId, `${r.operationId} derives from the exploration arm, not the baseline`).toBe(ledger.explorationSnapshotId);
     }
 
     // 4. NO DEDUPE: the split-bearing screen is its own run, with a different fingerprint.
-    const screen = ruleRuns.find((r) => r.operationId === 'stats.screen_shortlist')!;
+    const screen = ruleRuns.find((r) => r.operationId === SCREEN_OP)!;
     rec.dedupe = { free: { id: freeScreen!.id, fp: freeScreen!.runFingerprint }, split: { id: screen.id, fp: screen.runFingerprint, deduped: screen.dedupedFromRunId } };
     expect(screen.runFingerprint, 'fingerprinted').toBeTruthy();
     expect(screen.runFingerprint, 'split-bearing screen fingerprint differs from the split-free screen').not.toBe(freeScreen!.runFingerprint);
     expect(screen.id, 'not the same run').not.toBe(freeScreen!.id);
     expect(screen.dedupedFromRunId, 'the split-bearing screen did not dedupe onto any earlier run').toBeNull();
-    expect(byNode(runD, 'd6')?.status, 'the screen executed rather than being REUSED').not.toBe('REUSED');
+    expect(byNode(screenD.run, 'd6')?.status, 'the screen executed rather than being REUSED').not.toBe('REUSED');
   });
 });

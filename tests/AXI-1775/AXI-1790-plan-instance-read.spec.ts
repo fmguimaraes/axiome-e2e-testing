@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, request as apiRequest } from '@playwright/test';
 import {
   seedLiveWorkbench, branchUrl, declineHoldoutUrl, submitStepAndWait, SCREEN_OP, type Seeded,
 } from '../AXI-1717/harness/live-workbench';
@@ -36,6 +36,17 @@ test.describe('AXI-1790 - the whole plan instance reads back from the server (AP
     const nodeIds = res.body.nodes.map((n: { nodeId: string }) => n.nodeId);
     expect(nodeIds.length).toBeGreaterThan(0);
     expect(new Set(nodeIds).size).toBe(nodeIds.length);
+    // AXI-1807 / AXI-1779: instantiating DECLARES the plan and starts nothing, so the
+    // instantiation run stays DRAFT and `recordedOf` drops its nodes from the read — where
+    // they would otherwise phase as `running` and carry a run id. A freshly instantiated plan
+    // therefore states every declared node and CLAIMS NOTHING about any of them. This is the
+    // contract that moved (it used to read `PENDING` + the instance run id), so it is asserted
+    // on EVERY node rather than on a sample.
+    for (const node of res.body.nodes) {
+      expect(node, `node ${node.nodeId} of a never-started plan claims no activity`).toMatchObject({
+        status: null, runId: null, stepId: null, operationId: null, failReason: null,
+      });
+    }
   });
 
   test('NFR1 - AXI-1760\'s `split` member is still present and unchanged in shape (null while undecided)', async () => {
@@ -50,6 +61,16 @@ test.describe('AXI-1790 - the whole plan instance reads back from the server (AP
     expect(b1.phases.map((p: { phase: string }) => p.phase)).toEqual(PHASES);
     expect(b1.phases.find((p: { phase: string }) => p.phase === 'candidate').state).toBe('not_started');
     expect(b1.phases.find((p: { phase: string }) => p.phase === 'validation').state).toBe('not_started');
+    // AXI-1807 / AXI-1779: before ANY step submit, no phase has been started by anyone —
+    // `screen` included. It used to read `running` off the instantiation run the platform
+    // started on the scientist's behalf; that run is the defect AXI-1779 removed, so the
+    // whole of Branch 1 is `not_started` until the user's own first submit. Asserted over
+    // every phase, because "which phases a fresh plan claims to have begun" is exactly what
+    // the fix changed.
+    expect(b1.phases.map((p: { phase: string; state: string }) => [p.phase, p.state]))
+      .toEqual(PHASES.map((phase) => [phase, 'not_started']));
+    expect(b1.phases.every((p: { runId: string | null }) => p.runId === null || p.runId === undefined),
+      `no phase of a never-started plan carries a run id: ${JSON.stringify(b1.phases)}`).toBe(true);
   });
 
   test('AC2 FR3 - a screen run on Branch 2 completes the phase on Branch 2 only, with its governed run id', async () => {
@@ -102,7 +123,18 @@ test.describe('AXI-1790 - the whole plan instance reads back from the server (AP
   });
 
   test('NFR4 - the read is deny-by-default: no credentials, no plan', async () => {
-    const res = await s.api.ctx.get(`${process.env.API_BASE_URL ?? 'http://localhost:3000'}${planUrl(s.viewAnalysisId)}`);
-    expect([401, 403]).toContain(res.status());
+    // AXI-1807: `s.api.ctx` bakes the `Authorization` header in at creation
+    // (`AXI-1435/harness/api.ts`), so the call this replaces was AUTHENTICATED and merely
+    // missing `X-Workspace-Id` — it was asserting the tenancy pipe's answer (today a 400)
+    // under the title "no credentials", and failing. A genuinely credential-less caller
+    // needs its own context.
+    const anonymous = await apiRequest.newContext();
+    try {
+      const res = await anonymous.get(`${process.env.API_BASE_URL ?? 'http://localhost:3000'}${planUrl(s.viewAnalysisId)}`);
+      expect([401, 403], `deny-by-default: ${res.status()} ${await res.text()}`).toContain(res.status());
+      expect(await res.text(), 'and it discloses no plan').not.toContain('guidingQuestion');
+    } finally {
+      await anonymous.dispose();
+    }
   });
 });

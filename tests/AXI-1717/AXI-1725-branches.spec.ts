@@ -15,7 +15,26 @@ import {
  * (`POST /discovery/plans`), never a planner call. Fixture: Riaz 2017 immune, 27
  * patients, `response` R/NR, `patient_id`. Seed lifted from AXI-1721's harness
  * (`./harness/live-workbench.ts`) rather than re-deriving the pre-Screen drive.
+ *
+ * AXI-1807 — the fork-refusal tests below were re-authored to pin the CAUSE of a
+ * refusal, not merely that one happened. Before AXI-1779 instantiating a plan STARTED
+ * it, so a container the scientist had only just declared already carried settled later
+ * steps; the old assertions (`forked === false`, and a `has not completed|before any
+ * exploration` alternation) held in that world and in this one alike, which is another
+ * way of saying they held no matter what the product did. The new assertions state the
+ * exact reason SET on a container where nothing has run, and the exact reason ADDED by
+ * the user's own step run — so the two worlds are distinguishable.
+ *
+ * Mutation verification (AXI-1807): re-running the screen step on `s.declaredAnalysisId`
+ * in `beforeAll` reproduces the pre-AXI-1779 world (a "fresh" container that already has
+ * a settled later step). Under that mutation the re-authored FR18 test FAILS on leg (a)
+ * — two reasons instead of one, the second being FR4 — while the assertion it replaced
+ * (`forked === false` + /has not completed/) still PASSES. That difference is the whole
+ * point of the re-authoring.
  */
+
+/** The AXI-1507 FR4 guard `DiscoveryBranchService.forkRefusals` raises, quoted by shape not prose. */
+const FR4_LATER_STEP_SETTLED = /a split must be taken before any exploration/;
 
 test.describe('AXI-1725 - fork, discard and count (API, real backend)', { tag: ['@SI-045', '@SI-016'] }, () => {
   test.describe.configure({ mode: 'serial', timeout: 300_000 });
@@ -44,11 +63,43 @@ test.describe('AXI-1725 - fork, discard and count (API, real backend)', { tag: [
     expect(res.body).toEqual({ branches: [], counts: { total: 1, discarded: 0 } });
   });
 
-  test('FR18 - a fork off a step that has not completed in THIS container is refused', async () => {
-    const res = await s.api.post(branchUrl(s.viewAnalysisId), { nodeRef: 'cutoff' }, s.t.headers);
-    expect(res.status, JSON.stringify(res.body)).toBe(200);
-    expect(res.body.forked).toBe(false);
-    expect(res.body.reasons.join(' ')).toMatch(/has not completed/);
+  test('FR18 - a fork off a step that has not completed is refused BY THAT CAUSE ALONE, and the only thing that adds a second cause is the USER\'s own run', async () => {
+    // AXI-1807. The assertion this replaces (`forked === false` + `reasons` matching
+    // /has not completed/) was true in BOTH worlds and therefore tested nothing:
+    //   - pre-AXI-1779 instantiation STARTED the plan, so a container the scientist had
+    //     only just declared already carried settled later steps, and this same call came
+    //     back refused with the "has not completed" reason AND the FR4 later-step-settled
+    //     reason. The refusal was right by accident, for a cause nobody had caused.
+    //   - post-AXI-1779 nothing runs until the user asks, so the ONLY true cause on a fresh
+    //     container is that the step has not completed.
+    // What is asserted now is the CAUSE SET, and the DELTA between two containers that
+    // differ by exactly one act — the user's own screen submit in `beforeAll`.
+
+    // (a) `s.declaredAnalysisId` is a freshly instantiated container: nothing has run in it.
+    // Exactly one cause, and NOT the FR4 later-step-settled one. This assertion cannot pass
+    // in the pre-AXI-1779 world (see the mutation note in the file header of AXI-1807).
+    const fresh = await s.api.post(branchUrl(s.declaredAnalysisId), { nodeRef: 'split' }, s.t.headers);
+    expect(fresh.status, JSON.stringify(fresh.body)).toBe(200);
+    expect(fresh.body.forked).toBe(false);
+    expect(fresh.body.reasons, `a container where NOTHING has run has exactly one cause: ${JSON.stringify(fresh.body.reasons)}`).toHaveLength(1);
+    expect(fresh.body.reasons[0]).toMatch(/step split has not completed in this analysis/);
+    expect(fresh.body.reasons[0], 'nothing has explored here, so FR4 must be silent').not.toMatch(FR4_LATER_STEP_SETTLED);
+
+    // (b) the SAME container as the fresh one in every respect except that the USER ran the
+    // screen step here (`beforeAll`). Forking `split` now carries the FR4 cause TOO — and it
+    // is attributable to that run and to nothing the platform did on the scientist's behalf.
+    const explored = await s.api.post(branchUrl(s.viewAnalysisId), { nodeRef: 'split' }, s.t.headers);
+    expect(explored.body.forked).toBe(false);
+    expect(explored.body.reasons.join(' | '), 'the user\'s own screen run is what makes a later step settled').toMatch(FR4_LATER_STEP_SETTLED);
+
+    // (c) a step of THIS container that the user has not run is still refused by the
+    // not-completed cause alone, even though an EARLIER step of the same container HAS
+    // completed: the guard reads the step's own record, never "has anything happened here".
+    const cutoff = await s.api.post(branchUrl(s.viewAnalysisId), { nodeRef: 'cutoff' }, s.t.headers);
+    expect(cutoff.status, JSON.stringify(cutoff.body)).toBe(200);
+    expect(cutoff.body.forked).toBe(false);
+    expect(cutoff.body.reasons, JSON.stringify(cutoff.body.reasons)).toHaveLength(1);
+    expect(cutoff.body.reasons[0]).toMatch(/step cutoff has not completed in this analysis/);
   });
 
   let branchId: string;
@@ -98,18 +149,23 @@ test.describe('AXI-1725 - fork, discard and count (API, real backend)', { tag: [
     expect(res.body.branches[0]).toMatchObject({ id: branchId, status: 'discarded' });
   });
 
-  test('FR21, EC5 - forking split BEFORE any exploration is fine; forking split AFTER a screen ran is refused', async () => {
+  test('FR21, EC5 - the re-split-after-exploration refusal is stated BY NAME, and only where exploration really has begun', async () => {
+    // AXI-1807: the assertion this replaces joined the two reasons with `|`
+    // (/has not completed|before any exploration/), which is satisfied by the
+    // not-completed reason alone — so the FR4/EC5 guard this test exists for was
+    // never observed. Each side is now asserted by name, and each side's ABSENCE
+    // on the other container is asserted too.
     const before = await s.api.post(branchUrl(s.declaredAnalysisId), { nodeRef: 'split' }, s.t.headers);
-    // The declared container's own split node never ran either, so this is the
-    // SAME "has not completed" refusal FR18 already covers for an unsettled step —
-    // asserted here to pin that split is not special-cased into a different reason.
     expect(before.status, JSON.stringify(before.body)).toBe(200);
-    expect(before.body.forked).toBe(false);
+    expect(before.body.forked, 'split never ran here either, so the fork still has nothing to fork from').toBe(false);
+    expect(before.body.reasons.join(' | '), 'BEFORE any exploration, FR4 is silent').not.toMatch(FR4_LATER_STEP_SETTLED);
 
     const afterFork = await s.api.post(branchUrl(s.viewAnalysisId), { nodeRef: 'split' }, s.t.headers);
     expect(afterFork.status, JSON.stringify(afterFork.body)).toBe(200);
     expect(afterFork.body.forked).toBe(false);
-    expect(afterFork.body.reasons.join(' ')).toMatch(/has not completed|before any exploration/);
+    const why: string[] = afterFork.body.reasons;
+    expect(why.join(' | '), 'AFTER the screen ran, FR4 speaks by name').toMatch(FR4_LATER_STEP_SETTLED);
+    expect(why.join(' | '), 'and it cites AXI-1507 FR4 as its authority, not a third guard').toMatch(/AXI-1507 FR4/);
   });
 
   test('NFR8 tenancy - workspaceId in the body is refused by the pipe (400); another workspace sees no instance (404)', async () => {

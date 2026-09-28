@@ -91,14 +91,49 @@ test.describe('AXI-1792 - qc_check ancestors in the dependency scan (EC10, FR33)
   test.beforeAll(async () => { s = await seedLiveWorkbench(`axi-1792-qc-${Date.now().toString(36)}`, 'AXI-1792 QC ancestors'); });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 
-  test('AC10 EC10 FR33 - the screen step is disabled with a QC reason exactly when a QC ancestor of the instance failed; otherwise unchanged (NFR1)', async () => {
+  /**
+   * AXI-1807. The assertion this replaces branched on
+   * `stopped = qcNodes.some(FAILED|BLOCKED|CANCELLED)` and asserted one thing if it was true
+   * and the opposite if it was false. After AXI-1779 (instantiating a plan runs nothing) the
+   * three `qc_check` nodes sit in a DRAFT run for ever, so `stopped` is ALWAYS false: the
+   * FR33/AC10/EC10 branch the test exists for was never executed, while `qcNodes.length === 3`
+   * kept it green. A branch that one side of the product can never take is not coverage.
+   *
+   * It is split in two: what is REACHABLE is asserted without a branch, and the half that is
+   * NOT reachable is recorded as a gap with its own probe (the AXI-1507 spec's `GAP` precedent),
+   * rather than left as a conditional that silently never fires.
+   */
+  test('AC10 EC10 FR33 NFR1 - the three qc_check ancestors are declared, NEVER attempted, and an unattempted guard disables nothing', async () => {
     const status = (await s.api.get(`/api/v1/governed-execution/status?projectId=${s.projectId}&runId=${s.instanceRunId}`, s.t.headers)).body;
-    const qcNodes = (status?.nodes ?? []).filter((n: { nodeId: string }) => /__d[234]$/.test(n.nodeId));
+    const qcNodes: { nodeId: string; status: string }[] = (status?.nodes ?? []).filter((n: { nodeId: string }) => /__d[234]$/.test(n.nodeId));
     expect(qcNodes.length, 'the template instantiates three qc_check nodes (d2..d4)').toBe(3);
-    const stopped = qcNodes.some((n: { status: string }) => ['FAILED', 'BLOCKED', 'CANCELLED'].includes(n.status));
-    const resolved = await s.api.post(stepUrl(s.viewAnalysisId, 'screen', 'resolve'), { operationId: SCREEN_OP, datasetId: s.datasetId, projectId: s.projectId, datasetVersionHash: s.hash }, s.t.headers);
-    expect(resolved.status, JSON.stringify(resolved.body)).toBe(201);
-    if (stopped) expect(resolved.body.disabledReason).toMatch(/QC check .* (failed|blocked): /);
-    else expect(resolved.body.disabledReason ?? '').not.toMatch(/QC check/);
+    // Stated, not branched on: the instantiation run is DECLARED and never started (AXI-1779),
+    // so every guard is unattempted. `isBlocking` therefore sees no FAILED/BLOCKED/CANCELLED
+    // node and no `block` verdict, and the run is DRAFT rather than dead.
+    expect(qcNodes.map((n) => n.status), JSON.stringify(qcNodes)).toEqual(['PENDING', 'PENDING', 'PENDING']);
+    // `status` is the engine's own run state. (`runStatus` is the guided-analysis projection,
+    // which still reads a DRAFT run as `running` — AXI-1806's subject, not this test's.)
+    expect(status.status, JSON.stringify(status).slice(0, 400)).toBe('DRAFT');
+
+    // AXI-1807: `ResolveStepDto` whitelists `operationId | datasetId | selection | picks`; the
+    // call this replaces also sent `projectId` and `datasetVersionHash` and was answered 400 by
+    // the `forbidNonWhitelisted` pipe, then compared against an expected 201 — so it could never
+    // have reached the QC branch it was written to exercise, whatever the qc nodes said.
+    const resolved = await s.api.post(stepUrl(s.viewAnalysisId, 'screen', 'resolve'), { operationId: SCREEN_OP, datasetId: s.datasetId }, s.t.headers);
+    expect(resolved.status, JSON.stringify(resolved.body)).toBe(200);
+    expect(resolved.body.disabledReason ?? '', 'an unattempted guard is not a failed one (NFR1)').not.toMatch(/QC check/);
+  });
+
+  test('AC10 EC10 FR33 - GAP: no product surface runs a discovery qc_check node, so the QC-disabled branch is unreachable end to end', async () => {
+    // The guards live ONLY in the instantiation run, which AXI-1779 leaves DRAFT for ever; the
+    // step-submit path builds a ONE-node plan of the requested OPERATION, and the `qc_guards`
+    // step declares no operation ids, so it cannot be submitted. There is no cancel/start route
+    // for a declared run either. Recorded as the boundary this e2e stops at rather than driven
+    // by a conditional that never fires. Filed as AXI-1819.
+    const submitted = await s.api.post(stepUrl(s.viewAnalysisId, 'qc_guards', 'submit'), {
+      operationId: 'qc.rule_gate', datasetId: s.datasetId, projectId: s.projectId, datasetVersionHash: s.hash,
+    }, s.t.headers);
+    expect(submitted.status, `qc_guards must not become submittable without this gap being revisited: ${JSON.stringify(submitted.body)}`).toBeGreaterThanOrEqual(400);
+    expect(JSON.stringify(submitted.body)).toMatch(/does not run|unknown (operation|discovery step)/);
   });
 });

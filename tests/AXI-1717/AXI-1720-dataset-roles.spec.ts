@@ -171,7 +171,41 @@ test.describe('AXI-1720 - roles record and API (real backend)', { tag: ['@SI-014
   let datasetId: string;
   let projectId: string;
   let runId: string;
+  let hash: string;
   const rolesUrl = () => `/api/v1/discovery/analyses/${viewAnalysisId}/datasets/${datasetId}/roles`;
+  const stepUrl = (nodeRef: string, action: 'resolve' | 'submit') => `/api/v1/discovery/analyses/${viewAnalysisId}/steps/${nodeRef}/${action}`;
+  /** AXI-1807 — the guided run's own SCREEN node (`d6`), the LLM-free template step. */
+  const SCREEN_OP = 'stats.screen_shortlist';
+  const SETTLED = new Set(['SUCCEEDED', 'REUSED', 'FAILED', 'BLOCKED', 'SKIPPED', 'CANCELLED']);
+
+  /**
+   * AXI-1807 — the scientist's own one-click step submit (AXI-1721 FR11), the SAME re-authoring
+   * `ebf89c7` already applied to AXI-1507: instantiation starts nothing (AXI-1779), so the only way
+   * to make this container's question carry a REAL exploration run is to submit a step through it,
+   * exactly as the workbench does. Drains the step's own governed run (resolving any
+   * AWAITING_APPROVAL interpretation node) and returns once every node has settled.
+   */
+  async function runScreenStep(): Promise<{ runId: string; nodes: any[] }> {
+    const submitted = await api.post(stepUrl('screen', 'submit'), {
+      operationId: SCREEN_OP, datasetId, projectId, datasetVersionHash: hash,
+    }, t.headers);
+    expect(submitted.status, `submit screen: ${JSON.stringify(submitted.body)}`).toBe(201);
+    expect(submitted.body.submitted, `screen step refused: ${JSON.stringify(submitted.body.reasons)}`).toBe(true);
+    const stepRunId = submitted.body.runId as string;
+    let nodes: any[] = [];
+    for (let i = 0; i < 120; i++) {
+      const st = (await api.get(`/api/v1/governed-execution/status?projectId=${projectId}&runId=${stepRunId}`, t.headers)).body;
+      nodes = st?.nodes ?? [];
+      for (const n of nodes.filter((n: any) => n.status === 'AWAITING_APPROVAL')) {
+        await api.post('/api/v1/governed-execution/resolve', { projectId, runId: stepRunId, nodeId: n.nodeId, approved: true, note: 'AXI-1720 e2e' }, t.headers);
+      }
+      if (nodes.length > 0 && nodes.every((n: any) => SETTLED.has(n.status))) break;
+      await new Promise((r) => setTimeout(r, 2_500));
+    }
+    expect(nodes.length, 'the screen step run has nodes').toBeGreaterThan(0);
+    expect(nodes.every((n: any) => SETTLED.has(n.status)), `screen step never settled: ${JSON.stringify(nodes)}`).toBe(true);
+    return { runId: stepRunId, nodes };
+  }
   const declaration = (site = 'center') => ({
     outcome: { state: 'declared', column: 'response', outcomeKind: 'binary' },
     subject: { state: 'declared', column: 'patient_id' },
@@ -201,7 +235,7 @@ test.describe('AXI-1720 - roles record and API (real backend)', { tag: ['@SI-014
     t = await ensureTenant(api);
     projectId = await ensureProject(api, t, NAMES.project);
     datasetId = await ingestFreshFixture(api, t, NAMES.smallFixture, RUN);
-    const hash = await datasetVersionHash(api, t, datasetId);
+    hash = await datasetVersionHash(api, t, datasetId);
     await ensureApprovedDiscoveryConfig(api, t);
     viewAnalysisId = await ensureDefaultAnalysis(api, t, projectId, datasetId);
     const bound = await bindEnvelope(api, t, viewAnalysisId);
@@ -225,11 +259,14 @@ test.describe('AXI-1720 - roles record and API (real backend)', { tag: ['@SI-014
     // (it used to be guarded by `if (current === null)`, which on the shared dataset silently
     // skipped itself as soon as a previous run had declared anything).
     expect(res.body.current, 'a run-private dataset carries no earlier declaration').toBeNull();
-    // The LOCK is deliberately NOT asserted here: instantiating the plan starts the template's
-    // governed run, and the first non-split rule run it records on this container flips the lock
-    // within seconds — a race no seed can settle, and nothing to do with a declaration existing.
-    // The lock's real assertions live in the two FR3 tests, which drive it on purpose.
-    expect(typeof res.body.locked, 'the lock state is reported').toBe('boolean');
+    // AXI-1807: the race this used to hedge is gone. Before AXI-1779, instantiating the plan
+    // STARTED the template's governed run, so the first non-split rule run it recorded on this
+    // container could flip the lock within seconds of `beforeAll` returning — a race no seed
+    // could settle. AXI-1779 made instantiation DECLARE the plan and start nothing, so nothing
+    // touches this container's runs until a test in this describe submits a step itself (see the
+    // two FR3 tests below). A freshly-instantiated, freshly-declared-nothing container is
+    // deterministically unlocked; asserted outright, not merely typed.
+    expect(res.body.locked, 'a freshly instantiated container starts nothing, so it is unlocked').toBe(false);
   });
 
   test('FR1 FR2 - PUT without confirm stores a DRAFT (still unconfirmed), then POST confirm makes it the confirmed record', async () => {
@@ -252,39 +289,33 @@ test.describe('AXI-1720 - roles record and API (real backend)', { tag: ['@SI-014
 
   test('FR3 - before any exploration run an edit replaces the declaration in place (no new version)', async () => {
     const before = await api.get(rolesUrl(), t.headers);
-    // The plan's governed run starts at instantiation and may already have produced a rule run on
-    // this analysis; either outcome is asserted (never skipped) - the lock flag decides which.
+    // AXI-1807: under AXI-1779 instantiation DECLARES the plan and starts nothing, and no test
+    // before this one has submitted a step, so this container is deterministically UNLOCKED here
+    // (asserted outright by the previous test in this describe). The edit therefore always
+    // replaces the declaration in place; the "already locked" outcome only exists for the NEXT
+    // test, which submits a real step first.
+    expect(before.body.locked, 'nothing has submitted a step on this container yet').toBe(false);
     const put = await api.ctx.put(apiUrl(rolesUrl()), {
       data: { roles: declaration('hospital'), confirm: true }, headers: t.headers,
     });
     const body = await put.json();
     expect(put.status(), JSON.stringify(body)).toBeLessThan(300);
-    if (before.body.locked === false) {
-      expect(body.mintedNewRevision).toBe(false);
-      expect(body.record.revision).toBe(before.body.current.revision);
-    } else {
-      expect(body.mintedNewRevision, 'locked already: an edit mints a new version').toBe(true);
-      expect(body.record.revision).toBe(before.body.current.revision + 1);
-    }
+    expect(body.mintedNewRevision).toBe(false);
+    expect(body.record.revision).toBe(before.body.current.revision);
   });
 
-  // B3 - drives a REAL guided exploration step (the LLM-free nine-step plan's governed run) and
-  // asserts the lock flips off the platform's own run rows, then that an edit mints a new version.
+  // AXI-1807 (B3) — re-authored against the one-click step path, the SAME defect class fixed in
+  // AXI-1507 (`ebf89c7`): under AXI-1779 the INSTANTIATION run (`runId` from `beforeAll`) stays
+  // DRAFT for ever and starts nothing, so polling ITS status can never see a node settle - the old
+  // version of this test could only ever time out. The lock is driven by the scientist's OWN step
+  // submit instead (`POST .../steps/screen/submit`, AXI-1721 FR11), exactly as the workbench does;
+  // `runScreenStep` drives THAT run's nodes to settlement (any settled status counts - `isLocked`
+  // in `dataset-roles.service.ts` counts every non-split `RuleRun` row on the question regardless
+  // of outcome, so even a FAILED screen still flips the lock).
   test('FR3 - after the REAL guided run produces exploration runs the roles lock and an edit mints revision N+1, original unchanged', async () => {
-    const SETTLED = new Set(['SUCCEEDED', 'REUSED', 'FAILED', 'BLOCKED', 'SKIPPED', 'CANCELLED']);
-    let nodes: any[] = [];
-    for (let i = 0; i < 120; i++) {
-      const st = (await api.get(`/api/v1/governed-execution/status?projectId=${projectId}&runId=${runId}`, t.headers)).body;
-      nodes = st?.nodes ?? [];
-      for (const n of nodes.filter((n: any) => n.status === 'AWAITING_APPROVAL')) {
-        await api.post('/api/v1/governed-execution/resolve', { projectId, runId, nodeId: n.nodeId, approved: true, note: 'AXI-1720 e2e' }, t.headers);
-      }
-      if (nodes.length > 0 && nodes.every((n: any) => SETTLED.has(n.status))) break;
-      await new Promise((r) => setTimeout(r, 2_500));
-    }
-    expect(nodes.length, 'the guided run has nodes').toBeGreaterThan(0);
+    await runScreenStep();
     const before = await api.get(rolesUrl(), t.headers);
-    expect(before.body.locked, 'a real guided run exists on this analysis, so the roles must be locked').toBe(true);
+    expect(before.body.locked, 'a real step submit produced a rule run on this question, so the roles must be locked').toBe(true);
     const originalRevision = before.body.current.revision;
     const originalRoles = before.body.current.roles;
     const put = await api.ctx.put(apiUrl(rolesUrl()), { data: { roles: declaration('locked-edit-site'), confirm: true }, headers: t.headers });

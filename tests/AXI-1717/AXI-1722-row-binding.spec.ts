@@ -57,7 +57,10 @@ test.describe('AXI-1722 - selection admission and readers (API, real backend)', 
   });
 
   test('A4 - a selection naming a node that has not SETTLED is refused, naming its status', async () => {
-    // The declared instance's own d6 node is PENDING until the declared container's own screen step runs.
+    // AXI-1807: the declared container's instantiation run is DRAFT and never starts (AXI-1779 —
+    // instantiating declares, it does not run), so its own d6 node carries NO status at all until
+    // that container's screen STEP is submitted. "Not settled" is now the permanent resting state
+    // of every instantiated node, not a transient one.
     const res = await s.api.post(stepUrl(s.declaredAnalysisId, 'cutoff', 'resolve'), {
       operationId: CUTOFF_OP, datasetId: s.datasetId, selection: { kind: 'shortlist_row', nodeId: 'd6', runId: s.declaredInstanceRunId, values: { marker: 'CD8A_pre' } },
     }, s.t.headers);
