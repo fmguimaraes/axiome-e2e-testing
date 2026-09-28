@@ -117,7 +117,63 @@ import {
  * the gate scores it `not_answered` — which is correct, and means "go author
  * that recording", not "the guard refused".
  */
-test.describe.configure({ mode: 'serial', timeout: 30 * 60_000 });
+// AXI-1844 (FR115 full-bank timeout sizing; revised in the AXI-1844 rework).
+// The prior flat `30 * 60_000` risked exactly what FR115 forbids: "a failed
+// run is never superseded by re-running unchanged code" — a spec TIMEOUT is a
+// failed run by that rule, and burns one of FR115's two allowed held runs for
+// no scientific reason at all. The 2026-09-26 full bank measured 16.4 min.
+// `describe.configure({ timeout })` governs this spec's TEST body only, never
+// its `beforeAll`/`afterAll` HOOKS (Playwright's own split — see
+// `playwright.config.ts`'s comment, which raises the GLOBAL `timeout` to cover
+// hooks for exactly this reason; this describe's hooks above do a login +
+// tenant/dataset lookup, comfortably inside that global 120s, so they need no
+// override here).
+//
+// THIS STORY'S FIRST PASS sized the timeout to the mathematically EXHAUSTIVE
+// worst case — 46 questions x 5 repair attempts (the ladder's own ceiling) x
+// 150s (the compiled arm's per-attempt planner deadline, NFR6), serial, plus a
+// 10-minute setup/teardown allowance — which comes to 585 minutes (9h45m).
+// That number is not wrong as an upper bound, but it is the wrong number to
+// hold a KEY-BEARING LIVE CONTAINER open for: a run that is genuinely HUNG
+// (not doing legitimate repair work, just stuck — a network wedge, a deadlock,
+// a provider outage the retry loop never escapes cleanly) would sit unkilled
+// for up to 9h45m before Playwright ever intervenes, which is a much larger
+// live-spend/availability exposure than the scientific loss of occasionally
+// cutting off a genuinely slow-but-still-working run early (that run is simply
+// re-run — FR115's own remedy for a failed run, at zero scientific cost, since
+// nothing about a timeout corrupts the bank).
+//
+// REVISED to a fixed 150-minute (2h30m) cap:
+//
+//   - ~9x the largest full-bank run measured to date (16.4 min) — no real run
+//     has ever needed anywhere close to this;
+//   - after the fixed 10-minute setup/teardown allowance, the remaining 140
+//     minutes (8400s) over 46 questions is ~182s/question on average — about
+//     1.2x the compiled arm's single-attempt planner deadline (150s) per
+//     question, so the cap comfortably absorbs the ordinary case (most
+//     questions answered first attempt) plus a MINORITY of questions needing
+//     one genuine repair retry. It does NOT try to absorb a broadly degraded
+//     run averaging 2+ attempts per question (that would need ~240 min) —
+//     such a run is, by this point, indistinguishable from one that has
+//     stopped doing useful repair work, and the correct response is to kill
+//     it and re-run (FR115's own remedy for a failed run, at zero scientific
+//     cost — nothing about a timeout corrupts the bank), not to wait it out;
+//   - bounds how long a hung run can hold a live provider key/container to
+//     under 2.5 hours instead of nearly 10 — the actual defect this revision
+//     fixes: the mathematically exhaustive worst case is a real upper bound,
+//     but sizing the TIMEOUT to it means a truly stuck (not merely slow)
+//     process is left holding a paid, key-bearing container for up to 9h45m
+//     before anything intervenes.
+//
+// If the bank's growth or the repair ladder's shape ever pushes genuine runs
+// close to this cap, raise it explicitly and re-justify against the THEN
+// current measured full-bank duration — never silently re-derive it from the
+// worst-case product above, which is what produced the 9h45m number this
+// comment replaces.
+const FR115_FULL_BANK_TIMEOUT_MINUTES = 150; // ~9x the 16.4-minute 2026-09-26 measured run
+const FR115_FULL_BANK_TIMEOUT_MS = FR115_FULL_BANK_TIMEOUT_MINUTES * 60_000;
+
+test.describe.configure({ mode: 'serial', timeout: FR115_FULL_BANK_TIMEOUT_MS });
 
 let auth: ShadowRunAuth;
 let workspaceId: string;
