@@ -46,7 +46,7 @@ interface OperationDescriptor {
 // front-end's localStorage for the BROWSER (`page`) fixture only, so an
 // API-only spec must obtain its own token exactly like the auth setup project
 // does, and attach it explicitly (`config/auth.ts`'s `ensureAuthTokens`).
-test('AC14 — GET /rule-runs/operations projects description, guidance and help, null where undeclared', async ({
+test('AC14 — GET /rule-runs/operations projects description, guidance and help, null where undeclared @SI-017', async ({
   request,
 }) => {
   const admin = ROLES.find((role) => role.name === 'admin')!;
@@ -86,7 +86,7 @@ test('AC14 — GET /rule-runs/operations projects description, guidance and help
   }
 });
 
-test('FR5 — the operations endpoint refuses an unauthenticated read', async ({ request }) => {
+test('FR5 — the operations endpoint refuses an unauthenticated read @SI-010', async ({ request }) => {
   const response = await request.get(apiUrl('/api/v1/rule-runs/operations'), {
     headers: { Authorization: '' },
   });
