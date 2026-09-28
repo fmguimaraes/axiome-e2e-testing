@@ -69,16 +69,42 @@ export async function ingestFixture(api: Api, t: Tenant, filename: string): Prom
   const existing = await api.get(`/api/v1/workspaces/${ws}/datasets?search=${encodeURIComponent(filename)}`, t.headers);
   const prior = asList(existing.body).find((d: any) => d.originalFilename === filename && d.availability === 'available');
   if (prior) return prior.id;
+  return uploadFixture(api, t, filename, filename);
+}
 
+/**
+ * AXI-1801 — the SAME fixture bytes ingested as a BRAND-NEW dataset, named uniquely
+ * per run. For the state a scenario cannot reset through the API, a fresh dataset is
+ * the only clean slate the platform offers:
+ *   - dataset roles are keyed `(workspaceId, datasetId)` (`DatasetRolesDeclaration`),
+ *     so a confirmed/locked declaration left by a previous run is otherwise permanent;
+ *   - the dataset's `auto_default` container is created with the dataset, and a
+ *     container holds at most ONE discovery plan instance by design (AXI-1516) — so a
+ *     shared container can only ever be instantiated once, ever.
+ * Reuse-or-create (`ingestFixture`) stays the default for scenarios that only read.
+ */
+export async function ingestFreshFixture(api: Api, t: Tenant, filename: string, label: string): Promise<string> {
+  const dot = filename.lastIndexOf('.');
+  const [stem, ext] = dot > 0 ? [filename.slice(0, dot), filename.slice(dot)] : [filename, ''];
+  return uploadFixture(api, t, filename, `${stem}__${label}${ext}`);
+}
+
+/** A label unique to this run, safe in a filename: `<prefix>-<epoch36><rand>`. */
+export function runLabel(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+async function uploadFixture(api: Api, t: Tenant, filename: string, originalFilename: string): Promise<string> {
+  const ws = t.workspaceId;
   const bytes = readFileSync(join(FIXTURES_DIR, filename));
   const init = await api.post(`/api/v1/workspaces/${ws}/datasets`, {
-    organizationId: t.orgId, originalFilename: filename, contentType: 'text/csv',
+    organizationId: t.orgId, originalFilename, contentType: 'text/csv',
   }, t.headers);
   const datasetId = init.body.dataset.id;
   const put = await fetch(init.body.presignedUrl, { method: 'PUT', headers: { 'content-type': 'text/csv' }, body: new Uint8Array(bytes) });
-  if (!put.ok) throw new Error(`presigned PUT of ${filename} failed (${put.status})`);
+  if (!put.ok) throw new Error(`presigned PUT of ${originalFilename} failed (${put.status})`);
   const fin = await api.patch(`/api/v1/workspaces/${ws}/datasets/${datasetId}/finalize`, undefined, t.headers);
-  if (fin.status >= 300) throw new Error(`finalize ${filename} failed (${fin.status})`);
+  if (fin.status >= 300) throw new Error(`finalize ${originalFilename} failed (${fin.status})`);
 
   const deadline = Date.now() + INGEST_TIMEOUT_MS;
   while (Date.now() < deadline) {

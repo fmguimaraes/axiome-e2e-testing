@@ -2,7 +2,7 @@ import { test, expect, Page, Route } from '@playwright/test';
 import { adminApi, workspaceHeader, type Api } from '../AXI-1435/harness/api';
 import { apiUrl } from '../../config/env';
 import {
-  ensureTenant, ensureProject, ingestFixture, datasetVersionHash, ensureDefaultAnalysis,
+  ensureTenant, ensureProject, ingestFreshFixture, runLabel, datasetVersionHash, ensureDefaultAnalysis,
   bindEnvelope, ensureApprovedDiscoveryConfig, instantiatePlan, NAMES,
 } from '../AXI-1507/harness/seed';
 
@@ -181,18 +181,33 @@ test.describe('AXI-1720 - roles record and API (real backend)', { tag: ['@SI-014
     site: { state: 'declared', column: site },
   });
 
+  /**
+   * AXI-1801 — one label per run, carried by BOTH the dataset and the question, so this
+   * describe never meets anything a previous run left behind. The three pieces of state
+   * this spec writes are all permanent through the API:
+   *   - the roles declaration, keyed `(workspace, dataset)` — a run confirms it and (B3)
+   *     locks it, so a second run on the same dataset could not start "nothing declared";
+   *   - the plan instance, keyed by container — a container holds at most ONE by design
+   *     (AXI-1516), so the shared `auto_default` container refuses every re-instantiation
+   *     (correct product behaviour, and the reason this spec used to die in `beforeAll`);
+   *   - the question's exploration runs, which decide the FR3 lock.
+   * A fresh dataset resets all three at once: its own `auto_default` container is created
+   * with it, so the seed stays the plain `ensureDefaultAnalysis` path the product uses.
+   */
+  const RUN = runLabel('axi1720');
+
   test.beforeAll(async () => {
     api = await adminApi();
     t = await ensureTenant(api);
     projectId = await ensureProject(api, t, NAMES.project);
-    datasetId = await ingestFixture(api, t, NAMES.smallFixture);
+    datasetId = await ingestFreshFixture(api, t, NAMES.smallFixture, RUN);
     const hash = await datasetVersionHash(api, t, datasetId);
     await ensureApprovedDiscoveryConfig(api, t);
     viewAnalysisId = await ensureDefaultAnalysis(api, t, projectId, datasetId);
     const bound = await bindEnvelope(api, t, viewAnalysisId);
     expect([200, 201], `envelope bind: ${JSON.stringify(bound.body)}`).toContain(bound.status);
     // A discovery plan instance on the container (LLM-free): the roles API derives the question from it.
-    const planned = await instantiatePlan(api, t, { viewAnalysisId, projectId, datasetId, datasetVersionHash: hash, questionKey: 'axi-1720-roles' });
+    const planned = await instantiatePlan(api, t, { viewAnalysisId, projectId, datasetId, datasetVersionHash: hash, questionKey: `axi-1720-roles-${RUN}` });
     expect(planned.status, `instantiate: ${JSON.stringify(planned.body)}`).toBe(201);
     expect(planned.body.instantiated, `refused: ${JSON.stringify(planned.body.reasons)}`).toBe(true);
     runId = planned.body.instance.runId;
@@ -206,8 +221,15 @@ test.describe('AXI-1720 - roles record and API (real backend)', { tag: ['@SI-014
     expect(res.body).toMatchObject({ datasetId, confirmed: false });
     expect(Array.isArray(res.body.guesses)).toBe(true);
     expect(Array.isArray(res.body.columns)).toBe(true);
-    // Either nothing declared yet, or a previous run of this spec left a declaration; never a confirmed one we did not make.
-    if (res.body.current === null) expect(res.body.locked).toBe(false);
+    // AXI-1801 — the dataset belongs to THIS run, so "nothing declared" is a fact, not a hedge
+    // (it used to be guarded by `if (current === null)`, which on the shared dataset silently
+    // skipped itself as soon as a previous run had declared anything).
+    expect(res.body.current, 'a run-private dataset carries no earlier declaration').toBeNull();
+    // The LOCK is deliberately NOT asserted here: instantiating the plan starts the template's
+    // governed run, and the first non-split rule run it records on this container flips the lock
+    // within seconds — a race no seed can settle, and nothing to do with a declaration existing.
+    // The lock's real assertions live in the two FR3 tests, which drive it on purpose.
+    expect(typeof res.body.locked, 'the lock state is reported').toBe('boolean');
   });
 
   test('FR1 FR2 - PUT without confirm stores a DRAFT (still unconfirmed), then POST confirm makes it the confirmed record', async () => {
@@ -301,10 +323,20 @@ test.describe('AXI-1720 - roles record and API (real backend)', { tag: ['@SI-014
     expect([403, 404]).toContain(res.status);
   });
 
-  test('NFR8 - the existing envelope route is unchanged: still the seven context fields, no roles member', async () => {
+  test('NFR8 - the existing envelope route still carries its context fields and no role of any kind', async () => {
     const env = await api.get(`/api/v1/discovery/analyses/${viewAnalysisId}/envelope`, t.headers);
     expect(env.status).toBe(200);
-    expect(Object.keys(env.body.fields).sort()).toEqual(['cohort', 'denominator', 'disease', 'gateDefinition', 'panel', 'tissue', 'timepoint']);
+    const keys = Object.keys(env.body.fields);
+    // AXI-1516's seven context fields are all still there. Asserted as a SUPERSET, not an
+    // equality: this story owns "roles stay out of the envelope", not the envelope's own
+    // field set, which AXI-1699 (FR92) has since extended with the dataset comparability
+    // axes (modality, species, assayFamily). The old equality was green only against a
+    // container bound before that story shipped (AXI-1801).
+    for (const field of ['cohort', 'denominator', 'disease', 'gateDefinition', 'panel', 'tissue', 'timepoint']) {
+      expect(keys, `envelope context field ${field}`).toContain(field);
+    }
     expect(env.body).not.toHaveProperty('roles');
+    // What NFR8 actually forbids: a dataset ROLE riding in on the envelope.
+    expect(keys.filter((k) => (ROLES as readonly string[]).includes(k) && k !== 'timepoint')).toEqual([]);
   });
 });
