@@ -1,7 +1,7 @@
 import { test, expect, Route } from '@playwright/test';
 import {
   seedLiveWorkbench, driveToScreen, runLiveScreen, publishedRuleCode, primeWorkspace, submitStepAndWait,
-  SCREEN_OP, type Seeded,
+  SCREEN_OP, chooseLiveAssociation, seedCutoffProposal, type Seeded,
 } from './harness/live-workbench';
 
 /**
@@ -232,7 +232,8 @@ test.describe('AXI-1726 - ValidationNode honours its real LIVE lock state (real 
 
   test.beforeAll(async () => {
     s = await seedLiveWorkbench(`axi-1726-vlock-${Date.now().toString(36)}`, 'AXI-1726 Validation Lock');
-    await submitStepAndWait(s, s.declaredAnalysisId, 'screen', SCREEN_OP);
+    // AXI-1795 (FR21): the live Association consumes a REAL settled cutoff choice — seed one.
+    await seedCutoffProposal(s, s.declaredAnalysisId, MARKER);
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 
@@ -247,12 +248,7 @@ test.describe('AXI-1726 - ValidationNode honours its real LIVE lock state (real 
     await page.getByTestId('screen-choice-rationale').fill(`${MARKER} separates responders most clearly (AXI-1726)`);
     await page.getByTestId('screen-choose-marker').click();
     await expect(page.getByTestId('marker-chosen')).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId('association-expand').click();
-    await page.getByTestId('assoc-outcomes').getByRole('button').first().click();
-    await page.getByTestId('assoc-rules').getByRole('button').first().click();
-    await page.getByTestId('assoc-run').click();
-    await page.locator('input[name="assoc-choose"]').first().check();
-    await page.getByTestId('assoc-choose').click();
+    await chooseLiveAssociation(page);
   }
 
   test('FR22/AC8 - before any candidate is declared, Validation is locked with its real, stated reason (no forced-open)', async ({ page }) => {

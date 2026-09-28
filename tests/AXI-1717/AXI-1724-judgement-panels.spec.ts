@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
   seedLiveWorkbench, driveToScreen, runLiveScreen, publishedRuleCode, primeWorkspace, stepUrl, submitStepAndWait,
-  SCREEN_OP, CUTOFF_OP, type Seeded,
+  SCREEN_OP, CUTOFF_OP, chooseLiveAssociation, type Seeded,
 } from './harness/live-workbench';
 
 /**
@@ -51,12 +51,7 @@ test.describe('AXI-1724 - Candidate and Validation side panels (real backend)', 
     await expect(page.getByTestId('marker-chosen')).toBeVisible({ timeout: 15_000 });
 
     // Association: one attempt, chosen (a standing precondition of the Candidate node, unrelated to this story).
-    await page.getByTestId('association-expand').click();
-    await page.getByTestId('assoc-outcomes').getByRole('button').first().click();
-    await page.getByTestId('assoc-rules').getByRole('button').first().click();
-    await page.getByTestId('assoc-run').click();
-    await page.locator('input[name="assoc-choose"]').first().check();
-    await page.getByTestId('assoc-choose').click();
+    await chooseLiveAssociation(page);
 
     // Open the Candidate side panel.
     await page.getByTestId('candidate-expand').click();
@@ -100,12 +95,7 @@ test.describe('AXI-1724 - Candidate and Validation side panels (real backend)', 
     await page.getByTestId('screen-shortlist-table').getByRole('row', { name: new RegExp(MARKER) }).click();
     await page.getByTestId('screen-choice-rationale').fill('same reason, second pass');
     await page.getByTestId('screen-choose-marker').click();
-    await page.getByTestId('association-expand').click();
-    await page.getByTestId('assoc-outcomes').getByRole('button').first().click();
-    await page.getByTestId('assoc-rules').getByRole('button').first().click();
-    await page.getByTestId('assoc-run').click();
-    await page.locator('input[name="assoc-choose"]').first().check();
-    await page.getByTestId('assoc-choose').click();
+    await chooseLiveAssociation(page);
 
     await expect(page.getByTestId('validation-expand')).toBeVisible({ timeout: 15_000 });
     await page.getByTestId('validation-expand').click();

@@ -247,3 +247,46 @@ export async function confirmScreenRunConfig(page: Page): Promise<void> {
   await run.click();
   await expect(dialog, 'the governed launch was refused (the modal stays open with its reason)').toBeHidden({ timeout: 60_000 });
 }
+
+/** AXI-1795 — the association attempt routes: `POST …/association-attempts/{archive|choose}`, `GET …/association-attempts/:runId`. */
+export const associationAttemptsUrl = (va: string, tail: 'archive' | 'choose' | string) => `/api/v1/discovery/analyses/${va}/association-attempts/${tail}`;
+
+/**
+ * AXI-1795 (FR21) — a REAL settled cutoff proposal for `marker` on `va`: the live
+ * Association consumes the analysis's first settled cutoff choice and refuses without
+ * one (never a preview median). Screen first (the cutoff's upstream), then the cutoff.
+ */
+export async function seedCutoffProposal(s: Seeded, va: string, marker: string): Promise<{ screenRunId: string; cutoffRunId: string }> {
+  const screenRunId = await submitStepAndWait(s, va, 'screen', SCREEN_OP);
+  const cutoffRunId = await submitStepAndWait(s, va, 'cutoff', CUTOFF_OP, {
+    selection: { kind: 'shortlist_row', nodeId: 'd6', runId: screenRunId, values: { marker } },
+  });
+  return { screenRunId, cutoffRunId };
+}
+
+/**
+ * AXI-1795 — run ONE association attempt (first outcome, first rule) and choose it with a
+ * note. Live: the run is governed, so the radio enables only once the server's readout
+ * states a result, and the note is required. Preview (a front before AXI-1795): the radio
+ * is enabled at once and the note is optional — the same clicks serve both. A branch the
+ * server already records as chosen (a restored workbench) is left as it is.
+ */
+export async function chooseLiveAssociation(page: Page, note = 'e2e: the one attempt this branch ran'): Promise<void> {
+  const face = page.getByTestId('association-face').or(page.getByTestId('association-face-done'));
+  await expect(face).toBeVisible({ timeout: 30_000 });
+  if (await page.getByTestId('association-face-done').isVisible()) return;
+  await page.getByTestId('association-expand').click();
+  const modal = page.getByTestId('workbench-association-modal');
+  if (await modal.locator('input[name="assoc-choose"]').count() === 0) {
+    await modal.getByTestId('assoc-outcomes').getByRole('button').first().click();
+    await modal.getByTestId('assoc-rules').getByRole('button').first().click();
+    await modal.getByTestId('assoc-run').click();
+    await expect(modal.getByTestId('assoc-run-error'), 'the governed association launch was refused').toHaveCount(0, { timeout: 30_000 });
+  }
+  const radio = modal.locator('input[name="assoc-choose"]:enabled').first();
+  await expect(radio, 'no attempt with a readable server result').toBeVisible({ timeout: 240_000 });
+  await radio.check();
+  await modal.getByTestId('assoc-note').fill(note);
+  await modal.getByTestId('assoc-choose').click();
+  await expect(modal, 'the server refused the choice (the modal stays open with its reason)').toBeHidden({ timeout: 30_000 });
+}

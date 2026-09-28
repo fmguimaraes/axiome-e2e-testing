@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
   seedLiveWorkbench, driveToScreen, runLiveScreen, publishedRuleCode, primeWorkspace, submitStepAndWait,
-  SCREEN_OP, CUTOFF_OP, SPLIT_OP, FISHER_OP, stepUrl, type Seeded,
+  SCREEN_OP, CUTOFF_OP, SPLIT_OP, FISHER_OP, stepUrl, chooseLiveAssociation, seedCutoffProposal, type Seeded,
 } from './harness/live-workbench';
 
 /**
@@ -46,6 +46,8 @@ test.describe('AXI-1727 - AC-DEMO: roles to a declared candidate, no typed param
 
   test.beforeAll(async () => {
     s = await seedLiveWorkbench(`axi-1727-demo-${Date.now().toString(36)}`, `AXI-1727 AC-DEMO ${Date.now().toString(36)}`);
+    // AXI-1795 (FR21): the live Association consumes a REAL settled cutoff choice — seed one.
+    await seedCutoffProposal(s, s.declaredAnalysisId, MARKER);
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 
@@ -94,12 +96,7 @@ test.describe('AXI-1727 - AC-DEMO: roles to a declared candidate, no typed param
 
     // AXI-1723 (FR8): the declared container's cutoff already binds `positiveGroup`
     // from `upstream:d7` — no picker renders, so nothing new is typed here either.
-    await page.getByTestId('association-expand').click();
-    await page.getByTestId('assoc-outcomes').getByRole('button').first().click();
-    await page.getByTestId('assoc-rules').getByRole('button').first().click();
-    await page.getByTestId('assoc-run').click();
-    await page.locator('input[name="assoc-choose"]').first().check();
-    await page.getByTestId('assoc-choose').click();
+    await chooseLiveAssociation(page);
     await expect(page.getByTestId('candidate-expand')).toBeVisible({ timeout: 15_000 });
   });
 
@@ -113,12 +110,7 @@ test.describe('AXI-1727 - AC-DEMO: roles to a declared candidate, no typed param
     await page.getByTestId('screen-shortlist-table').getByRole('row', { name: new RegExp(MARKER) }).click();
     await page.getByTestId('screen-choice-rationale').fill('same reason, third pass');
     await page.getByTestId('screen-choose-marker').click();
-    await page.getByTestId('association-expand').click();
-    await page.getByTestId('assoc-outcomes').getByRole('button').first().click();
-    await page.getByTestId('assoc-rules').getByRole('button').first().click();
-    await page.getByTestId('assoc-run').click();
-    await page.locator('input[name="assoc-choose"]').first().check();
-    await page.getByTestId('assoc-choose').click();
+    await chooseLiveAssociation(page);
 
     await page.getByTestId('candidate-expand').click();
     const panel = page.getByTestId('workbench-live-candidate-panel');
