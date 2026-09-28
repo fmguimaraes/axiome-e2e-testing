@@ -246,6 +246,12 @@ export async function ensureApprovedDiscoveryConfig(api: Api, t: Tenant): Promis
         minPatientsPerArm: { value: 20, locked: false },
         minPatientsPerClass: { value: 5, locked: false },
       },
+      // AXI-1794 (EC4): a branch-named screen submit is refused unless the customer states alpha.
+      // 0.05 is the value every screen already ran at; alpha is outside the approval hash
+      // (AXI-1788 9.5), so the approval this function records is unchanged.
+      'stats.screen_shortlist': {
+        alpha: { value: 0.05, locked: false },
+      },
     },
   }, t.headers);
   const cfg = await api.get('/api/v1/discovery/config', t.headers);

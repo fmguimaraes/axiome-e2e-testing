@@ -222,11 +222,28 @@ export async function driveToScreen(page: Page, projectId: string, analysisId: s
   await expect(page.getByTestId('workbench-screen-node')).toBeVisible({ timeout: 30_000 });
 }
 
-/** Run the plan-step screen rule in one click and wait for the LIVE rows to land on the result node. */
+/**
+ * Run the plan-step screen rule and wait for the LIVE rows to land on the result node.
+ * AXI-1794 (FR15): the card opens the run-config modal ("Configure and run") and the run is
+ * launched from its "Run rule" button. A front before AXI-1794 launches on the card click
+ * alone and shows no modal, so the modal step is taken only when the modal appears.
+ */
 export async function runLiveScreen(page: Page, screenRuleCode: string): Promise<void> {
   await page.getByTestId('screen-choose-rule').click();
   await page.getByTestId(`screen-rule-run-${screenRuleCode}`).click();
+  await confirmScreenRunConfig(page);
   const result = page.getByTestId(`workbench-screen-result-${screenRuleCode}`);
   await expect(result.getByTestId('screen-result-count')).toContainText(`${MEASUREMENTS.length} screened`, { timeout: 240_000 });
   await expect(result.getByTestId('screen-result-badge')).toHaveText('live');
+}
+
+/** AXI-1794 — confirm the screen's run-config modal if one opens; the modal closes once the launch lands. */
+export async function confirmScreenRunConfig(page: Page): Promise<void> {
+  const dialog = page.getByRole('dialog', { name: /^Configure / });
+  const opened = await dialog.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false);
+  if (!opened) return;
+  const run = dialog.getByRole('button', { name: 'Run rule' });
+  await expect(run).toBeEnabled({ timeout: 30_000 });
+  await run.click();
+  await expect(dialog, 'the governed launch was refused (the modal stays open with its reason)').toBeHidden({ timeout: 60_000 });
 }
