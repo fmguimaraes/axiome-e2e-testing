@@ -179,6 +179,15 @@ export async function primeWorkspace(page: Page, s: Seeded): Promise<void> {
 export async function driveToSplit(page: Page, projectId: string, analysisId: string | null): Promise<void> {
   await page.goto(`/projects/${projectId}/discovery-workbench${analysisId ? `?analysisId=${analysisId}` : ''}`);
   await expect(page.getByTestId('discovery-workbench')).toBeVisible({ timeout: 30_000 });
+  // AXI-1793 (FR8, EC2): a LIVE workbench restores what the server recorded on mount. Wait for
+  // the read to settle (a front without the signal never reads `reading`, so this passes at once);
+  // an instance the server already holds records for is restored — base confirmed, split decided —
+  // and must not be driven through the confirm/stratify clicks a second time.
+  if (analysisId) await expect(page.getByTestId('discovery-workbench')).not.toHaveAttribute('data-restore-status', 'reading', { timeout: 60_000 });
+  if (analysisId && await page.getByTestId('population-confirmed').isVisible()) {
+    await expect(page.getByTestId('workbench-split-node')).toBeVisible({ timeout: 30_000 });
+    return;
+  }
   const confirm = page.getByTestId('population-confirm');
   await expect(confirm).toBeEnabled({ timeout: 60_000 });
   await confirm.click();
@@ -197,6 +206,11 @@ export async function driveToSplit(page: Page, projectId: string, analysisId: st
  */
 export async function driveToScreen(page: Page, projectId: string, analysisId: string | null): Promise<void> {
   await driveToSplit(page, projectId, analysisId);
+  // AXI-1793: restored with the holdout already decided — the Screen node is already on the canvas.
+  if (analysisId && await page.getByTestId('split-holdout-decision').isVisible()) {
+    await expect(page.getByTestId('workbench-screen-node')).toBeVisible({ timeout: 30_000 });
+    return;
+  }
   await page.getByTestId('split-decline-holdout').click();
   if (analysisId) {
     // AXI-1750 (R12): in LIVE mode the decline is a governed record with a
