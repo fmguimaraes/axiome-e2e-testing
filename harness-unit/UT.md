@@ -21,6 +21,21 @@ against the FR31 attempt-telemetry log stream.
 | UT-SHADOW-1631-3 | `correlationIdOf` rejects a non-string `correlationId` rather than coercing it | Pass |
 | UT-SHADOW-1631-4 | `correlationIdOf` treats an empty-string `correlationId` as "no id", not a real join key | Pass |
 
+AXI-1837 (epic AXI-1825). Covers `shapeOf`/`rowOf` after they stopped writing
+`ruleIdsPerAttempt: []` and a `nodeType`-coarsened `shape` — both now prefer
+the plan response's own `ruleIdsPerAttempt`/`shape` fields (stamped by the
+`axiome-back` compiled arm, AXI-1837's backend half), falling back to the old
+inference/`[]`/`1` only for a response that never carries them.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-SHADOW-1837-1 | `shapeOf` prefers `plan.shape` over the node-type inference | Pass |
+| UT-SHADOW-1837-2 | `shapeOf` falls back to node-type inference when `plan.shape` is absent | Pass |
+| UT-SHADOW-1837-3 | `shapeOf` returns `'unknown'` for an undefined plan with no shape and no nodes | Pass |
+| UT-SHADOW-1837-4 | `rowOf` reads `ruleIdsPerAttempt` straight off the plan response, never coarsened to `[]` | Pass |
+| UT-SHADOW-1837-5 | `rowOf` prefers the TOP-LEVEL `attemptCount` over the nested `plan.attemptCount` | Pass |
+| UT-SHADOW-1837-6 | `rowOf` defaults `ruleIdsPerAttempt` to `[]` for a response with no `plan.ruleIdsPerAttempt` (a non-compiled arm) | Pass |
+
 ## AXI-1604/anchor-dataset.spec.ts
 
 AXI-1661 + AXI-1662 (epic AXI-1604 — FR28/FR30). Covers `anchorDataset`, which
