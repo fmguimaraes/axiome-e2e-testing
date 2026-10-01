@@ -76,7 +76,7 @@ test.describe('AXI-1751 - validation act inputs derived from a real Fisher-exact
   const QUESTION_KEY = `axi-1751-${Date.now().toString(36)}`;
 
   test.beforeAll(async () => {
-    s = await seedLiveWorkbench(`axi-1751-${Date.now().toString(36)}`, 'AXI-1751 Validation Prefill');
+    s = await seedLiveWorkbench(`axi-1751-${Date.now().toString(36)}`, `AXI-1751 Validation Prefill ${Date.now().toString(36)}`);
 
     // Real Screen -> Cutoff -> Association, through the step resolver's own submit
     // route (DECLARED container: its cutoff node already binds `positiveGroup`).

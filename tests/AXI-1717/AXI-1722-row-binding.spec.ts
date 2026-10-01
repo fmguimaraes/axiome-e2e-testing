@@ -26,7 +26,7 @@ test.describe('AXI-1722 - selection admission and readers (API, real backend)', 
   let cutoffRunId: string;
 
   test.beforeAll(async () => {
-    s = await seedLiveWorkbench(`axi-1722-api-${Date.now().toString(36)}`, 'AXI-1722 Row Binding API');
+    s = await seedLiveWorkbench(`axi-1722-api-${Date.now().toString(36)}`, `AXI-1722 Row Binding API ${Date.now().toString(36)}`);
     const submit = await s.api.post(stepUrl(s.viewAnalysisId, 'screen', 'submit'), { operationId: SCREEN_OP, datasetId: s.datasetId, projectId: s.projectId, datasetVersionHash: s.hash }, s.t.headers);
     expect(submit.status, JSON.stringify(submit.body)).toBe(201);
     screenRunId = submit.body.runId;
@@ -140,7 +140,7 @@ test.describe('AXI-1722 - a live shortlist row binds the next steps (UI, real ba
   let screenRuleCode: string;
 
   test.beforeAll(async () => {
-    s = await seedLiveWorkbench(`axi-1722-ui-${Date.now().toString(36)}`, 'AXI-1722 Row Binding UI');
+    s = await seedLiveWorkbench(`axi-1722-ui-${Date.now().toString(36)}`, `AXI-1722 Row Binding UI ${Date.now().toString(36)}`);
     screenRuleCode = await publishedRuleCode(s, SCREEN_OP);
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });

@@ -90,6 +90,35 @@ export async function ensureProject(api: Api, t: Tenant, name: string): Promise<
   return res.body.id;
 }
 
+/**
+ * AXI-1836 — fail-fast guard. `usePopulation` (`axiome-front`
+ * `src/lib/discoveryWorkbench/usePopulation.ts`) composes a project's FIRST
+ * `PREVIEW_COMPOSITION_SIZE` (2) linked datasets. The live-workbench harness
+ * (`seedLiveWorkbench`) is written for a single-dataset composition
+ * (`merge.kind === 'single'`, `canConfirm` always true); several AXI-1717
+ * specs seed into a FIXED, reused project name, so a project that already
+ * carries a second linked dataset — from an earlier run, or from another
+ * spec sharing the same name — silently flips the Population node to
+ * `stack` and gates `population-confirm` on an unanswered question,
+ * deadlocking `driveToSplit` for every spec on that project, permanently.
+ * Assert the count here, once, right after linking, so a reused project
+ * fails LOUDLY with its real cause (the project name and the count) instead
+ * of a 60s confirm-button timeout that never says why.
+ */
+export async function assertSingleLinkedDataset(api: Api, t: Tenant, projectId: string, projectName: string): Promise<void> {
+  const res = await api.get(`/api/v1/projects/${projectId}/datasets`, t.headers);
+  const count = asList(res.body).length;
+  if (count > 1) {
+    throw new Error(
+      `project "${projectName}" (${projectId}) already carries ${count} linked datasets — ` +
+      `seedLiveWorkbench seeds a SINGLE-dataset composition and this fixed/reused project ` +
+      `name has accumulated a second link (AXI-1836: this is exactly what deadlocks ` +
+      `driveToSplit's population-confirm). Give the project a run-unique name, or remove ` +
+      `the extra link before reseeding.`,
+    );
+  }
+}
+
 const INGEST_TIMEOUT_MS = 90_000;
 const INGEST_POLL_MS = 2_000;
 

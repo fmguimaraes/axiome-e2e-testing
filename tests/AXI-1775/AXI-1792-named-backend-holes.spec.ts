@@ -88,7 +88,7 @@ test.describe('AXI-1792 - qc_check ancestors in the dependency scan (EC10, FR33)
   test.describe.configure({ mode: 'serial', timeout: 300_000 });
 
   let s: Seeded;
-  test.beforeAll(async () => { s = await seedLiveWorkbench(`axi-1792-qc-${Date.now().toString(36)}`, 'AXI-1792 QC ancestors'); });
+  test.beforeAll(async () => { s = await seedLiveWorkbench(`axi-1792-qc-${Date.now().toString(36)}`, `AXI-1792 QC ancestors ${Date.now().toString(36)}`); });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 
   /**

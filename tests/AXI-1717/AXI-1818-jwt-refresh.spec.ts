@@ -31,7 +31,7 @@ test.describe('AXI-1818 - proactive re-mint survives a storageState token that h
   let s: Seeded;
 
   test.beforeAll(async () => {
-    s = await seedLiveWorkbench(`axi-1818-jwt-refresh-${Date.now().toString(36)}`, 'AXI-1818 JWT Refresh');
+    s = await seedLiveWorkbench(`axi-1818-jwt-refresh-${Date.now().toString(36)}`, `AXI-1818 JWT Refresh ${Date.now().toString(36)}`);
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 

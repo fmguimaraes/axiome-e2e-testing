@@ -33,7 +33,7 @@ test.describe('AXI-1780 - a malformed stored plan never blanks the Guided tab', 
   let s: Seeded;
 
   test.beforeAll(async () => {
-    s = await seedLiveWorkbench(`axi-1780-${Date.now().toString(36)}`, 'AXI-1780 Blank Guided Tab');
+    s = await seedLiveWorkbench(`axi-1780-${Date.now().toString(36)}`, `AXI-1780 Blank Guided Tab ${Date.now().toString(36)}`);
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 

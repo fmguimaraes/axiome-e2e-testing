@@ -41,7 +41,7 @@ test.describe('AXI-1726 - FR22 guard-reason rendering (real backend)', { tag: ['
   let s: Seeded;
 
   test.beforeAll(async () => {
-    s = await seedLiveWorkbench(`axi-1726-fr22-${Date.now().toString(36)}`, 'AXI-1726 Guard Reasons');
+    s = await seedLiveWorkbench(`axi-1726-fr22-${Date.now().toString(36)}`, `AXI-1726 Guard Reasons ${Date.now().toString(36)}`);
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 
@@ -76,7 +76,7 @@ test.describe('AXI-1726 - FR0f reopen leg from GuidedAnalysisHistory (mocked pla
   let s: Seeded;
 
   test.beforeAll(async () => {
-    s = await seedLiveWorkbench(`axi-1726-fr0f-${Date.now().toString(36)}`, 'AXI-1726 Reopen From History');
+    s = await seedLiveWorkbench(`axi-1726-fr0f-${Date.now().toString(36)}`, `AXI-1726 Reopen From History ${Date.now().toString(36)}`);
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 
@@ -231,7 +231,7 @@ test.describe('AXI-1726 - ValidationNode honours its real LIVE lock state (real 
   let s: Seeded;
 
   test.beforeAll(async () => {
-    s = await seedLiveWorkbench(`axi-1726-vlock-${Date.now().toString(36)}`, 'AXI-1726 Validation Lock');
+    s = await seedLiveWorkbench(`axi-1726-vlock-${Date.now().toString(36)}`, `AXI-1726 Validation Lock ${Date.now().toString(36)}`);
     // AXI-1795 (FR21): the live Association consumes a REAL settled cutoff choice — seed one.
     await seedCutoffProposal(s, s.declaredAnalysisId, MARKER);
   });

@@ -33,7 +33,9 @@ test.describe('AXI-1789 - the screen minimum from policy (API, real backend)', {
 
   test.beforeAll(async () => {
     test.setTimeout(300_000);
-    s = await seedLiveWorkbench(LABEL, 'AXI-1789 Min-N Override');
+    // AXI-1836: run-unique project name — a fixed name reused across runs can
+    // accumulate a second linked dataset and deadlock driveToSplit's population-confirm.
+    s = await seedLiveWorkbench(LABEL, `AXI-1789 Min-N Override ${LABEL}`);
   });
   test.afterAll(async () => {
     await s?.api.ctx.dispose();

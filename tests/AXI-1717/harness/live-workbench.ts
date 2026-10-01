@@ -2,6 +2,7 @@ import { expect, request as apiRequest, type Page } from '@playwright/test';
 import { adminApi, type Api } from '../../AXI-1435/harness/api';
 import {
   ensureTenant, ensureProject, ingestFixture, datasetVersionHash, ensureDefaultAnalysis, createViewAnalysis, bindEnvelope, ensureApprovedDiscoveryConfig,
+  assertSingleLinkedDataset,
 } from '../../AXI-1507/harness/seed';
 import { approveCarriersFor, serveApprovableSeededRules, carrierCodesFor } from '../../AXI-1762/seeded-rule-approval';
 import { ensureAuthTokens, type AuthTokens } from '../../../config/auth';
@@ -126,6 +127,7 @@ export async function seedLiveWorkbench(label: string, projectName: string): Pro
   const hash = await datasetVersionHash(api, t, datasetId);
   await ensureApprovedDiscoveryConfig(api, t);
   await ensureDefaultAnalysis(api, t, projectId, datasetId); // links the dataset to the project (idempotent)
+  await assertSingleLinkedDataset(api, t, projectId, projectName); // AXI-1836: fail fast, not a driveToSplit deadlock
   await ensureSubjectKeyMapped(api, t, projectId);
 
   const instantiate = async (viewAnalysisId: string, questionKey: string, outcomePositiveLevel?: string): Promise<string> => {
@@ -335,6 +337,18 @@ export async function driveToSplit(page: Page, projectId: string, analysisId: st
     return;
   }
   const confirm = page.getByTestId('population-confirm');
+  await expect(confirm).toBeVisible({ timeout: 60_000 });
+  // AXI-1836: when the population composes MORE THAN ONE linked dataset,
+  // `mergePreview` reports `stack` and `PopulationNode.tsx#SameRunQuestion`
+  // gates `population-confirm` on this question being answered. It is
+  // local, client-only UX state (never sent to the server — the comment at
+  // the top of `population.ts` calls this merge classification a
+  // CO-DESIGN PREVIEW), so any answer unblocks confirmation; a single-dataset
+  // composition never renders the question at all, so this is a no-op there.
+  const sameRun = page.getByTestId('population-same-run');
+  if (await sameRun.isVisible().catch(() => false)) {
+    await sameRun.getByRole('button', { name: 'Yes' }).click();
+  }
   await expect(confirm).toBeEnabled({ timeout: 60_000 });
   await confirm.click();
   await page.getByTestId('population-continue').click();

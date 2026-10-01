@@ -22,7 +22,9 @@ test.describe('AXI-1724 - Candidate and Validation side panels (real backend)', 
   const MARKER = 'CD8A_pre';
 
   test.beforeAll(async () => {
-    s = await seedLiveWorkbench(`axi-1724-${Date.now().toString(36)}`, 'AXI-1724 Judgement Panels');
+    // AXI-1836: a RUN-UNIQUE project name — a fixed name reused across runs can
+    // accumulate a second linked dataset and deadlock driveToSplit's population-confirm.
+    s = await seedLiveWorkbench(`axi-1724-${Date.now().toString(36)}`, `AXI-1724 Judgement Panels ${Date.now().toString(36)}`);
     // The DECLARED container (`outcomePositiveLevel: 'R'`): its cutoff node already
     // binds `positiveGroup` from upstream, so the cutoff step is fully bound with no
     // pick (AXI-1723 territory) — this story only needs a REAL finished run to read.
