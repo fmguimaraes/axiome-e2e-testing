@@ -4,6 +4,7 @@ import { anchorDataset } from '../AXI-1604/harness/anchor-dataset';
 import {
   createAdminShadowRunAuth,
   runShadowBankGuarded,
+  shadowRunEvidenceVerdict,
   shouldRunArm,
   writeShadowRunRows,
   writeShadowRunSummary,
@@ -116,6 +117,14 @@ import {
  * question with no recording comes back `unsupported`/`recording_missing` and
  * the gate scores it `not_answered` — which is correct, and means "go author
  * that recording", not "the guard refused".
+ *
+ * AXI-1830 (epic AXI-1825) — the spec FAILS when the run is not evidence about
+ * the provider under test (`shadowRunEvidenceVerdict`, `harness/shadow.ts`):
+ * guard-refused, INVALID, any `provider_not_configured` fallback, a backend
+ * serving a different arm than `SHADOW_RUN_PROVIDER`, or zero questions
+ * answered by the provider. So a recorded first pass whose every question is
+ * `recording_missing` is now RED — author the pending recordings and re-run.
+ * The rows and sidecar are written before the verdict either way.
  */
 // AXI-1844 (FR115 full-bank timeout sizing; revised in the AXI-1844 rework).
 // The prior flat `30 * 60_000` risked exactly what FR115 forbids: "a failed
@@ -261,5 +270,15 @@ test(
         `(status=${result.status}, transport=${result.transport.mode}, ` +
         `label=${result.provenance.label}, budget=${result.provenance.budget}, summary=${summaryPath})`,
     );
+
+    // AXI-1830 (epic AXI-1825): one row per question is NOT a pass on its own.
+    // The FR113 recorded first pass (2026-09-28) wrote 9/9 `fallback` rows
+    // (`provider_not_configured`, ~70 ms) and this spec went green. The run
+    // must be evidence about the provider under test — not guard-refused, not
+    // INVALID, not served by an unconfigured or different arm, and answered by
+    // the provider at least once. Checked AFTER the artefacts are written, so a
+    // failed run still leaves its honest rows and sidecar behind.
+    const verdict = shadowRunEvidenceVerdict(result, provider);
+    expect(verdict.ok, verdict.ok ? undefined : verdict.message).toBe(true);
   },
 );
