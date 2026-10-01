@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { correlationIdOf } from '../../tests/AXI-1462/harness/shadow';
+import { correlationIdOf, rowOf, shapeOf } from '../../tests/AXI-1462/harness/shadow';
 
 /**
  * UT-SHADOW-1631-1..4 (epic AXI-1603 — FR28/FR31 join, SI-042). Pure unit
@@ -31,4 +31,69 @@ test('UT-SHADOW-1631-3: correlationIdOf rejects a non-string correlationId rathe
 
 test('UT-SHADOW-1631-4: correlationIdOf treats an empty-string correlationId as "no id", not a real join key', () => {
   assert.equal(correlationIdOf({ correlationId: '' }), undefined);
+});
+
+/**
+ * UT-SHADOW-1837-1..6 (epic AXI-1825 — AXI-1837). Before this story `rowOf`
+ * always wrote `ruleIdsPerAttempt: []` and `shapeOf` inferred a shape from
+ * `nodes[].nodeType`, which coarsens distinct shapes that compile to the same
+ * node type (e.g. `compare_groups_omnibus` and `compare_groups` both emit a
+ * `compare_groups` node). Both now prefer the plan response's OWN
+ * `ruleIdsPerAttempt`/`shape` fields, falling back only for a response that
+ * never carries them (any arm but the compiled one).
+ */
+
+test('UT-SHADOW-1837-1: shapeOf prefers plan.shape over the node-type inference', () => {
+  assert.equal(
+    shapeOf({ shape: 'compare_groups_omnibus', nodes: [{ nodeType: 'compare_groups' }] }),
+    'compare_groups_omnibus',
+  );
+});
+
+test('UT-SHADOW-1837-2: shapeOf falls back to node-type inference when plan.shape is absent', () => {
+  assert.equal(
+    shapeOf({ nodes: [{ nodeType: 'profile' }, { nodeType: 'compare_groups' }] }),
+    'compare_groups',
+  );
+});
+
+test('UT-SHADOW-1837-3: shapeOf returns "unknown" for an undefined plan with no shape and no nodes', () => {
+  assert.equal(shapeOf(undefined), 'unknown');
+});
+
+test('UT-SHADOW-1837-4: rowOf reads ruleIdsPerAttempt straight off the plan response, never coarsened to []', () => {
+  const row = rowOf(13, 'anthropic', {
+    status: 200,
+    latencyMs: 42,
+    body: {
+      plan: {
+        nodes: [{ nodeType: 'compare_groups' }],
+        attemptCount: 2,
+        ruleIdsPerAttempt: [['I_PRECONDITION'], []],
+        shape: 'compare_groups',
+      },
+    },
+  });
+  assert.deepEqual(row.ruleIdsPerAttempt, [['I_PRECONDITION'], []]);
+  assert.equal(row.attempts, 2);
+  assert.equal(row.shape, 'compare_groups');
+});
+
+test('UT-SHADOW-1837-5: rowOf prefers the TOP-LEVEL attemptCount over the nested plan.attemptCount', () => {
+  const row = rowOf(4, 'anthropic', {
+    status: 200,
+    latencyMs: 1,
+    body: { attemptCount: 2, plan: { nodes: [], attemptCount: 1 } },
+  });
+  assert.equal(row.attempts, 2);
+});
+
+test('UT-SHADOW-1837-6: rowOf defaults ruleIdsPerAttempt to [] for a response with no plan.ruleIdsPerAttempt (a non-compiled arm)', () => {
+  const row = rowOf(1, 'fallback', {
+    status: 200,
+    latencyMs: 1,
+    body: { plan: { nodes: [{ nodeType: 'profile' }] } },
+  });
+  assert.deepEqual(row.ruleIdsPerAttempt, []);
+  assert.equal(row.attempts, 1);
 });

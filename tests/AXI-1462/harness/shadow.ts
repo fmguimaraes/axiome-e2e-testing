@@ -131,6 +131,18 @@ export interface PlanApiBody {
     nodes?: Array<{ nodeType?: string; params?: Record<string, unknown> }>;
     attemptCount?: number;
     /**
+     * AXI-1837 (epic AXI-1825) — `AnalysisPlan.ruleIdsPerAttempt`/`.shape` on
+     * the `axiome-back` side (`analysis-plan.patterns.ts`). Stamped ONLY by
+     * the compiled arm; absent for any other arm, matching every other
+     * additive field on this interface. `ruleIdsPerAttempt` is one entry per
+     * attempt the invocation actually made — never a coarsened `[]`.
+     * `shape` is the compiled intent's OWN shape label (e.g.
+     * `compare_groups_omnibus`), which can differ from every node's wire
+     * `nodeType` (several shapes compile to the same node type).
+     */
+    ruleIdsPerAttempt?: readonly (readonly string[])[];
+    shape?: string;
+    /**
      * AXI-1677 — the two fields that tell a REFUSAL from an answer. Both are
      * optional on the wire: an older or minimal plan may carry neither, and the
      * classifier must not invent them.
@@ -138,6 +150,14 @@ export interface PlanApiBody {
     declined?: unknown[];
     datasetsUsed?: unknown[];
   };
+  /**
+   * AXI-1837 — `PlanResponse.attemptCount` echoed at the TOP level
+   * (`plan-orchestrator.service.ts`): `plan.attemptCount ?? outcome.attemptCount`,
+   * i.e. a superset of the nested `plan.attemptCount` — populated for every
+   * arm, not only the compiled one. Preferred over the nested field in
+   * `rowOf` below for exactly that reason.
+   */
+  attemptCount?: number;
   plannerFallback?: boolean;
   intentUnsupported?: boolean;
   /**
@@ -175,7 +195,17 @@ export function correlationIdOf(body: PlanApiBody): string | undefined {
 /** The shape's own node type, read off the plan's own last non-structural node. */
 const STRUCTURAL_NODE_TYPES = new Set(['profile', 'filter']);
 
-function shapeOf(plan: PlanApiBody['plan']): string {
+/**
+ * AXI-1837 — prefers the plan's OWN `shape` label (`plan.shape`, stamped by
+ * the compiled arm) over inferring one from `nodes[].nodeType`. The two are
+ * NOT the same fact: several shapes compile to the identical node type (e.g.
+ * `compare_groups_omnibus` and `compare_groups` both emit a `compare_groups`
+ * node), so the node-type inference coarsens two distinct shapes into one
+ * label. Falls back to the old inference ONLY for a response that never
+ * carries `plan.shape` (any arm but the compiled one, or a legacy recording).
+ */
+export function shapeOf(plan: PlanApiBody['plan']): string {
+  if (plan?.shape) return plan.shape;
   const nodes = plan?.nodes ?? [];
   const shaped = [...nodes].reverse().find((n) => !STRUCTURAL_NODE_TYPES.has(n.nodeType ?? ''));
   return shaped?.nodeType ?? 'unknown';
@@ -355,7 +385,7 @@ export interface ShadowRunOptions {
 
 const DEFAULT_REAUTH_EVERY_QUESTIONS = 10;
 
-interface PlanAttempt {
+export interface PlanAttempt {
   readonly status: number;
   readonly body: PlanApiBody;
   readonly latencyMs: number;
@@ -443,7 +473,7 @@ export async function runShadowBank(
  * scanning console output sees the miss without grepping the JSON artefact —
  * never SILENTLY recorded as an ordinary `unsupported` answer.
  */
-function rowOf(
+export function rowOf(
   questionId: number,
   provider: string,
   attempt: PlanAttempt,
@@ -463,8 +493,12 @@ function rowOf(
     questionId,
     provider,
     outcome: outcomeOf(attempt.body, attempt.status),
-    attempts: attempt.body.plan?.attemptCount ?? 1,
-    ruleIdsPerAttempt: [],
+    // AXI-1837: the TOP-LEVEL `attemptCount` (populated for every arm —
+    // `plan.attemptCount ?? outcome.attemptCount` server-side) is preferred
+    // over the nested `plan.attemptCount`, which is absent for any arm but
+    // the compiled one and would otherwise silently fall back to a wrong `1`.
+    attempts: attempt.body.attemptCount ?? attempt.body.plan?.attemptCount ?? 1,
+    ruleIdsPerAttempt: attempt.body.plan?.ruleIdsPerAttempt ?? [],
     shape: shapeOf(attempt.body.plan),
     latencyMs: attempt.latencyMs,
     usage: null,
