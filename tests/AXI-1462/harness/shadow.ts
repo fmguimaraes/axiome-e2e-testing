@@ -159,6 +159,24 @@ export interface PlanApiBody {
    */
   attemptCount?: number;
   plannerFallback?: boolean;
+  /**
+   * AXI-1830 (epic AXI-1825) — `PlanResponse.fallbackReason`, present iff
+   * `plannerFallback` (`PLANNER_FALLBACK_REASONS` in `axiome-back`'s
+   * `analysis-plan.patterns.ts`). Read ONLY to decide whether the provider
+   * under test answered at all (`providerAnswered`) — `attempts_exhausted` is
+   * the provider answering and being rejected; every other token is the
+   * provider never answering. Never written to a row: the row's key set is
+   * closed and pinned against the back contract (`SHADOW_RUN_ROW_KEYS`).
+   */
+  fallbackReason?: string;
+  /**
+   * AXI-1830 — `PlanResponse.planner`: the `name` of the arm that produced the
+   * plan (`compiled` / `anthropic` / `fallback`, `planner.factory.ts`). On a
+   * non-fallback response it is the arm the backend is CONFIGURED with, which
+   * is how a run labelled `compiled` against a backend serving `fallback` (or
+   * `anthropic`) is caught. Never written to a row (closed key set).
+   */
+  planner?: string;
   intentUnsupported?: boolean;
   /**
    * AXI-1689 (FR51) — `PlanResponse.unsupportedReason`, present iff
@@ -873,7 +891,39 @@ export interface ShadowRunResult {
   readonly provenance: ShadowRunProvenance;
   readonly questionIds: readonly number[];
   readonly abortedAtQuestionId?: number;
+  /**
+   * AXI-1830 — who answered each question the run actually ASKED, keyed by
+   * question id (absent for a guard-refused or 400-aborted question). Kept
+   * BESIDE the rows, never on them, because the row key set is a closed
+   * contract with `axiome-back`; it exists so `shadowRunEvidenceVerdict` can
+   * tell the provider under test answering from the deterministic arm
+   * answering in its place.
+   */
+  readonly responseFacts: Readonly<Record<number, ShadowRunResponseFacts>>;
 }
+
+/** AXI-1830 — the three response fields that say which arm answered a question. */
+export interface ShadowRunResponseFacts {
+  readonly planner?: string;
+  readonly plannerFallback: boolean;
+  readonly fallbackReason?: string;
+}
+
+/** AXI-1830 — pure. The facts `shadowRunEvidenceVerdict` needs, read off one response. */
+export function responseFactsOf(body: PlanApiBody): ShadowRunResponseFacts {
+  return {
+    ...(typeof body.planner === 'string' ? { planner: body.planner } : {}),
+    plannerFallback: body.plannerFallback === true,
+    ...(typeof body.fallbackReason === 'string' ? { fallbackReason: body.fallbackReason } : {}),
+  };
+}
+
+/**
+ * The sidecar's content: the result minus its rows and minus the AXI-1830
+ * response-facts side table (an in-process input to the evidence verdict, not
+ * part of the `<provider>.run.json` artefact `axiome-back` reads).
+ */
+export type ShadowRunSummary = Omit<ShadowRunResult, 'rows' | 'responseFacts'>;
 
 export interface GuardedShadowRunOptions extends ShadowRunOptions {
   /** Defaults to `process.env`; injectable so the policy is unit-testable. */
@@ -943,31 +993,227 @@ export async function runShadowBankGuarded(
   const questions = selectQuestions(loadGradosBank(), env.SHADOW_RUN_QUESTIONS);
   const questionIds = questions.map((q) => q.id);
 
+  const context = { guard, transport, provenance, questionIds };
   if (!guard.allowed) {
-    return {
-      rows: questionIds.map((id) => notAnsweredRow(id, provider, 'guard')),
-      status: 'refused',
-      guard,
-      transport,
-      provenance,
-      questionIds,
-    };
+    const rows = questionIds.map((id) => notAnsweredRow(id, provider, 'guard'));
+    return { ...context, rows, status: 'refused', responseFacts: {} };
   }
+  const asked = await askSelectedQuestions(auth, workspaceId, projectId, provider, datasets, questions, {
+    reauthEveryQuestions: opts.reauthEveryQuestions,
+    rowTransport,
+  });
+  return { ...context, ...asked, status: asked.abortedAtQuestionId === undefined ? 'complete' : 'INVALID' };
+}
 
+interface AskedQuestions {
+  readonly rows: ShadowRunRow[];
+  readonly responseFacts: Record<number, ShadowRunResponseFacts>;
+  readonly abortedAtQuestionId?: number;
+}
+
+/**
+ * The allowed run's question loop, split out of `runShadowBankGuarded`
+ * (AXI-1830) so the response-facts side table is collected in the same pass
+ * as the rows. Aborts on the first HTTP 400 (FR50): the 400'd question and
+ * every one after it become `not_answered: aborted`.
+ */
+async function askSelectedQuestions(
+  auth: ShadowRunAuth,
+  workspaceId: string,
+  projectId: string,
+  provider: string,
+  datasets: Parameters<typeof buildEnvelope>[2],
+  questions: ReadonlyArray<{ id: number; question: string }>,
+  opts: { reauthEveryQuestions?: number; rowTransport?: ShadowRunTransport },
+): Promise<AskedQuestions> {
   const every = opts.reauthEveryQuestions ?? DEFAULT_REAUTH_EVERY_QUESTIONS;
   const rows: ShadowRunRow[] = [];
+  const responseFacts: Record<number, ShadowRunResponseFacts> = {};
   for (const [index, q] of questions.entries()) {
     if (every > 0 && index > 0 && index % every === 0) await auth.refresh();
     const envelope = buildEnvelope(projectId, q.question, datasets);
     const attempt = await planWithRefresh(auth, workspaceId, projectId, q.id, envelope);
     if (attempt.status === BAD_REQUEST) {
-      for (const rest of questions.slice(index)) rows.push(notAnsweredRow(rest.id, provider, 'aborted', rowTransport));
-      return { rows, status: 'INVALID', guard, transport, provenance, questionIds, abortedAtQuestionId: q.id };
+      for (const rest of questions.slice(index)) rows.push(notAnsweredRow(rest.id, provider, 'aborted', opts.rowTransport));
+      return { rows, responseFacts, abortedAtQuestionId: q.id };
     }
-    rows.push(rowOf(q.id, provider, attempt, rowTransport));
+    responseFacts[q.id] = responseFactsOf(attempt.body ?? {});
+    rows.push(rowOf(q.id, provider, attempt, opts.rowTransport));
   }
-  return { rows, status: 'complete', guard, transport, provenance, questionIds };
+  return { rows, responseFacts };
 }
+
+// ─── AXI-1830 (epic AXI-1825) — a run the provider never answered is not green ─
+//
+// THE DEFECT. The AXI-1614 spec asserted only `rows.length === questionIds.length`
+// — one row per selected question, whatever the row said. The FR113 recorded
+// first pass (2026-09-28) came back 9 of 9 `fallback` with
+// `fallbackReason: provider_not_configured` in ~70 ms (the compiled arm could
+// not reach the recorded transport without a key, AXI-1821) and the spec passed
+// green. Every sibling of that run passed the same way: a guard-refused run
+// (every row `not_answered: guard`), a run aborted on a 400 (`INVALID`), a run of
+// nothing but `recording_missing` or HTTP errors, and a backend serving a
+// DIFFERENT arm than the run's label (`GUIDED_ANALYSIS_LLM_PROVIDER=fallback`
+// plans every question deterministically with `plannerFallback: false`, so
+// every row reads `planned`). Each one measured nothing about the provider
+// under test.
+//
+// THE RULE. `shadowRunEvidenceVerdict` is the spec's pass/fail, written as a
+// pure function so it is unit-tested without a backend. The spec still writes
+// the artefacts FIRST (an honest record of a failed run is still a record —
+// FR115 counts it as a run), then fails with the verdict's message.
+
+/** `PlanResponse.planner` of the deterministic arm (`DeterministicPlannerAdapter.name`). */
+export const DETERMINISTIC_PLANNER = 'fallback';
+
+/**
+ * The ONE fallback token that means the provider was asked and answered: every
+ * answer was rejected through the whole repair budget (`attempts_exhausted`,
+ * `PLANNER_FALLBACK_REASONS` in `axiome-back`). `provider_unavailable`,
+ * `provider_not_configured`, `provider_request_invalid` and an absent reason
+ * all mean no answer came back from the provider.
+ */
+const PROVIDER_ANSWERED_FALLBACK_REASON = 'attempts_exhausted';
+
+/** Outcomes that carry no planner answer at all, whatever the response said. */
+const NO_ANSWER_OUTCOMES: ReadonlySet<ShadowRunOutcome> = new Set(['unavailable', 'not_answered']);
+
+/**
+ * Pure. Did the provider under test answer this row's question?
+ *
+ * Decided from the RESPONSE FACTS, never from `row.outcome` alone: `outcomeOf`
+ * ranks `intentUnsupported` above `plannerFallback`, so a deterministic
+ * fallback that refused its declared scope (AXI-1730) reads `unsupported` —
+ * a row that looks like a planner verdict but came from the fallback arm.
+ *
+ * - `unavailable` / `not_answered` — no.
+ * - a fallback — only when its reason is `attempts_exhausted`.
+ * - otherwise — only when the arm that planned it IS the provider under test
+ *   (an absent `planner` is not evidence against it).
+ */
+export function providerAnswered(
+  row: ShadowRunRow,
+  facts: ShadowRunResponseFacts | undefined,
+  provider: string,
+): boolean {
+  if (NO_ANSWER_OUTCOMES.has(row.outcome) || !facts) return false;
+  if (facts.plannerFallback) return facts.fallbackReason === PROVIDER_ANSWERED_FALLBACK_REASON;
+  return facts.planner === undefined || facts.planner === provider;
+}
+
+export type ShadowRunEvidenceFailure =
+  | 'guard_refused'
+  | 'run_invalid'
+  | 'provider_not_configured'
+  | 'arm_mismatch'
+  | 'no_provider_answer';
+
+export type ShadowRunEvidenceVerdict =
+  | { readonly ok: true; readonly answered: number; readonly total: number }
+  | {
+      readonly ok: false;
+      readonly failure: ShadowRunEvidenceFailure;
+      readonly answered: number;
+      readonly total: number;
+      readonly message: string;
+    };
+
+type VerdictInput = Pick<ShadowRunResult, 'rows' | 'status' | 'guard' | 'abortedAtQuestionId' | 'responseFacts'>;
+
+/**
+ * Pure. One label per row for the failure message — the outcome qualified by
+ * its `notAnsweredReason`, its fallback reason, or the arm that planned it —
+ * counted, in bank order: e.g. `fallback:provider_not_configured×9`.
+ */
+export function tallyShadowRunOutcomes(
+  rows: readonly ShadowRunRow[],
+  responseFacts: Readonly<Record<number, ShadowRunResponseFacts>>,
+): string {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const facts = responseFacts[row.questionId];
+    const qualifier = row.notAnsweredReason ?? (facts?.plannerFallback ? facts.fallbackReason ?? 'no reason' : facts?.planner);
+    const label = qualifier ? `${row.outcome}:${qualifier}` : row.outcome;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return [...counts].map(([label, n]) => `${label}×${n}`).join(', ') || 'no rows';
+}
+
+/**
+ * Pure. Is this run evidence about `provider`, the arm under test? Checked most
+ * specific first, so the message names the real cause:
+ *
+ * 1. `guard_refused` — no call was made at all (FR53).
+ * 2. `run_invalid` — a 400 aborted the run (FR50); INVALID by definition,
+ *    however many questions answered before the abort.
+ * 3. `provider_not_configured` — ANY response fell back for this reason: the
+ *    serving backend has no working provider for the arm (the 2026-09-28 FR113
+ *    first pass). A deployment fact, not a per-question one — one is enough.
+ * 4. `arm_mismatch` — ANY non-fallback response was planned by an arm other
+ *    than `provider`: the backend is configured with a different
+ *    `GUIDED_ANALYSIS_LLM_PROVIDER` than this run's `SHADOW_RUN_PROVIDER` label,
+ *    so every row is labelled with an arm that did not produce it.
+ * 5. `no_provider_answer` — the provider answered zero questions (every row
+ *    `unavailable`, `recording_missing`, `provider_unavailable`, …).
+ *
+ * A run where the provider answered at least one question, however badly, is
+ * `ok`: scoring HOW WELL it answered is the gate's job, not this spec's.
+ */
+export function shadowRunEvidenceVerdict(result: VerdictInput, providerLabel: string): ShadowRunEvidenceVerdict {
+  // Planner names are lower-case (`planner.factory.ts`); `shouldRunArm` already
+  // reads `SHADOW_RUN_PROVIDER` case-insensitively, so this does too.
+  const provider = providerLabel.trim().toLowerCase();
+  const { rows, responseFacts } = result;
+  const total = rows.length;
+  const answered = rows.filter((r) => providerAnswered(r, responseFacts[r.questionId], provider)).length;
+  const failure = evidenceFailureOf(result, provider, answered);
+  if (!failure) return { ok: true, answered, total };
+  const message =
+    `shadow run is not evidence about provider '${provider}' (${failure}): ` +
+    `${EVIDENCE_FAILURE_TEXT[failure](result, provider)} The provider answered ${answered} of ${total} ` +
+    `selected question(s); outcomes: ${tallyShadowRunOutcomes(rows, responseFacts)}.`;
+  return { ok: false, failure, answered, total, message };
+}
+
+function evidenceFailureOf(
+  result: VerdictInput,
+  provider: string,
+  answered: number,
+): ShadowRunEvidenceFailure | undefined {
+  const facts = Object.values(result.responseFacts);
+  if (result.status === 'refused') return 'guard_refused';
+  if (result.status === 'INVALID') return 'run_invalid';
+  if (facts.some((f) => f.plannerFallback && f.fallbackReason === 'provider_not_configured')) {
+    return 'provider_not_configured';
+  }
+  if (facts.some((f) => !f.plannerFallback && f.planner !== undefined && f.planner !== provider)) return 'arm_mismatch';
+  return answered === 0 ? 'no_provider_answer' : undefined;
+}
+
+/** The arms that planned a non-fallback response, for the `arm_mismatch` message. */
+function servingArmsOf(result: VerdictInput): string {
+  const arms = new Set(
+    Object.values(result.responseFacts)
+      .filter((f) => !f.plannerFallback && f.planner !== undefined)
+      .map((f) => f.planner as string),
+  );
+  return [...arms].map((a) => `'${a}'`).join(', ');
+}
+
+const EVIDENCE_FAILURE_TEXT: Record<ShadowRunEvidenceFailure, (result: VerdictInput, provider: string) => string> = {
+  guard_refused: (r) =>
+    `the live-spend guard refused the run before any call (${r.guard.reason}) — every row is not_answered: guard.`,
+  run_invalid: (r) => `the run aborted on an HTTP 400 at question ${r.abortedAtQuestionId ?? '?'} (FR50) and is INVALID.`,
+  provider_not_configured: () =>
+    'the serving backend answered from the deterministic fallback with fallbackReason=provider_not_configured — ' +
+    'the arm under test has no working provider (check GUIDED_ANALYSIS_LLM_PROVIDER and the transport on organization-service).',
+  arm_mismatch: (r, provider) =>
+    `the serving backend planned with ${servingArmsOf(r)}, not '${provider}' — SHADOW_RUN_PROVIDER does not match ` +
+    "the backend's GUIDED_ANALYSIS_LLM_PROVIDER, so every row would be labelled with an arm that did not produce it.",
+  no_provider_answer: () =>
+    'not one selected question was answered by the provider under test. A recording_missing row means: author the ' +
+    'pending recording (llm-debug:record) and re-run; a fallback/unavailable row means the provider could not be reached.',
+};
 
 /**
  * The run's sidecar (`<provider>.run.json`): status, guard decision and subset,
@@ -982,7 +1228,7 @@ export async function runShadowBankGuarded(
  */
 export function writeShadowRunSummary(
   provider: string,
-  result: Omit<ShadowRunResult, 'rows'>,
+  result: ShadowRunSummary,
   dir = join(process.cwd(), 'tests', 'AXI-1462', 'harness', 'shadow-run'),
 ): string {
   const path = join(dir, `${provider}.run.json`);

@@ -293,3 +293,38 @@ spend; no backend is contacted.
 | UT-SHADOW-1716-019 | Against a LIVE backend with no go the run is still refused before any call | Pass |
 | UT-SHADOW-1716-020 | An unreachable probe is `unknown` and the run is refused, not crashed | Pass |
 | UT-SHADOW-1716-021 | The run sidecar records the transport statement and the provenance beside the guard | Pass |
+
+## AXI-1825/shadow-evidence-verdict.spec.ts
+
+AXI-1830 (epic AXI-1825). The AXI-1614 shadow-run spec asserted only one row per
+selected question, so the FR113 recorded first pass (2026-09-28: 9 of 9
+`fallback` / `provider_not_configured` in ~70 ms) passed green. Its pass/fail is
+now `shadowRunEvidenceVerdict` (`tests/AXI-1462/harness/shadow.ts`), fed by a
+per-question `responseFacts` side table (`planner`, `plannerFallback`,
+`fallbackReason`) that `runShadowBankGuarded` collects beside the rows — never
+on them, since the row key set is a closed contract with `axiome-back`. A run
+fails when it is guard-refused, INVALID, served (even once) by a
+`provider_not_configured` fallback, planned by a different arm than
+`SHADOW_RUN_PROVIDER`, or answered by the provider zero times. Driven through
+`runShadowBankGuarded` against a stubbed backend; nothing here can spend.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-SHADOW-1830-001 | The FR113 first pass (9/9 `provider_not_configured`) FAILS, though it still satisfies the old one-row-per-question check | Pass |
+| UT-SHADOW-1830-002 | ONE `provider_not_configured` fallback fails the run even when the provider answered the rest | Pass |
+| UT-SHADOW-1830-003 | A guard-refused run fails as `guard_refused`; no call is made and no response facts exist | Pass |
+| UT-SHADOW-1830-004 | A run aborted on a 400 fails as `run_invalid` even after answered questions, naming the aborted question | Pass |
+| UT-SHADOW-1830-005 | A recorded run of nothing but `recording_missing` fails as `no_provider_answer`, pointing at `llm-debug:record` | Pass |
+| UT-SHADOW-1830-006 | A run of nothing but HTTP 5xx and `provider_unavailable` fallbacks fails as `no_provider_answer` | Pass |
+| UT-SHADOW-1830-007 | A backend configured with the deterministic arm (every row `planned`, `plannerFallback: false`) fails as `arm_mismatch` | Pass |
+| UT-SHADOW-1830-008 | A run labelled `compiled` against a backend serving `anthropic` fails as `arm_mismatch` | Pass |
+| UT-SHADOW-1830-009 | A run the provider answered in full is ok | Pass |
+| UT-SHADOW-1830-010 | One provider answer among recording misses and `provider_unavailable` fallbacks is ok — scoring is the gate's job | Pass |
+| UT-SHADOW-1830-011 | An all-`attempts_exhausted` run is ok — the provider answered and was rejected every time | Pass |
+| UT-SHADOW-1830-012 | `providerAnswered` counts a fallback only for `attempts_exhausted`, never another or an absent reason | Pass |
+| UT-SHADOW-1830-013 | A fallback that refused its declared scope (AXI-1730) reads `unsupported` but is NOT a provider answer | Pass |
+| UT-SHADOW-1830-014 | `unavailable` / `not_answered` rows and rows with no response facts are never a provider answer; an absent `planner` is not evidence against the arm | Pass |
+| UT-SHADOW-1830-015 | `responseFactsOf` reads `planner`/`plannerFallback`/`fallbackReason` and drops non-string values | Pass |
+| UT-SHADOW-1830-016 | `tallyShadowRunOutcomes` qualifies each outcome and counts in first-seen order | Pass |
+| UT-SHADOW-1830-017 | Precedence — guard beats INVALID beats `provider_not_configured` beats `arm_mismatch` beats no answer | Pass |
+| UT-SHADOW-1830-018 | The provider label is matched case-insensitively, as `shouldRunArm` reads `SHADOW_RUN_PROVIDER` | Pass |
