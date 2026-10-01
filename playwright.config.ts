@@ -2,6 +2,11 @@ import { defineConfig, devices } from '@playwright/test';
 import { BASE_URL, IS_CI } from './config/env';
 import { storageStateFor } from './config/roles';
 
+// A spec file both the 'shadow-run-api' and 'chromium' projects must never
+// both pick up (AXI-1831) — declared once and reused by both projects'
+// testMatch/testIgnore so they can never silently drift apart.
+const SHADOW_RUN_SPEC = /AXI-1462\/AXI-1614-compiled-planner-shadow-run\.spec\.ts$/;
+
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
  *
@@ -72,7 +77,27 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: /.*\.setup\.ts/,
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC],
+    },
+    // AXI-1831 — the shadow-run spec is API-only (admin token via
+    // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
+    // UI interaction and therefore no business depending on the `setup`
+    // project's persisted `storageState`. Left under the `chromium` project,
+    // `apiRequest.newContext()` (the bare `request` import from
+    // `@playwright/test`, not a fixture) still inherits the ACTIVE project's
+    // `use` config as its defaults, including `storageState` — so running
+    // `--no-deps` (needed so `setup` doesn't hit the front-end/API the
+    // shadow-run spec doesn't use) skipped the login that would have written
+    // `.auth/admin.json`, and the inherited `storageState` path pointed at a
+    // file that was never created: `ENOENT .auth/admin.json`, before any API
+    // call. A dedicated project with no `storageState` and no `dependencies`
+    // removes the inheritance entirely; the spec already does its own admin
+    // login over the API (`createAdminShadowRunAuth`), so it needs nothing
+    // from the `setup` project. `npx playwright test <shadow-run-spec>
+    // --no-deps` now runs cleanly.
+    {
+      name: 'shadow-run-api',
+      testMatch: SHADOW_RUN_SPEC,
     },
   ],
 });
