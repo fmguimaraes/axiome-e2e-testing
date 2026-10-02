@@ -21,6 +21,7 @@ import { seedLiveWorkbench, type Seeded } from './harness/live-workbench';
 const evidenceUrl = (va: string) => `/api/v1/discovery/analyses/${va}/evidence`;
 const checkUrl = (va: string) => `/api/v1/discovery/analyses/${va}/evidence/check`;
 const publishUrl = (va: string) => `/api/v1/discovery/analyses/${va}/evidence/publish`;
+const discardUrl = (va: string) => `/api/v1/discovery/analyses/${va}/evidence/discard`;
 const reviseUrl = (va: string) => `/api/v1/discovery/analyses/${va}/evidence/revise`;
 const exportUrl = (va: string, format: string) => `/api/v1/discovery/analyses/${va}/evidence/export?format=${format}`;
 
@@ -124,5 +125,36 @@ test.describe('AXI-1757 - concurrent revise is refused, never a raw 500 (review 
     // dedup/lock happened to serialize them into two successes — either way,
     // no response is ever a raw 500 and no lost race is silently dropped.
     if (refused.length > 0) expect(refused[0].reasons.join(' ')).toMatch(/concurrent|already/);
+  });
+});
+
+test.describe('AXI-1859 (#2) - discarding is terminal: publish can no longer resurrect a discarded document', { tag: ['@SI-046'] }, () => {
+  test.describe.configure({ mode: 'serial', timeout: 300_000 });
+
+  let s: Seeded;
+
+  test.beforeAll(async () => {
+    s = await freshQuestionWithDeclaredEvidence('discard-terminal');
+    const discarded = await s.api.post(discardUrl(s.viewAnalysisId), { reason: 'wrong marker — AXI-1859 e2e' }, s.t.headers);
+    expect(discarded.status, JSON.stringify(discarded.body)).toBe(200);
+    expect(discarded.body.discarded).toBe(true);
+  });
+  test.afterAll(async () => { await s?.api.ctx.dispose(); });
+
+  test('publishing a discarded document is now refused — it is no longer the only exit from "discarded" (revise already refused it)', async () => {
+    const res = await s.api.post(publishUrl(s.viewAnalysisId), { approverNote: 'ok', claimLevel: 'exploratory' }, s.t.headers);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.published).toBe(false);
+    expect(res.body.reasons.join(' ')).toMatch(/discarded/);
+
+    const read = await s.api.get(evidenceUrl(s.viewAnalysisId), s.t.headers);
+    expect(read.body.document).toMatchObject({ status: 'discarded' });
+  });
+
+  test('revise still refuses the same discarded document (the OTHER half of the contradiction this story closed)', async () => {
+    const res = await s.api.post(reviseUrl(s.viewAnalysisId), { factSheet: FACT_SHEET, sections: SECTIONS }, s.t.headers);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.revised).toBe(false);
+    expect(res.body.reasons.join(' ')).toMatch(/Only a published/);
   });
 });
