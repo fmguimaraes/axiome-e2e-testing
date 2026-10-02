@@ -1,0 +1,7 @@
+subject_id,timepoint,value,cohort
+S003,T0,30.1,Arm-A
+S003,T1,31.2,Arm-A
+S004,T0,40.1,Arm-B
+S004,T1,41.2,Arm-B
+S005,T0,50.1,Arm-A
+S005,T1,51.2,Arm-A
