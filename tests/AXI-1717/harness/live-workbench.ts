@@ -412,6 +412,20 @@ export async function confirmScreenRunConfig(page: Page): Promise<void> {
 export const associationAttemptsUrl = (va: string, tail: 'archive' | 'choose' | string) => `/api/v1/discovery/analyses/${va}/association-attempts/${tail}`;
 
 /**
+ * AXI-1840 — the DECLARED container's own screen run (`s.declaredAnalysisId`), so a
+ * cutoff can be submitted on it: since AXI-1752 (R17) an OPEN container's cutoff
+ * proposal is always DECLINED by the plan (no `outcomePositiveLevel`), so any test
+ * that needs a SUCCEEDED cutoff run with a bound `positiveGroup` must run the screen
+ * step on the container whose plan already declares the positive class (FR8).
+ */
+export async function submitDeclaredScreen(s: Seeded): Promise<string> {
+  const submit = await s.api.post(stepUrl(s.declaredAnalysisId, 'screen', 'submit'), { operationId: SCREEN_OP, datasetId: s.datasetId, projectId: s.projectId, datasetVersionHash: s.hash }, s.t.headers);
+  expect(submit.status, JSON.stringify(submit.body)).toBe(201);
+  await waitForNode(s, submit.body.runId, 'd6');
+  return submit.body.runId as string;
+}
+
+/**
  * AXI-1795 (FR21) — a REAL settled cutoff proposal for `marker` on `va`: the live
  * Association consumes the analysis's first settled cutoff choice and refuses without
  * one (never a preview median). Screen first (the cutoff's upstream), then the cutoff.

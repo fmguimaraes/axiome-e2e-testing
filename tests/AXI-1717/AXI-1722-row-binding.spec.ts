@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { workspaceHeader } from '../AXI-1435/harness/api';
 import {
-  seedLiveWorkbench, driveToScreen, runLiveScreen, publishedRuleCode, primeWorkspace, stepUrl, waitForNode, submitStepAndWait,
+  seedLiveWorkbench, driveToScreen, runLiveScreen, publishedRuleCode, primeWorkspace, stepUrl, waitForNode, submitStepAndWait, submitDeclaredScreen,
   SCREEN_OP, CUTOFF_OP, FISHER_OP, type Seeded,
 } from './harness/live-workbench';
 
@@ -23,6 +23,7 @@ test.describe('AXI-1722 - selection admission and readers (API, real backend)', 
 
   let s: Seeded;
   let screenRunId: string;
+  let declaredScreenRunId: string;
   let cutoffRunId: string;
 
   test.beforeAll(async () => {
@@ -31,6 +32,12 @@ test.describe('AXI-1722 - selection admission and readers (API, real backend)', 
     expect(submit.status, JSON.stringify(submit.body)).toBe(201);
     screenRunId = submit.body.runId;
     await waitForNode(s, screenRunId, 'd6');
+    // AXI-1840: the DECLARED container's own screen run — since AXI-1752 (R17) an
+    // OPEN container's cutoff proposal is always declined by the plan, so the
+    // cutoff_choice reader test below (which needs a SUCCEEDED cutoff run with a
+    // bound positiveGroup) runs its screen step on the container whose plan already
+    // declares the positive class.
+    declaredScreenRunId = await submitDeclaredScreen(s);
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 
@@ -87,13 +94,17 @@ test.describe('AXI-1722 - selection admission and readers (API, real backend)', 
   });
 
   test('FR12 - cutoff_choice reader binds the fitted marker as valueColumn/valueColumns, tagged upstream:d7; a marker never ranked is refused', async () => {
-    cutoffRunId = await submitStepAndWait(s, s.viewAnalysisId, 'cutoff', CUTOFF_OP, { selection: { kind: 'shortlist_row', nodeId: 'd6', runId: screenRunId, values: { marker: 'CD8A_pre' } }, picks: { positiveGroup: 'R' } });
-    const ok = await s.api.post(stepUrl(s.viewAnalysisId, 'outcome_association', 'resolve'), {
+    // AXI-1840: run on the DECLARED container (`s.declaredAnalysisId`), whose plan
+    // already names `R` as the positive class — since AXI-1752 (R17) the OPEN
+    // container (`s.viewAnalysisId`) always declines a cutoff proposal (no pick can
+    // un-decline it), so it can never produce the SUCCEEDED run this test needs.
+    cutoffRunId = await submitStepAndWait(s, s.declaredAnalysisId, 'cutoff', CUTOFF_OP, { selection: { kind: 'shortlist_row', nodeId: 'd6', runId: declaredScreenRunId, values: { marker: 'CD8A_pre' } }, picks: { positiveGroup: 'R' } });
+    const ok = await s.api.post(stepUrl(s.declaredAnalysisId, 'outcome_association', 'resolve'), {
       operationId: FISHER_OP, datasetId: s.datasetId, selection: { kind: 'cutoff_choice', nodeId: 'd7', runId: cutoffRunId, values: { marker: 'CD8A_pre' } },
     }, s.t.headers);
     expect(ok.status, JSON.stringify(ok.body)).toBe(200);
     expect(ok.body.disabledReason).toBeNull();
-    const wrong = await s.api.post(stepUrl(s.viewAnalysisId, 'outcome_association', 'resolve'), {
+    const wrong = await s.api.post(stepUrl(s.declaredAnalysisId, 'outcome_association', 'resolve'), {
       operationId: FISHER_OP, datasetId: s.datasetId, selection: { kind: 'cutoff_choice', nodeId: 'd7', runId: cutoffRunId, values: { marker: 'STAT1_pre' } },
     }, s.t.headers);
     expect(wrong.status, JSON.stringify(wrong.body)).toBe(200);
@@ -166,7 +177,10 @@ test.describe('AXI-1722 - a live shortlist row binds the next steps (UI, real ba
     await expect(panel).toContainText('Next steps · bound to CD8A_pre');
     const card = panel.getByTestId(`row-step-op-${CUTOFF_OP}`);
     await expect(card.getByTestId(`row-step-op-bindings-${CUTOFF_OP}`)).toContainText('(upstream d6)', { timeout: 30_000 });
-    await expect(panel.getByTestId(`row-step-op-unresolved-${CUTOFF_OP}`)).toContainText('positiveGroup');
+    // AXI-1840: since AXI-1752 (R17) this container's plan declares no positive
+    // outcome class, so the cutoff proposal is DECLINED by the plan — it never
+    // reaches an unresolved `positiveGroup` picker, and no pick can un-decline it.
+    await expect(panel.getByTestId(`row-step-op-declined-${CUTOFF_OP}`)).toContainText('no positive outcome class was declared');
     await expect(card.getByTestId(`row-step-op-run-${CUTOFF_OP}`)).toBeDisabled();
   });
 
