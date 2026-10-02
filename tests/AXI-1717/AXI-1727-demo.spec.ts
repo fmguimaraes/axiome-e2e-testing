@@ -5,19 +5,22 @@ import {
 } from './harness/live-workbench';
 
 /**
- * AXI-1727 — AC-DEMO on the reproduction dataset, run from roles to a declared
- * candidate, and the run-fingerprint/additive audit for the whole epic (epic
- * AXI-1717). Scenario doc: `axiome-docs/manual-e2e/AXI-1717-Discovery-Workbench.md`
- * §17. Tags: @SI-046 (workbench), @SI-034 (judgement panels), @SI-045 (resolver).
+ * AXI-1727 — AC-DEMO on the Riaz 2017 fixture dataset, run from roles to a
+ * declared candidate, and the run-fingerprint/additive audit for the whole
+ * epic (epic AXI-1717). Scenario doc:
+ * `axiome-docs/manual-e2e/AXI-1717-Discovery-Workbench.md` §17. Tags:
+ * @SI-046 (workbench), @SI-034 (judgement panels), @SI-045 (resolver).
  *
- * DATASET NOTE: no MIPP reproduction fixture/seed was found in this repo or in
- * `axiome-back`'s `scripts/ingest-retrospective-dataset.ts` pilot pipeline (that
- * script's fixture is not checked in here). This spec reuses the Riaz 2017
- * fixture already wired into every AXI-1717 sibling harness
- * (`./harness/live-workbench.ts`) — the same reproduction-shaped dataset (27
- * patients, a binary outcome, pre-treatment measurements) every other story's
- * live E2E already runs against. Reported as an open item, not silently
- * substituted (see the story handback).
+ * DATASET NOTE (owner ruling, 2026-10-02): AC-DEMO is scoped to the Riaz 2017
+ * fixture — this is the correct, named dataset for this acceptance criterion,
+ * not a stand-in for an unavailable MIPP dataset. (No MIPP reproduction
+ * fixture was ever checked into this repo or `axiome-back`'s
+ * `scripts/ingest-retrospective-dataset.ts` pilot pipeline; the Feature doc's
+ * AC-DEMO wording — `axiome-docs/05 - product/features/BACKLOG-Discovery-Workbench.md`
+ * v0.7 — was amended accordingly rather than carrying a permanent substitution
+ * note.) This spec runs against the same Riaz 2017 fixture already wired into
+ * every AXI-1717 sibling harness (`./harness/live-workbench.ts`) — 27 patients,
+ * a binary outcome, pre-treatment measurements.
  *
  * REAL BACKEND, LLM-FREE — the nine-step plan is a TEMPLATE instantiation
  * (`POST /discovery/plans`), never a planner call, exactly like every AXI-1717
