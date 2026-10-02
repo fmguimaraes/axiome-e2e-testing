@@ -25,14 +25,15 @@ test.describe('AXI-1750 - split seed resolves server-side; holdout decline is a 
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 
-  test('R12 - resolving split with no picks generates splitSeed server-side, tagged policy:', async () => {
+  test('R12 - resolving split with no picks generates splitSeed server-side, tagged generated:', async () => {
     const res = await s.api.post(stepUrl(s.viewAnalysisId, 'split', 'resolve'), { operationId: SPLIT_OP, datasetId: s.datasetId }, s.t.headers);
     expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body.unresolved.map((u: any) => u.name)).not.toContain('splitSeed');
     const seedBinding = res.body.bindings.find((b: any) => b.name === 'splitSeed');
     expect(seedBinding, JSON.stringify(res.body.bindings)).toBeTruthy();
     expect(typeof seedBinding.value).toBe('number');
-    expect(seedBinding.source).toMatch(/^policy:/);
+    expect(seedBinding.source).toMatch(/^generated:/);
+    expect(seedBinding.sourceKind).toBe('generated');
   });
 
   test('R12 - a supplied splitSeed pick is still refused (never client-suppliable)', async () => {
