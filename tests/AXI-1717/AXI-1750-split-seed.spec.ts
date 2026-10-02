@@ -65,7 +65,16 @@ test.describe('AXI-1750 - split seed resolves server-side; holdout decline is a 
 
   test('R12 - a blank reason is refused before any write', async () => {
     const res = await s.api.post(declineHoldoutUrl(s.viewAnalysisId, 'split'), { reason: '   ' }, s.t.headers);
-    expect(res.status).toBe(400);
+    // 200, not 400: `DeclineHoldoutDto.reason` is `@IsString() @IsNotEmpty()` with no
+    // trim, so a whitespace-only string passes DTO validation. The route is
+    // `@HttpCode(200)` by design, and `SplitDecisionService.declineHoldout` trims
+    // server-side and returns a governed refusal object, not an HTTP error (NFR8 —
+    // a refusal for an unapproved/invalid input is a returned refusal, not a 4xx).
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.declined).toBe(false);
+    expect(res.body.reasons).toEqual(
+      expect.arrayContaining(['declining the holdout requires a reason (R12)']),
+    );
   });
 
   test('R12 - declining an already-declined question is refused, naming the reason', async () => {
