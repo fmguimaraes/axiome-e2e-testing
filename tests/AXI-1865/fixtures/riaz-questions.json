@@ -1,0 +1,46 @@
+{
+  "source": "axiome-docs/demo/riaz-2017/Riaz-Guided-Questions.md rows Q2..Q11",
+  "dataset": "riaz2017_immune_paired_log2cpm_long.csv",
+  "questions": [
+    {
+      "id": 2,
+      "question": "Is PDCD1 (PD-1) transcript induced between the pre-treatment and on-treatment biopsy under nivolumab, across all patients and separately in responders and non-responders?"
+    },
+    {
+      "id": 3,
+      "question": "In responders, is the IFN-γ-related programme (IFNG, CXCL9, CXCL10, CXCL11, IDO1, STAT1, IRF1, HLA-DRA) induced on treatment?"
+    },
+    {
+      "id": 4,
+      "question": "Before treatment, do responders already show higher cytotoxic gene expression (CD8A, PRF1, GZMB, IFNG, PDCD1, LAG3) than non-responders?"
+    },
+    {
+      "id": 5,
+      "question": "Does the on-treatment cytotoxic induction depend on prior ipilimumab exposure — does it fire in both ipilimumab-naive and ipilimumab-progressed patients?"
+    },
+    {
+      "id": 6,
+      "question": "At the on-treatment biopsy, are exhaustion / checkpoint markers (LAG3, HAVCR2, TIGIT, CTLA4, TOX, PDCD1) higher in responders than in non-responders?"
+    },
+    {
+      "id": 7,
+      "question": "Restricting to non-responders only, is there any on-treatment induction of the cytotoxic panel?"
+    },
+    {
+      "id": 8,
+      "question": "In the pooled pre-treatment responder-vs-non-responder differential-expression table, how many genes pass padj < 0.05, and are any of the 24 immune panel genes among them?"
+    },
+    {
+      "id": 9,
+      "question": "Comparing the ipilimumab-naive and ipilimumab-progressed strata, is the pre-treatment responder-vs-non-responder differential expression concentrated in one stratum?"
+    },
+    {
+      "id": 10,
+      "question": "Are HLA-DRA and CD274 (PD-L1) induced on treatment, and is that induction confined to responders?"
+    },
+    {
+      "id": 11,
+      "question": "Does the responder-restricted induction from Q1 hold when the paired t-test is replaced by the Wilcoxon signed-rank test?"
+    }
+  ]
+}

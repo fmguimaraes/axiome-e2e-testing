@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import type { Api } from '../../AXI-1435/harness/api';
 import { adminApi, resetAdminToken, workspaceHeader } from '../../AXI-1435/harness/api';
 import { loadGradosBank, buildEnvelope } from './governed';
+import { loadRiazBank } from '../../AXI-1865/harness/riazBank';
 
 /**
  * AXI-1614 (epic AXI-1603 — FR28, AC21, SI-042). The shadow harness: extends the
@@ -925,6 +926,44 @@ export function responseFactsOf(body: PlanApiBody): ShadowRunResponseFacts {
  */
 export type ShadowRunSummary = Omit<ShadowRunResult, 'rows' | 'responseFacts'>;
 
+/**
+ * AXI-1865 — the hard budget cap for one paid run, decided BEFORE any call.
+ * The harness captures no token usage (`ShadowRunRow.usage` is always null), so
+ * spend cannot be measured after the fact. Instead the cap is a fail-closed
+ * worst case: `questionCount x SHADOW_RUN_MAX_USD_PER_QUESTION` must not exceed
+ * `SHADOW_RUN_BUDGET_USD`. Unset cap ⇒ no cap (free/recorded runs). Pure.
+ */
+export interface BudgetCapDecision {
+  readonly allowed: boolean;
+  readonly reason: 'no_cap' | 'within_cap' | 'over_cap' | 'missing_per_question' | 'invalid';
+  readonly worstCaseUsd?: number;
+  readonly capUsd?: number;
+}
+
+const MICRO_USD = 1_000_000;
+
+export function decideBudgetCap(
+  env: Record<string, string | undefined>,
+  questionCount: number,
+): BudgetCapDecision {
+  const capRaw = env.SHADOW_RUN_BUDGET_USD?.trim();
+  if (!capRaw) return { allowed: true, reason: 'no_cap' };
+  const cap = Number(capRaw);
+  if (!Number.isFinite(cap) || cap <= 0) return { allowed: false, reason: 'invalid', capUsd: cap };
+  const perRaw = env.SHADOW_RUN_MAX_USD_PER_QUESTION?.trim();
+  const per = Number(perRaw);
+  if (!perRaw || !Number.isFinite(per) || per <= 0) {
+    return { allowed: false, reason: 'missing_per_question', capUsd: cap };
+  }
+  // Integer micro-USD arithmetic so 10 x 0.103 compares exactly against 1.03.
+  const worstMicro = questionCount * Math.round(per * MICRO_USD);
+  const worstCaseUsd = worstMicro / MICRO_USD;
+  if (worstMicro <= Math.round(cap * MICRO_USD)) {
+    return { allowed: true, reason: 'within_cap', worstCaseUsd, capUsd: cap };
+  }
+  return { allowed: false, reason: 'over_cap', worstCaseUsd, capUsd: cap };
+}
+
 export interface GuardedShadowRunOptions extends ShadowRunOptions {
   /** Defaults to `process.env`; injectable so the policy is unit-testable. */
   readonly env?: Record<string, string | undefined>;
@@ -990,11 +1029,17 @@ export async function runShadowBankGuarded(
   const guard = decideHarnessBankRun(env, registryText, transport);
   const provenance = shadowRunProvenanceOf(guard);
   const rowTransport = transportLabelFor(guard);
-  const questions = selectQuestions(loadGradosBank(), env.SHADOW_RUN_QUESTIONS);
+  const bankName = env.SHADOW_RUN_BANK?.trim() || 'grados';
+  if (bankName !== 'grados' && bankName !== 'riaz') {
+    throw new Error(`SHADOW_RUN_BANK: '${bankName}' is not a known bank (grados | riaz)`);
+  }
+  const bank = bankName === 'riaz' ? loadRiazBank() : loadGradosBank();
+  const questions = selectQuestions(bank, env.SHADOW_RUN_QUESTIONS);
   const questionIds = questions.map((q) => q.id);
+  const budget = decideBudgetCap(env, questionIds.length);
 
   const context = { guard, transport, provenance, questionIds };
-  if (!guard.allowed) {
+  if (!guard.allowed || !budget.allowed) {
     const rows = questionIds.map((id) => notAnsweredRow(id, provider, 'guard'));
     return { ...context, rows, status: 'refused', responseFacts: {} };
   }

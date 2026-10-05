@@ -249,7 +249,10 @@ test(
     // the original fixed filename (empty suffix), so this is a no-op for
     // every invocation that predates AXI-1749.
     const questionsEnv = process.env.SHADOW_RUN_QUESTIONS?.trim();
-    const filenameSuffix = questionsEnv ? `-${result.guard.rowId ?? 'unregistered'}` : '';
+    // AXI-1865: the Riaz bank gets its own tag so its rows never sit beside a Grados run.
+    const bankTag = process.env.SHADOW_RUN_BANK?.trim() === 'riaz' ? '-riaz10' : '';
+    const filenameSuffix =
+      questionsEnv || bankTag ? `${bankTag}-${result.guard.rowId ?? 'unregistered'}` : '';
     const path = writeShadowRunRows(provider, result.rows, filenameSuffix);
     // AXI-1716: the sidecar now also carries the SERVING backend's own transport
     // statement and the run's provenance (label + budget). A recorded run is
