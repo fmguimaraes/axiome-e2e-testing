@@ -4,10 +4,12 @@ import {
   Actor,
   COMPLETE_GUIDANCE,
   COMPLETE_OUTPUT_FIELDS,
+  deleteFixtureRules,
   inReviewRule,
   ReviewWorld,
   RuleResponse,
   send,
+  trackFixtureRule,
 } from './AXI-1765-rule-review-fixtures';
 
 /**
@@ -48,7 +50,13 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await world?.dispose();
+  // AXI-1809 / AXI-1822: rules this spec created must not outlive it (system-scope leftovers
+  // push boot seeds off the catalogue's first page). Delete them before the world is disposed.
+  try {
+    if (world) await deleteFixtureRules(world.admin);
+  } finally {
+    await world?.dispose();
+  }
 });
 
 function unique(label: string): string {
@@ -137,6 +145,7 @@ async function checkedRule(author: Actor, workspaceId: string): Promise<RuleResp
     guidance: COMPLETE_GUIDANCE,
   })) as RuleResponse;
   expect(completed.status, 'fixture rule must pass the FR9 gate').toBe('checked');
+  trackFixtureRule(created.id);
   return completed;
 }
 
