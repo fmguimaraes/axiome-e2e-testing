@@ -66,9 +66,9 @@ export function qcRule(): RuleDraft {
       ],
       expression: { type: 'LEAF', evaluationId: `${QC_RULE_CODE}-eval-1` },
       outputFields: [
-        { key: 'include_mask', type: 'boolean', description: 'Whether the referent passes the paired-completeness guard' },
+        { key: 'qc_include', type: 'boolean', description: 'Whether the referent passes the paired-completeness guard' },
         { key: 'qc_fail_reasons', type: 'string[]', description: 'Why the referent failed, when it did' },
-        { key: 'paired_completeness_adequate', type: 'boolean', description: 'Alias of include_mask for reports' },
+        { key: 'paired_completeness_adequate', type: 'boolean', description: 'Alias of qc_include for reports' },
       ],
       confidenceHeuristic: null,
       guardOutput: { confidenceCap: 0.5, requireHumanReview: true },
