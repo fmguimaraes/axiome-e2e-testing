@@ -328,3 +328,24 @@ fails when it is guard-refused, INVALID, served (even once) by a
 | UT-SHADOW-1830-016 | `tallyShadowRunOutcomes` qualifies each outcome and counts in first-seen order | Pass |
 | UT-SHADOW-1830-017 | Precedence — guard beats INVALID beats `provider_not_configured` beats `arm_mismatch` beats no answer | Pass |
 | UT-SHADOW-1830-018 | The provider label is matched case-insensitively, as `shouldRunArm` reads `SHADOW_RUN_PROVIDER` | Pass |
+
+## AXI-1865/riaz-live-wiring.spec.ts
+
+AXI-1865 (epic AXI-1825). `SHADOW_RUN_BANK=riaz` swaps the Grados bank for the
+10 Riaz 2017 catalog questions Q2–Q11 (`tests/AXI-1865/fixtures/riaz-questions.json`),
+and `decideBudgetCap` (`tests/AXI-1462/harness/shadow.ts`) refuses a run up front
+when `SHADOW_RUN_MAX_USD_PER_QUESTION` × questions exceeds `SHADOW_RUN_BUDGET_USD`.
+The cap is OR-ed into the existing FR116 guard: it can only refuse spend, never
+enable it. A per-question ceiling set without a budget is inert (`no_cap`). Used
+for the owner-authorised live run RUN-2026-10-05-02; nothing here can spend.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-SHADOW-1865-001 | The Riaz bank is exactly the 10 catalog questions Q2..Q11 | Pass |
+| UT-SHADOW-1865-002 | No cap set means no cap | Pass |
+| UT-SHADOW-1865-003 | 10 × 0.103 USD fits exactly within 1.03 USD (integer micro-USD) | Pass |
+| UT-SHADOW-1865-004 | 11 questions at 0.103 USD abort over a 1.03 USD cap | Pass |
+| UT-SHADOW-1865-005 | A cap without a per-question ceiling fails closed | Pass |
+| UT-SHADOW-1865-006 | A non-numeric or non-positive cap fails closed | Pass |
+| UT-SHADOW-1865-007 | An over-cap live selection the guard would allow is refused before any call | Pass |
+| UT-SHADOW-1865-008 | An unknown bank name throws before any call | Pass |
