@@ -100,7 +100,7 @@ export const RUO_NOTE = 'Research Use Only — not for diagnostic or treatment d
 
 /** Mirror of the registry's contract, kept small on purpose. */
 export const PROTOCOL_CONTRACT: Record<ProtocolType, { requiredOutputKeys: string[]; allowedSignalPrefixes: string[]; requiresGuardOutput: boolean; requiredInputPrefixes: string[] | null }> = {
-  QC_RULE: { requiredOutputKeys: ['include_mask', 'qc_fail_reasons'], allowedSignalPrefixes: ['meta:', 'marker:', 'score:', 'rule_score:'], requiresGuardOutput: true, requiredInputPrefixes: null },
+  QC_RULE: { requiredOutputKeys: ['qc_include', 'qc_fail_reasons'], allowedSignalPrefixes: ['meta:', 'marker:', 'score:', 'rule_score:'], requiresGuardOutput: true, requiredInputPrefixes: null },
   FEATURE_RULE: { requiredOutputKeys: ['feature_name', 'value'], allowedSignalPrefixes: ['marker:', 'marker_set:', 'score:', 'meta:', 'ratio(', 'delta('], requiresGuardOutput: false, requiredInputPrefixes: null },
   SUMMARY_RULE: { requiredOutputKeys: ['group_id', 'n_total', 'n_included', 'aggregation_level', 'aggregation_functions'], allowedSignalPrefixes: ['feature:', 'rule_score:', 'meta:', 'qc_mask'], requiresGuardOutput: false, requiredInputPrefixes: ['feature:', 'qc_mask'] },
   STRATIFY_RULE: { requiredOutputKeys: ['stratify_mode', 'group_id', 'n_included'], allowedSignalPrefixes: ['feature:', 'meta:', 'qc_mask'], requiresGuardOutput: false, requiredInputPrefixes: null },
@@ -174,7 +174,7 @@ export function qcRule(spec: QcSpec): RuleDraft {
     'QC_RULE',
     spec,
     [
-      { key: 'include_mask', type: 'boolean', description: 'Whether the referent passes the guard' },
+      { key: 'qc_include', type: 'boolean', description: 'Whether the referent passes the guard' },
       { key: 'qc_fail_reasons', type: 'string[]', description: 'Why it failed, when it did' },
     ],
     { guardOutput: { confidenceCap: 0.5, requireHumanReview: true }, category: 'qc_guard' },

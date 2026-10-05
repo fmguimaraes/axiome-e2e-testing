@@ -18,7 +18,7 @@ test('every question Q1..Q11 cites at least one rule', () => {
 
 test('builders emit the registry-required output fields', () => {
   const keys = (d: { body: Record<string, unknown> }) => (d.body.outputFields as Array<{ key: string }>).map((f) => f.key);
-  assert.ok(['include_mask', 'qc_fail_reasons'].every((k) => keys(qcRule({ ...base, code: 'X', signals: [], evaluations: [{ attributeKey: 'a', operator: '>=', value: 1 }] })).includes(k)));
+  assert.ok(['qc_include', 'qc_fail_reasons'].every((k) => keys(qcRule({ ...base, code: 'X', signals: [], evaluations: [{ attributeKey: 'a', operator: '>=', value: 1 }] })).includes(k)));
   assert.ok(['feature_name', 'value'].every((k) => keys(featureRule({ ...base, code: 'X', signals: [], featureName: 'f', formula: 'x' })).includes(k)));
   assert.ok(['group_id', 'n_total', 'n_included', 'aggregation_level', 'aggregation_functions'].every((k) => keys(summaryRule({ ...base, code: 'X', signals: ['feature:f'], aggregationLevel: 'GROUP', aggregations: [], evaluations: [{ attributeKey: 'a', operator: '<', value: 1 }] })).includes(k)));
   assert.ok(['stratify_mode', 'group_id', 'n_included'].every((k) => keys(stratifyRule({ ...base, code: 'X', signals: [], mode: 'PREDEFINED_GROUPING', groupBy: { column: 'c', levels: ['a', 'b'] }, evaluations: [] })).includes(k)));
