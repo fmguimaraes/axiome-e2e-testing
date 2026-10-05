@@ -24,7 +24,7 @@ import { systemRuleCatalogue } from './seeded-rule-approval';
  *   4. Each seeded QC rule carries complete guidance authored `claude` and passes
  *      the two guidance checks; the only FR9 check it may fail is the
  *      PRE-EXISTING `protocol_compliance` gap (QC seeds declare no
- *      `include_mask`/`qc_fail_reasons` output fields), never a guidance one.
+ *      `qc_include`/`qc_fail_reasons` output fields), never a guidance one.
  *   5. Nothing in the family is served before a human approves it (FR7).
  *   6. End to end on one SUM connector: checked → submit → in_review → the
  *      submitter may NOT approve Claude-authored content → a DIFFERENT

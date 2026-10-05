@@ -209,7 +209,7 @@ export async function provisionRbac(topo: Topology): Promise<Rbac> {
     await admin.ctx.patch(`${API}/rules/${RULE_WS}`, {
       data: {
         outputFields: [
-          { key: 'include_mask', type: 'boolean', description: 'Whether this row passes QC' },
+          { key: 'qc_include', type: 'boolean', description: 'Whether this row passes QC' },
           { key: 'qc_fail_reasons', type: 'array', description: 'Array of QC failure reason codes' },
         ],
       },
