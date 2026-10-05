@@ -140,12 +140,13 @@ async function checkedRule(author: Actor, workspaceId: string): Promise<RuleResp
     scope: 'workspace',
     workspaceId,
   })) as RuleResponse;
+  // Tracked before the PATCH and the FR9 expect, so a failure there cannot leak the rule.
+  trackFixtureRule(created.id);
   const completed = (await send(author.api, 'patch', `/api/v1/rules/${created.id}`, {
     outputFields: COMPLETE_OUTPUT_FIELDS,
     guidance: COMPLETE_GUIDANCE,
   })) as RuleResponse;
   expect(completed.status, 'fixture rule must pass the FR9 gate').toBe('checked');
-  trackFixtureRule(created.id);
   return completed;
 }
 

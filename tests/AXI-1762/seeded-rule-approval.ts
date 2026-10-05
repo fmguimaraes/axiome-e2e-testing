@@ -215,7 +215,11 @@ export async function approveSeededRules(
   }
   // Always runs: the demotion of the seed approver and every API context, then the world.
   const failures = await drainCleanups(cleanups);
-  await world.dispose().catch(() => undefined);
+  try {
+    await world.dispose();
+  } catch (err) {
+    failures.push(`world dispose: ${err instanceof Error ? err.message : String(err)}`);
+  }
   if (!outcome.ok) {
     if (failures.length) console.warn(`AXI-1809 seed approval: cleanup also failed: ${failures.join(' | ')}`);
     throw outcome.error;
