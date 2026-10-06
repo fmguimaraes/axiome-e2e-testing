@@ -159,7 +159,10 @@ async function uploadFixture(api: Api, t: Tenant, filename: string, originalFile
   const init = await api.post(`/api/v1/workspaces/${ws}/datasets`, {
     organizationId: t.orgId, originalFilename, contentType: 'text/csv',
   }, t.headers);
-  const datasetId = init.body.dataset.id;
+  const datasetId = init.body?.dataset?.id;
+  if (!datasetId) {
+    throw new Error(`upload init of ${originalFilename} returned no dataset (${init.status}): ${JSON.stringify(init.body)}`);
+  }
   const put = await fetch(init.body.presignedUrl, { method: 'PUT', headers: { 'content-type': 'text/csv' }, body: new Uint8Array(bytes) });
   if (!put.ok) throw new Error(`presigned PUT of ${originalFilename} failed (${put.status})`);
   const fin = await api.patch(`/api/v1/workspaces/${ws}/datasets/${datasetId}/finalize`, undefined, t.headers);

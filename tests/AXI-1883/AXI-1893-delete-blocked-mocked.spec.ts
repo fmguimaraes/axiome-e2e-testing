@@ -1,6 +1,6 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { apiUrl } from '../../config/env';
-import { testIdentityApi, TEST_IDENTITY_EMAIL, type Api } from './harness/api';
+import { testIdentityApi, signInAsTestIdentity, type Api } from './harness/api';
 import { ensureTenant, createAnalysis, type Tenant } from './harness/seed';
 
 /**
@@ -28,16 +28,6 @@ async function silenceTours(api: Api): Promise<void> {
   }
 }
 
-async function loginViaUi(page: Page): Promise<void> {
-  const password = process.env.E2E_TEST_PASSWORD;
-  if (!password) throw new Error('E2E_TEST_PASSWORD is not set.');
-  await page.goto('/login');
-  await page.getByPlaceholder('your-email@company.com').fill(TEST_IDENTITY_EMAIL);
-  await page.getByPlaceholder('••••••••••••').fill(password);
-  await page.getByRole('button', { name: 'Sign In' }).click();
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15_000 });
-}
-
 let api: Api;
 let tenant: Tenant;
 
@@ -56,7 +46,9 @@ function analysesUrl(): string {
 }
 
 test.beforeEach(async ({ page }) => {
-  await loginViaUi(page);
+  // The project storageState is already signed in, so a `/login` form
+  // fill never renders (Login.tsx redirects) — see `signInAsTestIdentity`.
+  await signInAsTestIdentity(page, tenant);
 });
 
 test('EC3 (FR22, routed mock): a 409 held-artifact refusal keeps the delete dialog open and renders the message inline', async ({ page }) => {
@@ -66,8 +58,16 @@ test('EC3 (FR22, routed mock): a 409 held-artifact refusal keeps the delete dial
   // The exact shape ConflictException serializes to, naming a held artifact
   // the way `blockingArtifactsFor` composes it (rule run(s)/evidence item(s)/
   // published snapshot(s)).
-  await page.route(`**/api/v1/view-analyses/${id}`, async (route) => {
+  // Match on the PATHNAME: the client sends `DELETE
+  // /view-analyses/:id?performedBy=<actor>` (`viewAnalyses.ts`), and a glob
+  // ending at the id never matches a URL carrying a query string — the
+  // request fell through to the real backend and the dialog rendered ITS
+  // answer instead. `mockedDeletes` proves the refusal on screen is this
+  // route's, not whatever the served backend happens to say.
+  let mockedDeletes = 0;
+  await page.route((url) => url.pathname.endsWith(`/api/v1/view-analyses/${id}`), async (route) => {
     if (route.request().method() !== 'DELETE') return route.continue();
+    mockedDeletes += 1;
     await route.fulfill({
       status: 409,
       contentType: 'application/json',
@@ -82,7 +82,7 @@ test('EC3 (FR22, routed mock): a 409 held-artifact refusal keeps the delete dial
   const row = page.getByTestId('analysis-row').filter({ hasText: name });
   await expect(row).toBeVisible({ timeout: 15_000 });
 
-  await row.getByTitle('Delete').click();
+  await row.getByTitle('Delete', { exact: true }).click();
   const modal = page.getByTestId('delete-analysis-modal');
   await expect(modal).toBeVisible();
 
@@ -91,6 +91,7 @@ test('EC3 (FR22, routed mock): a 409 held-artifact refusal keeps the delete dial
   // The refusal renders inline and the dialog STAYS OPEN — a routed 409 must
   // never be read as success, and the row must never disappear from the list.
   await expect(page.getByTestId('delete-analysis-error')).toHaveText(/2 rule run\(s\)/);
+  expect(mockedDeletes, 'the DELETE must have been answered by the routed 409').toBe(1);
   await expect(modal).toBeVisible();
   await expect(row).toBeVisible();
 });

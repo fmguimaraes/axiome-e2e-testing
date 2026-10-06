@@ -1,6 +1,6 @@
-import { test, expect, Page, request } from '@playwright/test';
+import { test, expect, request } from '@playwright/test';
 import { apiUrl } from '../../config/env';
-import { testIdentityApi, TEST_IDENTITY_EMAIL, type Api } from './harness/api';
+import { testIdentityApi, signInAsTestIdentity, type Api } from './harness/api';
 import { ensureTenant, createAnalysis, fetchAnalysis, type Tenant } from './harness/seed';
 
 /**
@@ -37,16 +37,6 @@ async function silenceTours(api: Api): Promise<void> {
   }
 }
 
-async function loginViaUi(page: Page): Promise<void> {
-  const password = process.env.E2E_TEST_PASSWORD;
-  if (!password) throw new Error('E2E_TEST_PASSWORD is not set.');
-  await page.goto('/login');
-  await page.getByPlaceholder('your-email@company.com').fill(TEST_IDENTITY_EMAIL);
-  await page.getByPlaceholder('••••••••••••').fill(password);
-  await page.getByRole('button', { name: 'Sign In' }).click();
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15_000 });
-}
-
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
 let api: Api;
@@ -67,10 +57,17 @@ function analysesUrl(): string {
 }
 
 test.beforeEach(async ({ page }) => {
-  await loginViaUi(page);
+  // The project storageState is already signed in, so a `/login` form
+  // fill never renders (Login.tsx redirects) — see `signInAsTestIdentity`.
+  await signInAsTestIdentity(page, tenant);
 });
 
 test.describe('AXI-1893 — delete and archive/unarchive lifecycle', () => {
+  // Every `getByTitle` here is `exact`: the row's name cell carries
+  // `title={name}` (ProjectViewAnalyses.tsx), and each fixture name contains
+  // its action's word ("Delete", "Archive-Toggle", "Unarchive"), while
+  // "Unarchive" itself contains "archive" — a default (substring,
+  // case-insensitive) title match resolves to 2 elements in strict mode.
   // AC13 (FR22): a Delete action with confirmation removes the analysis.
   test('AC13 (FR22): delete with confirmation removes the analysis from the active list', async ({ page }) => {
     const name = `AXI-1893 Delete ${Date.now()}`;
@@ -79,7 +76,7 @@ test.describe('AXI-1893 — delete and archive/unarchive lifecycle', () => {
     const row = page.getByTestId('analysis-row').filter({ hasText: name });
     await expect(row).toBeVisible({ timeout: 15_000 });
 
-    await row.getByTitle('Delete').click();
+    await row.getByTitle('Delete', { exact: true }).click();
     await expect(page.getByTestId('delete-analysis-modal')).toBeVisible();
     await page.getByTestId('confirm-delete-analysis').click();
     await expect(page.getByTestId('delete-analysis-modal')).not.toBeVisible();
@@ -97,9 +94,9 @@ test.describe('AXI-1893 — delete and archive/unarchive lifecycle', () => {
     const row = page.getByTestId('analysis-row').filter({ hasText: name });
     await expect(row).toBeVisible({ timeout: 15_000 });
 
-    await row.getByTitle('Archive').click();
-    await expect(row.getByTitle('Archive')).not.toBeVisible();
-    await expect(row.getByTitle('Unarchive')).toBeVisible();
+    await row.getByTitle('Archive', { exact: true }).click();
+    await expect(row.getByTitle('Archive', { exact: true })).not.toBeVisible();
+    await expect(row.getByTitle('Unarchive', { exact: true })).toBeVisible();
   });
 
   // EC4 (FR23): unarchive restores the analysis (status back to active).
@@ -113,8 +110,8 @@ test.describe('AXI-1893 — delete and archive/unarchive lifecycle', () => {
     await page.goto(analysesUrl());
     const row = page.getByTestId('analysis-row').filter({ hasText: name });
     await expect(row).toBeVisible({ timeout: 15_000 });
-    await row.getByTitle('Unarchive').click();
-    await expect(row.getByTitle('Archive')).toBeVisible();
+    await row.getByTitle('Unarchive', { exact: true }).click();
+    await expect(row.getByTitle('Archive', { exact: true })).toBeVisible();
 
     const after = await fetchAnalysis(api, tenant, id);
     expect(after.status).toBe('active');

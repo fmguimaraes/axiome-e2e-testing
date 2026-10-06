@@ -1,4 +1,4 @@
-import { APIRequestContext, request as apiRequest } from '@playwright/test';
+import { APIRequestContext, Page, request as apiRequest } from '@playwright/test';
 import { apiUrl } from '../../../config/env';
 
 /**
@@ -41,8 +41,10 @@ async function parse(res: import('@playwright/test').APIResponse) {
   return { status: res.status(), body: body as any };
 }
 
-/** Authenticate as `test@axiomebio.com` and build a gateway client. */
-export async function testIdentityApi(): Promise<Api> {
+export interface TestIdentityTokens { accessToken: string; refreshToken: string }
+
+/** Log `test@axiomebio.com` in over the API and return its token pair. */
+export async function testIdentityTokens(): Promise<TestIdentityTokens> {
   const bootstrap = await apiRequest.newContext();
   const loginRes = await bootstrap.post(apiUrl('/api/v1/auth/login'), {
     data: { email: TEST_IDENTITY_EMAIL, password: testIdentityPassword() },
@@ -50,8 +52,40 @@ export async function testIdentityApi(): Promise<Api> {
   if (!loginRes.ok()) {
     throw new Error(`login failed for ${TEST_IDENTITY_EMAIL} (${loginRes.status()}): ${await loginRes.text()}`);
   }
-  const { accessToken } = await loginRes.json();
+  const { accessToken, refreshToken } = await loginRes.json();
   await bootstrap.dispose();
+  return { accessToken, refreshToken };
+}
+
+/**
+ * AXI-1883 — put the browser session on `test@axiomebio.com`, the SAME identity
+ * whose API client seeded the tenant (and so is a member of its workspace), with
+ * that tenant's org/workspace active.
+ *
+ * Replaces a `/login` form fill: the `chromium` project's default
+ * `storageState` is already an authenticated session, and `Login.tsx` answers
+ * an authenticated visitor with `<Navigate to="/">`, so the email field never
+ * rendered and `locator.fill` hung until the test timeout. Injecting the token
+ * pair before any page script runs (the seam `AXI-1717`'s `primeWorkspace` and
+ * `AXI-1889`'s AC8 use) overrides whatever identity that storageState holds,
+ * so the spec never silently runs as a different account.
+ */
+export async function signInAsTestIdentity(page: Page, scope: { orgId: string; workspaceId: string }): Promise<void> {
+  const { accessToken, refreshToken } = await testIdentityTokens();
+  await page.addInitScript(([access, refresh, org, ws]) => {
+    localStorage.setItem('access_token', access);
+    localStorage.setItem('refresh_token', refresh);
+    // Active org/workspace are client state `topMenuStore` reads off
+    // localStorage at init; without them every workspace-scoped list on the
+    // page fails with "X-Workspace-Id header is required".
+    localStorage.setItem('axiome-top-org', org);
+    localStorage.setItem('axiome-active-workspace', ws);
+  }, [accessToken, refreshToken, scope.orgId, scope.workspaceId] as const);
+}
+
+/** Authenticate as `test@axiomebio.com` and build a gateway client. */
+export async function testIdentityApi(): Promise<Api> {
+  const { accessToken } = await testIdentityTokens();
 
   const ctx = await apiRequest.newContext({ extraHTTPHeaders: { Authorization: `Bearer ${accessToken}` } });
   return {

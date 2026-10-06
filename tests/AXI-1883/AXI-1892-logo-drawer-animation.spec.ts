@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedLiveWorkbench, primeWorkspace, type Seeded } from '../AXI-1717/harness/live-workbench';
+import { adminApi, workspaceHeader, type Api } from '../AXI-1400/harness/api';
 
 /**
  * AXI-1892 (epic AXI-1883) - the Discovery Workbench's logo/nav drawer
@@ -16,20 +16,48 @@ import { seedLiveWorkbench, primeWorkspace, type Seeded } from '../AXI-1717/harn
  *
  * No seeded step is driven — the preview workbench (no `analysisId`) is
  * enough to exercise the drawer, so this spec never runs a governed step.
+ *
+ * AXI-1883 regression: this spec used to seed through the AXI-1717 LIVE
+ * workbench harness (`seedLiveWorkbench`), which resolves the SHARED AXI-1507
+ * tenant by name ("Executable QC Validation"). That workspace was created by
+ * another suite identity; the run's admin (`test@axiomebio.com`) is not a
+ * member, so the gateway's `WorkspaceGuard` answered the dataset upload-init
+ * `404 Workspace not found` and `init.body.dataset.id` was undefined. The
+ * drawer needs none of that seed (dataset, rules, plan instances) — only a
+ * project the caller can open — so it now creates its own per-run tenant: the
+ * creator is auto-added as a workspace admin, so no membership is granted and
+ * the shared tenant is never touched.
  */
+interface DrawerTenant { api: Api; orgId: string; workspaceId: string; projectId: string }
+
+async function createDrawerTenant(tag: string): Promise<DrawerTenant> {
+  const api = await adminApi();
+  const org = await api.post('/api/v1/organizations', { name: `AXI-1892 E2E Org ${tag}`, type: 'biotech' });
+  expect(org.status, `create org: ${JSON.stringify(org.body)}`).toBeLessThan(300);
+  const ws = await api.post('/api/v1/workspaces', {
+    name: `AXI-1892 E2E Workspace ${tag}`, type: 'internal', ownerOrganizationId: org.body.id,
+  });
+  expect(ws.status, `create workspace: ${JSON.stringify(ws.body)}`).toBeLessThan(300);
+  const proj = await api.post('/api/v1/projects', { name: `AXI-1892 drawer animation ${tag}`, workspaceId: ws.body.id }, workspaceHeader(ws.body.id));
+  expect(proj.status, `create project: ${JSON.stringify(proj.body)}`).toBeLessThan(300);
+  return { api, orgId: org.body.id, workspaceId: ws.body.id, projectId: proj.body.id };
+}
 test.describe('AXI-1892 - workbench nav drawer animation (UI, real backend)', { tag: ['@SI-046'] }, () => {
   test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
-  let s: Seeded;
+  let s: DrawerTenant;
 
   test.beforeAll(async () => {
-    const tag = Date.now().toString(36);
-    s = await seedLiveWorkbench(`axi-1892-${tag}`, `AXI-1892 drawer animation ${tag}`);
+    s = await createDrawerTenant(`${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`);
   });
   test.afterAll(async () => { await s?.api.ctx.dispose(); });
 
   test.beforeEach(async ({ page }) => {
-    await primeWorkspace(page, s);
+    // Active org/workspace are client state `topMenuStore` reads off localStorage.
+    await page.addInitScript(([org, ws]) => {
+      localStorage.setItem('axiome-top-org', org);
+      localStorage.setItem('axiome-active-workspace', ws);
+    }, [s.orgId, s.workspaceId] as const);
     await page.goto(`/projects/${s.projectId}/discovery-workbench`);
     await expect(page.getByTestId('discovery-workbench')).toBeVisible({ timeout: 30_000 });
   });

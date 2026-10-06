@@ -74,19 +74,34 @@ async function seedScope(page: Page, tenant: Tenant, scope: 'workspace' | 'proje
  * store init, but something downstream of that first render (outside this
  * story's owned files — `TopMenu.tsx`/`topMenuStore.ts` are explicitly off
  * limits) can still clear it back to null a beat later, which a bare
- * post-`goto` check misses. Poll on the workspace chip showing the REAL name
- * (not just the absence of the "Select workspace first" placeholder) right
- * before the action that needs the header, so a late reset fails loudly
- * instead of racing `X-Workspace-Id` into a 400.
+ * post-`goto` check misses. Poll right before the action that needs the
+ * header, so a late reset fails loudly instead of racing `X-Workspace-Id`
+ * into a 400.
+ *
+ * AXI-1883 regression (AXI-1884 + AXI-1889 on one `main`): AXI-1884 renders a
+ * scope with exactly ONE choice as a plain `ScopeNameLabel`
+ * (`scope-label-workspace`) instead of the dropdown, and only the dropdown
+ * (`scope-dropdown-workspace`) carries the `app-shell.workspace-switcher`
+ * tour hook. This spec's freshly-created org owns exactly one workspace, so
+ * the merged UI always shows the label and a `data-tour` lookup can never
+ * match. Accept whichever control the UI renders — but the label shows the
+ * sole workspace's name whether or not it is ACTIVE (unlike the dropdown,
+ * which shows `activeWs?.name`), so the name alone no longer proves the scope
+ * is set: also require the store's persisted active workspace (written
+ * synchronously by `setActiveWorkspaceId`, removed on a reset) to be this
+ * tenant's.
  */
-async function waitForScopeReady(page: Page, workspaceName: string): Promise<void> {
-  // `TopMenu` truncates long names with CSS (`max-w-[140px] truncate`), not a
-  // text shorten — the accessible name is the full string, shared by both the
-  // org button (same name here, since org/workspace/project all share the
-  // run's tag) and the workspace button. The workspace switcher carries a
-  // stable `data-tour` hook; key off that instead of the (ambiguous) name.
-  await expect(page.locator('[data-tour="app-shell.workspace-switcher"]', { hasText: workspaceName }))
-    .toBeVisible({ timeout: 20_000 });
+async function waitForScopeReady(page: Page, workspaceName: string, workspaceId: string): Promise<void> {
+  const workspaceControl = page
+    .locator('[data-testid="scope-label-workspace"], [data-testid="scope-dropdown-workspace"]')
+    .filter({ hasText: workspaceName });
+  await expect(workspaceControl).toBeVisible({ timeout: 20_000 });
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('axiome-active-workspace')), {
+      message: 'active workspace was reset after page load',
+      timeout: 20_000,
+    })
+    .toBe(workspaceId);
 }
 
 interface AuthTokens { accessToken: string; refreshToken: string }
@@ -149,7 +164,7 @@ test.afterAll(async () => {
 test('AC7 — create, edit, archive and show-archived all work on /guided-analysis/prompts @SI-046', async ({ page }) => {
   await seedScope(page, tenant, 'workspace');
   await page.goto('/guided-analysis/prompts');
-  await waitForScopeReady(page, NAMES.workspace);
+  await waitForScopeReady(page, NAMES.workspace, tenant.workspaceId);
 
   const title = `AXI-1889 e2e strategy ${Date.now()}`;
   const editedTitle = `${title} (edited)`;
@@ -157,7 +172,7 @@ test('AC7 — create, edit, archive and show-archived all work on /guided-analys
   // CREATE — re-check scope right before the mutating action; a late reset of
   // the active workspace (see `waitForScopeReady`'s doc comment) would
   // otherwise only surface as "X-Workspace-Id header is required" here.
-  await waitForScopeReady(page, NAMES.workspace);
+  await waitForScopeReady(page, NAMES.workspace, tenant.workspaceId);
   await page.getByTestId('prompt-create-button').click();
   await page.getByTestId('prompt-title-input').fill(title);
   await page.getByTestId('prompt-text-input').fill('Created by the AXI-1889 e2e spec.');
@@ -207,7 +222,7 @@ test.describe('AC8 — Skills nav entry', () => {
     );
     await seedScope(page, tenant, 'project');
     await page.goto('/overview');
-    await waitForScopeReady(page, NAMES.workspace);
+    await waitForScopeReady(page, NAMES.workspace, tenant.workspaceId);
 
     const skillsLink = page.getByRole('link', { name: 'Skills' });
     await expect(skillsLink).toBeVisible();
@@ -223,7 +238,7 @@ test.describe('AC8 — Skills nav entry', () => {
 test('AC8 — /guided-analysis no longer renders the "Analysis strategies" link @SI-046', async ({ page }) => {
   await seedScope(page, tenant, 'project');
   await page.goto(`/guided-analysis?scope=project&projectId=${tenant.projectId}&workspaceId=${tenant.workspaceId}`);
-  await waitForScopeReady(page, NAMES.workspace);
+  await waitForScopeReady(page, NAMES.workspace, tenant.workspaceId);
 
   await expect(page.getByRole('heading', { name: 'Guided Analysis' })).toBeVisible();
   await expect(page.getByTestId('prompt-library-link')).toHaveCount(0);
@@ -235,7 +250,7 @@ test('AC8 — /guided-analysis no longer renders the "Analysis strategies" link 
 test('AC9 — /guided-analysis renders its title through the shared PageHeader @SI-046', async ({ page }) => {
   await seedScope(page, tenant, 'project');
   await page.goto(`/guided-analysis?scope=project&projectId=${tenant.projectId}&workspaceId=${tenant.workspaceId}`);
-  await waitForScopeReady(page, NAMES.workspace);
+  await waitForScopeReady(page, NAMES.workspace, tenant.workspaceId);
 
   const heading = page.getByRole('heading', { name: 'Guided Analysis' });
   await expect(heading).toBeVisible();
