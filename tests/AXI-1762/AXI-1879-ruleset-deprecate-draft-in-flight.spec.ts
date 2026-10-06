@@ -62,7 +62,8 @@ async function ruleDetail(world: ReviewWorld, id: string): Promise<RuleResponse>
   return (await send(world.admin, 'get', `/api/v1/rules/${id}`)) as RuleResponse;
 }
 
-async function importAndActivate(world: ReviewWorld, labelPrefix: string): Promise<{ rulesetId: string; members: Member[] }> {
+/** Import a ruleset and leave it DRAFT (nothing materialized yet). */
+async function importDraft(world: ReviewWorld, labelPrefix: string): Promise<string> {
   const payload = rulesetPayload(labelPrefix);
   const importRes = await world.admin.post(apiUrl('/api/v1/admin/rulesets/import'), {
     multipart: { file: { name: 'ruleset.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(payload)) } },
@@ -70,7 +71,16 @@ async function importAndActivate(world: ReviewWorld, labelPrefix: string): Promi
   expect(importRes.status(), await importRes.text()).toBe(201);
   const imported = await importRes.json();
   expect(imported.success, JSON.stringify(imported.validationReport)).toBe(true);
-  const rulesetId = imported.ruleset.id as string;
+  return imported.ruleset.id as string;
+}
+
+async function rulesetStatus(world: ReviewWorld, rulesetId: string): Promise<string> {
+  const ruleset = await send(world.admin, 'get', `/api/v1/admin/rulesets/${rulesetId}`);
+  return String(ruleset.status ?? ruleset.ruleset?.status).toUpperCase();
+}
+
+async function importAndActivate(world: ReviewWorld, labelPrefix: string): Promise<{ rulesetId: string; members: Member[] }> {
+  const rulesetId = await importDraft(world, labelPrefix);
 
   const activateRes = await world.admin.post(apiUrl(`/api/v1/admin/rulesets/${rulesetId}/activate`));
   // The gateway answers 201 here (the controller's default); 200 is accepted too
@@ -249,7 +259,9 @@ test.describe('AXI-1879 — ruleset lifecycle refuses a member with a draft edit
     const res = await world.admin.post(apiUrl(`/api/v1/admin/rulesets/${rulesetId}/deprecate`), {
       data: { reason: 'AXI-1879 e2e — deprecate once no draft is in flight.' },
     });
-    expect(res.status(), await res.text()).toBe(200);
+    // The lifecycle routes answer 201 (the controller default); the refusal path
+    // is a 400, so accepting either success code never weakens what is asserted.
+    expect([200, 201], await res.text()).toContain(res.status());
 
     for (const member of [midA, cleanB]) {
       const after = await ruleDetail(world, member.id);
@@ -267,16 +279,30 @@ test.describe('AXI-1879 — ruleset lifecycle refuses a member with a draft edit
   });
 
   test('FR14 (§31.4, owner ruling) — activate and reactivate run the SAME guard, with the same typed reason and no writes @SI-017', async () => {
-    const { rulesetId, midA, cleanB } = await seedRulesetMidEdit(world, 'allthree');
+    // activate/reactivate guard the members of the ruleset they SUPERSEDE (the
+    // one currently ACTIVE), not their target's, and each has its own status
+    // precondition — activate takes a DRAFT, reactivate a DEPRECATED. So:
+    //   Z — activated clean, then superseded by X  → DEPRECATED (reactivate target)
+    //   X — the ACTIVE ruleset whose MID-A is mid-edit (the guarded one)
+    //   Y — imported only                          → DRAFT (activate target)
+    const z = await importAndActivate(world, 'reactivate-target');
+    for (const m of z.members) await publish(world, m.id, 'AXI-1879 e2e — publish Z so superseding it is clean.');
+    const { rulesetId: xId, midA, cleanB } = await seedRulesetMidEdit(world, 'allthree');
+    expect(await rulesetStatus(world, z.rulesetId), 'Z was superseded by X').toBe('DEPRECATED');
+    const yId = await importDraft(world, 'activate-target');
 
+    const targets = { activate: yId, reactivate: z.rulesetId } as const;
     for (const action of ['activate', 'reactivate'] as const) {
-      const body = await refusal(world, rulesetId, action);
+      const body = await refusal(world, targets[action], action);
       expect(body, `${action} refuses with the same typed reason`).toContain('DEPRECATE_DRAFT_IN_FLIGHT:');
       expect(body, `${action} names the offender`).toContain(midA.code);
       expect(body, `${action} does not name the clean member`).not.toContain(cleanB.code);
     }
 
-    // Neither refusal wrote anything: both members are exactly as seeded.
+    // Neither refusal wrote anything: every ruleset and both members are exactly as seeded.
+    expect(await rulesetStatus(world, xId)).toBe('ACTIVE');
+    expect(await rulesetStatus(world, yId)).toBe('DRAFT');
+    expect(await rulesetStatus(world, z.rulesetId)).toBe('DEPRECATED');
     const afterA = await ruleDetail(world, midA.id);
     expect(afterA.status).toBe(midA.status);
     expect(afterA.version).toBe(midA.version);
