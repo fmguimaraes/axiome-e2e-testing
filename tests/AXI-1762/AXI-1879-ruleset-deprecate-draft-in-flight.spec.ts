@@ -39,7 +39,15 @@ function rulesetPayload(labelPrefix: string) {
     category: 'phenotype_detection',
     question,
     logic: { type: 'comparison', operator: '>', field: 'cd4_count', value: 500 },
-    scoring: { outputFields: [{ key: 'value', type: 'number', description: 'Computed value.' }] },
+    // `scoring` is written to the rule's `outputFields` AS-IS, so it must BE the
+    // field array, not an object wrapping one. FR9's `protocol_compliance` then
+    // requires BOTH of a Feature Rule's output fields; short of either, the member
+    // lands `draft`, can never be submitted for review, and this fixture could
+    // never reach a published member to fork.
+    scoring: [
+      { key: 'feature_name', type: 'string', description: 'Name of the computed feature.' },
+      { key: 'value', type: 'number', description: 'Numeric feature value per row.' },
+    ],
   });
   return {
     name: unique(`AXI-1879 ${labelPrefix}`),
@@ -69,13 +77,27 @@ async function importAndActivate(world: ReviewWorld, labelPrefix: string): Promi
   // so this seeding step never becomes the thing under test.
   expect([200, 201], await activateRes.text()).toContain(activateRes.status());
 
-  // The member listing keys each row by `id` + `ruleKey`; the order is not
-  // guaranteed, so MID-A and CLEAN-B are picked by their key, never by index.
-  const rulesRes = await send(world.admin, 'get', `/api/v1/admin/rulesets/${rulesetId}/rules?limit=50`);
-  return { rulesetId, members: rulesRes.data as Member[] };
+  // The member listing keys each row by `id` + `ruleKey`, and that `id` is the
+  // RULESET MEMBER's id, NOT the materialized rule's — a `GET /rules/<member id>`
+  // is a 404. The materialized rule is resolved by its `code`, which activation
+  // sets to the member's `ruleKey`. The listing order is not guaranteed either,
+  // so MID-A and CLEAN-B are always picked by key.
+  const listing = await send(world.admin, 'get', `/api/v1/admin/rulesets/${rulesetId}/rules?limit=50`);
+  const members = await Promise.all(
+    (listing.data as Member[]).map(async (m) => ({ ruleKey: m.ruleKey, id: await materializedRuleId(world, m.ruleKey) })),
+  );
+  return { rulesetId, members };
 }
 
 interface Member { id: string; ruleKey: string }
+
+/** The id of the live rule activation materialized for `ruleKey` (its `code`). */
+async function materializedRuleId(world: ReviewWorld, ruleKey: string): Promise<string> {
+  const found = await send(world.admin, 'get', `/api/v1/rules?search=${encodeURIComponent(ruleKey)}&limit=50`);
+  const row = (found.data as Array<{ id: string; code: string }>).find((r) => r.code === ruleKey);
+  if (!row) throw new Error(`no materialized rule with code "${ruleKey}"`);
+  return row.id;
+}
 
 const memberByKey = (members: Member[], suffix: string): Member => {
   const found = members.find((m) => m.ruleKey.includes(suffix));
@@ -87,8 +109,10 @@ const memberByKey = (members: Member[], suffix: string): Member => {
 async function publish(world: ReviewWorld, id: string, note: string): Promise<void> {
   await send(world.admin, 'post', `/api/v1/rules/${id}/submit-for-review`);
   const inReview = await ruleDetail(world, id);
+  // The approval body's field is `note` — `justification` is rejected with
+  // "An approval requires a justification."
   await send(world.admin, 'post', `/api/v1/rules/${id}/approve`, {
-    justification: note,
+    note,
     expectedContentHash: inReview.review!.contentHash,
   });
   expect((await ruleDetail(world, id)).status).toBe('published');
@@ -104,7 +128,11 @@ async function seedRulesetMidEdit(world: ReviewWorld, labelPrefix: string): Prom
   expect(members.length).toBe(2);
   const aId = memberByKey(members, '-mid-a-').id;
   const bId = memberByKey(members, '-clean-b-').id;
-  for (const id of [aId, bId]) expect((await ruleDetail(world, id)).status).toBe('checked');
+  for (const id of [aId, bId]) {
+    const detail = await ruleDetail(world, id);
+    // Naming the failing FR9 checks here turns "it is draft" into "this check failed".
+    expect(detail.status, `FR9 checks: ${JSON.stringify((detail as any).checks ?? (detail as any).review?.checks ?? detail)}`).toBe('checked');
+  }
 
   await publish(world, aId, 'AXI-1879 e2e — publish MID-A before forking it.');
   await publish(world, bId, 'AXI-1879 e2e — publish CLEAN-B and leave it alone.');
@@ -118,7 +146,9 @@ async function seedRulesetMidEdit(world: ReviewWorld, labelPrefix: string): Prom
 
   const cleanB = await ruleDetail(world, bId);
   expect(cleanB.status).toBe('published');
-  return { rulesetId, midA, cleanB };
+  const fixture = { rulesetId, midA, cleanB };
+  pending.push(fixture);
+  return fixture;
 }
 
 /** The refusal body of a ruleset lifecycle call that the guard blocks. */
@@ -132,9 +162,55 @@ async function refusal(world: ReviewWorld, rulesetId: string, action: 'deprecate
 }
 
 let world: ReviewWorld;
+/** Fixtures whose MID-A may still be mid-edit; see the `afterEach` below. */
+const pending: Fixture[] = [];
+
+/**
+ * `admin/rulesets` is a GLOBAL surface: activating a ruleset SUPERSEDES the
+ * members of the one currently active, so it runs the very guard under test. A
+ * fixture left with its MID-A mid-edit therefore blocks the NEXT test's seeding,
+ * which would look like a failure of that test rather than leftovers from this
+ * one. Serial mode plus this cleanup keeps each test's arrangement its own.
+ */
+test.describe.configure({ mode: 'serial' });
+
+/**
+ * Activation supersedes the members of whichever ruleset is active, so a MID-A
+ * this spec left mid-edit in an EARLIER run blocks the first seeding of the next
+ * one — the spec would fail on its own leftovers. Resolve them first, scoped to
+ * rulesets this spec created (`AXI-1879 ...`) so no one else's rule is touched.
+ */
+async function resolveLeftoverDrafts(): Promise<void> {
+  const listing = await send(world.admin, 'get', '/api/v1/admin/rulesets?limit=100');
+  const mine = (listing.data as Array<{ id: string; name: string; status: string }>).filter(
+    (r) => r.name.startsWith('AXI-1879 ') && r.status?.toUpperCase() === 'ACTIVE',
+  );
+  for (const ruleset of mine) {
+    const members = await send(world.admin, 'get', `/api/v1/admin/rulesets/${ruleset.id}/rules?limit=50`);
+    for (const member of members.data as Member[]) {
+      const id = await materializedRuleId(world, member.ruleKey).catch(() => undefined);
+      if (!id) continue;
+      const detail = await ruleDetail(world, id);
+      if (detail.status === 'checked' || detail.status === 'in_review') {
+        await publish(world, id, 'AXI-1879 e2e — resolve a draft left in flight by an earlier run.').catch(() => undefined);
+      }
+    }
+  }
+}
 
 test.beforeAll(async () => {
   world = await ReviewWorld.create();
+  await resolveLeftoverDrafts();
+});
+
+test.afterEach(async () => {
+  while (pending.length) {
+    const fixture = pending.pop()!;
+    const current = await ruleDetail(world, fixture.midA.id);
+    if (current.status === 'checked' || current.status === 'in_review' || current.status === 'draft') {
+      await publish(world, fixture.midA.id, 'AXI-1879 e2e — resolve the in-flight draft so the next test can activate.').catch(() => undefined);
+    }
+  }
 });
 
 test.afterAll(async () => {
