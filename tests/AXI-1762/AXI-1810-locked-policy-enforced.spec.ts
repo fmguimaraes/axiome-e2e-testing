@@ -164,10 +164,21 @@ test.describe('AXI-1810 locked AnalysisPolicy values on POST /rule-runs (API)', 
     expect(await runCount(lockScope)).toBe(before);
   });
 
-  test('19.3.2 AC FR20 — preflight refuses exactly what execute refuses @SI-017 @SI-045', async () => {
+  test('19.3.2 AC FR20 AXI-1849 — preflight reports a locked-value mismatch as a BLOCK; execute still refuses with the same code @SI-017 @SI-045', async () => {
+    // AXI-1849: preflight is data, not an exception. The refusal is a typed BLOCK in a 200 body.
     const res = await api.post('/api/v1/rule-runs/preflight', runBody(lockScope, { ...GROUPS, alternative: 'less' }), lockScope.headers);
-    expect(res.status, JSON.stringify(res.body)).toBe(400);
-    expect(String(res.body?.message ?? '')).toContain(`${CODE}: operationParams.alternative is locked`);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    const blocks = res.body?.blocks ?? [];
+    expect(blocks, JSON.stringify(res.body)).toHaveLength(1);
+    expect(blocks[0].id).toBe(CODE);
+    expect(blocks[0].severity).toBe('BLOCK');
+    expect(blocks[0].description).toContain('locked by project');
+    expect(blocks[0].description).toContain('operationParams.alternative is locked by project to "greater"');
+
+    // Execute is unchanged: it still fails closed with the same code.
+    const exec = await api.post('/api/v1/rule-runs', runBody(lockScope, { ...GROUPS, alternative: 'less' }), lockScope.headers);
+    expect(exec.status, JSON.stringify(exec.body)).toBe(400);
+    expect(String(exec.body?.message ?? '')).toContain(`${CODE}: operationParams.alternative is locked`);
 
     // The same submission without the override dry-runs clean of any lock refusal.
     const clean = await api.post('/api/v1/rule-runs/preflight', runBody(lockScope, GROUPS), lockScope.headers);
