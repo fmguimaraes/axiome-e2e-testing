@@ -63,6 +63,11 @@ jobs:
       BASE_URL: ${{ vars.BASE_URL }}
       API_BASE_URL: ${{ vars.API_BASE_URL }}
       OBJECT_PUBLIC_URL: ${{ vars.OBJECT_PUBLIC_URL }}
+      # AXI-1895 (FR27/NFR3): canonical e2e identity, checked first by
+      # config/roles.ts; E2E_ADMIN_EMAIL/PASSWORD below stay as a fallback so
+      # an existing secret keeps working.
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
       E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
       E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
       E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}

@@ -79,6 +79,9 @@ automate. There is **no lookup-by-email route** — the only REST-observable
 signal for "does this user already exist" is the response to this same POST
 (see §6.1 for the idempotency pattern this implies).
 
+For the suite's own default identity (`test@axiomebio.com`, created this way
+on a fresh stack) see [`docs/TEST-IDENTITY.md`](TEST-IDENTITY.md).
+
 ### 1.3 Holding several identities at once
 
 If your client authors content under more than one name — a multi-author

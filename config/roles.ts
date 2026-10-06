@@ -8,6 +8,13 @@ import path from 'node:path';
  * login flow itself is under test. Credentials are synthetic local defaults
  * (NFR7), overridable by env / the platform secret store — never a committed
  * production secret (NFR6).
+ *
+ * `admin`'s identity (AXI-1895 — FR27/NFR3): every e2e test runs as
+ * `test@axiomebio.com` by default — see `docs/TEST-IDENTITY.md` for where the
+ * password lives and how to create the account on a fresh stack.
+ * `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` are the canonical override; the older
+ * `E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD` names still work (checked second) so
+ * nothing already setting those breaks.
  */
 export interface Role {
   /** Stable key used in `test.use({ storageState: storageStateFor(name) })`. */
@@ -30,8 +37,14 @@ export function storageStateFor(name: Role['name']): string {
 export const ROLES: Role[] = [
   {
     name: 'admin',
-    email: process.env.E2E_ADMIN_EMAIL?.trim() || 'admin@axiome.local',
-    password: process.env.E2E_ADMIN_PASSWORD?.trim() || 'admin',
+    email:
+      process.env.E2E_TEST_EMAIL?.trim() ||
+      process.env.E2E_ADMIN_EMAIL?.trim() ||
+      'test@axiomebio.com',
+    password:
+      process.env.E2E_TEST_PASSWORD?.trim() ||
+      process.env.E2E_ADMIN_PASSWORD?.trim() ||
+      'admin',
     selfRegister: false,
   },
   {

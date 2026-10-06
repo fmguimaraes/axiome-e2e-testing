@@ -56,6 +56,8 @@ changing only these values — no spec, selector, or config edit:
 | `GUIDED_ANALYSIS_LIVE_SPEND_GO` | unset | AXI-1689 (FR53) — the ONE live-spend guard, read by the shadow-run harness (`runShadowBankGuarded`) and by the backend's provider-client construction site. Carries the registry row id of a HELD run (`RUN-YYYY-MM-DD-NN`); the harness also needs that row to carry a written go in the registry (`SHADOW_RUN_REGISTRY_PATH`). Unset, every paid call is refused and recorded `not_answered: guard`. `E2E_LIVE_LLM` does NOT stand in for it. |
 | `SHADOW_RUN_REGISTRY_PATH` | unset | AXI-1689 — path of the run registry the guard reads the go from. Unset or unreadable ⇒ refused. |
 | `SHADOW_RUN_QUESTIONS` | unset | AXI-1689 (FR50) — comma-separated bank ids to run instead of the whole bank (`3,7,12`). An id the bank does not carry throws. The run aborts on the first HTTP 400 and writes `<provider>.run.json` beside the rows. |
+| `E2E_TEST_EMAIL` | `test@axiomebio.com` | AXI-1895 (FR27) — the identity every e2e test runs as. See [`docs/TEST-IDENTITY.md`](docs/TEST-IDENTITY.md). |
+| `E2E_TEST_PASSWORD` | unset, required | AXI-1895 (NFR3) — that account's password; never has a default and is never committed. See [`docs/TEST-IDENTITY.md`](docs/TEST-IDENTITY.md) for where it comes from and how to create the account on a fresh stack. |
 
 The Behavior Tracking read-layer round-trip (`tests/AXI-1043/`) additionally
 reads back through Metabase's query API; it skips unless a Metabase admin is
