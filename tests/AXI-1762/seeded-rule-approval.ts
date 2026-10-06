@@ -148,15 +148,50 @@ function blockOf(detail: RuleDetail): SeedBlock {
   };
 }
 
-/** A throwaway platform ADMIN holding `rule:publish`, logged in AFTER promotion so its JWT carries ADMIN. */
-async function secondApprover(world: ReviewWorld): Promise<{ userId: string; api: APIRequestContext }> {
+/**
+ * A registered teardown step. Every mutation the approval makes (the ADMIN promotion, the
+ * approver's API context) registers its undo BEFORE the mutation is attempted, so a throw at
+ * any later point still leaves a list of exactly what to revert.
+ */
+type Cleanup = () => Promise<void>;
+
+/**
+ * Run every registered cleanup, last-registered first. Never throws: each failure is collected
+ * and returned, so one failing undo does not skip the others (in particular the demotion).
+ */
+async function drainCleanups(cleanups: Cleanup[]): Promise<string[]> {
+  const failures: string[] = [];
+  for (const cleanup of cleanups.splice(0).reverse()) {
+    try {
+      await cleanup();
+    } catch (err) {
+      failures.push(err instanceof Error ? err.message : String(err));
+    }
+  }
+  return failures;
+}
+
+/**
+ * A throwaway platform ADMIN holding `rule:publish`, logged in AFTER promotion so its JWT carries ADMIN.
+ * The demotion is registered before the promotion request is sent, so a promotion that fails mid-flight
+ * (or a login that fails after it) is still reverted by the caller's cleanup list.
+ */
+async function secondApprover(world: ReviewWorld, cleanups: Cleanup[]): Promise<{ userId: string; api: APIRequestContext }> {
   const role = await world.role('axi1809-seed-approver', ['rule:read', 'rule:publish']);
   const actor = await world.actor('axi1809-seed-approver', role);
+  cleanups.push(async () => {
+    await send(world.admin, 'patch', `/api/v1/users/${actor.userId}`, { role: 'USER' });
+  });
   await send(world.admin, 'patch', `/api/v1/users/${actor.userId}`, { role: 'ADMIN' });
   const login = await apiRequest.newContext();
-  const tokens = await send(login, 'post', '/api/v1/auth/login', { email: actor.email, password: APPROVER_PASSWORD });
-  await login.dispose();
+  let tokens: { accessToken: string };
+  try {
+    tokens = await send(login, 'post', '/api/v1/auth/login', { email: actor.email, password: APPROVER_PASSWORD });
+  } finally {
+    await login.dispose();
+  }
   const api = await apiRequest.newContext({ extraHTTPHeaders: { Authorization: `Bearer ${tokens.accessToken}` } });
+  cleanups.push(() => api.dispose());
   return { userId: actor.userId, api };
 }
 
@@ -171,70 +206,94 @@ export async function approveSeededRules(
   const wanted = [...new Set(codes)];
   if (wanted.length === 0) return {};
   const world = await ReviewWorld.create();
+  const cleanups: Cleanup[] = [];
+  let outcome: { ok: true; value: Record<string, string> } | { ok: false; error: unknown };
   try {
-    const catalogue = await systemCatalogue(world.admin);
-    const idByCode: Record<string, string> = {};
-    const missing: string[] = [];
-    for (const code of wanted) {
-      const row = catalogue.find((r) => r.code === code);
-      if (row) idByCode[code] = row.id;
-      else missing.push(code);
-    }
-    if (missing.length) {
-      throw new Error(`not a boot-seeded system rule on this stack: ${missing.join(', ')} (carriers and seeds are seeded at organization-service boot)`);
-    }
-
-    const pending = (await details(world.admin, Object.values(idByCode))).filter((d) => !isServed(d));
-    if (pending.length === 0) return idByCode;
-
-    const blocked = pending.filter((d) => d.status !== 'checked' && d.status !== 'in_review');
-    if (blocked.length) throw new SeedNotApprovableError(blocked.map(blockOf));
-    assertSeedApprovalAllowed(pending.map((d) => d.code));
-
-    const toSubmit = pending.filter((d) => d.status === 'checked').map((d) => d.id);
-    if (toSubmit.length) {
-      // Per-rule skips (a concurrent worker submitted first) are fine: the re-read below decides.
-      await send(world.admin, 'post', '/api/v1/rules/bulk/submit-for-review', { ruleIds: toSubmit });
-    }
-
-    const inReview = (await details(world.admin, pending.map((d) => d.id))).filter(
-      (d) => !isServed(d) && d.status === 'in_review' && d.review?.contentHash,
-    );
-    let approval: { results?: Array<{ code: string | null; outcome: string; reasonCode: string | null; message: string | null }> } = {};
-    if (inReview.length) {
-      const approver = await secondApprover(world);
-      try {
-        approval = await send(approver.api, 'post', '/api/v1/rules/bulk/approve', {
-          ruleIds: inReview.map((d) => d.id),
-          justification:
-            opts.justification ??
-            `AXI-1809 e2e fixture: approving seeded rule(s) ${inReview.map((d) => d.code).join(', ')} so the spec runs against served rules.`,
-          expectedContentHashes: Object.fromEntries(inReview.map((d) => [d.id, d.review!.contentHash])),
-        });
-      } finally {
-        await approver.api.dispose();
-        await send(world.admin, 'patch', `/api/v1/users/${approver.userId}`, { role: 'USER' }).catch(() => undefined);
-      }
-    }
-
-    // Converge: judge by what the server now serves, allowing a concurrent winner a moment to land.
-    let notServed: RuleDetail[] = [];
-    for (let attempt = 0; attempt < SETTLE_ATTEMPTS; attempt++) {
-      notServed = (await details(world.admin, pending.map((d) => d.id))).filter((d) => !isServed(d));
-      if (notServed.length === 0) return idByCode;
-      await sleep(SETTLE_DELAY_MS);
-    }
-    const why = (code: string) => {
-      const r = approval.results?.find((x) => x.code === code);
-      return r ? `${r.outcome}${r.reasonCode ? ` ${r.reasonCode}` : ''}${r.message ? `: ${r.message}` : ''}` : 'no approval attempted';
-    };
-    throw new Error(
-      `seeded rule(s) still not served after review:\n` +
-        notServed.map((d) => `  - ${d.code} is ${d.status} (${why(d.code)})`).join('\n'),
-    );
-  } finally {
-    await world.dispose();
+    outcome = { ok: true, value: await serveRules(world, wanted, opts, cleanups) };
+  } catch (error) {
+    outcome = { ok: false, error };
   }
+  // Always runs: the demotion of the seed approver and every API context, then the world.
+  const failures = await drainCleanups(cleanups);
+  try {
+    await world.dispose();
+  } catch (err) {
+    failures.push(`world dispose: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  if (!outcome.ok) {
+    if (failures.length) console.warn(`AXI-1809 seed approval: cleanup also failed: ${failures.join(' | ')}`);
+    throw outcome.error;
+  }
+  if (failures.length) {
+    throw new Error(
+      `seeded rule(s) were approved, but fixture cleanup failed; the seed approver may still hold ADMIN: ${failures.join(' | ')}`,
+    );
+  }
+  return outcome.value;
+}
+
+async function serveRules(
+  world: ReviewWorld,
+  wanted: string[],
+  opts: { justification?: string },
+  cleanups: Cleanup[],
+): Promise<Record<string, string>> {
+  const catalogue = await systemCatalogue(world.admin);
+  const idByCode: Record<string, string> = {};
+  const missing: string[] = [];
+  for (const code of wanted) {
+    const row = catalogue.find((r) => r.code === code);
+    if (row) idByCode[code] = row.id;
+    else missing.push(code);
+  }
+  if (missing.length) {
+    throw new Error(`not a boot-seeded system rule on this stack: ${missing.join(', ')} (carriers and seeds are seeded at organization-service boot)`);
+  }
+
+  const pending = (await details(world.admin, Object.values(idByCode))).filter((d) => !isServed(d));
+  if (pending.length === 0) return idByCode;
+
+  const blocked = pending.filter((d) => d.status !== 'checked' && d.status !== 'in_review');
+  if (blocked.length) throw new SeedNotApprovableError(blocked.map(blockOf));
+  assertSeedApprovalAllowed(pending.map((d) => d.code));
+
+  const toSubmit = pending.filter((d) => d.status === 'checked').map((d) => d.id);
+  if (toSubmit.length) {
+    // Per-rule skips (a concurrent worker submitted first) are fine: the re-read below decides.
+    await send(world.admin, 'post', '/api/v1/rules/bulk/submit-for-review', { ruleIds: toSubmit });
+  }
+
+  const inReview = (await details(world.admin, pending.map((d) => d.id))).filter(
+    (d) => !isServed(d) && d.status === 'in_review' && d.review?.contentHash,
+  );
+  let approval: { results?: Array<{ code: string | null; outcome: string; reasonCode: string | null; message: string | null }> } = {};
+  if (inReview.length) {
+    // Promotion, its undo and the API context are registered in `cleanups`; the caller drains them.
+    const approver = await secondApprover(world, cleanups);
+    approval = await send(approver.api, 'post', '/api/v1/rules/bulk/approve', {
+      ruleIds: inReview.map((d) => d.id),
+      justification:
+        opts.justification ??
+        `AXI-1809 e2e fixture: approving seeded rule(s) ${inReview.map((d) => d.code).join(', ')} so the spec runs against served rules.`,
+      expectedContentHashes: Object.fromEntries(inReview.map((d) => [d.id, d.review!.contentHash])),
+    });
+  }
+
+  // Converge: judge by what the server now serves, allowing a concurrent winner a moment to land.
+  let notServed: RuleDetail[] = [];
+  for (let attempt = 0; attempt < SETTLE_ATTEMPTS; attempt++) {
+    notServed = (await details(world.admin, pending.map((d) => d.id))).filter((d) => !isServed(d));
+    if (notServed.length === 0) return idByCode;
+    await sleep(SETTLE_DELAY_MS);
+  }
+  const why = (code: string) => {
+    const r = approval.results?.find((x) => x.code === code);
+    return r ? `${r.outcome}${r.reasonCode ? ` ${r.reasonCode}` : ''}${r.message ? `: ${r.message}` : ''}` : 'no approval attempted';
+  };
+  throw new Error(
+    `seeded rule(s) still not served after review:\n` +
+      notServed.map((d) => `  - ${d.code} is ${d.status} (${why(d.code)})`).join('\n'),
+  );
 }
 
 export interface BestEffortServing {
