@@ -15,8 +15,26 @@ const SAMPLE_CONDITION_MAP = Object.fromEntries(
   Array.from({ length: 10 }, (_, n) => [`SAMP${String(n).padStart(2, '0')}`, n < 5 ? 'treatment' : 'control']),
 );
 
+export type RunKind = 'STATISTICAL' | 'DELTA' | 'STRATIFY';
+
+export interface StratifyPartitionRule {
+  field: string;
+  kind: 'categorical' | 'numeric';
+  groups: Array<{ id: string; label?: string; levels?: string[]; min?: number; min_inclusive?: boolean; max?: number; max_inclusive?: boolean }>;
+}
+
 export interface OpRun {
   operationId: string;
+  /** Test title when one operation runs more than once (two stratifications). Defaults to operationId. */
+  label?: string;
+  /** Defaults to STATISTICAL. DELTA and STRATIFY submit the shape the analysis page sends. */
+  runKind?: RunKind;
+  /** DELTA: the formula the kernel maps to `delta.<formula>`. */
+  formula?: 'difference' | 'ratio' | 'log2fc' | 'percent_change';
+  /** DELTA: the result shape (`delta_table` keeps both endpoints beside the delta). */
+  outputMode?: 'delta_table' | 'annotate';
+  /** STRATIFY: the field and the author-declared groups. */
+  partitionRule?: StratifyPartitionRule;
   library: string;
   pin: string;
   roleBindings?: Record<string, string | string[]>;
@@ -131,11 +149,53 @@ export const ANALYSES: AnalysisGroup[] = [
       { operationId: 'stats.site_batch_variance_test', library: 'statsmodels', pin: '0.14.6', roleBindings: { measurementColumn: 'measurement', diseaseColumn: 'disease', siteColumn: 'site', batchColumn: 'batch' } },
     ],
   },
+  {
+    // Change in `score` from baseline T0 to week-2 T2 per patient, all four formulas.
+    // T0→T2 (not T1) keeps these runs distinct from the paired tests above.
+    name: 'Delta — change from baseline',
+    fixture: 'paired_longitudinal.csv',
+    requiredCanonicals: ['patient_id', 'timepoint'],
+    ops: (['difference', 'ratio', 'log2fc', 'percent_change'] as const).map((formula) => ({
+      operationId: `delta.${formula}`, runKind: 'DELTA' as const, formula, outputMode: 'delta_table' as const,
+      library: 'axiome-bio-compute/delta_execution', pin: '1.0.0',
+      ordering: { levelFrom: 'T0', levelTo: 'T2' }, pivot: { valueColumn: 'score', valueColumns: ['score'] },
+    })),
+  },
+  {
+    name: 'Stratification',
+    fixture: 'biomarker_cohort.csv',
+    requiredCanonicals: [],
+    ops: [
+      {
+        operationId: 'stratify.explicit_groups', label: 'stratify.explicit_groups — categorical (outcome)', runKind: 'STRATIFY',
+        library: 'axiome-bio-compute/stratify_execution', pin: '1.0.0',
+        partitionRule: { field: 'outcome', kind: 'categorical', groups: [
+          { id: 'responder', label: 'Responder', levels: ['responder'] },
+          { id: 'non_responder', label: 'Non-responder', levels: ['non_responder'] },
+        ] },
+      },
+      {
+        operationId: 'stratify.explicit_groups', label: 'stratify.explicit_groups — numeric (marker_a bands)', runKind: 'STRATIFY',
+        library: 'axiome-bio-compute/stratify_execution', pin: '1.0.0',
+        partitionRule: { field: 'marker_a', kind: 'numeric', groups: [
+          { id: 'marker_a_low', label: 'marker_a < 5', max: 5, max_inclusive: false },
+          { id: 'marker_a_mid', label: '5 ≤ marker_a < 7', min: 5, min_inclusive: true, max: 7, max_inclusive: false },
+          { id: 'marker_a_high', label: 'marker_a ≥ 7', min: 7, min_inclusive: true },
+        ] },
+      },
+    ],
+  },
 ];
 
+/** The run kinds the parity check holds the matrix to. */
+export const COVERED_RUN_KINDS: readonly RunKind[] = ['STATISTICAL', 'DELTA', 'STRATIFY'];
+
 /** Every operationId this matrix exercises — used to assert parity against the
- *  live descriptor set so a newly-added 18th operation is caught, not skipped. */
-export const COVERED_OPERATION_IDS = ANALYSES.flatMap((a) => a.ops.map((o) => o.operationId));
+ *  live descriptor set so a newly-added operation is caught, not skipped. */
+export const COVERED_OPERATION_IDS = [...new Set(ANALYSES.flatMap((a) => a.ops.map((o) => o.operationId)))];
+
+/** Every test title — one per run, unique even where an operation runs twice. */
+export const OP_LABELS = ANALYSES.flatMap((a) => a.ops.map((o) => o.label ?? o.operationId));
 
 /** The armed-precondition BLOCK negative case (FR8/AC5). */
 export const NEGATIVE_CASE = {

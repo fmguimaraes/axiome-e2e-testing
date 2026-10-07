@@ -21,9 +21,38 @@ export async function fetchDescriptors(api: Api): Promise<Map<string, Descriptor
   return new Map(list.map((d: Descriptor) => [d.operationId, d]));
 }
 
-function declaredColumns(d: Descriptor): string[] {
-  const shape = d.output?.shapes?.[''] ?? Object.values(d.output?.shapes ?? {})[0];
-  return shape?.columns ?? [];
+/**
+ * The columns the descriptor declares for this run's shape. A delta declares one
+ * shape per `outputMode` with TEMPLATED names (`delta_{measurement}`), resolved
+ * here from the run's own pivot and ordering.
+ */
+function declaredColumns(d: Descriptor, op: OpRun): string[] {
+  const shapes = d.output?.shapes ?? {};
+  const shape = shapes[op.outputMode ?? ''] ?? shapes[''] ?? Object.values(shapes)[0];
+  const vars: Record<string, string | undefined> = {
+    measurement: op.pivot?.valueColumn as string | undefined, levelFrom: op.ordering?.levelFrom, levelTo: op.ordering?.levelTo,
+  };
+  return (shape?.columns ?? []).map((c) => c.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m));
+}
+
+const runKindOf = (op: OpRun) => op.runKind ?? 'STATISTICAL';
+
+/**
+ * What a run's rule-derived snapshot name must contain. A statistical result is
+ * named for its operation, a delta for its formula ("Delta result: difference").
+ */
+function snapshotNameMark(op: OpRun): string {
+  return runKindOf(op) === 'DELTA' ? `Delta result: ${op.formula}` : op.operationId;
+}
+
+/** DELTA and STRATIFY carry the kind's own fields, exactly as the analysis page sends them. */
+function kindFields(op: OpRun): Record<string, unknown> {
+  if (runKindOf(op) === 'DELTA') return { formula: op.formula, outputMode: op.outputMode, ordering: op.ordering, pivot: op.pivot };
+  if (runKindOf(op) === 'STRATIFY') return { partitionRule: op.partitionRule };
+  const fields: Record<string, unknown> = { operationId: op.operationId, roleBindings: op.roleBindings ?? {} };
+  if (op.pivot) fields.pivot = op.pivot;
+  if (op.ordering) fields.ordering = op.ordering;
+  return fields;
 }
 
 async function runBody(api: Api, t: Tenant, a: Analysis, datasetId: string, op: OpRun) {
@@ -31,15 +60,13 @@ async function runBody(api: Api, t: Tenant, a: Analysis, datasetId: string, op: 
   if (op.cutoffChoice) {
     operationParams.cutoffChoiceId = await ensureCutoffChoice(api, t, a, op.cutoffChoice.measurement, op.cutoffChoice.cutoff);
   }
-  const body: Record<string, unknown> = {
-    ruleId: await carrierRuleId(op.operationId), runKind: 'STATISTICAL', operationId: op.operationId,
-    operationParams, roleBindings: op.roleBindings ?? {},
+  return {
+    ruleId: await carrierRuleId(op.operationId), runKind: runKindOf(op),
+    ...(runKindOf(op) === 'STATISTICAL' ? { operationParams } : {}),
+    ...kindFields(op),
     projectId: t.projectId, workspaceId: t.workspaceId, datasetId,
     snapshotId: a.snapshotId, viewAnalysisId: a.analysisId, scope: 'FILTERED',
   };
-  if (op.pivot) body.pivot = op.pivot;
-  if (op.ordering) body.ordering = op.ordering;
-  return body;
 }
 
 const TERMINAL = new Set(['SUCCEEDED', 'FAILED', 'CANCELED', 'DEDUPED']);
@@ -76,6 +103,24 @@ async function resolveMaterialisedRow(api: Api, t: Tenant, row: any): Promise<an
 }
 
 /**
+ * A split is taken once per question (FR4 `split_is_unique_per_question`): a
+ * re-run of this spec in the same workspace is REFUSED, not deduped, because a
+ * second split would let a better-looking holdout be chosen. That refusal is the
+ * governed outcome of a re-run, so the split already taken is the one asserted.
+ */
+function isRepeatSplitRefusal(submit: { status: number; body: any }): boolean {
+  return submit.status === 400 && String(submit.body?.message ?? '').includes('split_is_unique_per_question');
+}
+
+/** The run behind this operation's rule-derived snapshot in the analysis. */
+async function priorRunInAnalysis(api: Api, t: Tenant, a: Analysis, op: OpRun): Promise<any> {
+  const snaps = asList((await api.get(`/api/v1/view-analyses/${a.analysisId}/snapshots?page=1&limit=200`, t.headers)).body);
+  const prior = snaps.find((s: any) => s.origin === 'rule_derived' && String(s.name ?? '').includes(op.operationId));
+  expect(prior?.ruleRunId, `${op.operationId} refused as a repeat, but no prior run in analysis ${a.analysisId}`).toBeTruthy();
+  return (await api.get(`/api/v1/rule-runs/${prior.ruleRunId}`, t.headers)).body;
+}
+
+/**
  * Submit one governed statistical run and assert the full materialisation
  * contract: SUCCEEDED, executor pin match (FR10/FR11), a materialised
  * statistical_table with its declared columns (FR13/FR15/FR32), a rule-derived
@@ -93,6 +138,10 @@ export async function runOperation(
   let lastDetail = '';
   for (let attempt = 0; attempt < 3; attempt++) {
     const submit = await api.post('/api/v1/rule-runs', await runBody(api, t, a, datasetId, op), t.headers);
+    if (isRepeatSplitRefusal(submit)) {
+      submitted = await priorRunInAnalysis(api, t, a, op);
+      break;
+    }
     if (submit.status >= 300) {
       lastDetail = `submit ${submit.status}: ${JSON.stringify(submit.body)}`;
       await sleep(3000);
@@ -126,12 +175,42 @@ export async function runOperation(
   // Precondition warnings are WARN-only, never a BLOCK on a materialised run.
   expect(row.preconditionWarnings === null || Array.isArray(row.preconditionWarnings)).toBeTruthy();
 
+  const snapshotAnalysisId: string =
+    submitBody?.deduped ? (submitBody.existingViewAnalysisId ?? a.analysisId) : a.analysisId;
+  const snaps = asList((await api.get(`/api/v1/view-analyses/${snapshotAnalysisId}/snapshots?page=1&limit=200`, t.headers)).body);
+  if (runKindOf(op) === 'STRATIFY') assertStratifyResult(op, row, snaps);
+  else await assertTableResult(api, t, op, d, row, snaps, snapshotAnalysisId);
+  return { ok: true };
+}
+
+/**
+ * A stratification computes no table: it partitions the referent into one
+ * filtered snapshot per non-empty declared group ("Stratification group: <label>"),
+ * and its summary counts every row into a group or into `unassigned_n`.
+ */
+function assertStratifyResult(op: OpRun, row: any, snaps: any[]): void {
+  const summary = row.summaryJson ?? {};
+  const counts: Record<string, number> = summary.group_counts ?? {};
+  const declared = op.partitionRule!.groups;
+  expect(Object.keys(counts).sort(), `${op.label} counts every declared group`).toEqual(declared.map((g) => g.id).sort());
+  const assigned = Object.values(counts).reduce((n, c) => n + c, 0);
+  expect(assigned + (summary.unassigned_n ?? 0), `${op.label} accounts for every row`).toBe(summary.scope_n);
+  for (const g of declared.filter((x) => counts[x.id] > 0)) {
+    expect(
+      snaps.some((s: any) => s.ruleRunId === row.id && s.name === `Stratification group: ${g.label ?? g.id}`),
+      `${op.label} snapshot for group ${g.id}`,
+    ).toBeTruthy();
+  }
+}
+
+/** A statistical or delta run: a result table with the declared columns, a default chart, a named rule-derived snapshot. */
+async function assertTableResult(api: Api, t: Tenant, op: OpRun, d: Descriptor, row: any, snaps: any[], snapshotAnalysisId: string): Promise<void> {
   // FR13/FR32 — the result table carries the declared output columns.
-  const table = await api.get(`/api/v1/rule-runs/${canonicalRunId}/table`, t.headers);
+  const table = await api.get(`/api/v1/rule-runs/${row.id}/table`, t.headers);
   expect(table.status, `${op.operationId} table`).toBe(200);
   expect(table.body.totalRows, `${op.operationId} rows`).toBeGreaterThanOrEqual(1);
   const cols: string[] = table.body.columns ?? [];
-  for (const declared of declaredColumns(d)) {
+  for (const declared of declaredColumns(d, op)) {
     expect(cols, `${op.operationId} missing declared column ${declared}`).toContain(declared);
   }
 
@@ -147,16 +226,11 @@ export async function runOperation(
   // so the fresh analysis legitimately holds no new snapshot. The submit response
   // names that original analysis; assert the (real, op-named) snapshot THERE,
   // tied to the canonical run — never skipping the check.
-  const snapshotAnalysisId: string =
-    submitBody?.deduped ? (submitBody.existingViewAnalysisId ?? a.analysisId) : a.analysisId;
-  const snaps = await api.get(`/api/v1/view-analyses/${snapshotAnalysisId}/snapshots?page=1&limit=200`, t.headers);
-  const derived = asList(snaps.body).filter((s: any) => s.origin === 'rule_derived');
+  const derived = snaps.filter((s: any) => s.origin === 'rule_derived');
   expect(
-    derived.some((s: any) => s.ruleRunId === canonicalRunId && String(s.name ?? '').includes(op.operationId)),
-    `${op.operationId} rule-derived snapshot (analysis ${snapshotAnalysisId}, run ${canonicalRunId})`,
+    derived.some((s: any) => s.ruleRunId === row.id && String(s.name ?? '').includes(snapshotNameMark(op))),
+    `${op.operationId} rule-derived snapshot (analysis ${snapshotAnalysisId}, run ${row.id})`,
   ).toBeTruthy();
-
-  return { ok: true };
 }
 
 /**

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { adminApi, type Api } from './harness/api';
 import { ensureTenant, ingestFixture, assignProfileAndVerify, ensureAnalysis, type Tenant, type Analysis } from './harness/seed';
-import { ANALYSES, COVERED_OPERATION_IDS, NEGATIVE_CASE } from './harness/operationMatrix';
+import { ANALYSES, COVERED_OPERATION_IDS, COVERED_RUN_KINDS, NEGATIVE_CASE, OP_LABELS } from './harness/operationMatrix';
 import { fetchDescriptors, runOperation, runNegative, type Descriptor } from './harness/runAndAssert';
 
 /**
@@ -42,10 +42,12 @@ test.afterAll(async () => {
 });
 
 test.describe('AXI-1400 — governed statistical surface (whole-surface E2E)', { tag: ['@SI-017', '@SI-021', '@SI-023', '@SI-016', '@SI-035'] }, () => {
-  test('surface parity — the matrix covers every live STATISTICAL operation', async () => {
-    const live = [...descriptors.values()].filter((d) => d.runKind === 'STATISTICAL').map((d) => d.operationId).sort();
-    expect(new Set(COVERED_OPERATION_IDS).size, 'matrix has no duplicate ops').toBe(COVERED_OPERATION_IDS.length);
-    expect([...COVERED_OPERATION_IDS].sort(), 'every governed statistical operation is exercised').toEqual(live);
+  test('surface parity — the matrix covers every live STATISTICAL, DELTA and STRATIFY operation', async () => {
+    const live = [...descriptors.values()]
+      .filter((d) => (COVERED_RUN_KINDS as readonly string[]).includes(d.runKind))
+      .map((d) => d.operationId).sort();
+    expect(new Set(OP_LABELS).size, 'matrix has no duplicate runs').toBe(OP_LABELS.length);
+    expect([...COVERED_OPERATION_IDS].sort(), 'every governed operation of those kinds is exercised').toEqual(live);
   });
 
   for (const group of ANALYSES) {
@@ -61,7 +63,7 @@ test.describe('AXI-1400 — governed statistical surface (whole-surface E2E)', {
       });
 
       for (const op of group.ops) {
-        test(op.operationId, async () => {
+        test(op.label ?? op.operationId, async () => {
           test.skip(brokenLibraries.has(op.library), `executor for ${op.library} unavailable — an earlier op in this library failed to import`);
           const { analysis, datasetId } = analyses.get(group.name)!;
           const descriptor = descriptors.get(op.operationId);
