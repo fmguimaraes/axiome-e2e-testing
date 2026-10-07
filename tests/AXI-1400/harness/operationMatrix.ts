@@ -23,6 +23,12 @@ export interface OpRun {
   operationParams?: Record<string, unknown>;
   pivot?: Record<string, unknown>;
   ordering?: Record<string, string>;
+  /**
+   * `stats.cutoff_tally` never takes a cut-off from the caller (kernel/cutoff-tally-binding.ts):
+   * it reads a captured CutoffChoice by id. The harness captures this expert choice
+   * (POST /workspaces/:id/cutoff-choices, no cited run) and stamps its id into operationParams.
+   */
+  cutoffChoice?: { measurement: string; cutoff: number };
 }
 
 export interface AnalysisGroup {
@@ -61,6 +67,8 @@ export const ANALYSES: AnalysisGroup[] = [
     requiredCanonicals: [],
     ops: [
       { operationId: 'stats.correlation', library: 'pingouin', pin: '0.5.5', roleBindings: { xColumn: 'biomarker_x', yColumn: 'biomarker_y' }, operationParams: { method: 'pearson' } },
+      { operationId: 'stats.correlation_trimmed', library: 'pingouin', pin: '0.5.5', roleBindings: { xColumn: 'biomarker_x', yColumn: 'biomarker_y' }, operationParams: { method: 'pearson', trimCriterion: 'percentile', trimValue: 5, trimSide: 'both', sensitivityOf: 'axi1400-untrimmed-primary' } },
+      { operationId: 'stats.fisher_exact', library: 'axiome-bio-compute/fisher_exact_execution', pin: '1.1.0', roleBindings: { rowColumn: 'arm', columnColumn: 'response' }, operationParams: { rowPositiveLevel: 'A', columnPositiveLevel: 'CR', alternative: 'two_sided' } },
       { operationId: 'stats.chi_square', library: 'pingouin', pin: '0.5.5', roleBindings: { rowColumn: 'arm', columnColumn: 'response' } },
     ],
   },
@@ -71,6 +79,7 @@ export const ANALYSES: AnalysisGroup[] = [
     ops: [
       { operationId: 'stats.kaplan_meier', library: 'lifelines', pin: '0.30.3', roleBindings: { timeColumn: 'time', eventColumn: 'event', groupColumn: 'arm' } },
       { operationId: 'stats.cox_proportional_hazards', library: 'lifelines', pin: '0.30.3', roleBindings: { timeColumn: 'time', eventColumn: 'event', covariates: ['covariate_age', 'covariate_score'] } },
+      { operationId: 'stats.log_rank', library: 'lifelines', pin: '0.30.3', roleBindings: { timeColumn: 'time', eventColumn: 'event', groupColumn: 'arm' } },
     ],
   },
   {
@@ -91,6 +100,35 @@ export const ANALYSES: AnalysisGroup[] = [
     requiredCanonicals: ['patient_id'],
     ops: [
       { operationId: 'stats.deseq2_differential_expression', library: 'pydeseq2', pin: '0.5.4', roleBindings: { countColumns: GENES }, operationParams: { sampleConditionMap: SAMPLE_CONDITION_MAP } },
+    ],
+  },
+  {
+    name: 'Biomarker cut-offs & screening',
+    fixture: 'biomarker_cohort.csv',
+    requiredCanonicals: [],
+    ops: [
+      { operationId: 'stats.cutoff_roc_youden', library: 'axiome-bio-compute/cutoff_proposal_execution', pin: '1.0.0', roleBindings: { groupColumn: 'outcome', valueColumns: ['marker_a', 'marker_b'] }, pivot: { valueColumns: ['marker_a', 'marker_b'] }, operationParams: { positiveGroup: 'responder' } },
+      { operationId: 'stats.cutoff_maxstat', library: 'axiome-bio-compute/cutoff_proposal_execution', pin: '1.0.0', roleBindings: { groupColumn: 'outcome', valueColumns: ['marker_a', 'marker_b'] }, pivot: { valueColumns: ['marker_a', 'marker_b'] }, operationParams: { positiveGroup: 'responder' } },
+      { operationId: 'stats.cutoff_distribution', library: 'axiome-bio-compute/cutoff_proposal_execution', pin: '1.0.0', roleBindings: { groupColumn: 'outcome', valueColumns: ['marker_a', 'marker_b'] }, pivot: { valueColumns: ['marker_a', 'marker_b'] }, operationParams: { positiveGroup: 'responder', quantile: 0.5 } },
+      { operationId: 'stats.cutoff_reference', library: 'axiome-bio-compute/cutoff_proposal_execution', pin: '1.0.0', roleBindings: { groupColumn: 'outcome', valueColumns: ['marker_a', 'marker_b'] }, pivot: { valueColumns: ['marker_a', 'marker_b'] }, operationParams: { positiveGroup: 'responder', referenceGroup: 'non_responder', quantile: 0.95 } },
+      { operationId: 'stats.cutoff_tally', library: 'axiome-bio-compute/cutoff_proposal_execution', pin: '1.0.0', roleBindings: { groupColumn: 'outcome', valueColumns: ['marker_a', 'marker_b'] }, pivot: { valueColumns: ['marker_a', 'marker_b'] }, operationParams: { positiveGroup: 'responder' }, cutoffChoice: { measurement: 'marker_a', cutoff: 6.5 } },
+      { operationId: 'stats.screen_shortlist', library: 'axiome-bio-compute/screening_execution', pin: '1.1.0', roleBindings: { groupColumn: 'outcome', valueColumns: ['marker_a', 'marker_b'] }, pivot: { valueColumns: ['marker_a', 'marker_b'] }, operationParams: { comparisons: [{ from: 'non_responder', to: 'responder' }], rankBy: 'pValue' } },
+    ],
+  },
+  {
+    name: 'Exploration / holdout split',
+    fixture: 'split_cohort.csv',
+    requiredCanonicals: [],
+    ops: [
+      { operationId: 'split.exploration_holdout', library: 'axiome-bio-compute/split_execution', pin: '1.0.0', roleBindings: { patientKey: 'patient_id', outcomeColumn: 'outcome' }, operationParams: { questionKey: 'axi1400-marker-a-response', holdoutRatio: 0.5, splitSeed: 1400 } },
+    ],
+  },
+  {
+    name: 'Site & batch variance',
+    fixture: 'site_batch.csv',
+    requiredCanonicals: [],
+    ops: [
+      { operationId: 'stats.site_batch_variance_test', library: 'statsmodels', pin: '0.14.6', roleBindings: { measurementColumn: 'measurement', diseaseColumn: 'disease', siteColumn: 'site', batchColumn: 'batch' } },
     ],
   },
 ];

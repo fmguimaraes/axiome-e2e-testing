@@ -30,8 +30,10 @@ export const FIXTURES_DIR = join(process.cwd(), 'tests', 'AXI-1400', 'fixtures')
 
 export const NAMES = {
   org: 'Axiome Validation Org',
-  workspace: 'Statistical Surface Validation',
-  project: 'Statistical Surface Validation',
+  // Overridable so a run can target a FRESH workspace (identical re-runs in an
+  // existing one DEDUP to earlier runs whose result files may no longer exist).
+  workspace: process.env.AXI1400_WORKSPACE ?? 'Statistical Surface Validation',
+  project: process.env.AXI1400_WORKSPACE ?? 'Statistical Surface Validation',
   profileId: 'immuno_oncology',
 };
 
@@ -182,4 +184,23 @@ export async function ensureAnalysis(api: Api, t: Tenant, name: string, datasetI
   const snapshotId = base ? base.id
     : (await api.post('/api/v1/view-analyses/snapshots', { viewAnalysisId: analysisId, filters: [] }, t.headers)).body.id;
   return { analysisId, snapshotId };
+}
+
+/** Capture (or reuse) the EXPERT CutoffChoice a `stats.cutoff_tally` run is bound to.
+ *  An expert choice cites no run and no publication (thresholds/cutoff-proposal-verification.ts),
+ *  so it is the one choice that needs no prior computation; it is reused by rationale so
+ *  re-runs keep the same id (and the same run fingerprint). */
+export async function ensureCutoffChoice(api: Api, t: Tenant, a: Analysis, measurement: string, cutoff: number): Promise<string> {
+  const rationale = `AXI-1400 validation: declared expert cut-off ${cutoff} on ${measurement}`;
+  const path = `/api/v1/workspaces/${t.workspaceId}/cutoff-choices`;
+  const list = await api.get(`${path}?measurement=${encodeURIComponent(measurement)}&projectId=${t.projectId}&limit=100`, t.headers);
+  const prior = asList(list.body).find((c: any) => c.rationale === rationale);
+  if (prior) return prior.id;
+  const res = await api.post(path, {
+    measurement, projectId: t.projectId, snapshotId: a.snapshotId,
+    presentedProposals: [{ proposalId: 'expert_declared', sourceType: 'expert', label: 'Declared expert cut-off', operator: 'gte', valueLow: cutoff }],
+    chosenProposalId: 'expert_declared', rationale,
+  }, t.headers);
+  if (res.status >= 300 || !res.body?.id) throw new Error(`cutoff-choice capture failed (${res.status}): ${JSON.stringify(res.body)}`);
+  return res.body.id;
 }

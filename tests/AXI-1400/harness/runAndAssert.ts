@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import type { Api } from './api';
 import { sleep, asList } from './api';
-import { carrierRuleId, type Tenant, type Analysis } from './seed';
+import { carrierRuleId, ensureCutoffChoice, type Tenant, type Analysis } from './seed';
 import type { OpRun } from './operationMatrix';
 
 const RUN_TIMEOUT_MS = 120_000;
@@ -26,10 +26,14 @@ function declaredColumns(d: Descriptor): string[] {
   return shape?.columns ?? [];
 }
 
-async function runBody(t: Tenant, a: Analysis, datasetId: string, op: OpRun) {
+async function runBody(api: Api, t: Tenant, a: Analysis, datasetId: string, op: OpRun) {
+  const operationParams: Record<string, unknown> = { ...(op.operationParams ?? {}) };
+  if (op.cutoffChoice) {
+    operationParams.cutoffChoiceId = await ensureCutoffChoice(api, t, a, op.cutoffChoice.measurement, op.cutoffChoice.cutoff);
+  }
   const body: Record<string, unknown> = {
     ruleId: await carrierRuleId(op.operationId), runKind: 'STATISTICAL', operationId: op.operationId,
-    operationParams: op.operationParams ?? {}, roleBindings: op.roleBindings ?? {},
+    operationParams, roleBindings: op.roleBindings ?? {},
     projectId: t.projectId, workspaceId: t.workspaceId, datasetId,
     snapshotId: a.snapshotId, viewAnalysisId: a.analysisId, scope: 'FILTERED',
   };
@@ -88,7 +92,7 @@ export async function runOperation(
   let submitBody: any;
   let lastDetail = '';
   for (let attempt = 0; attempt < 3; attempt++) {
-    const submit = await api.post('/api/v1/rule-runs', await runBody(t, a, datasetId, op), t.headers);
+    const submit = await api.post('/api/v1/rule-runs', await runBody(api, t, a, datasetId, op), t.headers);
     if (submit.status >= 300) {
       lastDetail = `submit ${submit.status}: ${JSON.stringify(submit.body)}`;
       await sleep(3000);
@@ -164,7 +168,7 @@ export async function runNegative(
   api: Api, t: Tenant, a: Analysis, datasetId: string,
   operationId: string, roleBindings: Record<string, string | string[]>, expectCondition: string,
 ): Promise<void> {
-  const body = await runBody(t, a, datasetId, { operationId, roleBindings } as OpRun);
+  const body = await runBody(api, t, a, datasetId, { operationId, roleBindings } as OpRun);
   const res = await api.post('/api/v1/rule-runs', body, t.headers);
   expect(res.status, `negative case ${operationId} should be refused`).toBe(400);
   const message = String(res.body?.message ?? '');
