@@ -328,7 +328,9 @@ test.describe('AXI-1907 — rule acquisition decision API', () => {
 
     const audit = await send(reviewer.api, 'get', `/api/v1/rules/${rule.id}/audit`);
     expect(audit.status).toBeLessThan(300);
-    const entries: any[] = audit.json?.data ?? audit.json ?? [];
+    // The rule audit-log read endpoint returns `{ entries, total }`
+    // (`RulesService.getAuditLogs`), never a bare array or `{ data }`.
+    const entries: any[] = audit.json?.entries ?? [];
     const recorded = entries.find((e) => e.action === 'acquisition_decision_recorded');
     expect(recorded).toBeTruthy();
     expect(recorded.performedBy).toBe(reviewer.userId);

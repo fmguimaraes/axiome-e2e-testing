@@ -1,5 +1,6 @@
 import { test, expect, request as apiRequest, type Page, type APIRequestContext } from '@playwright/test';
 import { apiUrl } from '../../config/env';
+import { silenceTours } from './harness/tours';
 
 /**
  * AXI-1909 (epic AXI-1904 — FR11, AC10, EC15; also exercises FR7/FR8/FR14/
@@ -45,27 +46,6 @@ interface Actor {
   password: string;
   accessToken: string;
   api: APIRequestContext;
-}
-
-const TOUR_IDS = [
-  'orientation', 'workspace-data', 'comparability-gate', 'subjects-datasets',
-  'evidence-decisions', 'graph-rules', 'charts-views', 'help', 'admin', 'collaboration',
-];
-
-/** A fresh user's onboarding tours auto-start and navigate() away from the
- *  current page — silence every tour before signing in through the UI. */
-async function silenceTours(accessToken: string): Promise<void> {
-  const api = await apiRequest.newContext();
-  try {
-    for (const tourId of TOUR_IDS) {
-      await api.put(apiUrl('/api/v1/onboarding-state'), {
-        data: { tourId, tourVersion: 1, status: 'skipped', stepIndex: 0 },
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-    }
-  } finally {
-    await api.dispose();
-  }
 }
 
 async function adminApiContext(): Promise<APIRequestContext> {
@@ -156,12 +136,19 @@ class AcquisitionPanelWorld {
     return ws.json.id;
   }
 
-  async addMember(workspaceId: string, member: Actor, role: 'admin' | 'member' = 'member'): Promise<void> {
-    await send(this.admin, 'post', `/api/v1/workspaces/${workspaceId}/members`, {
+  // `WorkspaceRole` (schema.prisma) has no `member` value — only
+  // viewer/sponsor_viewer/editor/approver/admin. `'member'` 500'd the add
+  // silently (the caller here never checks the response status), so every
+  // actor added through this helper was never actually a member: a
+  // visibility-gated route served the SAME 404/empty result a true
+  // non-member gets, and the UI panel never found the rule to render.
+  async addMember(workspaceId: string, member: Actor, role: 'admin' | 'viewer' = 'viewer'): Promise<void> {
+    const res = await send(this.admin, 'post', `/api/v1/workspaces/${workspaceId}/members`, {
       userId: member.userId,
       organizationId: this.orgId,
       role,
     });
+    expect(res.status, `adding ${member.userId} to workspace ${workspaceId}`).toBeLessThan(300);
   }
 
   /** A minimal, immediately-usable workspace QC_RULE under the given code. */
@@ -354,9 +341,29 @@ test.describe('AXI-1909 - acquisition panel on the rule detail page', { tag: ['@
     const workspaceId = await world.workspace('ws-supersede', acquirer);
     const code = unique('AXI1909SUPERSEDE');
     const rule = await world.rule(acquirer, workspaceId, code);
-    const first = await send(acquirer.api, 'post', '/api/v1/rules/acquisitions', baseAcquisitionBody(code, { excerpt: 'first excerpt, to be superseded, AXI-1909' }));
+    // Newest-first ordering (FR10) sorts by `acquiredAt desc, id desc` — the
+    // secondary key is a random UUID, uncorrelated with creation order. Two
+    // back-to-back POSTs with default (wall-clock `now()`) `acquiredAt` could
+    // in principle land in the same millisecond and make `second`'s expected
+    // index 0 depend on an `id` coin flip. Pin explicit, guaranteed-ordered
+    // timestamps instead, matching the AC10/FR11 test's "older"/"newer"
+    // pattern above.
+    const first = await send(
+      acquirer.api,
+      'post',
+      '/api/v1/rules/acquisitions',
+      baseAcquisitionBody(code, {
+        excerpt: 'first excerpt, to be superseded, AXI-1909',
+        acquiredAt: new Date(Date.now() - 60_000).toISOString(),
+      }),
+    );
     expect(first.status).toBeLessThan(300);
-    const second = await send(acquirer.api, 'post', '/api/v1/rules/acquisitions', baseAcquisitionBody(code, { excerpt: 'second excerpt, the replacement, AXI-1909' }));
+    const second = await send(
+      acquirer.api,
+      'post',
+      '/api/v1/rules/acquisitions',
+      baseAcquisitionBody(code, { excerpt: 'second excerpt, the replacement, AXI-1909' }),
+    );
     expect(second.status).toBeLessThan(300);
 
     const publisher = await world.actor('publisher-supersede', publishRoleId);

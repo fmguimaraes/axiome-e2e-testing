@@ -161,10 +161,14 @@ test.beforeAll(async () => {
   acquirer = await world.actor('acquirer', acquireAndReadRoleId);
   workspaceId = await world.workspace('ws', acquirer);
   reader = await world.actor('reader', readOnlyRoleId);
+  // `WorkspaceRole` has no `member` value (viewer/sponsor_viewer/editor/
+  // approver/admin) — `member` 500'd silently, so `reader` was never
+  // actually added and this fixture's FR11 case was exercising a
+  // non-member by accident. Use the lowest-privilege real role.
   await send(world.admin, 'post', `/api/v1/workspaces/${workspaceId}/members`, {
     userId: reader.userId,
     organizationId: world.orgId,
-    role: 'member',
+    role: 'viewer',
   });
   // Same role as `reader` but never added to ANY workspace (cross-tenant check).
   nonMemberReader = await world.actor('non-member-reader', readOnlyRoleId);
@@ -260,10 +264,12 @@ test.describe('AXI-1908 — rule acquisition list/read API', () => {
   test('FR11: read needs only rule-read visibility, never rule:acquire @SI-017 @SI-010', async () => {
     const code = unique('AXI1908READPERM');
     const rule = await world.rule(acquirer, workspaceId, code);
+    // `reader` is already a member (beforeAll); this is a no-op safety net
+    // if that ever changes, so it must use a real WorkspaceRole too.
     await send(world.admin, 'post', `/api/v1/workspaces/${workspaceId}/members`, {
       userId: reader.userId,
       organizationId: world.orgId,
-      role: 'member',
+      role: 'viewer',
     });
     const created = await send(acquirer.api, 'post', '/api/v1/rules/acquisitions', baseAcquisitionBody(code));
     expect(created.status).toBeLessThan(300);
@@ -286,7 +292,16 @@ test.describe('AXI-1908 — rule acquisition list/read API', () => {
     const readOne = await send(nonMemberReader.api, 'get', `/api/v1/rules/acquisitions/${created.json.id}`);
     expect(readOne.status).toBe(404);
 
-    const unknownRuleList = await send(nonMemberReader.api, 'get', `/api/v1/rules/${rule.id}/acquisitions`);
+    // No oracle: a rule that genuinely does not exist must read identically
+    // to one that exists but is hidden from this caller — compare against a
+    // DIFFERENT, truly-unknown rule id, not a second call on the same rule
+    // (that would only prove the route is idempotent, not that it hides the
+    // existence of a real, invisible rule).
+    const unknownRuleList = await send(
+      nonMemberReader.api,
+      'get',
+      `/api/v1/rules/00000000-0000-0000-0000-000000000000/acquisitions`,
+    );
     expect(unknownRuleList.status).toBe(list.status);
   });
 

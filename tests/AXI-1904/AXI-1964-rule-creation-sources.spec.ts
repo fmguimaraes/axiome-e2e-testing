@@ -1,5 +1,6 @@
 import { test, expect, request as apiRequest, type Page, type APIRequestContext } from '@playwright/test';
 import { apiUrl } from '../../config/env';
+import { silenceTours } from './harness/tours';
 
 /**
  * AXI-1964 (epic AXI-1904 — FR19, FR20; AC20, AC21; EC17, EC18, EC22).
@@ -56,27 +57,6 @@ interface Actor {
   password: string;
   accessToken: string;
   api: APIRequestContext;
-}
-
-const TOUR_IDS = [
-  'orientation', 'workspace-data', 'comparability-gate', 'subjects-datasets',
-  'evidence-decisions', 'graph-rules', 'charts-views', 'help', 'admin', 'collaboration',
-];
-
-/** A fresh user's onboarding tours auto-start and navigate() away from the
- *  current page — silence every tour before signing in through the UI. */
-async function silenceTours(accessToken: string): Promise<void> {
-  const api = await apiRequest.newContext();
-  try {
-    for (const tourId of TOUR_IDS) {
-      await api.put(apiUrl('/api/v1/onboarding-state'), {
-        data: { tourId, tourVersion: 1, status: 'skipped', stepIndex: 0 },
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-    }
-  } finally {
-    await api.dispose();
-  }
 }
 
 async function adminApiContext(): Promise<APIRequestContext> {
