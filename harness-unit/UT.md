@@ -349,3 +349,64 @@ for the owner-authorised live run RUN-2026-10-05-02; nothing here can spend.
 | UT-SHADOW-1865-006 | A non-numeric or non-positive cap fails closed | Pass |
 | UT-SHADOW-1865-007 | An over-cap live selection the guard would allow is refused before any call | Pass |
 | UT-SHADOW-1865-008 | An unknown bank name throws before any call | Pass |
+
+## AXI-1911/comparator.spec.ts
+
+AXI-1921 (epic AXI-1911 — FR5, AC5, D8, SI-042; review bounce #1 rework). A
+TypeScript PORT of axiome-bio-compute's own decided tolerance comparator +
+non-finite envelope (`tests/validation/fixtures/comparator.py`/`encoding.py`,
+AXI-1919), used by the release round-trip runner
+(`tests/AXI-1911/AXI-1921-round-trip-runner.spec.ts`) so a real governed
+run's stored result is judged by the SAME numerical rules the Python parity
+harness already uses. Covers the same edge cases as the Python suite's own
+`test_comparator.py`/`test_encoding.py` one-for-one, read directly from
+bio-compute `origin/main` for this rework rather than from memory
+(near-zero relative floor, inclusive boundary, `log_p` domain-before-clamp,
+NaN==NaN, infinite sign handling, `exact`'s bool-is-distinct rule,
+missing-vs-null-vs-value, the real `{"__float__": ...}` envelope round-trip
+and its strict rejection, array/record recursion, refusal-fixture
+comparison with mandatory `message_contains` (AXI-1957), an unrecognised
+fixture shape erroring loudly, and a mutation check). No network, no
+browser.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-RTT-1 | Relative tolerance near zero is floored by ABS_FLOOR (1e-12), never collapsing to zero | Pass |
+| UT-RTT-2 | Relative boundary exactly at tolerance is inclusive (passes) | Pass |
+| UT-RTT-3 | Relative boundary just outside tolerance fails | Pass |
+| UT-RTT-4 | log_p domain check runs BEFORE any clamp — an out-of-[0,1] value fails, never passes via clamping | Pass |
+| UT-RTT-5 | log_p in-domain underflow values are floored to LOG_P_EPS (1e-300) and compared by log difference | Pass |
+| UT-RTT-6 | log_p an infinite value is out of domain (fails), never a clamp target | Pass |
+| UT-RTT-7 | NaN vs NaN passes for every numeric/exact kind | Pass |
+| UT-RTT-8 | NaN vs a number fails for every numeric kind | Pass |
+| UT-RTT-9 | +Infinity vs +Infinity and -Infinity vs -Infinity pass | Pass |
+| UT-RTT-10 | +Infinity vs -Infinity fails | Pass |
+| UT-RTT-11 | Signed zero (0 vs -0) passes under absolute/relative (IEEE equality) | Pass |
+| UT-RTT-12 | exact — bool is a distinct type: true vs 1 fails in both directions | Pass |
+| UT-RTT-13 | exact — bool vs bool, equal values pass | Pass |
+| UT-RTT-14 | exact — int/float are one numeric class: 20 vs 20.0 passes | Pass |
+| UT-RTT-15 | exact — a different number fails | Pass |
+| UT-RTT-16 | exact — type AND value must match for non-numeric, non-bool values | Pass |
+| UT-RTT-17 | monte_carlo is treated as an absolute band around expected | Pass |
+| UT-RTT-18 | A field missing from actual fails, distinct from "actual is null" | Pass |
+| UT-RTT-19 | Expected null (NA) + actual null on a NULLABLE field passes | Pass |
+| UT-RTT-20 | Expected null (NA) + actual null on a NON-nullable field fails | Pass |
+| UT-RTT-21 | Expected a value, actual is null fails distinctly from "missing" | Pass |
+| UT-RTT-22a | NaN round-trips through the real `{"__float__": "nan"}` envelope (replaces bounce #1's invented bare-string scheme) | Pass |
+| UT-RTT-22b | +Infinity round-trips through the envelope | Pass |
+| UT-RTT-22c | -Infinity round-trips through the envelope | Pass |
+| UT-RTT-22d | The envelope decode recurses into nested lists and dicts | Pass |
+| UT-RTT-22e | An envelope with an extra sibling key is rejected ("malformed non-finite envelope") | Pass |
+| UT-RTT-22f | An unrecognised envelope token is rejected ("unknown non-finite token") | Pass |
+| UT-RTT-23 | compareFixture passes only when every field passes, and names the first failing field | Pass |
+| UT-RTT-24 | A mutated expected value makes compareFixture fail, naming the field (mutation check, AC5) | Pass |
+| UT-RTT-25 | Matching arrays pass | Pass |
+| UT-RTT-26 | An array element mismatch names the failing index (`x[2]`) | Pass |
+| UT-RTT-27 | Array length mismatch fails, naming both lengths | Pass |
+| UT-RTT-28 | Matching nested records pass | Pass |
+| UT-RTT-29 | A record missing a key fails, naming it | Pass |
+| UT-RTT-30 | A matching refusal fixture passes (code/severity/message_contains all match) | Pass |
+| UT-RTT-31 | A wrong refusal code fails | Pass |
+| UT-RTT-32 | An unrecognised `case_kind` makes compareFixture throw "unsupported fixture shape," never a silent pass | Pass |
+| UT-RTT-33 | A refusal fixture missing the mandatory `message_contains` (AXI-1957, FR16) throws rather than silently skipping the message check | Pass |
+| UT-RTT-34 | A refusal with the right code/severity but a non-matching message substring fails | Pass |

@@ -1,0 +1,26 @@
+{
+  "_README": "AXI-1921 (epic AXI-1911 — FR5, AC5, D8, SI-042; review bounce #1). Embedded copy of axiome-bio-compute's own self-test fixture 'selftest.fisher_exact/nominal-pass' (tests/validation/parity/self_test/fixtures/selftest.fisher_exact/nominal-pass.json, read at commit cd0aa85; content unchanged since 62aa7c64 — verified by sha256), renamed to the REAL method_id this runner submits as a governed run. No axiome-bio-compute file was touched to produce this copy. STATED PLAINLY: this is a MECHANISM proof (does the round-trip plumbing work end-to-end for one real operation), not a validated-method fixture — it is sourced from the self-test corpus precisely because no real AXI-1912 per-method fixture exists yet for any method; see method-validation/contract/README.md 'Link 2' for the same statement. The embedded 'rows' become the ingested CSV; 'operand_roles'/'operation_params' are submitted verbatim as the run's roleBindings/operationParams; 'expected' is compared against the stored result under the ported AXI-1919 comparator (harness/comparator.ts + harness/encoding.ts). Tolerances below are NOT copied from a real MSR (none exists yet for this method outside the self-test scaffolding) — they are declared here, conservatively, for this round-trip check alone, and are marked proposed.",
+  "method_id": "stats.fisher_exact",
+  "operation_id": "stats.fisher_exact",
+  "operand_roles": { "rowColumn": "biomarker_group", "columnColumn": "response" },
+  "operation_params": { "rowPositiveLevel": "tea_first", "columnPositiveLevel": "correct" },
+  "case_kind": "nominal",
+  "csv_columns": ["biomarker_group", "response"],
+  "rows": [
+    { "biomarker_group": "tea_first", "response": "correct" },
+    { "biomarker_group": "tea_first", "response": "correct" },
+    { "biomarker_group": "tea_first", "response": "correct" },
+    { "biomarker_group": "tea_first", "response": "incorrect" },
+    { "biomarker_group": "milk_first", "response": "correct" },
+    { "biomarker_group": "milk_first", "response": "incorrect" },
+    { "biomarker_group": "milk_first", "response": "incorrect" },
+    { "biomarker_group": "milk_first", "response": "incorrect" }
+  ],
+  "expected": [
+    { "field": "n", "value": 8, "toleranceKind": "exact", "toleranceValue": 0, "nullable": false },
+    { "field": "oddsRatio", "value": 9.0, "toleranceKind": "relative", "toleranceValue": 1e-6, "nullable": false, "_note": "proposed tolerance — statistical advisor to confirm, same as AXI-1919's own self-test MSR convention" },
+    { "field": "pValue", "value": 0.48571428571428565, "toleranceKind": "relative", "toleranceValue": 1e-6, "nullable": false, "_note": "proposed tolerance" },
+    { "field": "ciLow", "value": 0.21173559544657966, "toleranceKind": "relative", "toleranceValue": 1e-3, "nullable": false, "_note": "proposed tolerance, wider: CI bounds are more numerically sensitive to solver internals" },
+    { "field": "ciHigh", "value": 626.2435305888141, "toleranceKind": "relative", "toleranceValue": 1e-3, "nullable": false, "_note": "proposed tolerance" }
+  ]
+}
