@@ -406,6 +406,61 @@ export class RuleFamilyWorld {
   }
 
   /**
+   * AXI-2029 (additive — no existing AXI-2005 behaviour changed): the same
+   * "narrow a rule into a throwaway, uniquely-named family for the duration
+   * of `body`, then always undo it" shape
+   * `AXI-2005-new-run-history-decision.spec.ts`'s file-local
+   * `withNarrowedSharedRule` already uses, lifted here so more than one
+   * AXI-2029 spec file can share it without copy-pasting the removal/
+   * deletion order (membership removed and asserted BEFORE the family is
+   * deleted — deleting first would leave the membership pointing at a
+   * soft-deleted family, which `resolveAuthorizedFamilyIdsForProject`
+   * excludes from "authorized", withholding the shared rule stack-wide; see
+   * the recovery note in `manual-e2e/AXI-1991-Rule-Families.md` §3).
+   *
+   * Unlike that file-local copy, this method also drops the family from
+   * `this.families` once this method's own `finally` has deleted it — so a
+   * later `world.dispose()` call (most callers also register their world
+   * for a suite-level `afterAll`) never re-deletes an already-deleted
+   * family and 404s. That double-delete is a latent trap in the existing
+   * copy (not fixed here — out of this story's ownership boundary; see the
+   * handback report).
+   */
+  async withNarrowedRule<T>(
+    organizationId: string,
+    ruleId: string,
+    label: string,
+    body: (familyId: string) => Promise<T>,
+  ): Promise<T> {
+    const admin: Actor = { userId: this.adminUserId, api: this.admin };
+    const family = await this.createFamily(admin, organizationId, 'organization', label);
+    if (!family.id) {
+      throw new Error(`AXI-2029 withNarrowedRule: creating family "${label}" failed: ${JSON.stringify(family)}`);
+    }
+    const added = await this.addMember(admin, organizationId, family.id, ruleId);
+    if (added.status >= 300) {
+      throw new Error(`AXI-2029 withNarrowedRule: adding rule ${ruleId} to "${label}" failed: ${JSON.stringify(added.json)}`);
+    }
+    try {
+      return await body(family.id);
+    } finally {
+      const removed = await this.removeMember(admin, organizationId, family.id, ruleId);
+      if (removed.status >= 300) {
+        throw new Error(
+          `AXI-2029 cleanup: removing rule ${ruleId} from "${label}" failed (${JSON.stringify(removed.json)}) — ` +
+            'the shared rule may now be withheld stack-wide; see the recovery note in manual-e2e/AXI-1991-Rule-Families.md §3',
+        );
+      }
+      const deleted = await send(this.admin, 'delete', `/api/v1/rule-families/${family.id}`, undefined, orgHeader(organizationId));
+      if (deleted.status >= 300) {
+        throw new Error(`AXI-2029 cleanup: deleting throwaway family "${label}" (${family.id}) failed: HTTP ${deleted.status} ${JSON.stringify(deleted.json)}`);
+      }
+      const idx = this.families.findIndex((f) => f.id === family.id);
+      if (idx >= 0) this.families.splice(idx, 1);
+    }
+  }
+
+  /**
    * Runs every registered cleanup; collects rather than swallows a failure
    * (A3 — a prior version passed an empty `X-Organization-Id` on family
    * deletion, which the guard answers 400 on before any tenancy check, so
