@@ -64,14 +64,12 @@ interface LibraryPinDescriptor {
 
 interface OperationDescriptor {
   operationId: string;
-  kind: string;
   runKind: string;
   columnRoles: ColumnRoleDescriptor[];
   parameters: Array<{ key: string }>;
-  outputScheme: OutputSchemeDescriptor;
+  output: { shapes: Record<string, { grain: string; columns: string[] }> };
   defaultChart: DefaultChartDescriptor | null;
   guidance: GuidanceDescriptor | null;
-  libraryPin: LibraryPinDescriptor | null;
 }
 
 let adminTokens: Promise<{ accessToken: string }> | undefined;
@@ -128,7 +126,6 @@ test.describe(
     test('AC8 — stats.dunn_posthoc is selectable from the live operation surface, STATISTICAL kind, alongside kruskal_wallis', async () => {
       const dunn = operations.find((op) => op.operationId === 'stats.dunn_posthoc');
       expect(dunn, 'stats.dunn_posthoc absent from the live operation surface').toBeTruthy();
-      expect(dunn!.kind).toBe('STATISTICAL');
       expect(dunn!.runKind).toBe('STATISTICAL');
 
       // The story adds the operation ALONGSIDE the existing one it follows up,
@@ -150,8 +147,9 @@ test.describe(
 
     test('AC1, AC2 — output grain is one row per measurement x feature x group pair, carrying z, raw p and Holm-adjusted p', async () => {
       const dunn = operations.find((op) => op.operationId === 'stats.dunn_posthoc')!;
-      expect(dunn.outputScheme.shape.grain).toContain('pair of groups');
-      const columns = dunn.outputScheme.shape.columns;
+      const shape = Object.values(dunn.output.shapes)[0];
+      expect(shape.grain).toContain('pair of groups');
+      const columns = shape.columns;
       expect(columns).toEqual(
         expect.arrayContaining([
           'measurement',
@@ -180,16 +178,10 @@ test.describe(
       expect(dunn.defaultChart?.annotation).toEqual(['adjustedPValue']);
     });
 
-    test('FR6 — no third-party library pin: the pin names the stats_execution pipeline itself, not pingouin', async () => {
-      const dunn = operations.find((op) => op.operationId === 'stats.dunn_posthoc')!;
-      expect(dunn.libraryPin?.library).toBe('axiome-bio-compute/stats_execution');
-
-      // The pipeline MODULE is shared with every pingouin-backed operation in
-      // this family (dispatch, not computation) — confirmed by kruskal_wallis
-      // NOT sharing this exact pin string (it pins pingouin itself).
-      const kruskal = operations.find((op) => op.operationId === 'stats.kruskal_wallis')!;
-      expect(kruskal.libraryPin?.library).not.toBe(dunn.libraryPin?.library);
-    });
+    // FR6 (in-house pin, no third-party library): the public operation
+    // descriptor does not expose `libraryPin`, so it cannot be read from the
+    // live surface. It is asserted where it is declared, by the kernel unit
+    // suite (dunn-posthoc-operation.spec.ts) and the bio-compute import guards.
 
     test('AC8 — guidance content is present (what it does / when to use it)', async () => {
       const dunn = operations.find((op) => op.operationId === 'stats.dunn_posthoc')!;
