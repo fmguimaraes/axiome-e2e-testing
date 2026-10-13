@@ -82,6 +82,11 @@ interface CorrelationRunArgs {
   roleBindings: Record<string, string>;
   operationParams: Record<string, unknown>;
   operationId?: string;
+  /** `valueColumns`/`valueColumn` resolve from `pivot`, never from `roleBindings`
+   *  (`ROLE_SOURCES.valueColumns = { kind: 'pivotValueColumns' }` in
+   *  `rule-runs/operand-role-sources.ts`) — a grouped-comparison op like
+   *  `stats.mann_whitney_u` needs this to supply its measurement column. */
+  pivot?: { valueColumns?: string[] };
 }
 
 /** Submits a run and polls until it leaves a non-terminal status. Returns the final run body. */
@@ -93,6 +98,7 @@ async function runAndWait(api: Api, t: Tenant, a: Analysis, datasetId: string, a
     operationId,
     roleBindings: args.roleBindings,
     operationParams: args.operationParams,
+    pivot: args.pivot,
     projectId: t.projectId, workspaceId: t.workspaceId, datasetId,
     snapshotId: a.snapshotId, viewAnalysisId: a.analysisId, scope: 'FILTERED',
   };
@@ -103,10 +109,26 @@ async function runAndWait(api: Api, t: Tenant, a: Analysis, datasetId: string, a
   const deadline = Date.now() + RUN_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const run = await api.get(`/api/v1/rule-runs/${ruleRunId}`, t.headers);
-    if (run.body.status === 'SUCCEEDED' || run.body.status === 'FAILED') return run.body;
+    // DEDUPED is a real terminal status (RuleRunStatusEnum): a re-run against
+    // an already-materialized fingerprint (FR10) never transitions to
+    // SUCCEEDED/FAILED, it is created DEDUPED outright, pointing at the
+    // canonical run. Not polling for it stalls here for the full timeout on
+    // any re-run of this spec against a fixture/tenant it has already seeded.
+    if (run.body.status === 'SUCCEEDED' || run.body.status === 'FAILED' || run.body.status === 'DEDUPED') {
+      return run.body;
+    }
     await sleep(RUN_POLL_MS);
   }
   throw new Error(`run of ${operationId} timed out`);
+}
+
+/** The id a candidate list (filtered to `status: 'SUCCEEDED'`) can actually find.
+ *  A re-run against an already-materialized fingerprint (FR10) is created
+ *  DEDUPED, a SEPARATE row from the original — `dedupedFromRunId` is the
+ *  original's id, the one carrying `SUCCEEDED`. Using the DEDUPED row's own id
+ *  here left the UI panel never finding its checkbox on any re-run of this spec. */
+function canonicalRunId(run: any): string {
+  return run.dedupedFromRunId ?? run.ruleRunId ?? run.id;
 }
 
 test.describe.configure({ mode: 'serial', timeout: 240_000 });
@@ -135,26 +157,27 @@ test.beforeAll(async () => {
     roleBindings: { xColumn: 'x', yColumn: 'y' },
     operationParams: { method: 'pearson' },
   });
-  runPearsonId = pearson.ruleRunId ?? pearson.id;
+  runPearsonId = canonicalRunId(pearson);
 
   const spearman = await runAndWait(api, t, analysis, datasetId, {
     roleBindings: { xColumn: 'x', yColumn: 'y' },
     operationParams: { method: 'spearman' },
   });
-  runSpearmanId = spearman.ruleRunId ?? spearman.id;
+  runSpearmanId = canonicalRunId(spearman);
 
   const undefinedP = await runAndWait(api, t, analysis, datasetId, {
     roleBindings: { xColumn: 'x', yColumn: 'y_const' },
     operationParams: { method: 'pearson' },
   });
-  runUndefinedPId = undefinedP.ruleRunId ?? undefinedP.id;
+  runUndefinedPId = canonicalRunId(undefinedP);
 
   const wrongOp = await runAndWait(api, t, analysis, datasetId, {
     operationId: 'stats.mann_whitney_u',
     roleBindings: { groupColumn: 'group' },
+    pivot: { valueColumns: ['y'] },
     operationParams: { groupFrom: 'A', groupTo: 'B' },
   });
-  runWrongOperationId = wrongOp.ruleRunId ?? wrongOp.id;
+  runWrongOperationId = canonicalRunId(wrongOp);
 });
 
 test.afterAll(async () => {
