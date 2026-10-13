@@ -157,11 +157,23 @@ test.describe('AXI-2035 — comparison box plot declares the facet-by-measuremen
     expect(krusKalWallis!.defaultChart!.roles.facet).toBe('measurement');
   });
 
-  test('AC6 — every box_plot-charted operation shares the SAME roles shape (no per-operation drift)', async () => {
-    const boxPlotOps = operations.filter((op) => op.defaultChart?.type === 'box_plot');
-    expect(boxPlotOps.length, 'no box_plot-charted operation on the live surface').toBeGreaterThan(0);
-    for (const op of boxPlotOps) {
-      expect(op.defaultChart!.roles.facet, `${op.operationId} drifted from the shared box_plot roles shape`).toBe('measurement');
+  // Scoped to the unpaired group-comparison operations the raw-sample feed
+  // serves. Other box_plot-charted operations declare their own roles
+  // (stats.alpha_diversity uses { group }), and the feed falls back for them.
+  const GROUP_COMPARISON_OPERATIONS = [
+    'stats.unpaired_ttest',
+    'stats.mann_whitney_u',
+    'stats.kruskal_wallis',
+    'stats.one_way_anova',
+    'stats.dunn_posthoc',
+  ];
+
+  test('AC6 — every group-comparison operation charts a box_plot faceted by measurement (no per-operation drift)', async () => {
+    for (const operationId of GROUP_COMPARISON_OPERATIONS) {
+      const op = operations.find((candidate) => candidate.operationId === operationId);
+      expect(op, `${operationId} absent from the live operation surface`).toBeTruthy();
+      expect(op!.defaultChart?.type, `${operationId} no longer charts a box_plot`).toBe('box_plot');
+      expect(op!.defaultChart!.roles.facet, `${operationId} drifted from the shared box_plot roles shape`).toBe('measurement');
     }
   });
 });
