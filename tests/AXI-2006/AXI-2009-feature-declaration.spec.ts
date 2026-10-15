@@ -210,7 +210,10 @@ test.describe.serial('AXI-2009 — Feature declaration: scope, name, shape, bind
     expect(patched.status, JSON.stringify(patched.json)).toBeLessThan(300);
 
     const after = await readRule(created.json.id);
-    const compliance = (after.checks ?? []).find((c: any) => c.id === 'protocol_compliance');
-    expect(compliance?.passed ?? true, JSON.stringify(after.checks)).toBe(true);
+    // Presence first: a missing check must fail, never pass by default (review advisory A1).
+    expect(Array.isArray(after.checks), JSON.stringify(after)).toBe(true);
+    const compliance = after.checks.find((c: any) => c.id === 'protocol_compliance');
+    expect(compliance, JSON.stringify(after.checks)).toBeDefined();
+    expect(compliance.passed, JSON.stringify(after.checks)).toBe(true);
   });
 });
