@@ -301,21 +301,22 @@ test.describe.serial('AXI-2012 — row-scope Feature run, snapshot and dedup; AX
     expect(rerun.id).not.toBe(firstRun.id);
   });
 
-  test('FR21 (Scenario 5): a node-scope rule is refused not_submittable naming AXI-2013; no run row @SI-017', async () => {
+  // Superseded by AXI-2013: node scope is no longer owed. Its execution is covered by
+  // AXI-2013-node-attributes.spec.ts; here only the re-open is pinned.
+  test('FR21 (Scenario 5, superseded by AXI-2013): a bound node-scope rule is no longer refused naming AXI-2013 — offered, preflight clean @SI-017', async () => {
     await bindOrFail(project, nodeRule.id, 'biomarker_x');
 
-    const res = await submit(nodeRule.id);
-    expect(res.status, JSON.stringify(res.body)).toBe(400);
-    expect(refusalText(res.body)).toContain('not_submittable');
-    expect(refusalText(res.body)).toContain('AXI-2013');
-    expect(await runsFor(nodeRule.id)).toEqual([]);
-
     const offering = await api.get(
-      `/api/v1/rule-runs/offered-rules?workspaceId=${tenant.workspaceId}&projectId=${project}`,
+      `/api/v1/rule-runs/offered-rules?workspaceId=${tenant.workspaceId}&projectId=${project}&datasetId=${datasetId}`,
       tenant.headers,
     );
-    const entry = offering.body.notAvailable.find((e: any) => e.rule.id === nodeRule.id);
-    expect(entry?.reasonCode, JSON.stringify(offering.body.notAvailable)).toBe('not_submittable');
+    expect(offering.status, JSON.stringify(offering.body)).toBe(200);
+    expect(offering.body.offered.map((r: any) => r.id), JSON.stringify(offering.body.notAvailable)).toContain(nodeRule.id);
+
+    const preflight = await api.post('/api/v1/rule-runs/preflight', featureRun(nodeRule.id), tenant.headers);
+    expect(preflight.status, JSON.stringify(preflight.body)).toBeLessThan(300);
+    expect(JSON.stringify(preflight.body.blocks ?? [])).not.toContain('AXI-2013');
+    expect(preflight.body.blocks ?? []).toEqual([]);
   });
 
   test('FR21 (Scenario 6): a Feature rule with no declaration has nothing to evaluate — refused, no run row @SI-017', async () => {
