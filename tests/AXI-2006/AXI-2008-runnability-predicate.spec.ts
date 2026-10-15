@@ -162,11 +162,12 @@ test.describe.serial('AXI-2008 — Feature and Interpretation runnability (AC6, 
     }
   });
 
-  test('AC12 / FR21: a FEATURE or INTERPRET submission is refused by name, naming the story that owes its executor @SI-017', async () => {
-    for (const [label, runKind, story] of [
-      ['feature', 'FEATURE', 'AXI-2012'],
-      ['interpret', 'INTERPRET', 'AXI-2015'],
-    ] as const) {
+  // AXI-2012 landed the row-scope Feature executor, so only INTERPRET is still
+  // refused by name here; a FEATURE submission's refusals and its run are
+  // AXI-2012-feature-row-executor.spec.ts (the doc's AXI-2008 Scenario 5 says the
+  // executor story replaces this half).
+  test('AC12 / FR21: an INTERPRET submission is refused by name, naming the story that owes its executor @SI-017', async () => {
+    for (const [label, runKind, story] of [['interpret', 'INTERPRET', 'AXI-2015']] as const) {
       const ruleId = byLabel.get(label);
       expect(ruleId, `scenario 1 must have created the ${label} rule`).toBeTruthy();
       const res = await send(admin, 'post', '/api/v1/rule-runs', { ruleId, runKind, workspaceId });
@@ -176,11 +177,11 @@ test.describe.serial('AXI-2008 — Feature and Interpretation runnability (AC6, 
       );
     }
 
-    // No run row was written for either rule.
+    // No run row was written for the rule.
     const runs = await send(admin, 'get', `/api/v1/rule-runs?workspaceId=${workspaceId}`);
     expect(runs.status, JSON.stringify(runs.json)).toBe(200);
     const rows: any[] = runs.json.data ?? runs.json.items ?? runs.json ?? [];
-    expect(rows.filter((r) => r.ruleId === byLabel.get('feature') || r.ruleId === byLabel.get('interpret'))).toEqual([]);
+    expect(rows.filter((r) => r.ruleId === byLabel.get('interpret'))).toEqual([]);
   });
 
   test('EC9: a runnable but unserved (draft) Feature rule is not offered @SI-002 @SI-017', async () => {
