@@ -91,7 +91,9 @@ test.describe('AXI-2071 — Help article for the R-equivalence statement (AC5)',
     // Every statement link the article carries must open a REAL published
     // statement. The SPA answers an unknown path with its own index.html, so
     // "200" alone proves nothing: the body must be the generator's document.
-    const hrefs = await article.locator('a[href*="/r-equivalence/"]').evaluateAll((links) =>
+    // Study-view links carry their own title; AXI-2070's spec checks those.
+    const statementLinks = 'a[href*="/r-equivalence/"]:not([href*="/r-equivalence/studies/"])';
+    const hrefs = await article.locator(statementLinks).evaluateAll((links) =>
       links.map((a) => (a as HTMLAnchorElement).getAttribute('href') ?? ''),
     );
     for (const href of hrefs) {
