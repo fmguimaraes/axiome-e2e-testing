@@ -11,7 +11,7 @@ import { ensureTenant, createAnalysis, frozenRenderPayload, uniq, type Tenant } 
  * action against the SAME contract).
  *
  * Endpoint contract:
- *   GET /api/v1/evidences/:evidenceId/versions/:versionNumber/audit-report
+ *   GET /api/v1/view-analyses/evidences/:evidenceId/versions/:versionNumber/audit-report
  *   -> 200 application/zip, Content-Disposition: attachment;
  *      filename="audit-<evidenceId>-v<versionNumber>.zip"
  *   -> 404 unknown evidence/version, or another workspace's evidence
@@ -62,7 +62,7 @@ test.afterAll(async () => {
 });
 
 function auditReportUrl(evId: string, v: number | string): string {
-  return `/api/v1/evidences/${evId}/versions/${v}/audit-report`;
+  return `/api/v1/view-analyses/evidences/${evId}/versions/${v}/audit-report`;
 }
 
 test.describe('AXI-2077 — audit report endpoint (FR14, NFR1, NFR3, AC8, AC11)', () => {

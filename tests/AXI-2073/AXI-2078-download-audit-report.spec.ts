@@ -12,7 +12,7 @@ import { ensureTenant, createAnalysis, frozenRenderPayload, uniq, type Tenant } 
  * Covers: the button is offered for the EVIDENCE VERSION actually shown
  * (AC9); clicking it downloads `audit-<evidenceId>-v<versionNumber>.zip`
  * (FR15), against the endpoint contract AXI-2077 implements
- * (`GET /evidences/:evidenceId/versions/:versionNumber/audit-report`); a 403
+ * (`GET /view-analyses/evidences/:evidenceId/versions/:versionNumber/audit-report`); a 403
  * response is mapped to a user-facing error, never a silent failure.
  *
  * The "visible" and "403 mapping" scenarios exercise the front end only (the
@@ -90,7 +90,7 @@ test.describe('AXI-2078 — download audit report action (FR15/AC9)', () => {
 
   test('a 403 from the endpoint shows a user-facing error, never a silent failure', async ({ page }) => {
     await openEvidenceDetail(page);
-    await page.route(`**/api/v1/evidences/${evidenceId}/versions/${versionNumber}/audit-report`, (route) =>
+    await page.route(`**/api/v1/view-analyses/evidences/${evidenceId}/versions/${versionNumber}/audit-report`, (route) =>
       route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ message: 'Forbidden' }) }),
     );
 
