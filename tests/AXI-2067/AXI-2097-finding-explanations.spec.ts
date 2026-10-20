@@ -6,7 +6,7 @@ import path from 'node:path';
 
 /**
  * AXI-2097 (epic AXI-2067 — FR16, AC9, FR4; EC1, EC2; D7.1, D7.2). Scenario doc:
- * `manual-e2e/AXI-2067-Method-R-Equivalence-Statement.md` §AXI-2097, scenarios 1-3.
+ * `manual-e2e/AXI-2067-Method-R-Equivalence-Statement.md` §AXI-2097, scenarios 1-3 and 5.
  *
  * Nothing here reads a hand-made release. `beforeAll` runs the REAL one-command
  * release for the FULL statement (`axiome-bio-compute/scripts/validation/statement/release.sh`:
@@ -22,7 +22,9 @@ import path from 'node:path';
  * `public_explanation`) and the generator's internal `statement.json` (kept with
  * `--work-dir`). The three category labels and the two R function names are the
  * contract this story ships (FR16's categories; FR4's per-field references from the
- * Dunn fixtures' `field_sources`), so they are asserted as such.
+ * Dunn fixtures' `field_sources`), so they are asserted as such. Which ledger entries
+ * are OPEN (reproduced by this run) and which are CLOSED (no longer reproduce) is read
+ * from `statement.json`'s `findings` / `closed_findings`, never assumed.
  *
  * Required environment (the spec FAILS, never skips, when one is missing):
  *   AXIOME_BIO_COMPUTE_DIR    an axiome-bio-compute checkout; its COMMITTED HEAD is used
@@ -35,6 +37,9 @@ import path from 'node:path';
 const MAXSTAT = 'stats.cutoff_maxstat';
 const DUNN = 'stats.dunn_posthoc';
 const FINDINGS_HEADING = 'Open findings';
+const CLOSED_FINDINGS_HEADING = 'Ledger entries that no longer reproduce';
+/** The generator's external leak check (`view._SOURCE_PATH`), applied to the served page. */
+const SOURCE_PATH = /[\w./-]*[\w-]\.(?:py|ts|tsx|js|sh|json|md|ya?ml|csv)\b/i;
 const CATEGORY_LABELS: Record<string, string> = {
   reference_departure: 'R reference departure',
   convention_difference: 'convention difference',
@@ -68,7 +73,8 @@ interface StatementMethod {
   verdict: string;
   fixtures_total: number;
   fixtures_agreeing: number;
-  findings: { fixture_id: string; category: string }[];
+  findings: { fixture_id: string; category: string; public_explanation: string }[];
+  closed_findings: { fixture_id: string; category: string; public_explanation: string }[];
   field_references: { function: string; fields: string[] }[];
 }
 
@@ -209,12 +215,43 @@ test.describe('AXI-2097 — open findings carry a category and an explanation (f
       }
       expect(total, `${method.method_id} finding count`).toBe(method.findings.length);
     }
-    // Every ledger explanation shown, under its own category label.
+    // Every OPEN finding's explanation is shown, under its own category label.
     const body = page.locator('body');
-    for (const entry of ledger) {
-      await expect(body, entry.fixture_id).toContainText(`${CATEGORY_LABELS[entry.category]}: ${entry.public_explanation}`);
+    const open = methods.flatMap((m) => m.findings);
+    for (const finding of open) {
+      await expect(body, finding.fixture_id).toContainText(`${CATEGORY_LABELS[finding.category]}: ${finding.public_explanation}`);
     }
     await expect(body).not.toContainText('under review');
+  });
+
+  test('FR16/EC1: a ledger entry this run no longer reproduces is closed — no finding line, no lowered count', async ({ page }) => {
+    const open = methods.flatMap((m) => m.findings);
+    const closed = methods.flatMap((m) => m.closed_findings);
+    // Every ledger entry is either open or closed in this run — none is dropped.
+    expect([...open, ...closed].map((f) => f.fixture_id).sort()).toEqual(ledger.map((e) => e.fixture_id).sort());
+    expect(closed.length, 'closed ledger entries in this run').toBeGreaterThan(0);
+
+    const body = page.locator('body');
+    await expect(body).not.toContainText(CLOSED_FINDINGS_HEADING);
+    const openExplanations = new Set(open.map((f) => f.public_explanation));
+    for (const finding of closed) {
+      await expect(body).not.toContainText(finding.fixture_id);
+      if (!openExplanations.has(finding.public_explanation)) {
+        await expect(body, finding.fixture_id).not.toContainText(finding.public_explanation);
+      }
+    }
+    const staleOnly = methods.filter((m) => m.closed_findings.length > 0 && m.findings.length === 0);
+    expect(staleOnly.length, 'methods whose every ledger entry is closed').toBeGreaterThan(0);
+    for (const method of staleOnly) {
+      const s = section(page, method.method_id);
+      await expect(s.findingsHeading, method.method_id).toHaveCount(0);
+      await expect(s.row('Verdict'), method.method_id).not.toContainText('open_finding');
+      await expect(s.row('Agreement'), method.method_id).toContainText(
+        `${method.fixtures_agreeing} of ${method.fixtures_total} fixtures within tolerance.`,
+      );
+    }
+    // NFR2: no source path anywhere on the served page, MSR-sourced R references included.
+    expect(await body.innerText()).not.toMatch(SOURCE_PATH);
   });
 
   test('FR4/D7.1: Dunn agrees 5 of 5 and names both R functions it is compared against', async ({ page }) => {
