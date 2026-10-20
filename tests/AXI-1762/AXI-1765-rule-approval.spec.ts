@@ -296,16 +296,37 @@ test.describe('AXI-1765 — rule review, approval records and server-side permis
     expect(versions.filter((v) => v.status === 'published')).toHaveLength(1);
   });
 
-  // §8.3.10 (EC14)
-  test('EC14 — a system rule refuses a rule:publish holder who is not a platform administrator @SI-017', async () => {
+  // §8.3.10 (EC14) — FLIPPED for AXI-2086 (epic AXI-2060, owner ruling
+  // 2026-10-20: "this is not an admin-specific action"). Reviewing a
+  // system-scope rule no longer needs platform admin; `rule:publish` alone
+  // is sufficient, same as any other scope. This test used to assert the
+  // opposite (a non-admin holder refused 403/404) — see git history for the
+  // pre-AXI-2086 version if the old behaviour is ever needed for reference.
+  test('AXI-2086 — a system rule is approved by a rule:publish holder who is NOT a platform administrator @SI-017', async () => {
     const holder = await world.actor('system-holder', publisherRole);
     const rule = await inReviewRule(world.admin, { scope: 'system' });
 
-    const res = await approve(holder, rule.id, { note: 'not an admin' });
-    // The gateway admits (holder has rule:publish); the service refuses — as a
-    // write gate on a system rule (403) or a visibility NotFound (404), never a publish.
-    expect([403, 404], await res.text()).toContain(res.status());
+    const before = await detail(holder, rule.id);
+    expect(before.review?.canApprove, JSON.stringify(before.review)).toBe(true);
+
+    const res = await approve(holder, rule.id, { note: 'non-admin rule:publish holder approves a system rule' });
+    expect(res.status(), await res.text()).toBe(201);
+
     const after = await send(world.admin, 'get', `/api/v1/rules/${rule.id}`);
-    expect(after.status).toBe('in_review');
+    expect(after.status).toBe('published');
   });
+
+  // Note: the self-approval guard on a SYSTEM-scope rule (unaffected by
+  // AXI-2086 — only the platform-admin branch was removed) is intentionally
+  // NOT additionally pinned here at the E2E layer: creating/editing a
+  // system-scope rule still needs platform admin (unchanged EDIT authority),
+  // so the only available author/submitter for a system fixture is the
+  // bootstrap admin itself, whose system-rule approver pool — resolved
+  // platform-admins-only (a documented AXI-2086 debt) — may or may not
+  // contain another admin depending on the shared environment, making a
+  // hardcoded self-approval outcome flaky by construction (the same
+  // reasoning AXI-2083's own comment above gives for not hardcoding it).
+  // The scope-independent self-approval rule is pinned at the unit level
+  // instead: `rule-review-policy.spec.ts` UT-RULES-2086-004 (pure facts,
+  // no pool ambiguity) and the pre-existing workspace-scope EC9 tests above.
 });

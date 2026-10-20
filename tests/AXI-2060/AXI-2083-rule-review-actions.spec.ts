@@ -81,29 +81,6 @@ async function tokensFor(email: string, password: string): Promise<{ accessToken
 }
 
 /**
- * `rule-review-policy.ts#decideRuleReview` requires BOTH `rule:publish` AND
- * platform-admin status to review (approve/request-changes) a SYSTEM-scope
- * rule — `rule:publish` alone is not enough, regardless of approver-pool
- * membership (`otherApprovers` even restricts a system rule's pool to
- * platform admins). `callerIsPlatformAdmin` is read off the JWT's `role`
- * claim (`req.user.role === 'ADMIN'`), a GLOBAL field distinct from the
- * custom-role permission system `world.role()` grants — so a throwaway
- * actor needs the real admin to PATCH its global `role` to `ADMIN`, then a
- * fresh login to mint a JWT carrying it (the actor's existing `api` context
- * holds a token stamped at its ORIGINAL login and never re-resolves).
- * Returns a NEW `Actor` whose `api` reflects the promotion; the caller must
- * use the returned actor for every subsequent call (API and `signIn`).
- */
-async function promoteToPlatformAdmin(admin: Actor, actor: Actor): Promise<Actor> {
-  await send(admin.api, 'patch', `/api/v1/users/${actor.userId}`, { role: 'ADMIN' });
-  const tokens = await tokensFor(actor.email, ACTOR_PASSWORD);
-  const api = await apiRequest.newContext({
-    extraHTTPHeaders: { Authorization: `Bearer ${tokens.accessToken}` },
-  });
-  return { ...actor, api };
-}
-
-/**
  * The onboarding tours auto-start on a user's first visit and navigate away
  * from the page under test — every throwaway actor is on its first visit.
  * Mark each tour skipped through the same API the tour's Skip button calls.
@@ -236,13 +213,21 @@ test.describe('AXI-2083 — rule review actions, system scope included (AC12)', 
   // AC12 — a second Rule Approver who did not submit the (now in_review) system
   // rule sees Approve; a user without rule:publish sees neither action; and
   // calling the endpoints directly as each actor gives the same outcome.
-  test('AC12 — a non-submitting approver sees Approve on the system rule; a no-permission user sees neither @SI-017 @SI-035', async ({ page }) => {
+  //
+  // AXI-2086 (epic AXI-2060, owner ruling 2026-10-20) update: the approver
+  // below used to need promoting to platform admin before it could approve a
+  // system-scope rule (`rule-review-policy.ts` required BOTH rule:publish AND
+  // platform admin for system scope). That branch is removed — rule:publish
+  // alone is sufficient, any scope — so this test no longer promotes the
+  // approver, which is the point being proven: a plain Rule Approver account
+  // (no platform-admin account type) can review a system rule.
+  test('AC12 — a non-submitting, non-admin approver sees Approve on the system rule; a no-permission user sees neither @SI-035 @SI-017', async ({ page }) => {
     const admin: Actor = { userId: world.adminUserId, email: process.env.E2E_ADMIN_EMAIL?.trim() || 'admin@axiome.local', api: world.admin };
     const checked = await checkedRule(admin, { scope: 'system' }, { code: unique('AXI-2083-SYS') });
     const submitted = (await send(admin.api, 'post', `/api/v1/rules/${checked.id}/submit-for-review`)) as RuleResponse;
     expect(submitted.status).toBe('in_review');
 
-    let approver = await world.actor('approver-2083-sys', publisherRole);
+    const approver = await world.actor('approver-2083-sys', publisherRole);
     const reader = await world.actor('reader-2083-sys', readerRole);
     // System-scope visibility needs an OrgRuleAccess entitlement, which a
     // caller gets only through an organization membership — a workspace
@@ -251,14 +236,11 @@ test.describe('AXI-2083 — rule review actions, system scope included (AC12)', 
     // workspace is enough; the actors' ROLES (rule:publish vs rule:read-only)
     // are what then differ their review outcome.
     await world.workspace('ui-2083-sys-visibility', [approver, reader]);
-    // Reviewing (approve/request-changes) a SYSTEM rule requires platform
-    // admin ON TOP OF rule:publish (rule-review-policy.ts) — the approver
-    // pool for a system rule is admins only. Promote the throwaway approver.
-    approver = await promoteToPlatformAdmin(admin, approver);
 
-    // Direct-endpoint parity, before touching the browser at all.
+    // Direct-endpoint parity, before touching the browser at all. `approver`
+    // is NOT a platform admin (AXI-2086 — rule:publish alone is enough).
     const approverView = await detail(approver, checked.id);
-    expect(approverView.review?.canApprove).toBe(true);
+    expect(approverView.review?.canApprove, JSON.stringify(approverView.review)).toBe(true);
     const readerView = await detail(reader, checked.id);
     expect(readerView.review?.canApprove).toBe(false);
     expect(readerView.review?.canRequestChanges).toBe(false);
