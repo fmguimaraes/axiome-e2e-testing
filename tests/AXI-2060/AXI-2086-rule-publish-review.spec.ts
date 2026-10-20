@@ -212,16 +212,71 @@ test.describe('AXI-2086 — rule review on system rules is authorized by rule:pu
     expect(direct.status()).toBe(403);
   });
 
-  // Note: the self-approval guard on a SYSTEM-scope rule (unaffected by
-  // AXI-2086 — only the platform-admin branch was removed from the review
-  // gate) is intentionally NOT additionally pinned here. Authoring/submitting
-  // a system-scope rule still needs platform admin (the unchanged EDIT gate),
-  // so the only available submitter for a system fixture is the bootstrap
-  // admin itself — whose system-rule approver pool is resolved
-  // platform-admins-only (a documented AXI-2086 debt, see
-  // `rule-review-policy.ts`), making a hardcoded self-approval outcome
-  // flaky by construction in a shared environment. The scope-independent
-  // self-approval rule is pinned at the unit level instead:
-  // `rule-review-policy.spec.ts` UT-RULES-2086-004, plus the pre-existing
-  // workspace-scope EC9 tests in `AXI-1765-rule-approval.spec.ts`.
+  // Scenario 5.2 (manual-e2e §5.2): the platform admin who authored+submitted
+  // the throwaway system rule cannot self-approve it, even with no platform-
+  // admin requirement on the review act itself. Review bounce #1 on AXI-2086
+  // corrected `otherApprovers` to return an UNRESOLVED pool for every system
+  // rule (never `platformAdminsOnly: true`, which could silently narrow the
+  // real population and fail open) — so this is deterministic, not
+  // environment-dependent, and the refusal code is
+  // `SELF_APPROVAL_WORKSPACE_UNRESOLVED`, not `..._OTHER_APPROVER_EXISTS`
+  // (the pool is never resolved well enough to even cite a name).
+  test('5.2 — the admin submitter cannot self-approve the system rule it authored @SI-017 @SI-035', async ({ page }) => {
+    const admin: Actor = { userId: world.adminUserId, email: process.env.E2E_ADMIN_EMAIL?.trim() || 'admin@axiome.local', api: world.admin };
+    const rule = await inReviewSystemRule(admin);
+    // A non-admin rule:publish holder also exists — proving the refusal is
+    // NOT "pool empty, allow", it is "pool unresolvable, refuse" regardless.
+    const otherHolder = await world.actor('approver-2086-sa', publisherRole);
+    await world.workspace('ui-2086-self-approve', [otherHolder]);
+
+    const before = await detail(admin, rule.id);
+    expect(before.review?.canApprove, JSON.stringify(before.review)).toBe(false);
+    expect(before.review?.approveBlockedCode).toBe('SELF_APPROVAL_WORKSPACE_UNRESOLVED');
+
+    await signIn(page, admin);
+    await openRule(page, rule.id, 'In review');
+    await expect(page.getByTestId('rule-approve')).toHaveCount(0);
+
+    const direct = await admin.api.post(apiUrl(`/api/v1/rules/${rule.id}/approve`), { data: { note: 'self-approval attempt' } });
+    expect(direct.status(), await direct.text()).toBe(403);
+    expect(await direct.text()).toContain('SELF_APPROVAL_WORKSPACE_UNRESOLVED');
+  });
+
+  // Scenario 5.3 (manual-e2e §5.3): submit-for-review on a system rule is a
+  // different act (the EDIT gate) and is UNCHANGED by AXI-2086 — a non-admin
+  // rule:publish holder is still refused, exactly as AXI-2083 already pins
+  // for the detail-page submit button. Re-pinned here under the AXI-2086
+  // story key because the manual-e2e scenario lives in this section.
+  test('5.3 — submit-for-review on a system rule stays platform-admin-gated @SI-017 @SI-035', async ({ page }) => {
+    const admin: Actor = { userId: world.adminUserId, email: process.env.E2E_ADMIN_EMAIL?.trim() || 'admin@axiome.local', api: world.admin };
+    const created = (await send(admin.api, 'post', '/api/v1/rules', {
+      code: unique('AXI-2086-submit'),
+      title: 'AXI-2086 submit-for-review fixture',
+      category: 'phenotype_detection',
+      protocolType: 'FEATURE_RULE',
+      signals: ['marker:cd4_count'],
+      scope: 'system',
+    })) as RuleResponse;
+    trackFixtureRule(created.id);
+    const checked = (await send(admin.api, 'patch', `/api/v1/rules/${created.id}`, {
+      outputFields: COMPLETE_OUTPUT_FIELDS,
+      guidance: COMPLETE_GUIDANCE,
+    })) as RuleResponse;
+    expect(checked.status).toBe('checked');
+
+    const holder = await world.actor('approver-2086-submit', publisherRole);
+    await world.workspace('ui-2086-submit-gated', [holder]);
+
+    const before = await detail(holder, checked.id);
+    expect(before.review?.canSubmitForReview).toBe(false);
+    expect(before.review?.submitForReviewBlockedCode).toBe('SYSTEM_RULE_REQUIRES_PLATFORM_ADMIN');
+
+    await signIn(page, holder);
+    await openRule(page, checked.id, 'Checked');
+    await expect(page.getByTestId('rule-submit-for-review')).toHaveCount(0);
+
+    const direct = await holder.api.post(apiUrl(`/api/v1/rules/${checked.id}/submit-for-review`));
+    expect(direct.status(), await direct.text()).toBe(403);
+    expect(await direct.text()).toContain('SYSTEM_RULE_REQUIRES_PLATFORM_ADMIN');
+  });
 });
