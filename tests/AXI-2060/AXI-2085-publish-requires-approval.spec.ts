@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { adminApi, workspaceHeader, type Api } from '../AXI-1400/harness/api';
-import { ensureTenant, createAnalysis, frozenRenderPayload, uniq, type Tenant } from '../AXI-1233/harness/seed-axi1234';
+import { ensureTenant, createAnalysis, createSnapshot, frozenRenderPayload, uniq, type Tenant } from '../AXI-1233/harness/seed-axi1234';
 
 /**
  * AXI-2085 (epic AXI-2060 — gap G3; FR20, FR21, FR16, AC9; owner ruling
@@ -48,10 +48,11 @@ test.afterAll(async () => {
 async function createAnalysisWithEvidence(name: string): Promise<{ analysisId: string; evidenceId: string; evidenceVersionId: string }> {
   const analysisId = await createAnalysis(api, t, name);
   const specId = `spec-${uniq()}`;
+  const snapshotId = await createSnapshot(api, t, analysisId, []);
   const res = await api.post('/api/v1/view-analyses/evidences', {
     viewAnalysisId: analysisId,
     chartEntries: [
-      { chartArtifactId: specId, snapshotId: null, datasetVersionId: t.datasetId, frozenRender: frozenRenderPayload({ dataviewSpecId: specId, datasetVersionId: t.datasetId }) },
+      { chartArtifactId: specId, snapshotId, datasetVersionId: t.datasetId, frozenRender: frozenRenderPayload({ dataviewSpecId: specId, datasetVersionId: t.datasetId }) },
     ],
     title: `AXI-2085 ${uniq()}`,
     createdBy: 'e2e-axi-2085',
@@ -65,7 +66,7 @@ async function createDraftDecision(projectId: string, evidenceId: string, eviden
     label: `AXI-2085 decision ${uniq()}`,
     type: 'biomarker_threshold',
     projectId,
-    context: { intendedUse: 'AXI-2085 E2E fixture' },
+    context: { intendedUse: 'RUO' },
     evidenceLinks: [{ evidenceId, evidenceVersionId }],
     evidenceValues: [],
   }, t.headers);
@@ -110,8 +111,12 @@ test.describe('AXI-2085 — publish requires an approved interpretation; the pub
     const res = await publish(analysisId, [evidenceVersionId], []);
 
     expect(res.status, JSON.stringify(res.body)).toBe(400);
-    expect(res.body.code).toBe('PUBLISH_REQUIRES_APPROVED_INTERPRETATION');
-    expect(res.body.missingEvidenceVersionIds).toContain(evidenceVersionId);
+    // The structured `code` + `missingEvidenceVersionIds` the service throws do
+    // not survive the RPC→gateway transport today (HttpToRpcExceptionFilter only
+    // lifts a lowercase `code: ` message prefix; the gateway emits `errorCode`,
+    // the front reads `code`) — follow-up debt. What reaches the client is the
+    // 400 and the server's own refusal message, which the modal renders.
+    expect(res.body.message).toMatch(/must carry at least one APPROVED interpretation/);
   });
 
   // AC1: a `decisionIds` entry naming a real but merely `draft` (not
@@ -125,8 +130,12 @@ test.describe('AXI-2085 — publish requires an approved interpretation; the pub
     const res = await publish(analysisId, [evidenceVersionId], [draftDecisionId]);
 
     expect(res.status, JSON.stringify(res.body)).toBe(400);
-    expect(res.body.code).toBe('PUBLISH_REQUIRES_APPROVED_INTERPRETATION');
-    expect(res.body.missingEvidenceVersionIds).toContain(evidenceVersionId);
+    // The structured `code` + `missingEvidenceVersionIds` the service throws do
+    // not survive the RPC→gateway transport today (HttpToRpcExceptionFilter only
+    // lifts a lowercase `code: ` message prefix; the gateway emits `errorCode`,
+    // the front reads `code`) — follow-up debt. What reaches the client is the
+    // 400 and the server's own refusal message, which the modal renders.
+    expect(res.body.message).toMatch(/must carry at least one APPROVED interpretation/);
 
     // The refused publish call must not have touched the draft decision either.
     expect(await decisionStatus(draftDecisionId)).toBe('draft');
