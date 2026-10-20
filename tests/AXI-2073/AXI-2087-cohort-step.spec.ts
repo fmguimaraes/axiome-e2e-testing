@@ -24,10 +24,12 @@ import { frozenRenderPayload, uniq } from '../AXI-1233/harness/seed-axi1234';
  * EC8. Nothing is hand-seeded: the run_scope cohort is whatever the run's own
  * creation path wrote.
  *
- * Serial: scenario 3 re-versions the cohort scenario 1 found, and scenario 2
- * reads the list that cohort must be absent from.
+ * Serial: scenario 3 (AXI-2155) exercises the A1 immutability refusal on the
+ * cohort scenario 1 found, and scenario 2 reads the list that cohort must be
+ * absent from.
  *
- * DISPOSITION (2026-10-20): authored, typechecked and `--list`ed, NOT run. A
+ * DISPOSITION (2026-10-20, last touched by AXI-2155): authored, typechecked
+ * and `--list`ed, NOT run. A
  * green run needs a stack serving the AXI-2087 backend WITH migration
  * `20261020090000_add_rule_run_cohort_link` applied; the only stack up is the
  * shared demo stack on `axiome-localhost`, which story agents may not migrate.
@@ -153,20 +155,36 @@ test.describe('AXI-2087 — audit step 4 reads the run-linked cohort (D6, FR2, F
     expect(byId.status, 'still resolvable by id').toBe(200);
   });
 
-  test('FR2/EC8 — a newer version is noted by number + id, never substituted', async () => {
+  test('AXI-2155 A1/D6 — unlock and new-version are REFUSED on the run_scope cohort (immutability)', async () => {
+    // AXI-2155 review follow-up: a run-scope cohort records what a run used
+    // and may no longer drift (A1). Before this fix, scenario 3 re-versioned
+    // this very cohort to exercise EC8's "newer version noted" rendering;
+    // that path is now a 400 by design. EC8 itself (a chain of
+    // `parentVersionId` versions is noted, never substituted) stays covered
+    // at the unit level only — `audit-cohort-step.spec.ts` UT-GRAPH-2168..2177
+    // (AXI-2087) — because reproducing it honestly now requires a SEPARATE
+    // live `user` cohort with the run's exact resolved ready-ingestion id,
+    // which this harness has no API to read back (follow-up, not a unit of
+    // this story).
     expect(cohortId, 'scenario 1 must have found the cohort').toBeTruthy();
+
     const unlock = await api.patch(`/api/v1/cohorts/${cohortId}/unlock`, {}, tenant.headers);
-    expect(unlock.status, JSON.stringify(unlock.body)).toBeLessThan(300);
-    const v2 = await api.post('/api/v1/cohorts/version', { parentCohortId: cohortId, filterSpec: { groups: [] } }, tenant.headers);
-    expect(v2.status, JSON.stringify(v2.body)).toBeLessThan(300);
+    expect(unlock.status, JSON.stringify(unlock.body)).toBe(400);
+    expect(JSON.stringify(unlock.body)).toContain('immutable');
 
+    const v2 = await api.post(
+      '/api/v1/cohorts/version',
+      { parentCohortId: cohortId, filterSpec: { groups: [] } },
+      tenant.headers,
+    );
+    expect(v2.status, JSON.stringify(v2.body)).toBe(400);
+    expect(JSON.stringify(v2.body)).toContain('immutable');
+
+    // The report is unaffected — still the original, still locked.
     const section = await cohortSection(runEvidence);
-
     expect(line(section, 'ID')).toBe(cohortId);
     expect(line(section, 'Version')).toBe('1');
-    expect(line(section, 'newerVersionNumber')).toBe('2');
-    expect(line(section, 'newerVersionId')).toBe(v2.body.id);
-    expect(line(section, 'lockState')).toBe('unlocked');
+    expect(line(section, 'lockState')).toBe('locked');
   });
 
   test('FR4/AC6 — evidence over a snapshot no run produced keeps the cohort step "not recorded"', async () => {
