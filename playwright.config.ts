@@ -7,6 +7,13 @@ import { storageStateFor } from './config/roles';
 // testMatch/testIgnore so they can never silently drift apart.
 const SHADOW_RUN_SPEC = /AXI-1462\/AXI-1614-compiled-planner-shadow-run\.spec\.ts$/;
 
+// AXI-2065 — same AXI-1831 shape: a read-only API-only spec against the
+// demo stack's own seeded Microbiote project (its own admin login over the
+// API, never the fixture-org `setup` project's storageState). Excluded from
+// 'chromium' so the shared `setup` project (which authenticates against the
+// FIXTURE org, not the demo stack) is never a dependency for it.
+const EVIDENCE_API_SPEC = /AXI-2060\/AXI-2065-evidence-and-charts\.spec\.ts$/;
+
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
  *
@@ -77,7 +84,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -98,6 +105,11 @@ export default defineConfig({
     {
       name: 'shadow-run-api',
       testMatch: SHADOW_RUN_SPEC,
+    },
+    // AXI-2065 (same AXI-1831 reasoning): read-only, demo-stack-only API spec.
+    {
+      name: 'evidence-api',
+      testMatch: EVIDENCE_API_SPEC,
     },
   ],
 });
