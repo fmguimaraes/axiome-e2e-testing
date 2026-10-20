@@ -18,15 +18,23 @@ import { Actor, deleteFixtureRules, inReviewRule, ReviewWorld, RuleResponse, sen
 
 const READER = ['rule:read'];
 const PUBLISHER = ['rule:read', 'rule:publish'];
+// System-scope VISIBILITY needs `rule:view_shared` on top of `rule:publish`
+// (`RuleVisibilityService.isRuleActionPermitted` — a separate, unchanged gate
+// from AXI-2086's review AUTHORIZATION); every other test in this file is
+// workspace-scope, where that permission is irrelevant, so it is its own role
+// rather than added to the shared `PUBLISHER` above.
+const SYSTEM_PUBLISHER = ['rule:read', 'rule:publish', 'rule:view_shared'];
 
 let world: ReviewWorld;
 let readerRole: string;
 let publisherRole: string;
+let systemPublisherRole: string;
 
 test.beforeAll(async () => {
   world = await ReviewWorld.create();
   readerRole = await world.role('reader', READER);
   publisherRole = await world.role('publisher', PUBLISHER);
+  systemPublisherRole = await world.role('system-publisher', SYSTEM_PUBLISHER);
 });
 
 test.afterAll(async () => {
@@ -190,10 +198,27 @@ test.describe('AXI-1765 — rule review, approval records and server-side permis
     // rule "as Claude" (`POST /rules {authorKind}` is a 400). The Claude line is
     // a clone of a Claude-authored seeded carrier, and the clone copies the
     // author server-side.
+    //
+    // Post-merge finding (not an AXI-2086 regression — this block predates it,
+    // AXI-1822): `GET /rules` (the list) never projects `authorKind` at all (it
+    // is absent from the row, not merely null), and this shared demo catalog
+    // carries several `STAT-MANN-WHITNEY-U` duplicates from past reseeds, not
+    // all of them `claude` any more. Picking the first tag match by list order
+    // is therefore not reliable; resolve each candidate's REAL `authorKind`
+    // through the full detail read and pick the first one that is actually
+    // `claude`, instead of assuming the first tag match is.
     const catalog: Array<{ id: string; tags: string[] | null }> = (
       await send(world.admin, 'get', '/api/v1/rules?limit=200&scope=system')
     ).data;
-    const carrier = catalog.find((r) => (r.tags ?? []).includes('op:stats.mann_whitney_u'));
+    const candidates = catalog.filter((r) => (r.tags ?? []).includes('op:stats.mann_whitney_u'));
+    let carrier: { id: string } | undefined;
+    for (const candidate of candidates) {
+      const full = await send(world.admin, 'get', `/api/v1/rules/${candidate.id}`);
+      if (full.authorKind === 'claude') {
+        carrier = candidate;
+        break;
+      }
+    }
     expect(carrier, 'the seeded Claude-authored statistical carrier').toBeDefined();
     const cloned = await send(conduit.api, 'post', `/api/v1/rules/${carrier!.id}/clone`, {
       targetScope: 'workspace',
@@ -303,8 +328,20 @@ test.describe('AXI-1765 — rule review, approval records and server-side permis
   // opposite (a non-admin holder refused 403/404) — see git history for the
   // pre-AXI-2086 version if the old behaviour is ever needed for reference.
   test('AXI-2086 — a system rule is approved by a rule:publish holder who is NOT a platform administrator @SI-017', async () => {
-    const holder = await world.actor('system-holder', publisherRole);
+    // Post-merge fix: VISIBILITY of a system rule is a separate, unchanged
+    // concern from AXI-2086's review AUTHORIZATION — `rule:view_shared` PLUS
+    // an OrgRuleAccess entitlement (reached through an organization
+    // membership) are both needed before the review gate is ever consulted;
+    // without either, `GET /rules/:id` 404s before `review.canApprove` can
+    // even be read (identical to a missing rule — never a 403, by design).
+    // `publisherRole` above never carried `rule:view_shared` (no other test
+    // in this file touches system scope), so this is the dedicated role that
+    // does, exactly like the sibling `AXI-2086-rule-publish-review.spec.ts`.
+    const holder = await world.actor('system-holder', systemPublisherRole);
     const rule = await inReviewRule(world.admin, { scope: 'system' });
+    // Any workspace membership carries the OrgRuleAccess entitlement (a fresh
+    // org defaults to ALL).
+    await world.workspace('system-holder-visibility', [holder]);
 
     const before = await detail(holder, rule.id);
     expect(before.review?.canApprove, JSON.stringify(before.review)).toBe(true);

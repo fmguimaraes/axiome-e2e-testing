@@ -1,5 +1,7 @@
 import { test, expect, type Page, request as apiRequest } from '@playwright/test';
 import { apiUrl } from '../../config/env';
+import { ensureAuthTokens } from '../../config/auth';
+import { ROLES } from '../../config/roles';
 import {
   Actor,
   COMPLETE_GUIDANCE,
@@ -96,13 +98,38 @@ async function skipOnboardingTours(accessToken: string): Promise<void> {
 /** Seed `page` with `actor`'s own session (the app reads the tokens from localStorage). */
 async function signIn(page: Page, actor: Actor): Promise<void> {
   const tokens = await tokensFor(actor.email, ACTOR_PASSWORD);
-  await skipOnboardingTours(tokens.accessToken);
+  await seedSession(page, tokens.accessToken, tokens.refreshToken);
+}
+
+const ADMIN_ROLE = ROLES.find((r) => r.name === 'admin');
+if (!ADMIN_ROLE) throw new Error('admin role missing from ROLES registry');
+
+/**
+ * Seed `page` with the REAL admin's own session. Post-merge fix: the admin is
+ * not a throwaway `world.actor()` registration, so it does not share
+ * `ACTOR_PASSWORD` — its credentials come from the SAME env-driven `ROLES`
+ * registry every other spec's admin project uses (`E2E_TEST_EMAIL`/
+ * `E2E_TEST_PASSWORD`, then the older `E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD`
+ * names, then the local defaults), never a hardcoded login.
+ */
+async function signInAsAdmin(page: Page): Promise<void> {
+  const ctx = await apiRequest.newContext();
+  try {
+    const tokens = await ensureAuthTokens(ctx, ADMIN_ROLE!);
+    await seedSession(page, tokens.accessToken, tokens.refreshToken);
+  } finally {
+    await ctx.dispose();
+  }
+}
+
+async function seedSession(page: Page, accessToken: string, refreshToken: string): Promise<void> {
+  await skipOnboardingTours(accessToken);
   await page.addInitScript(
     ([access, refresh]) => {
       localStorage.setItem('access_token', access as string);
       localStorage.setItem('refresh_token', refresh as string);
     },
-    [tokens.accessToken, tokens.refreshToken] as const,
+    [accessToken, refreshToken] as const,
   );
 }
 
@@ -139,7 +166,7 @@ async function openRule(page: Page, id: string, expectedStatus: string): Promise
 
 test.describe('AXI-2086 — rule review on system rules is authorized by rule:publish alone', () => {
   test('a non-admin rule:publish holder approves a system-scope rule from the detail page @SI-017 @SI-035', async ({ page }) => {
-    const admin: Actor = { userId: world.adminUserId, email: process.env.E2E_ADMIN_EMAIL?.trim() || 'admin@axiome.local', api: world.admin };
+    const admin: Actor = { userId: world.adminUserId, email: ADMIN_ROLE!.email, api: world.admin };
     const rule = await inReviewSystemRule(admin);
 
     const approver = await world.actor('approver-2086', publisherRole);
@@ -169,7 +196,7 @@ test.describe('AXI-2086 — rule review on system rules is authorized by rule:pu
   });
 
   test('a non-admin rule:publish holder sends a system-scope rule back for changes @SI-017 @SI-035', async ({ page }) => {
-    const admin: Actor = { userId: world.adminUserId, email: process.env.E2E_ADMIN_EMAIL?.trim() || 'admin@axiome.local', api: world.admin };
+    const admin: Actor = { userId: world.adminUserId, email: ADMIN_ROLE!.email, api: world.admin };
     const rule = await inReviewSystemRule(admin);
 
     const approver = await world.actor('approver-2086-rc', publisherRole);
@@ -193,7 +220,7 @@ test.describe('AXI-2086 — rule review on system rules is authorized by rule:pu
   });
 
   test('a user without rule:publish still cannot review a system-scope rule @SI-017 @SI-035', async ({ page }) => {
-    const admin: Actor = { userId: world.adminUserId, email: process.env.E2E_ADMIN_EMAIL?.trim() || 'admin@axiome.local', api: world.admin };
+    const admin: Actor = { userId: world.adminUserId, email: ADMIN_ROLE!.email, api: world.admin };
     const rule = await inReviewSystemRule(admin);
 
     const reader = await world.actor('reader-2086-noperm', readerRole);
@@ -222,7 +249,7 @@ test.describe('AXI-2086 — rule review on system rules is authorized by rule:pu
   // `SELF_APPROVAL_WORKSPACE_UNRESOLVED`, not `..._OTHER_APPROVER_EXISTS`
   // (the pool is never resolved well enough to even cite a name).
   test('5.2 — the admin submitter cannot self-approve the system rule it authored @SI-017 @SI-035', async ({ page }) => {
-    const admin: Actor = { userId: world.adminUserId, email: process.env.E2E_ADMIN_EMAIL?.trim() || 'admin@axiome.local', api: world.admin };
+    const admin: Actor = { userId: world.adminUserId, email: ADMIN_ROLE!.email, api: world.admin };
     const rule = await inReviewSystemRule(admin);
     // A non-admin rule:publish holder also exists — proving the refusal is
     // NOT "pool empty, allow", it is "pool unresolvable, refuse" regardless.
@@ -233,7 +260,7 @@ test.describe('AXI-2086 — rule review on system rules is authorized by rule:pu
     expect(before.review?.canApprove, JSON.stringify(before.review)).toBe(false);
     expect(before.review?.approveBlockedCode).toBe('SELF_APPROVAL_WORKSPACE_UNRESOLVED');
 
-    await signIn(page, admin);
+    await signInAsAdmin(page);
     await openRule(page, rule.id, 'In review');
     await expect(page.getByTestId('rule-approve')).toHaveCount(0);
 
@@ -248,7 +275,7 @@ test.describe('AXI-2086 — rule review on system rules is authorized by rule:pu
   // for the detail-page submit button. Re-pinned here under the AXI-2086
   // story key because the manual-e2e scenario lives in this section.
   test('5.3 — submit-for-review on a system rule stays platform-admin-gated @SI-017 @SI-035', async ({ page }) => {
-    const admin: Actor = { userId: world.adminUserId, email: process.env.E2E_ADMIN_EMAIL?.trim() || 'admin@axiome.local', api: world.admin };
+    const admin: Actor = { userId: world.adminUserId, email: ADMIN_ROLE!.email, api: world.admin };
     const created = (await send(admin.api, 'post', '/api/v1/rules', {
       code: unique('AXI-2086-submit'),
       title: 'AXI-2086 submit-for-review fixture',
@@ -275,8 +302,14 @@ test.describe('AXI-2086 — rule review on system rules is authorized by rule:pu
     await openRule(page, checked.id, 'Checked');
     await expect(page.getByTestId('rule-submit-for-review')).toHaveCount(0);
 
+    // Post-merge fix: the mutate-authority guard (`assertCanMutateRule`,
+    // unchanged by AXI-2086) throws a plain message, not the structured
+    // `submitForReviewBlockedCode` the GET advisory above already pinned —
+    // that code is a view-model projection, not the wire error. Assert what
+    // the server actually emits on the direct POST (status + message) rather
+    // than re-asserting the code string appears in the error body.
     const direct = await holder.api.post(apiUrl(`/api/v1/rules/${checked.id}/submit-for-review`));
     expect(direct.status(), await direct.text()).toBe(403);
-    expect(await direct.text()).toContain('SYSTEM_RULE_REQUIRES_PLATFORM_ADMIN');
+    expect(await direct.text()).toContain('Only platform administrators may modify system-scope rules');
   });
 });
