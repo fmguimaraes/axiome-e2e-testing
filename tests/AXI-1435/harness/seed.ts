@@ -127,10 +127,22 @@ export async function ingestFixture(
 ): Promise<string> {
   const ws = t.workspaceId;
   const existing = await api.get(`/api/v1/workspaces/${ws}/datasets?search=${encodeURIComponent(filename)}`, t.headers);
-  const prior = asList(existing.body).find((d: any) => d.originalFilename === filename && d.availability === 'available');
+  const candidates = asList(existing.body).filter((d: any) => d.originalFilename === filename && d.availability === 'available');
+  // `availability: 'available'` is a DB flag; the stored parquet can still be
+  // gone (2026-10-02 bucket purge). Reuse only a prior whose rows actually read
+  // back, else every run on it fails with a MinIO 404.
+  let prior: any;
+  for (const d of candidates) {
+    if (await readsBack(api, t, d.id)) { prior = d; break; }
+  }
   const datasetId = prior ? prior.id : await uploadAndFinalize(api, t, filename, fixturesDir);
   await ensureLink(api, t, datasetId);
   return datasetId;
+}
+
+async function readsBack(api: Api, t: Tenant, datasetId: string): Promise<boolean> {
+  const res = await api.post(`/api/v1/workspaces/${t.workspaceId}/datasets/${datasetId}/query`, { page: 1, limit: 1 }, t.headers);
+  return res.status < 300;
 }
 
 async function uploadAndFinalize(api: Api, t: Tenant, filename: string, fixturesDir: string): Promise<string> {
@@ -205,7 +217,9 @@ export interface Analysis { analysisId: string; snapshotId: string; }
  */
 export async function ensureAnalysis(api: Api, t: Tenant, name: string, datasetId: string): Promise<Analysis> {
   const list = await api.get(`/api/v1/view-analyses?projectId=${t.projectId}`, t.headers);
-  const found = asList(list.body).find((a: any) => a.name === name);
+  // Match the DATASET too: an analysis left bound to a re-uploaded (dead) dataset
+  // would run every rule against the old, purged parquet.
+  const found = asList(list.body).find((a: any) => a.name === name && a.datasetId === datasetId);
   const analysisId = found ? found.id : (await api.post('/api/v1/view-analyses', { projectId: t.projectId, datasetId, name }, t.headers)).body.id;
 
   const existing = await api.get(`/api/v1/view-analyses/${analysisId}/snapshots?page=1&limit=100`, t.headers);

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { test, expect, request as apiRequest } from '@playwright/test';
 import { ROLES } from '../../config/roles';
 import { ensureAuthTokens } from '../../config/auth';
+import { apiUrl } from '../../config/env';
 import { adminApi, asList, type Api } from '../AXI-1400/harness/api';
 import {
   ensureTenant, ingestFixture, assignProfileAndVerify, ensureAnalysis, pollTerminal,
@@ -66,7 +67,8 @@ let versionNumber: number;
 const CORRELATION_OP = 'stats.correlation';
 
 function auditReportUrl(evId: string, v: number | string): string {
-  return `/api/v1/view-analyses/evidences/${evId}/versions/${v}/audit-report`;
+  // Absolute: the `request` fixture's baseURL is the frontend (SPA index.html).
+  return apiUrl(`/api/v1/view-analyses/evidences/${evId}/versions/${v}/audit-report`);
 }
 
 /** Submit a real `stats.correlation` run (AXI-1400 harness's `runBody` shape,

@@ -1,8 +1,9 @@
 import { test, expect, request as apiRequest } from '@playwright/test';
 import { ROLES } from '../../config/roles';
 import { ensureAuthTokens } from '../../config/auth';
+import { apiUrl } from '../../config/env';
 import { adminApi, type Api } from '../AXI-1400/harness/api';
-import { ensureTenant, createAnalysis, frozenRenderPayload, uniq, type Tenant } from '../AXI-1233/harness/seed-axi1234';
+import { ensureTenant, createAnalysis, createSnapshot, frozenRenderPayload, uniq, type Tenant } from '../AXI-1233/harness/seed-axi1234';
 
 /**
  * AXI-2077 (epic AXI-2073, FR14/NFR1/NFR3/AC8/AC11) — the audit report
@@ -31,10 +32,13 @@ let versionNumber: number;
 
 async function createEvidenceWithChart(analysisId: string): Promise<{ id: string; versionNumber: number }> {
   const specId = `spec-${uniq()}`;
+  // A cited chart must name a REAL snapshot: EvidenceVersion.snapshotIds is a
+  // non-null String[], so `snapshotId: null` 500s at persistence.
+  const snapshotId = await createSnapshot(api, t, analysisId, []);
   const res = await api.post('/api/v1/view-analyses/evidences', {
     viewAnalysisId: analysisId,
     chartEntries: [
-      { chartArtifactId: specId, snapshotId: null, datasetVersionId: t.datasetId, frozenRender: frozenRenderPayload({ dataviewSpecId: specId, datasetVersionId: t.datasetId }) },
+      { chartArtifactId: specId, snapshotId, datasetVersionId: t.datasetId, frozenRender: frozenRenderPayload({ dataviewSpecId: specId, datasetVersionId: t.datasetId }) },
     ],
     title: `AXI-2077 ${uniq()}`,
     createdBy: 'e2e-axi-2077',
@@ -61,8 +65,10 @@ test.afterAll(async () => {
   await api?.ctx.dispose();
 });
 
+// Absolute API URL: the `request` fixture's baseURL is the FRONTEND, which
+// answers every unknown path with the SPA's index.html (200 text/html).
 function auditReportUrl(evId: string, v: number | string): string {
-  return `/api/v1/view-analyses/evidences/${evId}/versions/${v}/audit-report`;
+  return apiUrl(`/api/v1/view-analyses/evidences/${evId}/versions/${v}/audit-report`);
 }
 
 test.describe('AXI-2077 — audit report endpoint (FR14, NFR1, NFR3, AC8, AC11)', () => {
@@ -95,7 +101,7 @@ test.describe('AXI-2077 — audit report endpoint (FR14, NFR1, NFR3, AC8, AC11)'
   });
 
   test('AC8/FR14 — a request scoped to a DIFFERENT workspace than the one that owns the evidence -> 404 (cross-tenant, never 403)', async ({ request }) => {
-    const otherWorkspace = await request.post('/api/v1/workspaces', {
+    const otherWorkspace = await request.post(apiUrl('/api/v1/workspaces'), {
       headers: { Authorization: `Bearer ${adminTokens.accessToken}` },
       data: { name: `AXI-2077 Other WS ${uniq()}`, type: 'internal', ownerOrganizationId: t.orgId },
     });
@@ -129,10 +135,17 @@ test.describe('AXI-2077 — audit report endpoint (FR14, NFR1, NFR3, AC8, AC11)'
   // tenancy convention). Mirrors AXI-2078's own route-interception approach
   // for this status.
   test('AC8/FR14 — a 403 from the endpoint is a distinct status from 404 (contract-level, route interception)', async ({ page }) => {
-    await page.route(`**${auditReportUrl(evidenceId, versionNumber)}`, (route) =>
-      route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ message: 'Forbidden' }) }),
+    // page.route intercepts BROWSER traffic only — page.request bypasses it,
+    // so the call goes through an in-page fetch.
+    await page.route(auditReportUrl(evidenceId, versionNumber), (route) =>
+      route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*' },
+        body: JSON.stringify({ message: 'Forbidden' }),
+      }),
     );
-    const response = await page.request.get(auditReportUrl(evidenceId, versionNumber));
-    expect(response.status()).toBe(403);
+    const status = await page.evaluate(async (url) => (await fetch(url)).status, auditReportUrl(evidenceId, versionNumber));
+    expect(status).toBe(403);
   });
 });
