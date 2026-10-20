@@ -21,11 +21,21 @@ import { apiUrl } from '../../config/env';
  * create (NFR4), so the spec discovers everything by exact name rather
  * than hardcoding ids that a re-run of the (idempotent) build scripts
  * would keep stable anyway, but need not be pinned here.
+ *
+ * Review bounce #1 (2026-10-20) — heatmap provenance: the original
+ * heatmap analysis/evidence/dataset ("...AXI-2065)") are now a
+ * superseded v1 object graph, left live and read-only, labelled
+ * superseded in their own text/notes (never deleted). This spec targets
+ * the superseding v2 object graph ("...AXI-2065, v2 — source-run
+ * provenance)") and additionally asserts the v1 evidence's text now
+ * says SUPERSEDED, plus every boxplot/heatmap text carries its source
+ * run id(s).
  */
 
 const WORKSPACE_ID = '8946e06a-4fe6-45ee-8d9a-58f7142e803a';
 const PROJECT_NAME = 'Microbiote IgG4 — synthetic reproduction (AXI-2064)';
-const HEATMAP_ANALYSIS_NAME = 'synthetic — Spearman correlation heatmap (6 x 7, AXI-2065)';
+const HEATMAP_ANALYSIS_NAME_V1 = 'synthetic — Spearman correlation heatmap (6 x 7, AXI-2065)';
+const HEATMAP_ANALYSIS_NAME = 'synthetic — Spearman correlation heatmap (6 x 7, AXI-2065, v2 — source-run provenance)';
 
 const REFERENCES = ['CER228', 'MAG4-27', 'MAG4-22', 'MAG4-13', 'CER215+234', 'CER229', 'ENT059'];
 
@@ -93,6 +103,8 @@ for (const reference of REFERENCES) {
     for (const evidence of evidences) {
       expect(evidence.currentVersion.chartArtifactIds.length).toBeGreaterThan(0);
       expect(evidence.currentVersion.text).toContain('hand_built');
+      // Review bounce #1 — every boxplot evidence cites its source run id.
+      expect(evidence.currentVersion.text).toContain('Source run:');
     }
   });
 }
@@ -112,6 +124,28 @@ test('AC8/FR19 — the Spearman heatmap evidence covers 6 variables x 7 referenc
   for (const reference of REFERENCES) {
     expect(heatmapEvidence.currentVersion.text).toContain(reference);
   }
+});
+
+test('Review bounce #1 — the v2 heatmap evidence states its 42 cells are copied, not recomputed, and cites each cell\'s source run ids', async () => {
+  const analysis = await analysisByName(HEATMAP_ANALYSIS_NAME);
+  expect(analysis, `heatmap analysis "${HEATMAP_ANALYSIS_NAME}" must exist`).toBeTruthy();
+
+  const evidences = await evidencesFor(analysis.id);
+  const heatmapEvidence = evidences[0];
+
+  expect(heatmapEvidence.currentVersion.text).toContain('COPIED');
+  expect(heatmapEvidence.currentVersion.text).toContain('recomputed');
+  // the hand-built-vs-correlation_heatmap_v1 reasoning the bounce corrected.
+  expect(heatmapEvidence.currentVersion.text).toContain('correlation_heatmap_v1');
+});
+
+test('Review bounce #1 — the superseded v1 heatmap evidence is labelled SUPERSEDED, never deleted', async () => {
+  const v1Analysis = await analysisByName(HEATMAP_ANALYSIS_NAME_V1);
+  expect(v1Analysis, `v1 heatmap analysis "${HEATMAP_ANALYSIS_NAME_V1}" must still exist`).toBeTruthy();
+
+  const evidences = await evidencesFor(v1Analysis.id);
+  expect(evidences.length).toBeGreaterThanOrEqual(1);
+  expect(evidences[0].currentVersion.text).toContain('SUPERSEDED');
 });
 
 test('FR20/FR21 — no analysis has been published yet (interpretation + publish are human acts owed to AXI-2066+)', async () => {
