@@ -11,8 +11,10 @@ const SHADOW_RUN_SPEC = /AXI-1462\/AXI-1614-compiled-planner-shadow-run\.spec\.t
 // demo stack's own seeded Microbiote project (its own admin login over the
 // API, never the fixture-org `setup` project's storageState). Excluded from
 // 'chromium' so the shared `setup` project (which authenticates against the
-// FIXTURE org, not the demo stack) is never a dependency for it.
-const EVIDENCE_API_SPEC = /AXI-2060\/AXI-2065-evidence-and-charts\.spec\.ts$/;
+// FIXTURE org, not the demo stack) is never a dependency for it. AXI-2244's
+// heatmap-dataset spec is the SAME shape (same project, same own-login),
+// so it joins the same pattern/project rather than forking a third one.
+const EVIDENCE_API_SPEC = /AXI-2060\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset)\.spec\.ts$/;
 
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
