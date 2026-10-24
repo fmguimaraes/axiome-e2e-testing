@@ -115,12 +115,18 @@ async function openChart(page: Page, specId: string): Promise<StyleOverlay> {
   const fetched = page.waitForResponse((r) => r.url().includes(`/candidates/${specId}/pairwise-comparison`), { timeout: 30000 });
   await page.goto(`/datasets/${ENT059_DATASET_ID}/chart/${specId}`);
   await fetched;
-  await expect.poll(() => readStyleOverlay(page), { timeout: 30000 }).not.toBeNull();
-  const ready = await expect.poll(async () => {
-    const o = await readStyleOverlay(page);
-    return o && o.bracketLines.length > 0 ? o : null;
-  }, { timeout: 30000 });
-  return ready as unknown as StyleOverlay;
+  // `expect.poll(fn)` only actually polls when a terminal matcher is chained
+  // onto it (`.toBe(...)`/`.not.toBeNull()`) — awaiting the bare poll object
+  // resolves to the matcher wrapper itself, not the polled value, which made
+  // every caller's `overlay.bracketLines` throw `Cannot read properties of
+  // undefined`. Capture the real result in a closured variable instead and
+  // poll a plain boolean condition against it.
+  let overlay: StyleOverlay | null = null;
+  await expect.poll(async () => {
+    overlay = await readStyleOverlay(page);
+    return overlay !== null && overlay.bracketLines.length > 0;
+  }, { timeout: 30000 }).toBe(true);
+  return overlay as unknown as StyleOverlay;
 }
 
 /** Downloads a presigned rendered-chart URL (AXI-2243 precedent: signed for
@@ -260,8 +266,18 @@ test.describe('AXI-2254 - statistics bracket style follows the Stats colour; ded
     await page.goto(`/datasets/${ENT059_DATASET_ID}/chart/${clone.id}`);
     await expect.poll(() => page.locator('.js-plotly-plot').count(), { timeout: 20_000 }).toBeGreaterThan(0);
     await page.getByRole('button', { name: 'Visual' }).click();
-    await page.getByRole('button', { name: 'Style' }).click();
+    // `getByRole('button', { name: 'Style' })` matches 10 elements on this
+    // page (strict-mode violation) — 'Style' is common copy text. The
+    // Controls panel's own Style section toggle carries a dedicated
+    // data-testid (front AXI-2254 rework) for exactly this. The section
+    // itself renders `defaultOpen` on the chart page (`DatasetChart.tsx`'s
+    // `<StyleControls ... defaultOpen />`), so only click the toggle when the
+    // Brackets row isn't visible yet — clicking it unconditionally would
+    // COLLAPSE an already-open section instead of opening it.
     const bracketsRow = page.locator('div').filter({ hasText: /^Brackets$/ }).last();
+    if (!(await bracketsRow.isVisible().catch(() => false))) {
+      await page.getByTestId('chart-style-section-toggle').click();
+    }
     await bracketsRow.getByRole('button').first().click(); // swatch opens the ColorPicker popover
     const hexInput = page.getByPlaceholder('#000000');
     await hexInput.fill('abcdef');
