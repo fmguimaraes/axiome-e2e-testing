@@ -28,12 +28,16 @@ import { frozenRenderPayload, uniq } from '../AXI-1233/harness/seed-axi1234';
  * cohort scenario 1 found, and scenario 2 reads the list that cohort must be
  * absent from.
  *
- * DISPOSITION (2026-10-20, last touched by AXI-2155): authored, typechecked
- * and `--list`ed, NOT run. A
- * green run needs a stack serving the AXI-2087 backend WITH migration
- * `20261020090000_add_rule_run_cohort_link` applied; the only stack up is the
- * shared demo stack on `axiome-localhost`, which story agents may not migrate.
- * Do not read this file's existence as `e2e-pass`.
+ * AXI-2073 redesign (2026-10-24): the clinician report no longer has a
+ * `### Cohort` key/value section. The cohort reads in words under
+ * `## Population` (`- Cohort: Cohort v<n>, locked by <name> on <date>; rows:
+ * …; cohort SHA-256 sha256:<hex>` or `- Cohort: not recorded`), and its id,
+ * hash, status and missing fields are row 4 of `## Appendix A — Technical
+ * chain`. `origin: run_scope` is no longer printed; scenario 2 still proves it
+ * through the list exclusion. The contract under test is unchanged.
+ *
+ * DISPOSITION: see the run notes in
+ * `axiome-docs/manual-e2e/AXI-2073-Evidence-Audit-Report.md`.
  */
 
 let api: Api;
@@ -93,21 +97,31 @@ async function createEvidence(snapshotId: string, label: string): Promise<{ id: 
   return { id: res.body.id, versionNumber: res.body.currentVersion.versionNumber };
 }
 
-/** Download the bundle and return report.md's `### Cohort` section only. */
-async function cohortSection(evidence: { id: string; versionNumber: number }): Promise<string> {
+interface CohortView {
+  /** `## Population`'s `- Cohort: ` line (the cited branch). */
+  population: string;
+  /** Appendix A row 4 of the cited branch, by column name. */
+  row: Record<'name' | 'id' | 'actor' | 'hash' | 'status' | 'notRecorded', string>;
+}
+
+const ROW_COLUMNS = ['n', 'step', 'name', 'id', 'version', 'created', 'actor', 'parents', 'hash', 'status', 'notRecorded'] as const;
+
+/** Download the bundle and read the cited branch's cohort, in words and in the appendix. */
+async function cohortView(evidence: { id: string; versionNumber: number }): Promise<CohortView> {
   const zip = await api.ctx.get(apiUrl(auditReportUrl(evidence.id, evidence.versionNumber)), { headers: tenant.headers });
   expect(zip.status(), 'audit-report download').toBe(200);
   const dir = mkdtempSync(join(tmpdir(), 'axi-2087-audit-'));
   writeFileSync(join(dir, 'bundle.zip'), await zip.body());
   const md = execFileSync('unzip', ['-p', join(dir, 'bundle.zip'), 'report.md']).toString('utf8');
-  const start = md.indexOf('### Cohort');
-  expect(start, 'report.md has a Cohort section').toBeGreaterThanOrEqual(0);
-  const end = md.indexOf('\n### ', start + 1);
-  return md.slice(start, end === -1 ? undefined : end);
-}
-
-function line(section: string, label: string): string | undefined {
-  return section.split('\n').find((l) => l.startsWith(`- ${label}:`))?.slice(`- ${label}: `.length);
+  const population = md.slice(md.indexOf('## Population'), md.indexOf('\n## ', md.indexOf('## Population') + 1));
+  const populationLine = population.split('\n').find((l) => l.startsWith('- Cohort: '));
+  expect(populationLine, `report.md Population names the cohort:\n${population}`).toBeTruthy();
+  const appendix = md.slice(md.indexOf('## Appendix A'));
+  const rowLine = appendix.split('\n').find((l) => l.startsWith('| 4 | Cohort |'));
+  expect(rowLine, 'Appendix A has the cohort row').toBeTruthy();
+  const cells = rowLine!.split(' | ').map((c) => c.replace(/^\| ?| ?\|$/g, '').trim());
+  const byName = Object.fromEntries(ROW_COLUMNS.map((k, i) => [k, cells[i] ?? ''])) as Record<(typeof ROW_COLUMNS)[number], string>;
+  return { population: populationLine!.slice('- Cohort: '.length), row: byName };
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -128,21 +142,19 @@ test.afterAll(async () => {
 
 test.describe('AXI-2087 — audit step 4 reads the run-linked cohort (D6, FR2, FR4, EC8)', { tag: ['@SI-016', '@SI-017', '@SI-014'] }, () => {
   test('FR2/AC2 — a run created after the release shows a recorded, locked run_scope cohort', async () => {
-    const section = await cohortSection(runEvidence);
+    const { population, row } = await cohortView(runEvidence);
 
-    cohortId = line(section, 'ID') ?? '';
-    expect(cohortId, section).toMatch(/^[0-9a-f-]{36}$/);
-    expect(line(section, 'Version')).toBe('1');
-    expect(line(section, 'Content hash')).toBe(line(section, 'cohortHash'));
-    expect(line(section, 'cohortHash')).toMatch(/^[0-9a-f]{64}$/);
-    expect(line(section, 'origin')).toBe('run_scope');
-    expect(line(section, 'lockState')).toBe('locked');
-    expect(line(section, 'lockedBy')).toBeTruthy();
-    expect(line(section, 'lockedAt')).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(line(section, 'filters')).toContain('"filterCombinator"');
-    expect(line(section, 'Created at')).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(line(section, 'createdBy')).toBe(line(section, 'Actor'));
-    expect(line(section, 'Not recorded') ?? '').not.toContain('cohortDefinitionId');
+    cohortId = row.id;
+    expect(cohortId, JSON.stringify(row)).toMatch(/^[0-9a-f-]{36}$/);
+    expect(row.name).toBe('Cohort v1');
+    expect(row.status).toBe('recorded');
+    expect(row.hash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(row.notRecorded, 'no cohort fact is missing').toBe('—');
+    // In words: version, lock (by a NAME, not an id), the rows kept, and the same hash.
+    const m = population.match(/^Cohort v1, locked by (.+) on (\d{2}\/\d{2}\/\d{4} \d{2}:\d{2} UTC); rows: (.+); cohort SHA-256 (sha256:[0-9a-f]{64})$/);
+    expect(m, population).toBeTruthy();
+    expect(m![1]).not.toMatch(/^[0-9a-f-]{36}$/);
+    expect(m![4]).toBe(row.hash);
   });
 
   test('FR2/D6 — the run_scope cohort is absent from the project cohort list', async () => {
@@ -181,19 +193,21 @@ test.describe('AXI-2087 — audit step 4 reads the run-linked cohort (D6, FR2, F
     expect(JSON.stringify(v2.body)).toContain('immutable');
 
     // The report is unaffected — still the original, still locked.
-    const section = await cohortSection(runEvidence);
-    expect(line(section, 'ID')).toBe(cohortId);
-    expect(line(section, 'Version')).toBe('1');
-    expect(line(section, 'lockState')).toBe('locked');
+    const after = await cohortView(runEvidence);
+    expect(after.row.id).toBe(cohortId);
+    expect(after.row.name).toBe('Cohort v1');
+    expect(after.population).toMatch(/^Cohort v1, locked by /);
   });
 
   test('FR4/AC6 — evidence over a snapshot no run produced keeps the cohort step "not recorded"', async () => {
     const baselineEvidence = await createEvidence(analysis.snapshotId, 'baseline');
 
-    const section = await cohortSection(baselineEvidence);
+    const { population, row } = await cohortView(baselineEvidence);
 
-    expect(line(section, 'ID')).toBe('not recorded');
-    expect(line(section, 'Not recorded')).toContain('cohortDefinitionId');
-    expect(line(section, 'cohortHash')).toBeUndefined();
+    expect(population).toBe('not recorded');
+    expect(row.id).toBe('not recorded');
+    expect(row.status).toBe('not recorded');
+    expect(row.notRecorded).toMatch(/^cohort, /);
+    expect(row.hash).toBe('—');
   });
 });

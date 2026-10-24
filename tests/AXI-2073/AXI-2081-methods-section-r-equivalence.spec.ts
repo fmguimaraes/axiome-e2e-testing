@@ -51,10 +51,16 @@ import { frozenRenderPayload, uniq } from '../AXI-1233/harness/seed-axi1234';
  * match a specific published release, which is new test-infrastructure work
  * tracked in the manual-e2e doc, not a gap in this spec's own scope.
  *
- * DISPOSITION: authored, not run — this repo's token-saving convention defers
- * a live Playwright run until a story explicitly brings a stack up for it
- * (see `axiome-docs/manual-e2e/AXI-2073-Evidence-Audit-Report.md`). Do not
- * read this file's existence as `e2e-pass`.
+ * AXI-2073 redesign (2026-10-24): the report is now clinician-readable — the
+ * run section is `### <operation label> — produced the cited result` under
+ * `## Methods`, the operation is named by its kernel label ("Correlation"),
+ * and the build-identity lines are `Library`, `Build SHA`, `Image digest`,
+ * `Groups and n` and `Run fingerprint`. The assertions follow that format;
+ * the contract under test (a real value or "not recorded", never a
+ * placeholder; the R-equivalence line never a broken link) is unchanged.
+ *
+ * DISPOSITION: see the run notes in
+ * `axiome-docs/manual-e2e/AXI-2073-Evidence-Audit-Report.md`.
  */
 
 let api: Api;
@@ -65,6 +71,15 @@ let evidenceId: string;
 let versionNumber: number;
 
 const CORRELATION_OP = 'stats.correlation';
+/** The redesigned Methods heading of the run that produced the cited snapshot. */
+const PRODUCER_HEADING = '### Correlation — produced the cited result';
+
+function producerSection(reportMd: string): string {
+  const start = reportMd.indexOf(PRODUCER_HEADING, reportMd.indexOf('## Methods'));
+  expect(start, 'report.md has the producing run\'s Methods section').toBeGreaterThanOrEqual(0);
+  const end = reportMd.indexOf('\n## ', start);
+  return reportMd.slice(start, end === -1 ? undefined : end);
+}
 
 function auditReportUrl(evId: string, v: number | string): string {
   // Absolute: the `request` fixture's baseURL is the frontend (SPA index.html).
@@ -176,17 +191,15 @@ test.describe('AXI-2081 — Methods section build identity + R-equivalence link 
 
     const reportMd = extractReportMd(await response.body());
     expect(reportMd, 'report.md has a Methods section').toContain('## Methods');
-    expect(reportMd, 'report.md has a Run step (requires a snapshot carrying a real ruleRunId)').toMatch(/### Run /);
+    expect(reportMd, 'report.md names the producing run (requires a snapshot carrying a real ruleRunId)').toContain(PRODUCER_HEADING);
 
-    // Slice to the first run section so every assertion below is scoped to
-    // THIS run's own lines, not a sibling branch's.
-    const methodsStart = reportMd.indexOf('## Methods');
-    const runStart = reportMd.indexOf('### Run ', methodsStart);
-    const runSection = reportMd.slice(runStart);
+    // Slice to the producing run's section so every assertion below is scoped
+    // to THIS run's own lines, not a sibling branch's.
+    const runSection = producerSection(reportMd);
 
-    expect(runSection).toContain(`- Operation: ${CORRELATION_OP}`);
+    expect(runSection).not.toContain(`### ${CORRELATION_OP}`);
     for (const label of [
-      'Executor version', 'Library name', 'Library version', 'Build SHA', 'Image digest', 'n per group',
+      'What it asks', 'Library', 'Build SHA', 'Image digest', 'Groups and n', 'Run fingerprint',
     ]) {
       const line = runSection.split('\n').find((l) => l.startsWith(`- ${label}:`));
       expect(line, `report.md is missing the "${label}" line`).toBeTruthy();
@@ -205,7 +218,7 @@ test.describe('AXI-2081 — Methods section build identity + R-equivalence link 
     expect(response.status()).toBe(200);
 
     const reportMd = extractReportMd(await response.body());
-    const runSection = reportMd.slice(reportMd.indexOf('### Run ', reportMd.indexOf('## Methods')));
+    const runSection = producerSection(reportMd);
     const entryLine = runSection.split('\n').find((l) => l.startsWith('- R-equivalence entry:'));
     expect(entryLine, 'report.md is missing the R-equivalence entry line').toBeTruthy();
 
