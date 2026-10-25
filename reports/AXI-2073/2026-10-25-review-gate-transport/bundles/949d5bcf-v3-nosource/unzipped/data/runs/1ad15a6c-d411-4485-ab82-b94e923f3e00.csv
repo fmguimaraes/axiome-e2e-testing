@@ -1,0 +1,4 @@
+adjustedPValue,adjustmentMethod,feature,groupA,groupB,measurement,nGroupA,nGroupB,pValue,reason,zStatistic
+1,holm,__all__,HD,IgG4-RD,pct,10,26,0.5136970510671475,,0.6530918733469765
+1,holm,__all__,HD,SD,pct,10,10,0.3551292031667872,,0.9246861166290947
+1,holm,__all__,IgG4-RD,SD,pct,26,10,0.6467782084165616,,0.45824252905831536

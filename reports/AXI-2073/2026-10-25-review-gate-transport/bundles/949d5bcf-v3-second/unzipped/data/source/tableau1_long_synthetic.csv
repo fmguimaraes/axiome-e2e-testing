@@ -1,0 +1,463 @@
+serum,group,reference,isotype,pct
+synthetic-serum-cer_228-hd-row4,HD,CER 228,IgG4,-0.05
+synthetic-serum-cer_228-hd-row5,HD,CER 228,IgG4,-0.011
+synthetic-serum-cer_228-hd-row6,HD,CER 228,IgG4,0.002
+synthetic-serum-cer_228-hd-row7,HD,CER 228,IgG4,0.004
+synthetic-serum-cer_228-hd-row8,HD,CER 228,IgG4,0.005
+synthetic-serum-cer_228-hd-row9,HD,CER 228,IgG4,0.015
+synthetic-serum-cer_228-hd-row10,HD,CER 228,IgG4,0.019
+synthetic-serum-cer_228-hd-row11,HD,CER 228,IgG4,0.04
+synthetic-serum-cer_228-hd-row12,HD,CER 228,IgG4,0.146
+synthetic-serum-cer_228-hd-row13,HD,CER 228,IgG4,0.299
+synthetic-serum-cer_228-igg4_rd-row4,IgG4-RD,CER 228,IgG4,-0.087
+synthetic-serum-cer_228-igg4_rd-row5,IgG4-RD,CER 228,IgG4,-0.078
+synthetic-serum-cer_228-igg4_rd-row6,IgG4-RD,CER 228,IgG4,-0.073
+synthetic-serum-cer_228-igg4_rd-row7,IgG4-RD,CER 228,IgG4,-0.063
+synthetic-serum-cer_228-igg4_rd-row8,IgG4-RD,CER 228,IgG4,-0.035
+synthetic-serum-cer_228-igg4_rd-row9,IgG4-RD,CER 228,IgG4,-0.033
+synthetic-serum-cer_228-igg4_rd-row10,IgG4-RD,CER 228,IgG4,-0.029
+synthetic-serum-cer_228-igg4_rd-row11,IgG4-RD,CER 228,IgG4,-0.023
+synthetic-serum-cer_228-igg4_rd-row12,IgG4-RD,CER 228,IgG4,-0.021
+synthetic-serum-cer_228-igg4_rd-row13,IgG4-RD,CER 228,IgG4,-0.014
+synthetic-serum-cer_228-igg4_rd-row14,IgG4-RD,CER 228,IgG4,-0.012
+synthetic-serum-cer_228-igg4_rd-row15,IgG4-RD,CER 228,IgG4,-0.001
+synthetic-serum-cer_228-igg4_rd-row16,IgG4-RD,CER 228,IgG4,0.007
+synthetic-serum-cer_228-igg4_rd-row17,IgG4-RD,CER 228,IgG4,0.014
+synthetic-serum-cer_228-igg4_rd-row18,IgG4-RD,CER 228,IgG4,0.015
+synthetic-serum-cer_228-igg4_rd-row19,IgG4-RD,CER 228,IgG4,0.017
+synthetic-serum-cer_228-igg4_rd-row20,IgG4-RD,CER 228,IgG4,0.019
+synthetic-serum-cer_228-igg4_rd-row21,IgG4-RD,CER 228,IgG4,0.023
+synthetic-serum-cer_228-igg4_rd-row22,IgG4-RD,CER 228,IgG4,0.046
+synthetic-serum-cer_228-igg4_rd-row23,IgG4-RD,CER 228,IgG4,0.048
+synthetic-serum-cer_228-igg4_rd-row24,IgG4-RD,CER 228,IgG4,0.077
+synthetic-serum-cer_228-igg4_rd-row25,IgG4-RD,CER 228,IgG4,0.101
+synthetic-serum-cer_228-igg4_rd-row26,IgG4-RD,CER 228,IgG4,0.138
+synthetic-serum-cer_228-igg4_rd-row27,IgG4-RD,CER 228,IgG4,0.229
+synthetic-serum-cer_228-igg4_rd-row28,IgG4-RD,CER 228,IgG4,0.358
+synthetic-serum-cer_228-igg4_rd-row29,IgG4-RD,CER 228,IgG4,0.505
+synthetic-serum-cer_228-sd-row4,SD,CER 228,IgG4,-0.065
+synthetic-serum-cer_228-sd-row5,SD,CER 228,IgG4,-0.031
+synthetic-serum-cer_228-sd-row6,SD,CER 228,IgG4,-0.029
+synthetic-serum-cer_228-sd-row7,SD,CER 228,IgG4,-0.006
+synthetic-serum-cer_228-sd-row8,SD,CER 228,IgG4,0.003
+synthetic-serum-cer_228-sd-row9,SD,CER 228,IgG4,0.004
+synthetic-serum-cer_228-sd-row10,SD,CER 228,IgG4,0.008
+synthetic-serum-cer_228-sd-row11,SD,CER 228,IgG4,0.01
+synthetic-serum-cer_228-sd-row12,SD,CER 228,IgG4,0.08
+synthetic-serum-cer_228-sd-row13,SD,CER 228,IgG4,0.085
+synthetic-serum-cer_228-al-row4,AL,CER 228,IgG4,-0.056
+synthetic-serum-cer_228-al-row5,AL,CER 228,IgG4,-0.031
+synthetic-serum-cer_228-al-row6,AL,CER 228,IgG4,-0.013
+synthetic-serum-cer_228-al-row7,AL,CER 228,IgG4,-0.001
+synthetic-serum-cer_228-al-row8,AL,CER 228,IgG4,0.005
+synthetic-serum-cer_228-al-row9,AL,CER 228,IgG4,0.008
+synthetic-serum-cer_228-al-row10,AL,CER 228,IgG4,0.01
+synthetic-serum-cer_228-al-row11,AL,CER 228,IgG4,0.016
+synthetic-serum-cer_228-al-row12,AL,CER 228,IgG4,0.037
+synthetic-serum-cer_228-al-row13,AL,CER 228,IgG4,0.039
+synthetic-serum-cer_228-il-row4,IL,CER 228,IgG4,-0.037
+synthetic-serum-cer_228-il-row5,IL,CER 228,IgG4,-0.033
+synthetic-serum-cer_228-il-row6,IL,CER 228,IgG4,-0.013
+synthetic-serum-cer_228-il-row7,IL,CER 228,IgG4,-0.005
+synthetic-serum-cer_228-il-row8,IL,CER 228,IgG4,0
+synthetic-serum-cer_228-il-row9,IL,CER 228,IgG4,0.01
+synthetic-serum-cer_228-il-row10,IL,CER 228,IgG4,0.012
+synthetic-serum-cer_228-il-row11,IL,CER 228,IgG4,0.013
+synthetic-serum-cer_228-il-row12,IL,CER 228,IgG4,0.033
+synthetic-serum-cer_228-il-row13,IL,CER 228,IgG4,0.04
+synthetic-serum-mag4_27-hd-row4,HD,MAG4 27,IgG4,-0.076
+synthetic-serum-mag4_27-hd-row5,HD,MAG4 27,IgG4,-0.03
+synthetic-serum-mag4_27-hd-row6,HD,MAG4 27,IgG4,-0.028
+synthetic-serum-mag4_27-hd-row7,HD,MAG4 27,IgG4,-0.016
+synthetic-serum-mag4_27-hd-row8,HD,MAG4 27,IgG4,-0.014
+synthetic-serum-mag4_27-hd-row9,HD,MAG4 27,IgG4,-0.013
+synthetic-serum-mag4_27-hd-row10,HD,MAG4 27,IgG4,-0.011
+synthetic-serum-mag4_27-hd-row11,HD,MAG4 27,IgG4,-0.002
+synthetic-serum-mag4_27-hd-row12,HD,MAG4 27,IgG4,0.019
+synthetic-serum-mag4_27-hd-row13,HD,MAG4 27,IgG4,0.047
+synthetic-serum-mag4_27-igg4_rd-row4,IgG4-RD,MAG4 27,IgG4,-0.036
+synthetic-serum-mag4_27-igg4_rd-row5,IgG4-RD,MAG4 27,IgG4,-0.034
+synthetic-serum-mag4_27-igg4_rd-row6,IgG4-RD,MAG4 27,IgG4,-0.031
+synthetic-serum-mag4_27-igg4_rd-row7,IgG4-RD,MAG4 27,IgG4,-0.023
+synthetic-serum-mag4_27-igg4_rd-row8,IgG4-RD,MAG4 27,IgG4,-0.022
+synthetic-serum-mag4_27-igg4_rd-row9,IgG4-RD,MAG4 27,IgG4,-0.014
+synthetic-serum-mag4_27-igg4_rd-row10,IgG4-RD,MAG4 27,IgG4,-0.011
+synthetic-serum-mag4_27-igg4_rd-row11,IgG4-RD,MAG4 27,IgG4,-0.007
+synthetic-serum-mag4_27-igg4_rd-row12,IgG4-RD,MAG4 27,IgG4,-0.004
+synthetic-serum-mag4_27-igg4_rd-row13,IgG4-RD,MAG4 27,IgG4,-0.002
+synthetic-serum-mag4_27-igg4_rd-row14,IgG4-RD,MAG4 27,IgG4,0.002
+synthetic-serum-mag4_27-igg4_rd-row15,IgG4-RD,MAG4 27,IgG4,0.004
+synthetic-serum-mag4_27-igg4_rd-row16,IgG4-RD,MAG4 27,IgG4,0.015
+synthetic-serum-mag4_27-igg4_rd-row17,IgG4-RD,MAG4 27,IgG4,0.02
+synthetic-serum-mag4_27-igg4_rd-row18,IgG4-RD,MAG4 27,IgG4,0.028
+synthetic-serum-mag4_27-igg4_rd-row19,IgG4-RD,MAG4 27,IgG4,0.035
+synthetic-serum-mag4_27-igg4_rd-row20,IgG4-RD,MAG4 27,IgG4,0.041
+synthetic-serum-mag4_27-igg4_rd-row21,IgG4-RD,MAG4 27,IgG4,0.042
+synthetic-serum-mag4_27-igg4_rd-row22,IgG4-RD,MAG4 27,IgG4,0.068
+synthetic-serum-mag4_27-igg4_rd-row23,IgG4-RD,MAG4 27,IgG4,0.101
+synthetic-serum-mag4_27-igg4_rd-row24,IgG4-RD,MAG4 27,IgG4,0.115
+synthetic-serum-mag4_27-igg4_rd-row25,IgG4-RD,MAG4 27,IgG4,0.119
+synthetic-serum-mag4_27-igg4_rd-row26,IgG4-RD,MAG4 27,IgG4,0.152
+synthetic-serum-mag4_27-igg4_rd-row27,IgG4-RD,MAG4 27,IgG4,0.185
+synthetic-serum-mag4_27-igg4_rd-row28,IgG4-RD,MAG4 27,IgG4,0.4
+synthetic-serum-mag4_27-igg4_rd-row29,IgG4-RD,MAG4 27,IgG4,0.523
+synthetic-serum-mag4_27-sd-row4,SD,MAG4 27,IgG4,-0.052
+synthetic-serum-mag4_27-sd-row5,SD,MAG4 27,IgG4,-0.014
+synthetic-serum-mag4_27-sd-row6,SD,MAG4 27,IgG4,-0.009
+synthetic-serum-mag4_27-sd-row7,SD,MAG4 27,IgG4,0.005
+synthetic-serum-mag4_27-sd-row8,SD,MAG4 27,IgG4,0.013
+synthetic-serum-mag4_27-sd-row9,SD,MAG4 27,IgG4,0.02
+synthetic-serum-mag4_27-sd-row10,SD,MAG4 27,IgG4,0.021
+synthetic-serum-mag4_27-sd-row11,SD,MAG4 27,IgG4,0.028
+synthetic-serum-mag4_27-sd-row12,SD,MAG4 27,IgG4,0.029
+synthetic-serum-mag4_27-sd-row13,SD,MAG4 27,IgG4,0.156
+synthetic-serum-mag4_27-al-row4,AL,MAG4 27,IgG4,-0.042
+synthetic-serum-mag4_27-al-row5,AL,MAG4 27,IgG4,-0.034
+synthetic-serum-mag4_27-al-row6,AL,MAG4 27,IgG4,-0.031
+synthetic-serum-mag4_27-al-row7,AL,MAG4 27,IgG4,-0.028
+synthetic-serum-mag4_27-al-row8,AL,MAG4 27,IgG4,-0.011
+synthetic-serum-mag4_27-al-row9,AL,MAG4 27,IgG4,-0.008
+synthetic-serum-mag4_27-al-row10,AL,MAG4 27,IgG4,0.005
+synthetic-serum-mag4_27-al-row11,AL,MAG4 27,IgG4,0.008
+synthetic-serum-mag4_27-al-row12,AL,MAG4 27,IgG4,0.037
+synthetic-serum-mag4_27-al-row13,AL,MAG4 27,IgG4,0.045
+synthetic-serum-mag4_27-il-row4,IL,MAG4 27,IgG4,-0.037
+synthetic-serum-mag4_27-il-row5,IL,MAG4 27,IgG4,-0.007
+synthetic-serum-mag4_27-il-row6,IL,MAG4 27,IgG4,0.001
+synthetic-serum-mag4_27-il-row7,IL,MAG4 27,IgG4,0.018
+synthetic-serum-mag4_27-il-row8,IL,MAG4 27,IgG4,0.026
+synthetic-serum-mag4_27-il-row9,IL,MAG4 27,IgG4,0.028
+synthetic-serum-mag4_27-il-row10,IL,MAG4 27,IgG4,0.03
+synthetic-serum-mag4_27-il-row11,IL,MAG4 27,IgG4,0.033
+synthetic-serum-mag4_27-il-row12,IL,MAG4 27,IgG4,0.037
+synthetic-serum-mag4_27-il-row13,IL,MAG4 27,IgG4,0.265
+synthetic-serum-mag4_22-hd-row4,HD,MAG4 22,IgG4,-0.047
+synthetic-serum-mag4_22-hd-row5,HD,MAG4 22,IgG4,-0.026
+synthetic-serum-mag4_22-hd-row6,HD,MAG4 22,IgG4,-0.014
+synthetic-serum-mag4_22-hd-row7,HD,MAG4 22,IgG4,-0.013
+synthetic-serum-mag4_22-hd-row8,HD,MAG4 22,IgG4,-0.011
+synthetic-serum-mag4_22-hd-row9,HD,MAG4 22,IgG4,0.021
+synthetic-serum-mag4_22-hd-row10,HD,MAG4 22,IgG4,0.031
+synthetic-serum-mag4_22-hd-row11,HD,MAG4 22,IgG4,0.057
+synthetic-serum-mag4_22-hd-row12,HD,MAG4 22,IgG4,0.059
+synthetic-serum-mag4_22-hd-row13,HD,MAG4 22,IgG4,0.086
+synthetic-serum-mag4_22-igg4_rd-row4,IgG4-RD,MAG4 22,IgG4,-0.093
+synthetic-serum-mag4_22-igg4_rd-row5,IgG4-RD,MAG4 22,IgG4,-0.048
+synthetic-serum-mag4_22-igg4_rd-row6,IgG4-RD,MAG4 22,IgG4,-0.021
+synthetic-serum-mag4_22-igg4_rd-row7,IgG4-RD,MAG4 22,IgG4,-0.016
+synthetic-serum-mag4_22-igg4_rd-row8,IgG4-RD,MAG4 22,IgG4,-0.015
+synthetic-serum-mag4_22-igg4_rd-row9,IgG4-RD,MAG4 22,IgG4,-0.013
+synthetic-serum-mag4_22-igg4_rd-row10,IgG4-RD,MAG4 22,IgG4,-0.01
+synthetic-serum-mag4_22-igg4_rd-row11,IgG4-RD,MAG4 22,IgG4,-0.008
+synthetic-serum-mag4_22-igg4_rd-row12,IgG4-RD,MAG4 22,IgG4,0.007
+synthetic-serum-mag4_22-igg4_rd-row13,IgG4-RD,MAG4 22,IgG4,0.013
+synthetic-serum-mag4_22-igg4_rd-row14,IgG4-RD,MAG4 22,IgG4,0.016
+synthetic-serum-mag4_22-igg4_rd-row15,IgG4-RD,MAG4 22,IgG4,0.018
+synthetic-serum-mag4_22-igg4_rd-row16,IgG4-RD,MAG4 22,IgG4,0.023
+synthetic-serum-mag4_22-igg4_rd-row17,IgG4-RD,MAG4 22,IgG4,0.025
+synthetic-serum-mag4_22-igg4_rd-row18,IgG4-RD,MAG4 22,IgG4,0.034
+synthetic-serum-mag4_22-igg4_rd-row19,IgG4-RD,MAG4 22,IgG4,0.042
+synthetic-serum-mag4_22-igg4_rd-row20,IgG4-RD,MAG4 22,IgG4,0.056
+synthetic-serum-mag4_22-igg4_rd-row21,IgG4-RD,MAG4 22,IgG4,0.057
+synthetic-serum-mag4_22-igg4_rd-row22,IgG4-RD,MAG4 22,IgG4,0.061
+synthetic-serum-mag4_22-igg4_rd-row23,IgG4-RD,MAG4 22,IgG4,0.29
+synthetic-serum-mag4_22-igg4_rd-row24,IgG4-RD,MAG4 22,IgG4,0.314
+synthetic-serum-mag4_22-igg4_rd-row25,IgG4-RD,MAG4 22,IgG4,0.316
+synthetic-serum-mag4_22-igg4_rd-row26,IgG4-RD,MAG4 22,IgG4,0.435
+synthetic-serum-mag4_22-igg4_rd-row27,IgG4-RD,MAG4 22,IgG4,0.437
+synthetic-serum-mag4_22-igg4_rd-row28,IgG4-RD,MAG4 22,IgG4,0.637
+synthetic-serum-mag4_22-igg4_rd-row29,IgG4-RD,MAG4 22,IgG4,1.66
+synthetic-serum-mag4_22-sd-row4,SD,MAG4 22,IgG4,-0.066
+synthetic-serum-mag4_22-sd-row5,SD,MAG4 22,IgG4,-0.02
+synthetic-serum-mag4_22-sd-row6,SD,MAG4 22,IgG4,0.007
+synthetic-serum-mag4_22-sd-row7,SD,MAG4 22,IgG4,0.013
+synthetic-serum-mag4_22-sd-row8,SD,MAG4 22,IgG4,0.018
+synthetic-serum-mag4_22-sd-row9,SD,MAG4 22,IgG4,0.033
+synthetic-serum-mag4_22-sd-row10,SD,MAG4 22,IgG4,0.05
+synthetic-serum-mag4_22-sd-row11,SD,MAG4 22,IgG4,0.051
+synthetic-serum-mag4_22-sd-row12,SD,MAG4 22,IgG4,0.064
+synthetic-serum-mag4_22-sd-row13,SD,MAG4 22,IgG4,0.433
+synthetic-serum-mag4_22-al-row4,AL,MAG4 22,IgG4,-0.029
+synthetic-serum-mag4_22-al-row5,AL,MAG4 22,IgG4,-0.02
+synthetic-serum-mag4_22-al-row6,AL,MAG4 22,IgG4,-0.017
+synthetic-serum-mag4_22-al-row7,AL,MAG4 22,IgG4,-0.011
+synthetic-serum-mag4_22-al-row8,AL,MAG4 22,IgG4,-0.008
+synthetic-serum-mag4_22-al-row9,AL,MAG4 22,IgG4,0.016
+synthetic-serum-mag4_22-al-row10,AL,MAG4 22,IgG4,0.022
+synthetic-serum-mag4_22-al-row11,AL,MAG4 22,IgG4,0.025
+synthetic-serum-mag4_22-al-row12,AL,MAG4 22,IgG4,0.033
+synthetic-serum-mag4_22-al-row13,AL,MAG4 22,IgG4,0.05
+synthetic-serum-mag4_22-il-row4,IL,MAG4 22,IgG4,-0.064
+synthetic-serum-mag4_22-il-row5,IL,MAG4 22,IgG4,-0.021
+synthetic-serum-mag4_22-il-row6,IL,MAG4 22,IgG4,-0.01
+synthetic-serum-mag4_22-il-row7,IL,MAG4 22,IgG4,-0.005
+synthetic-serum-mag4_22-il-row8,IL,MAG4 22,IgG4,0.003
+synthetic-serum-mag4_22-il-row9,IL,MAG4 22,IgG4,0.01
+synthetic-serum-mag4_22-il-row10,IL,MAG4 22,IgG4,0.021
+synthetic-serum-mag4_22-il-row11,IL,MAG4 22,IgG4,0.025
+synthetic-serum-mag4_22-il-row12,IL,MAG4 22,IgG4,0.041
+synthetic-serum-mag4_22-il-row13,IL,MAG4 22,IgG4,0.049
+synthetic-serum-mag4_13-hd-row4,HD,MAG4 13,IgG4,-0.045
+synthetic-serum-mag4_13-hd-row5,HD,MAG4 13,IgG4,-0.042
+synthetic-serum-mag4_13-hd-row6,HD,MAG4 13,IgG4,-0.026
+synthetic-serum-mag4_13-hd-row7,HD,MAG4 13,IgG4,-0.021
+synthetic-serum-mag4_13-hd-row8,HD,MAG4 13,IgG4,-0.019
+synthetic-serum-mag4_13-hd-row9,HD,MAG4 13,IgG4,-0.008
+synthetic-serum-mag4_13-hd-row10,HD,MAG4 13,IgG4,0.003
+synthetic-serum-mag4_13-hd-row11,HD,MAG4 13,IgG4,0.038
+synthetic-serum-mag4_13-hd-row12,HD,MAG4 13,IgG4,0.039
+synthetic-serum-mag4_13-hd-row13,HD,MAG4 13,IgG4,0.047
+synthetic-serum-mag4_13-igg4_rd-row4,IgG4-RD,MAG4 13,IgG4,-0.031
+synthetic-serum-mag4_13-igg4_rd-row5,IgG4-RD,MAG4 13,IgG4,-0.029
+synthetic-serum-mag4_13-igg4_rd-row6,IgG4-RD,MAG4 13,IgG4,-0.024
+synthetic-serum-mag4_13-igg4_rd-row7,IgG4-RD,MAG4 13,IgG4,-0.007
+synthetic-serum-mag4_13-igg4_rd-row8,IgG4-RD,MAG4 13,IgG4,-0.005
+synthetic-serum-mag4_13-igg4_rd-row9,IgG4-RD,MAG4 13,IgG4,-0.004
+synthetic-serum-mag4_13-igg4_rd-row10,IgG4-RD,MAG4 13,IgG4,-0.002
+synthetic-serum-mag4_13-igg4_rd-row11,IgG4-RD,MAG4 13,IgG4,0.006
+synthetic-serum-mag4_13-igg4_rd-row12,IgG4-RD,MAG4 13,IgG4,0.017
+synthetic-serum-mag4_13-igg4_rd-row13,IgG4-RD,MAG4 13,IgG4,0.018
+synthetic-serum-mag4_13-igg4_rd-row14,IgG4-RD,MAG4 13,IgG4,0.02
+synthetic-serum-mag4_13-igg4_rd-row15,IgG4-RD,MAG4 13,IgG4,0.028
+synthetic-serum-mag4_13-igg4_rd-row16,IgG4-RD,MAG4 13,IgG4,0.03
+synthetic-serum-mag4_13-igg4_rd-row17,IgG4-RD,MAG4 13,IgG4,0.031
+synthetic-serum-mag4_13-igg4_rd-row18,IgG4-RD,MAG4 13,IgG4,0.039
+synthetic-serum-mag4_13-igg4_rd-row19,IgG4-RD,MAG4 13,IgG4,0.049
+synthetic-serum-mag4_13-igg4_rd-row20,IgG4-RD,MAG4 13,IgG4,0.075
+synthetic-serum-mag4_13-igg4_rd-row21,IgG4-RD,MAG4 13,IgG4,0.123
+synthetic-serum-mag4_13-igg4_rd-row22,IgG4-RD,MAG4 13,IgG4,0.157
+synthetic-serum-mag4_13-igg4_rd-row23,IgG4-RD,MAG4 13,IgG4,0.23
+synthetic-serum-mag4_13-igg4_rd-row24,IgG4-RD,MAG4 13,IgG4,0.271
+synthetic-serum-mag4_13-igg4_rd-row25,IgG4-RD,MAG4 13,IgG4,0.28
+synthetic-serum-mag4_13-igg4_rd-row26,IgG4-RD,MAG4 13,IgG4,0.348
+synthetic-serum-mag4_13-igg4_rd-row27,IgG4-RD,MAG4 13,IgG4,0.458
+synthetic-serum-mag4_13-igg4_rd-row28,IgG4-RD,MAG4 13,IgG4,0.543
+synthetic-serum-mag4_13-igg4_rd-row29,IgG4-RD,MAG4 13,IgG4,0.682
+synthetic-serum-mag4_13-sd-row4,SD,MAG4 13,IgG4,-0.007
+synthetic-serum-mag4_13-sd-row5,SD,MAG4 13,IgG4,-0.003
+synthetic-serum-mag4_13-sd-row6,SD,MAG4 13,IgG4,-0.001
+synthetic-serum-mag4_13-sd-row7,SD,MAG4 13,IgG4,0.001
+synthetic-serum-mag4_13-sd-row8,SD,MAG4 13,IgG4,0.006
+synthetic-serum-mag4_13-sd-row9,SD,MAG4 13,IgG4,0.007
+synthetic-serum-mag4_13-sd-row10,SD,MAG4 13,IgG4,0.009
+synthetic-serum-mag4_13-sd-row11,SD,MAG4 13,IgG4,0.017
+synthetic-serum-mag4_13-sd-row12,SD,MAG4 13,IgG4,0.055
+synthetic-serum-mag4_13-sd-row13,SD,MAG4 13,IgG4,0.179
+synthetic-serum-mag4_13-al-row4,AL,MAG4 13,IgG4,-0.013
+synthetic-serum-mag4_13-al-row5,AL,MAG4 13,IgG4,-0.006
+synthetic-serum-mag4_13-al-row6,AL,MAG4 13,IgG4,-0.005
+synthetic-serum-mag4_13-al-row7,AL,MAG4 13,IgG4,-0.003
+synthetic-serum-mag4_13-al-row8,AL,MAG4 13,IgG4,-0.002
+synthetic-serum-mag4_13-al-row9,AL,MAG4 13,IgG4,0
+synthetic-serum-mag4_13-al-row10,AL,MAG4 13,IgG4,0.001
+synthetic-serum-mag4_13-al-row11,AL,MAG4 13,IgG4,0.027
+synthetic-serum-mag4_13-al-row12,AL,MAG4 13,IgG4,0.089
+synthetic-serum-mag4_13-al-row13,AL,MAG4 13,IgG4,0.174
+synthetic-serum-mag4_13-il-row4,IL,MAG4 13,IgG4,-0.081
+synthetic-serum-mag4_13-il-row5,IL,MAG4 13,IgG4,-0.025
+synthetic-serum-mag4_13-il-row6,IL,MAG4 13,IgG4,-0.013
+synthetic-serum-mag4_13-il-row7,IL,MAG4 13,IgG4,-0.011
+synthetic-serum-mag4_13-il-row8,IL,MAG4 13,IgG4,-0.005
+synthetic-serum-mag4_13-il-row9,IL,MAG4 13,IgG4,0.022
+synthetic-serum-mag4_13-il-row10,IL,MAG4 13,IgG4,0.027
+synthetic-serum-mag4_13-il-row11,IL,MAG4 13,IgG4,0.029
+synthetic-serum-mag4_13-il-row12,IL,MAG4 13,IgG4,0.055
+synthetic-serum-mag4_13-il-row13,IL,MAG4 13,IgG4,0.056
+synthetic-serum-cer_215_et_234-hd-row4,HD,CER 215 et 234,IgG4,-0.048
+synthetic-serum-cer_215_et_234-hd-row5,HD,CER 215 et 234,IgG4,0.041
+synthetic-serum-cer_215_et_234-hd-row6,HD,CER 215 et 234,IgG4,-0.037
+synthetic-serum-cer_215_et_234-hd-row7,HD,CER 215 et 234,IgG4,0.028
+synthetic-serum-cer_215_et_234-hd-row8,HD,CER 215 et 234,IgG4,0.313
+synthetic-serum-cer_215_et_234-hd-row9,HD,CER 215 et 234,IgG4,-0.015
+synthetic-serum-cer_215_et_234-hd-row10,HD,CER 215 et 234,IgG4,0.002
+synthetic-serum-cer_215_et_234-hd-row11,HD,CER 215 et 234,IgG4,0.004
+synthetic-serum-cer_215_et_234-hd-row12,HD,CER 215 et 234,IgG4,-0.031
+synthetic-serum-cer_215_et_234-hd-row13,HD,CER 215 et 234,IgG4,-0.041
+synthetic-serum-cer_215_et_234-igg4_rd-row4,IgG4-RD,CER 215 et 234,IgG4,0.016
+synthetic-serum-cer_215_et_234-igg4_rd-row5,IgG4-RD,CER 215 et 234,IgG4,0.019
+synthetic-serum-cer_215_et_234-igg4_rd-row6,IgG4-RD,CER 215 et 234,IgG4,0.047
+synthetic-serum-cer_215_et_234-igg4_rd-row7,IgG4-RD,CER 215 et 234,IgG4,-0.019
+synthetic-serum-cer_215_et_234-igg4_rd-row8,IgG4-RD,CER 215 et 234,IgG4,-0.008
+synthetic-serum-cer_215_et_234-igg4_rd-row9,IgG4-RD,CER 215 et 234,IgG4,-0.005
+synthetic-serum-cer_215_et_234-igg4_rd-row10,IgG4-RD,CER 215 et 234,IgG4,0.007
+synthetic-serum-cer_215_et_234-igg4_rd-row11,IgG4-RD,CER 215 et 234,IgG4,0.02
+synthetic-serum-cer_215_et_234-igg4_rd-row12,IgG4-RD,CER 215 et 234,IgG4,-0.022
+synthetic-serum-cer_215_et_234-igg4_rd-row13,IgG4-RD,CER 215 et 234,IgG4,-0.014
+synthetic-serum-cer_215_et_234-igg4_rd-row14,IgG4-RD,CER 215 et 234,IgG4,-0.002
+synthetic-serum-cer_215_et_234-igg4_rd-row15,IgG4-RD,CER 215 et 234,IgG4,0.261
+synthetic-serum-cer_215_et_234-igg4_rd-row16,IgG4-RD,CER 215 et 234,IgG4,0.022
+synthetic-serum-cer_215_et_234-igg4_rd-row17,IgG4-RD,CER 215 et 234,IgG4,-0.047
+synthetic-serum-cer_215_et_234-igg4_rd-row18,IgG4-RD,CER 215 et 234,IgG4,0.008
+synthetic-serum-cer_215_et_234-igg4_rd-row19,IgG4-RD,CER 215 et 234,IgG4,-0.039
+synthetic-serum-cer_215_et_234-igg4_rd-row20,IgG4-RD,CER 215 et 234,IgG4,0.013
+synthetic-serum-cer_215_et_234-igg4_rd-row21,IgG4-RD,CER 215 et 234,IgG4,0.005
+synthetic-serum-cer_215_et_234-igg4_rd-row22,IgG4-RD,CER 215 et 234,IgG4,-0.012
+synthetic-serum-cer_215_et_234-igg4_rd-row23,IgG4-RD,CER 215 et 234,IgG4,-0.023
+synthetic-serum-cer_215_et_234-igg4_rd-row24,IgG4-RD,CER 215 et 234,IgG4,-0.01
+synthetic-serum-cer_215_et_234-igg4_rd-row25,IgG4-RD,CER 215 et 234,IgG4,0.023
+synthetic-serum-cer_215_et_234-igg4_rd-row26,IgG4-RD,CER 215 et 234,IgG4,-0.001
+synthetic-serum-cer_215_et_234-igg4_rd-row27,IgG4-RD,CER 215 et 234,IgG4,0.056
+synthetic-serum-cer_215_et_234-igg4_rd-row28,IgG4-RD,CER 215 et 234,IgG4,0.014
+synthetic-serum-cer_215_et_234-igg4_rd-row29,IgG4-RD,CER 215 et 234,IgG4,-0.02
+synthetic-serum-cer_215_et_234-sd-row4,SD,CER 215 et 234,IgG4,-0.017
+synthetic-serum-cer_215_et_234-sd-row5,SD,CER 215 et 234,IgG4,-0.054
+synthetic-serum-cer_215_et_234-sd-row6,SD,CER 215 et 234,IgG4,0.025
+synthetic-serum-cer_215_et_234-sd-row7,SD,CER 215 et 234,IgG4,0.011
+synthetic-serum-cer_215_et_234-sd-row8,SD,CER 215 et 234,IgG4,0.01
+synthetic-serum-cer_215_et_234-sd-row9,SD,CER 215 et 234,IgG4,-0.043
+synthetic-serum-cer_215_et_234-sd-row10,SD,CER 215 et 234,IgG4,0.026
+synthetic-serum-cer_215_et_234-sd-row11,SD,CER 215 et 234,IgG4,-0.007
+synthetic-serum-cer_215_et_234-sd-row12,SD,CER 215 et 234,IgG4,0.029
+synthetic-serum-cer_215_et_234-sd-row13,SD,CER 215 et 234,IgG4,0.001
+synthetic-serum-cer_215_et_234-al-row4,AL,CER 215 et 234,IgG4,-0.034
+synthetic-serum-cer_215_et_234-al-row5,AL,CER 215 et 234,IgG4,-0.013
+synthetic-serum-cer_215_et_234-al-row6,AL,CER 215 et 234,IgG4,-0.011
+synthetic-serum-cer_215_et_234-al-row7,AL,CER 215 et 234,IgG4,-0.01
+synthetic-serum-cer_215_et_234-al-row8,AL,CER 215 et 234,IgG4,0.001
+synthetic-serum-cer_215_et_234-al-row9,AL,CER 215 et 234,IgG4,0.003
+synthetic-serum-cer_215_et_234-al-row10,AL,CER 215 et 234,IgG4,0.015
+synthetic-serum-cer_215_et_234-al-row11,AL,CER 215 et 234,IgG4,0.022
+synthetic-serum-cer_215_et_234-al-row12,AL,CER 215 et 234,IgG4,0.031
+synthetic-serum-cer_215_et_234-al-row13,AL,CER 215 et 234,IgG4,0.055
+synthetic-serum-cer_215_et_234-il-row4,IL,CER 215 et 234,IgG4,-0.05
+synthetic-serum-cer_215_et_234-il-row5,IL,CER 215 et 234,IgG4,-0.045
+synthetic-serum-cer_215_et_234-il-row6,IL,CER 215 et 234,IgG4,-0.042
+synthetic-serum-cer_215_et_234-il-row7,IL,CER 215 et 234,IgG4,-0.03
+synthetic-serum-cer_215_et_234-il-row8,IL,CER 215 et 234,IgG4,-0.009
+synthetic-serum-cer_215_et_234-il-row9,IL,CER 215 et 234,IgG4,-0.007
+synthetic-serum-cer_215_et_234-il-row10,IL,CER 215 et 234,IgG4,-0.005
+synthetic-serum-cer_215_et_234-il-row11,IL,CER 215 et 234,IgG4,0.014
+synthetic-serum-cer_215_et_234-il-row12,IL,CER 215 et 234,IgG4,0.027
+synthetic-serum-cer_215_et_234-il-row13,IL,CER 215 et 234,IgG4,0.067
+synthetic-serum-cer_229-hd-row4,HD,CER 229,IgG4,0.03
+synthetic-serum-cer_229-hd-row5,HD,CER 229,IgG4,0.015
+synthetic-serum-cer_229-hd-row6,HD,CER 229,IgG4,0.045
+synthetic-serum-cer_229-hd-row7,HD,CER 229,IgG4,-0.013
+synthetic-serum-cer_229-hd-row8,HD,CER 229,IgG4,0.052
+synthetic-serum-cer_229-hd-row9,HD,CER 229,IgG4,0.057
+synthetic-serum-cer_229-hd-row10,HD,CER 229,IgG4,-0.036
+synthetic-serum-cer_229-hd-row11,HD,CER 229,IgG4,0.013
+synthetic-serum-cer_229-hd-row12,HD,CER 229,IgG4,0.028
+synthetic-serum-cer_229-hd-row13,HD,CER 229,IgG4,0.046
+synthetic-serum-cer_229-igg4_rd-row4,IgG4-RD,CER 229,IgG4,0.043
+synthetic-serum-cer_229-igg4_rd-row5,IgG4-RD,CER 229,IgG4,-0.008
+synthetic-serum-cer_229-igg4_rd-row6,IgG4-RD,CER 229,IgG4,-0.039
+synthetic-serum-cer_229-igg4_rd-row7,IgG4-RD,CER 229,IgG4,-0.027
+synthetic-serum-cer_229-igg4_rd-row8,IgG4-RD,CER 229,IgG4,-0.05
+synthetic-serum-cer_229-igg4_rd-row9,IgG4-RD,CER 229,IgG4,0.058
+synthetic-serum-cer_229-igg4_rd-row10,IgG4-RD,CER 229,IgG4,-0.046
+synthetic-serum-cer_229-igg4_rd-row11,IgG4-RD,CER 229,IgG4,-0.01
+synthetic-serum-cer_229-igg4_rd-row12,IgG4-RD,CER 229,IgG4,0
+synthetic-serum-cer_229-igg4_rd-row13,IgG4-RD,CER 229,IgG4,0.012
+synthetic-serum-cer_229-igg4_rd-row14,IgG4-RD,CER 229,IgG4,-0.055
+synthetic-serum-cer_229-igg4_rd-row15,IgG4-RD,CER 229,IgG4,-0.041
+synthetic-serum-cer_229-igg4_rd-row16,IgG4-RD,CER 229,IgG4,0.009
+synthetic-serum-cer_229-igg4_rd-row17,IgG4-RD,CER 229,IgG4,0.002
+synthetic-serum-cer_229-igg4_rd-row18,IgG4-RD,CER 229,IgG4,-0.011
+synthetic-serum-cer_229-igg4_rd-row19,IgG4-RD,CER 229,IgG4,-0.031
+synthetic-serum-cer_229-igg4_rd-row20,IgG4-RD,CER 229,IgG4,0.018
+synthetic-serum-cer_229-igg4_rd-row21,IgG4-RD,CER 229,IgG4,0.121
+synthetic-serum-cer_229-igg4_rd-row22,IgG4-RD,CER 229,IgG4,-0.028
+synthetic-serum-cer_229-igg4_rd-row23,IgG4-RD,CER 229,IgG4,-0.021
+synthetic-serum-cer_229-igg4_rd-row24,IgG4-RD,CER 229,IgG4,-0.017
+synthetic-serum-cer_229-igg4_rd-row25,IgG4-RD,CER 229,IgG4,0.006
+synthetic-serum-cer_229-igg4_rd-row26,IgG4-RD,CER 229,IgG4,-0.035
+synthetic-serum-cer_229-igg4_rd-row27,IgG4-RD,CER 229,IgG4,0.033
+synthetic-serum-cer_229-igg4_rd-row28,IgG4-RD,CER 229,IgG4,0.031
+synthetic-serum-cer_229-igg4_rd-row29,IgG4-RD,CER 229,IgG4,-0.032
+synthetic-serum-cer_229-sd-row4,SD,CER 229,IgG4,0.008
+synthetic-serum-cer_229-sd-row5,SD,CER 229,IgG4,0.039
+synthetic-serum-cer_229-sd-row6,SD,CER 229,IgG4,0.048
+synthetic-serum-cer_229-sd-row7,SD,CER 229,IgG4,-0.002
+synthetic-serum-cer_229-sd-row8,SD,CER 229,IgG4,-0.015
+synthetic-serum-cer_229-sd-row9,SD,CER 229,IgG4,0.037
+synthetic-serum-cer_229-sd-row10,SD,CER 229,IgG4,0.042
+synthetic-serum-cer_229-sd-row11,SD,CER 229,IgG4,0.016
+synthetic-serum-cer_229-sd-row12,SD,CER 229,IgG4,0.035
+synthetic-serum-cer_229-sd-row13,SD,CER 229,IgG4,0.04
+synthetic-serum-cer_229-al-row4,AL,CER 229,IgG4,-0.043
+synthetic-serum-cer_229-al-row5,AL,CER 229,IgG4,-0.029
+synthetic-serum-cer_229-al-row6,AL,CER 229,IgG4,-0.012
+synthetic-serum-cer_229-al-row7,AL,CER 229,IgG4,0.022
+synthetic-serum-cer_229-al-row8,AL,CER 229,IgG4,0.023
+synthetic-serum-cer_229-al-row9,AL,CER 229,IgG4,0.025
+synthetic-serum-cer_229-al-row10,AL,CER 229,IgG4,0.026
+synthetic-serum-cer_229-al-row11,AL,CER 229,IgG4,0.035
+synthetic-serum-cer_229-al-row12,AL,CER 229,IgG4,0.053
+synthetic-serum-cer_229-al-row13,AL,CER 229,IgG4,0.087
+synthetic-serum-cer_229-il-row4,IL,CER 229,IgG4,-0.009
+synthetic-serum-cer_229-il-row5,IL,CER 229,IgG4,-0.005
+synthetic-serum-cer_229-il-row6,IL,CER 229,IgG4,-0.003
+synthetic-serum-cer_229-il-row7,IL,CER 229,IgG4,-0.001
+synthetic-serum-cer_229-il-row8,IL,CER 229,IgG4,0
+synthetic-serum-cer_229-il-row9,IL,CER 229,IgG4,0.002
+synthetic-serum-cer_229-il-row10,IL,CER 229,IgG4,0.003
+synthetic-serum-cer_229-il-row11,IL,CER 229,IgG4,0.007
+synthetic-serum-cer_229-il-row12,IL,CER 229,IgG4,0.022
+synthetic-serum-cer_229-il-row13,IL,CER 229,IgG4,0.059
+synthetic-serum-ent_059-hd-row4,HD,ENT 059,IgG4,-0.017
+synthetic-serum-ent_059-hd-row5,HD,ENT 059,IgG4,0.034
+synthetic-serum-ent_059-hd-row6,HD,ENT 059,IgG4,0.056
+synthetic-serum-ent_059-hd-row7,HD,ENT 059,IgG4,0.001
+synthetic-serum-ent_059-hd-row8,HD,ENT 059,IgG4,0.04
+synthetic-serum-ent_059-hd-row9,HD,ENT 059,IgG4,0.033
+synthetic-serum-ent_059-hd-row10,HD,ENT 059,IgG4,-0.002
+synthetic-serum-ent_059-hd-row11,HD,ENT 059,IgG4,0.143
+synthetic-serum-ent_059-hd-row12,HD,ENT 059,IgG4,0.043
+synthetic-serum-ent_059-hd-row13,HD,ENT 059,IgG4,0.028
+synthetic-serum-ent_059-igg4_rd-row4,IgG4-RD,ENT 059,IgG4,-0.047
+synthetic-serum-ent_059-igg4_rd-row5,IgG4-RD,ENT 059,IgG4,-0.026
+synthetic-serum-ent_059-igg4_rd-row6,IgG4-RD,ENT 059,IgG4,-0.028
+synthetic-serum-ent_059-igg4_rd-row7,IgG4-RD,ENT 059,IgG4,0.031
+synthetic-serum-ent_059-igg4_rd-row8,IgG4-RD,ENT 059,IgG4,-0.044
+synthetic-serum-ent_059-igg4_rd-row9,IgG4-RD,ENT 059,IgG4,-0.029
+synthetic-serum-ent_059-igg4_rd-row10,IgG4-RD,ENT 059,IgG4,0.244
+synthetic-serum-ent_059-igg4_rd-row11,IgG4-RD,ENT 059,IgG4,-0.084
+synthetic-serum-ent_059-igg4_rd-row12,IgG4-RD,ENT 059,IgG4,0.011
+synthetic-serum-ent_059-igg4_rd-row13,IgG4-RD,ENT 059,IgG4,0.016
+synthetic-serum-ent_059-igg4_rd-row14,IgG4-RD,ENT 059,IgG4,-0.012
+synthetic-serum-ent_059-igg4_rd-row15,IgG4-RD,ENT 059,IgG4,-0.111
+synthetic-serum-ent_059-igg4_rd-row16,IgG4-RD,ENT 059,IgG4,0.018
+synthetic-serum-ent_059-igg4_rd-row17,IgG4-RD,ENT 059,IgG4,-0.032
+synthetic-serum-ent_059-igg4_rd-row18,IgG4-RD,ENT 059,IgG4,-0.011
+synthetic-serum-ent_059-igg4_rd-row19,IgG4-RD,ENT 059,IgG4,-0.009
+synthetic-serum-ent_059-igg4_rd-row20,IgG4-RD,ENT 059,IgG4,0.008
+synthetic-serum-ent_059-igg4_rd-row21,IgG4-RD,ENT 059,IgG4,-0.042
+synthetic-serum-ent_059-igg4_rd-row22,IgG4-RD,ENT 059,IgG4,0.042
+synthetic-serum-ent_059-igg4_rd-row23,IgG4-RD,ENT 059,IgG4,-0.037
+synthetic-serum-ent_059-igg4_rd-row24,IgG4-RD,ENT 059,IgG4,0.024
+synthetic-serum-ent_059-igg4_rd-row25,IgG4-RD,ENT 059,IgG4,0.058
+synthetic-serum-ent_059-igg4_rd-row26,IgG4-RD,ENT 059,IgG4,-0.014
+synthetic-serum-ent_059-igg4_rd-row27,IgG4-RD,ENT 059,IgG4,-0.003
+synthetic-serum-ent_059-igg4_rd-row28,IgG4-RD,ENT 059,IgG4,-0.049
+synthetic-serum-ent_059-igg4_rd-row29,IgG4-RD,ENT 059,IgG4,0.014
+synthetic-serum-ent_059-sd-row4,SD,ENT 059,IgG4,0.036
+synthetic-serum-ent_059-sd-row5,SD,ENT 059,IgG4,0
+synthetic-serum-ent_059-sd-row6,SD,ENT 059,IgG4,0.037
+synthetic-serum-ent_059-sd-row7,SD,ENT 059,IgG4,0.012
+synthetic-serum-ent_059-sd-row8,SD,ENT 059,IgG4,0.046
+synthetic-serum-ent_059-sd-row9,SD,ENT 059,IgG4,0.045
+synthetic-serum-ent_059-sd-row10,SD,ENT 059,IgG4,0.03
+synthetic-serum-ent_059-sd-row11,SD,ENT 059,IgG4,-0.04
+synthetic-serum-ent_059-sd-row12,SD,ENT 059,IgG4,0.078
+synthetic-serum-ent_059-sd-row13,SD,ENT 059,IgG4,0.039
+synthetic-serum-ent_059-al-row4,AL,ENT 059,IgG4,-0.035
+synthetic-serum-ent_059-al-row5,AL,ENT 059,IgG4,-0.029
+synthetic-serum-ent_059-al-row6,AL,ENT 059,IgG4,-0.019
+synthetic-serum-ent_059-al-row7,AL,ENT 059,IgG4,0
+synthetic-serum-ent_059-al-row8,AL,ENT 059,IgG4,0.013
+synthetic-serum-ent_059-al-row9,AL,ENT 059,IgG4,0.022
+synthetic-serum-ent_059-al-row10,AL,ENT 059,IgG4,0.027
+synthetic-serum-ent_059-al-row11,AL,ENT 059,IgG4,0.028
+synthetic-serum-ent_059-al-row12,AL,ENT 059,IgG4,0.035
+synthetic-serum-ent_059-al-row13,AL,ENT 059,IgG4,0.054
+synthetic-serum-ent_059-il-row4,IL,ENT 059,IgG4,-0.04
+synthetic-serum-ent_059-il-row5,IL,ENT 059,IgG4,-0.019
+synthetic-serum-ent_059-il-row6,IL,ENT 059,IgG4,-0.003
+synthetic-serum-ent_059-il-row7,IL,ENT 059,IgG4,0.011
+synthetic-serum-ent_059-il-row8,IL,ENT 059,IgG4,0.012
+synthetic-serum-ent_059-il-row9,IL,ENT 059,IgG4,0.017
+synthetic-serum-ent_059-il-row10,IL,ENT 059,IgG4,0.036
+synthetic-serum-ent_059-il-row11,IL,ENT 059,IgG4,0.038
+synthetic-serum-ent_059-il-row12,IL,ENT 059,IgG4,0.047
+synthetic-serum-ent_059-il-row13,IL,ENT 059,IgG4,0.205

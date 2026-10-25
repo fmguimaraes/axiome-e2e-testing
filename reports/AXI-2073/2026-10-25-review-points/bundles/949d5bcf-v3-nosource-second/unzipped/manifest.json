@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-10-25T06:09:32.081Z",
+  "evidenceId": "949d5bcf-926d-43ec-bfeb-aeae93b3faf2",
+  "versionNumber": 3,
+  "reportSha256": "sha256:1242e5de9eafcfc2981187b3ab18aa7b6420973c5d42740b906ed01fadb395a6",
+  "includeSource": false,
+  "containsSourceData": false,
+  "files": [
+    {
+      "filename": "data/runs/1ad15a6c-d411-4485-ab82-b94e923f3e00.csv",
+      "sha256": "sha256:003ad2d37178fbccb0803d6e3940bedde04121ed410621b16f98c977992a1f68"
+    },
+    {
+      "filename": "data/runs/eb353146-f43f-41a3-9461-a3e2c787eb8e.csv",
+      "sha256": "sha256:dc32ffa62a2f94135487d097e53509a6f35ac57a9d430a843b63024f4dd3f197"
+    },
+    {
+      "filename": "report.md",
+      "sha256": "sha256:d65df95f11dd35d41d84baea82315f691e918a09e55286aba832a226c8480787"
+    }
+  ]
+}

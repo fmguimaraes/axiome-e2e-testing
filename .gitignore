@@ -11,6 +11,15 @@ playwright-report/
 blob-report/
 playwright/.cache/
 
+# Campaign reports are committed under reports/<JIRA-ID>/ (owner rule
+# 2026-10-25: reports live here, never on claude.ai artifacts). Re-include the
+# Playwright outputs there, but never traces: a trace.zip records the test
+# user's bearer token in its network log (NFR6).
+!/reports/**/test-results/
+!/reports/**/playwright-report/
+/reports/**/trace.zip
+/reports/**/playwright-report/data/*.zip
+
 # AXI-1614 — raw shadow-run rows (a live-run artifact the aggregation script
 # consumes; the generated report itself is committed under axiome-docs, this
 # raw JSON is not)

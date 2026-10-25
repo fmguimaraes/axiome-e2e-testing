@@ -1,0 +1,27 @@
+{
+  "generatedAt": "2026-10-25T06:28:50.082Z",
+  "evidenceId": "5891a5ac-d01e-4fa1-bc27-1ca397015c82",
+  "versionNumber": 6,
+  "reportSha256": "sha256:492891804924ac52310d8a1e177d982170dd782da6700359758de1f36b8f83de",
+  "includeSource": true,
+  "containsSourceData": true,
+  "notice": "This bundle contains the source file and row-level chart data, which may contain patient-level data. Handle it under your data-protection rules.",
+  "files": [
+    {
+      "filename": "charts/abe9eabf-3fee-482a-9d0e-b3da92b693e9.png",
+      "sha256": "sha256:17aea070460c1a66d47cca2bd11c27d7a5d3c512c712fd8dc544382ed22c558d"
+    },
+    {
+      "filename": "data/charts/abe9eabf-3fee-482a-9d0e-b3da92b693e9.csv",
+      "sha256": "sha256:0c9447d8c00e234da64642dc1ef9583ce86849205b9ca54b6509a5c8da3e8b78"
+    },
+    {
+      "filename": "data/source/03-organ-involvement.csv",
+      "sha256": "sha256:534ba2c496efe2c89fb5717317f1babe94b56e02c18cdf2bfad4af3520aa4cec"
+    },
+    {
+      "filename": "report.md",
+      "sha256": "sha256:0e422faf0bd882d1765b75df6140293e6de6054bf5aaa3a2a557388c836cb0e2"
+    }
+  ]
+}

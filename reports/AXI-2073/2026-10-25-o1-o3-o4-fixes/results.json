@@ -1,0 +1,1517 @@
+{
+  "config": {
+    "argv": [
+      "/usr/bin/node",
+      "./node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.campaign.config.ts",
+      "tests/AXI-2073"
+    ],
+    "configFile": "./playwright.campaign.config.ts",
+    "rootDir": "./tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": "./preflight/global-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 10
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "./test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "setup",
+        "name": "setup",
+        "testDir": "./tests",
+        "testIgnore": [],
+        "testMatch": [
+          "/.*\\.setup\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "./test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "./tests",
+        "testIgnore": [
+          "/.*\\.setup\\.ts/",
+          "/AXI-1462\\/AXI-1614-compiled-planner-shadow-run\\.spec\\.ts$/",
+          "/AXI-2060\\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset|AXI-2243-pairwise-pvalue-brackets)\\.spec\\.ts$/"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "./test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "shadow-run-api",
+        "name": "shadow-run-api",
+        "testDir": "./tests",
+        "testIgnore": [],
+        "testMatch": [
+          "/AXI-1462\\/AXI-1614-compiled-planner-shadow-run\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "./test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "evidence-api",
+        "name": "evidence-api",
+        "testDir": "./tests",
+        "testIgnore": [],
+        "testMatch": [
+          "/AXI-2060\\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset|AXI-2243-pairwise-pvalue-brackets)\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "./playwright-report",
+          "open": "never"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "./results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 10,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "setup/auth.setup.ts",
+      "file": "setup/auth.setup.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "authenticate admin",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "setup",
+              "projectName": "setup",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 16444,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-25T05:25:03.951Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "./test-results/setup-auth.setup.ts-authenticate-admin-setup/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "./test-results/setup-auth.setup.ts-authenticate-admin-setup/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e717b06d8d484d1cd946-dc2edf2a1971fb5a3312",
+          "file": "setup/auth.setup.ts",
+          "line": 16,
+          "column": 3
+        },
+        {
+          "title": "authenticate user",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "setup",
+              "projectName": "setup",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 17022,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-25T05:25:03.827Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "./test-results/setup-auth.setup.ts-authenticate-user-setup/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "./test-results/setup-auth.setup.ts-authenticate-user-setup/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e717b06d8d484d1cd946-5bd8887d99b322e0f36e",
+          "file": "setup/auth.setup.ts",
+          "line": 16,
+          "column": 3
+        }
+      ]
+    },
+    {
+      "title": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+      "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "AXI-2073 redesign — clinician report + source bundle",
+          "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+          "line": 155,
+          "column": 6,
+          "specs": [
+            {
+              "title": "R1 AC14/FR12 — the bundle carries the source file whose SHA-256 equals the recorded rawFileHash, the run CSV, and a manifest that verifies",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 523,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:23.196Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2073-redesign-99aff-nd-a-manifest-that-verifies-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-0409eb93837f58696ce0",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 156,
+              "column": 3
+            },
+            {
+              "title": "R2 AC13/FR17/AC16 — names come first: the run is named by its operation label, people by name, and the Methods section lists aggregate rows",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 396,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:31.586Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2073-redesign-0d166-ection-lists-aggregate-rows-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-9c01adfcaf5cf4d04718",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 176,
+              "column": 3
+            },
+            {
+              "title": "R3 FR13/AC7 — two downloads differ only in the Generated line; the stated report hash is recomputable from report.md alone",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 759,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:32.521Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2073-redesign-c2e94-utable-from-report-md-alone-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-99a85ac66282f77e0517",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 194,
+              "column": 3
+            },
+            {
+              "title": "R4 AC15/FR12/NFR5 — includeSource=false leaves out the source file and every row-level chart CSV, and says so",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 427,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:33.770Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2073-redesign-df86b-level-chart-CSV-and-says-so-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-0794b5745313b2512f15",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 205,
+              "column": 3
+            },
+            {
+              "title": "R5 FR12 — an includeSource value other than true/false is refused 400",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 42,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:34.655Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2073-redesign-4ed7f-n-true-false-is-refused-400-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-3a5afd06340b0be1f042",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 216,
+              "column": 3
+            },
+            {
+              "title": "R6 AC12/FR4/FR18/EC11 — evidence over the snapshot the run only READ is a broken link; the run is listed as not linked, never as the producer",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 368,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:35.054Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2073-redesign-a2afe-inked-never-as-the-producer-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-18ee3e2443892786f2e3",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 221,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "AXI-2073 owner fixes O1/O3/O4",
+          "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+          "line": 262,
+          "column": 6,
+          "specs": [
+            {
+              "title": "O1 fixture — chart template/version in the chart line and Appendix A Details; snapshot origin in Population",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 639,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:35.724Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2073-redesign-c0152-apshot-origin-in-Population-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-77dce7203454397e6d65",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 263,
+              "column": 3
+            },
+            {
+              "title": "O4 fixture — an unfiltered slice reads \"the whole dataset (no filter)\" with the RECORDED row count; no raw filter JSON anywhere",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 399,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:36.726Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2073-redesign-39965-no-raw-filter-JSON-anywhere-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-d73fafcc86e3b0ea0ea5",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 277,
+              "column": 3
+            },
+            {
+              "title": "O1/O4 demo 949d5bcf v3 — box plot template + \"made by a user\"; filtered view keeps \"Rows in the slice: not recorded\"",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4651,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:37.731Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2073-redesign-5c2e4--in-the-slice-not-recorded--chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-c34c2780ca5a3492b08e",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 289,
+              "column": 3
+            },
+            {
+              "title": "O4 demo b305a9bf v1 — whole dataset, \"Rows: all 23 rows of dataset version 2\", cohort filters in words, no raw JSON",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4423,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:42.597Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2073-redesign-2f07f-ilters-in-words-no-raw-JSON-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-81cb618ba92109dbe5b8",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 302,
+              "column": 3
+            },
+            {
+              "title": "O3 demo — the audit PNG of a params-{} spec has a title band and an x-label band; an explicit x_title \"\" stays empty",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8787,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:47.347Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2073-redesign-af8dd-xplicit-x-title-stays-empty-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-36e5673d71b9c0906794",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 313,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+      "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "AXI-2077 — audit report endpoint (FR14, NFR1, NFR3, AC8, AC11)",
+          "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+          "line": 74,
+          "column": 6,
+          "specs": [
+            {
+              "title": "AC11/FR14 — a member of the owning workspace downloads 200 application/zip with the exact Content-Disposition filename",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 308,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:22.846Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2077-audit-re-872b9-ontent-Disposition-filename-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ad06c98f574796c0-6ad06a86742d31a58445",
+              "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+              "line": 75,
+              "column": 3
+            },
+            {
+              "title": "AC8/FR14 — an unknown evidence id -> 404",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 72,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:22.797Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2077-audit-re-9e7a4-n-unknown-evidence-id---404-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ad06c98f574796c0-0abbb19fb3c51790c200",
+              "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+              "line": 92,
+              "column": 3
+            },
+            {
+              "title": "AC8/FR14 — a request scoped to a DIFFERENT workspace than the one that owns the evidence -> 404 (cross-tenant, never 403)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 135,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:22.817Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2077-audit-re-808a8-404-cross-tenant-never-403--chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ad06c98f574796c0-185f7e230c2b6ad2242f",
+              "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+              "line": 103,
+              "column": 3
+            },
+            {
+              "title": "NFR3 — a non-positive-integer versionNumber is refused with 400, never forwarded as NaN",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 278,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:22.900Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2077-audit-re-39d2b--400-never-forwarded-as-NaN-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ad06c98f574796c0-2e496bf8c316d9057db9",
+              "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+              "line": 121,
+              "column": 3
+            },
+            {
+              "title": "AC8/FR14 — a 403 from the endpoint is a distinct status from 404 (contract-level, route interception)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 718,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:22.989Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "./test-results/AXI-2073-AXI-2077-audit-re-4a8cb-t-level-route-interception--chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2077-audit-re-4a8cb-t-level-route-interception--chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ad06c98f574796c0-630ab0970596dcaf317b",
+              "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+              "line": 137,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "AXI-2073/AXI-2078-download-audit-report.spec.ts",
+      "file": "AXI-2073/AXI-2078-download-audit-report.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "AXI-2078 — download audit report action (FR15/AC9)",
+          "file": "AXI-2073/AXI-2078-download-audit-report.spec.ts",
+          "line": 84,
+          "column": 6,
+          "specs": [
+            {
+              "title": "AC9 — the evidence detail page offers \"Download audit report\" for the version shown",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 6,
+                      "status": "passed",
+                      "duration": 24397,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:23.104Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "./test-results/AXI-2073-AXI-2078-download-47146-eport-for-the-version-shown-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2078-download-47146-eport-for-the-version-shown-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "7ac6da56b770b69a722f-86699d6f79751150d06b",
+              "file": "AXI-2073/AXI-2078-download-audit-report.spec.ts",
+              "line": 85,
+              "column": 3
+            },
+            {
+              "title": "a 403 from the endpoint shows a user-facing error, never a silent failure",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 22700,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:23.118Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "./test-results/AXI-2073-AXI-2078-download-78e3a-rror-never-a-silent-failure-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2078-download-78e3a-rror-never-a-silent-failure-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "7ac6da56b770b69a722f-6f9359d42c59fef0aa5b",
+              "file": "AXI-2073/AXI-2078-download-audit-report.spec.ts",
+              "line": 94,
+              "column": 3
+            },
+            {
+              "title": "FR15 — clicking the button downloads audit-<evidenceId>-v<versionNumber>.zip",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 8,
+                      "status": "passed",
+                      "duration": 21156,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:23.029Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "./test-results/AXI-2073-AXI-2078-download-9fb12-enceId--v-versionNumber-zip-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2078-download-9fb12-enceId--v-versionNumber-zip-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "7ac6da56b770b69a722f-179825fab2c0a0d8e0f8",
+              "file": "AXI-2073/AXI-2078-download-audit-report.spec.ts",
+              "line": 105,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "AXI-2073/AXI-2081-methods-section-r-equivalence.spec.ts",
+      "file": "AXI-2073/AXI-2081-methods-section-r-equivalence.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "AXI-2081 — Methods section build identity + R-equivalence link (FR6-FR8, AC3, AC5, D3)",
+          "file": "AXI-2073/AXI-2081-methods-section-r-equivalence.spec.ts",
+          "line": 182,
+          "column": 6,
+          "specs": [
+            {
+              "title": "AC3/FR6-FR7 — a run-backed evidence download names the run's build-identity lines, each a real value or \"not recorded\"",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 9,
+                      "status": "passed",
+                      "duration": 482,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:23.386Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2081-methods--ced16-real-value-or-not-recorded--chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ca0c6da7c555dff7-4735ec065c80dc9db987",
+              "file": "AXI-2073/AXI-2081-methods-section-r-equivalence.spec.ts",
+              "line": 183,
+              "column": 3
+            },
+            {
+              "title": "AC5/FR8/D3 — the R-equivalence entry line is always present and is never a broken link",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 492,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:25.596Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2081-methods--03bd4--and-is-never-a-broken-link-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ca0c6da7c555dff7-1512ce52b0692c239c2a",
+              "file": "AXI-2073/AXI-2081-methods-section-r-equivalence.spec.ts",
+              "line": 211,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+      "file": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "AXI-2087 — audit step 4 reads the run-linked cohort (D6, FR2, FR4, EC8)",
+          "file": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+          "line": 145,
+          "column": 6,
+          "specs": [
+            {
+              "title": "FR2/AC2 — a run created after the release shows a recorded, locked run_scope cohort",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-017",
+                "SI-014"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 399,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:25.725Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2087-cohort-s-cea39-ded-locked-run-scope-cohort-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c87b7e28d356c1f9ce76-754301e8604f5341d49b",
+              "file": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+              "line": 146,
+              "column": 3
+            },
+            {
+              "title": "FR2/D6 — the run_scope cohort is absent from the project cohort list",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-017",
+                "SI-014"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 127,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:31.826Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2087-cohort-s-18041-rom-the-project-cohort-list-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c87b7e28d356c1f9ce76-c77bbecae3f8f3bfc7d5",
+              "file": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+              "line": 164,
+              "column": 3
+            },
+            {
+              "title": "AXI-2155 A1/D6 — unlock and new-version are REFUSED on the run_scope cohort (immutability)",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-017",
+                "SI-014"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 521,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:32.499Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2087-cohort-s-ea265--scope-cohort-immutability--chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c87b7e28d356c1f9ce76-dbe9e037295cef7032be",
+              "file": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+              "line": 174,
+              "column": 3
+            },
+            {
+              "title": "FR4/AC6 — evidence over a snapshot no run produced keeps the cohort step \"not recorded\"",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-017",
+                "SI-014"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 489,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T05:25:33.598Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "./test-results/AXI-2073-AXI-2087-cohort-s-a40b7-e-cohort-step-not-recorded--chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c87b7e28d356c1f9ce76-863f953e6acee25a5476",
+              "file": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+              "line": 206,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-25T05:25:01.675Z",
+    "duration": 54743.299999999996,
+    "expected": 27,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

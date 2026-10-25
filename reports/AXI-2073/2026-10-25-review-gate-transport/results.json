@@ -1,0 +1,1706 @@
+{
+  "config": {
+    "argv": [
+      "/usr/bin/node",
+      "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/node_modules/.bin/playwright",
+      "test",
+      "tests/AXI-2073",
+      "--output",
+      "reports/AXI-2073/2026-10-25-review-gate-transport/test-results",
+      "--reporter=list,html,json",
+      "--trace",
+      "on"
+    ],
+    "configFile": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/playwright.config.ts",
+    "rootDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/preflight/global-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 10
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "setup",
+        "name": "setup",
+        "testDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "/.*\\.setup\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/tests",
+        "testIgnore": [
+          "/.*\\.setup\\.ts/",
+          "/AXI-1462\\/AXI-1614-compiled-planner-shadow-run\\.spec\\.ts$/",
+          "/AXI-2060\\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset|AXI-2243-pairwise-pvalue-brackets)\\.spec\\.ts$/"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "shadow-run-api",
+        "name": "shadow-run-api",
+        "testDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "/AXI-1462\\/AXI-1614-compiled-planner-shadow-run\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "evidence-api",
+        "name": "evidence-api",
+        "testDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "/AXI-2060\\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset|AXI-2243-pairwise-pvalue-brackets)\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list"
+      ],
+      [
+        "html"
+      ],
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 10,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "setup/auth.setup.ts",
+      "file": "setup/auth.setup.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "authenticate admin",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "setup",
+              "projectName": "setup",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7739,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-25T06:27:56.825Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/setup-auth.setup.ts-authenticate-admin-setup/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e717b06d8d484d1cd946-dc2edf2a1971fb5a3312",
+          "file": "setup/auth.setup.ts",
+          "line": 16,
+          "column": 3
+        },
+        {
+          "title": "authenticate user",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "setup",
+              "projectName": "setup",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 7575,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-25T06:27:56.964Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/setup-auth.setup.ts-authenticate-user-setup/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e717b06d8d484d1cd946-5bd8887d99b322e0f36e",
+          "file": "setup/auth.setup.ts",
+          "line": 16,
+          "column": 3
+        }
+      ]
+    },
+    {
+      "title": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+      "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "AXI-2073 redesign — clinician report + source bundle",
+          "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+          "line": 159,
+          "column": 6,
+          "specs": [
+            {
+              "title": "R1 AC14/FR12 — the bundle carries the source file whose SHA-256 equals the recorded rawFileHash, the run CSV, and a manifest that verifies",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 321,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:05.683Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-99aff-nd-a-manifest-that-verifies-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-0409eb93837f58696ce0",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 160,
+              "column": 3
+            },
+            {
+              "title": "R2 AC13/FR17/AC16 — names come first: the run is named by its operation label, people by name, and the Methods section lists aggregate rows",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 276,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:10.431Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-0d166-ection-lists-aggregate-rows-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-9c01adfcaf5cf4d04718",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 180,
+              "column": 3
+            },
+            {
+              "title": "R3 FR13/AC7 — two downloads differ only in the Generated line; the stated report hash is recomputable from report.md alone",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 453,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:10.957Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-c2e94-utable-from-report-md-alone-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-99a85ac66282f77e0517",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 198,
+              "column": 3
+            },
+            {
+              "title": "R4 AC15/FR12/NFR5 — includeSource=false leaves out the source file and every row-level chart CSV, and says so",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 226,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:11.628Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-df86b-level-chart-CSV-and-says-so-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-0794b5745313b2512f15",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 209,
+              "column": 3
+            },
+            {
+              "title": "R5 FR12 — an includeSource value other than true/false is refused 400",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 24,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:12.045Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-4ed7f-n-true-false-is-refused-400-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-3a5afd06340b0be1f042",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 220,
+              "column": 3
+            },
+            {
+              "title": "R6 AC12/FR4/FR18/EC11 — evidence over the snapshot the run only READ is a broken link; the run is listed as not linked, never as the producer",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 232,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:12.298Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-a2afe-inked-never-as-the-producer-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-18ee3e2443892786f2e3",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 225,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "AXI-2073 owner fixes O1/O3/O4",
+          "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+          "line": 266,
+          "column": 6,
+          "specs": [
+            {
+              "title": "O1 fixture — chart template/version in the chart line and Appendix A Details; snapshot origin in Population",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 424,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:12.799Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-c0152-apshot-origin-in-Population-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-77dce7203454397e6d65",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 267,
+              "column": 3
+            },
+            {
+              "title": "O4 fixture — an unfiltered slice reads \"the whole dataset (no filter)\" with the RECORDED row count; no raw filter JSON anywhere",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 133,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:13.390Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-39965-no-raw-filter-JSON-anywhere-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-d73fafcc86e3b0ea0ea5",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 281,
+              "column": 3
+            },
+            {
+              "title": "O1/O4 demo 949d5bcf v3 — box plot template + \"made by a user\"; filtered view keeps \"Rows in the slice: not recorded\"",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3853,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:13.615Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-5c2e4--in-the-slice-not-recorded--chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-c34c2780ca5a3492b08e",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 293,
+              "column": 3
+            },
+            {
+              "title": "O4 demo b305a9bf v1 — whole dataset, \"Rows: all 23 rows of dataset version 2\", cohort filters in words, no raw JSON",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3512,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:17.612Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-2f07f-ilters-in-words-no-raw-JSON-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-81cb618ba92109dbe5b8",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 306,
+              "column": 3
+            },
+            {
+              "title": "O3 demo — the audit PNG of a params-{} spec has a title band and an x-label band; an explicit x_title \"\" stays empty",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5060,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:21.218Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-af8dd-xplicit-x-title-stays-empty-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-36e5673d71b9c0906794",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 317,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "AXI-2073 review points — chart image withheld without source data; source size limit",
+          "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+          "line": 345,
+          "column": 6,
+          "specs": [
+            {
+              "title": "RP1 fixture AC20 — includeSource=false: no PNG in the zip or the manifest; the chart line says the image is withheld",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 84,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:26.400Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-ef1e2--says-the-image-is-withheld-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-aa38eb4dfdefabb43bd7",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 346,
+              "column": 3
+            },
+            {
+              "title": "RP2 fixture AC20/FR13 — includeSource=false is deterministic: same report hash, every other file byte-identical",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 140,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:26.553Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-d3b83-y-other-file-byte-identical-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-de95200841dab140447a",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 358,
+              "column": 3
+            },
+            {
+              "title": "RP3 demo 949d5bcf v3 AC20 — box plot: withheld with includeSource=false, attached with includeSource=true",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2385,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:26.762Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-37b98-hed-with-includeSource-true-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-a5469db690b17f506446",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 368,
+              "column": 3
+            },
+            {
+              "title": "RP4 fixture FR19 — under the default 64 MiB limit and the 96 MiB transport ceiling the source is streamed in whole and the manifest records no exclusion",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-018",
+                "SI-010"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 72,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:29.242Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2073-redesign-4571a-nifest-records-no-exclusion-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d6972260628459959022-b537662520115dd8a2e1",
+              "file": "AXI-2073/AXI-2073-redesign-audit-bundle.spec.ts",
+              "line": 385,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+      "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "AXI-2077 — audit report endpoint (FR14, NFR1, NFR3, AC8, AC11)",
+          "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+          "line": 74,
+          "column": 6,
+          "specs": [
+            {
+              "title": "AC11/FR14 — a member of the owning workspace downloads 200 application/zip with the exact Content-Disposition filename",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 198,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:05.477Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2077-audit-re-872b9-ontent-Disposition-filename-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ad06c98f574796c0-6ad06a86742d31a58445",
+              "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+              "line": 75,
+              "column": 3
+            },
+            {
+              "title": "AC8/FR14 — an unknown evidence id -> 404",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 131,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:05.737Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2077-audit-re-9e7a4-n-unknown-evidence-id---404-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ad06c98f574796c0-0abbb19fb3c51790c200",
+              "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+              "line": 92,
+              "column": 3
+            },
+            {
+              "title": "AC8/FR14 — a request scoped to a DIFFERENT workspace than the one that owns the evidence -> 404 (cross-tenant, never 403)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 76,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:05.508Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2077-audit-re-808a8-404-cross-tenant-never-403--chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ad06c98f574796c0-185f7e230c2b6ad2242f",
+              "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+              "line": 103,
+              "column": 3
+            },
+            {
+              "title": "NFR3 — a non-positive-integer versionNumber is refused with 400, never forwarded as NaN",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 181,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:05.614Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2077-audit-re-39d2b--400-never-forwarded-as-NaN-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ad06c98f574796c0-2e496bf8c316d9057db9",
+              "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+              "line": 121,
+              "column": 3
+            },
+            {
+              "title": "AC8/FR14 — a 403 from the endpoint is a distinct status from 404 (contract-level, route interception)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 590,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:05.729Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2077-audit-re-4a8cb-t-level-route-interception--chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ad06c98f574796c0-630ab0970596dcaf317b",
+              "file": "AXI-2073/AXI-2077-audit-report-endpoint.spec.ts",
+              "line": 137,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "AXI-2073/AXI-2078-download-audit-report.spec.ts",
+      "file": "AXI-2073/AXI-2078-download-audit-report.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "AXI-2078 — download audit report action (FR15/AC9)",
+          "file": "AXI-2073/AXI-2078-download-audit-report.spec.ts",
+          "line": 84,
+          "column": 6,
+          "specs": [
+            {
+              "title": "AC9 — the evidence detail page offers \"Download audit report\" for the version shown",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 6,
+                      "status": "passed",
+                      "duration": 10719,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:05.519Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2078-download-47146-eport-for-the-version-shown-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "7ac6da56b770b69a722f-86699d6f79751150d06b",
+              "file": "AXI-2073/AXI-2078-download-audit-report.spec.ts",
+              "line": 85,
+              "column": 3
+            },
+            {
+              "title": "a 403 from the endpoint shows a user-facing error, never a silent failure",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 12699,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:05.542Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2078-download-78e3a-rror-never-a-silent-failure-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "7ac6da56b770b69a722f-6f9359d42c59fef0aa5b",
+              "file": "AXI-2073/AXI-2078-download-audit-report.spec.ts",
+              "line": 94,
+              "column": 3
+            },
+            {
+              "title": "FR15 — clicking the button downloads audit-<evidenceId>-v<versionNumber>.zip",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 8,
+                      "status": "passed",
+                      "duration": 11503,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:05.607Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2078-download-9fb12-enceId--v-versionNumber-zip-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "7ac6da56b770b69a722f-179825fab2c0a0d8e0f8",
+              "file": "AXI-2073/AXI-2078-download-audit-report.spec.ts",
+              "line": 105,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "AXI-2073/AXI-2081-methods-section-r-equivalence.spec.ts",
+      "file": "AXI-2073/AXI-2081-methods-section-r-equivalence.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "AXI-2081 — Methods section build identity + R-equivalence link (FR6-FR8, AC3, AC5, D3)",
+          "file": "AXI-2073/AXI-2081-methods-section-r-equivalence.spec.ts",
+          "line": 182,
+          "column": 6,
+          "specs": [
+            {
+              "title": "AC3/FR6-FR7 — a run-backed evidence download names the run's build-identity lines, each a real value or \"not recorded\"",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 9,
+                      "status": "passed",
+                      "duration": 413,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:05.717Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2081-methods--ced16-real-value-or-not-recorded--chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ca0c6da7c555dff7-4735ec065c80dc9db987",
+              "file": "AXI-2073/AXI-2081-methods-section-r-equivalence.spec.ts",
+              "line": 183,
+              "column": 3
+            },
+            {
+              "title": "AC5/FR8/D3 — the R-equivalence entry line is always present and is never a broken link",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 270,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:07.335Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2081-methods--03bd4--and-is-never-a-broken-link-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4e2ca0c6da7c555dff7-1512ce52b0692c239c2a",
+              "file": "AXI-2073/AXI-2081-methods-section-r-equivalence.spec.ts",
+              "line": 211,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+      "file": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "AXI-2087 — audit step 4 reads the run-linked cohort (D6, FR2, FR4, EC8)",
+          "file": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+          "line": 145,
+          "column": 6,
+          "specs": [
+            {
+              "title": "FR2/AC2 — a run created after the release shows a recorded, locked run_scope cohort",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-017",
+                "SI-014"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 304,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:07.528Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2087-cohort-s-cea39-ded-locked-run-scope-cohort-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c87b7e28d356c1f9ce76-754301e8604f5341d49b",
+              "file": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+              "line": 146,
+              "column": 3
+            },
+            {
+              "title": "FR2/D6 — the run_scope cohort is absent from the project cohort list",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-017",
+                "SI-014"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 78,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:11.194Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2087-cohort-s-18041-rom-the-project-cohort-list-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c87b7e28d356c1f9ce76-c77bbecae3f8f3bfc7d5",
+              "file": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+              "line": 164,
+              "column": 3
+            },
+            {
+              "title": "AXI-2155 A1/D6 — unlock and new-version are REFUSED on the run_scope cohort (immutability)",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-017",
+                "SI-014"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 276,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:11.466Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2087-cohort-s-ea265--scope-cohort-immutability--chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c87b7e28d356c1f9ce76-dbe9e037295cef7032be",
+              "file": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+              "line": 174,
+              "column": 3
+            },
+            {
+              "title": "FR4/AC6 — evidence over a snapshot no run produced keeps the cohort step \"not recorded\"",
+              "ok": true,
+              "tags": [
+                "SI-016",
+                "SI-017",
+                "SI-014"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 304,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T06:28:11.922Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2073-redesign/reports/AXI-2073/2026-10-25-review-gate-transport/test-results/AXI-2073-AXI-2087-cohort-s-a40b7-e-cohort-step-not-recorded--chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c87b7e28d356c1f9ce76-863f953e6acee25a5476",
+              "file": "AXI-2073/AXI-2087-cohort-step.spec.ts",
+              "line": 206,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-25T06:27:55.643Z",
+    "duration": 33800.524999999994,
+    "expected": 31,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

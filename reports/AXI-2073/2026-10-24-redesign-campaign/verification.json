@@ -1,0 +1,467 @@
+[
+ {
+  "bundle": "5891a5ac-v6",
+  "checks": {
+   "manifest_sha_match": [
+    true,
+    {
+     "mismatch": [],
+     "missing": [],
+     "unlisted": [],
+     "n_files": 4
+    }
+   ],
+   "report_hash_recompute": [
+    true,
+    {
+     "stated": "45b10d9e62bb157368c99ffb698da8c2f4d0596ea152ae67c0b7d508a1d182dc",
+     "recomputed": "45b10d9e62bb157368c99ffb698da8c2f4d0596ea152ae67c0b7d508a1d182dc",
+     "manifest_reportSha256": "sha256:45b10d9e62bb157368c99ffb698da8c2f4d0596ea152ae67c0b7d508a1d182dc"
+    }
+   ],
+   "manifest_reportSha_eq_stated": [
+    true,
+    {}
+   ],
+   "manifest_report_md_hash": [
+    true,
+    {}
+   ],
+   "source_sha_eq_rawFileHash": [
+    true,
+    {
+     "raw_hashes_in_report": 1,
+     "detail": [
+      [
+       "data/source/03-organ-involvement.csv",
+       true
+      ]
+     ],
+     "source_files": [
+      "data/source/03-organ-involvement.csv"
+     ]
+    }
+   ],
+   "nfr4_grep": [
+    true,
+    {
+     "hits": []
+    }
+   ]
+  }
+ },
+ {
+  "bundle": "90efa713-v1",
+  "checks": {
+   "manifest_sha_match": [
+    true,
+    {
+     "mismatch": [],
+     "missing": [],
+     "unlisted": [],
+     "n_files": 42
+    }
+   ],
+   "report_hash_recompute": [
+    true,
+    {
+     "stated": "315b19feed1e7e6676056d0af195edc58669d5dfe621a3c6729871216f7c12e9",
+     "recomputed": "315b19feed1e7e6676056d0af195edc58669d5dfe621a3c6729871216f7c12e9",
+     "manifest_reportSha256": "sha256:315b19feed1e7e6676056d0af195edc58669d5dfe621a3c6729871216f7c12e9"
+    }
+   ],
+   "manifest_reportSha_eq_stated": [
+    true,
+    {}
+   ],
+   "manifest_report_md_hash": [
+    true,
+    {}
+   ],
+   "source_sha_eq_rawFileHash": [
+    true,
+    {
+     "raw_hashes_in_report": 1,
+     "detail": [
+      [
+       "data/source/statistical-trigger.csv",
+       true
+      ]
+     ],
+     "source_files": [
+      "data/source/statistical-trigger.csv"
+     ]
+    }
+   ],
+   "nfr4_grep": [
+    true,
+    {
+     "hits": []
+    }
+   ]
+  }
+ },
+ {
+  "bundle": "949d5bcf-v3",
+  "checks": {
+   "manifest_sha_match": [
+    true,
+    {
+     "mismatch": [],
+     "missing": [],
+     "unlisted": [],
+     "n_files": 6
+    }
+   ],
+   "report_hash_recompute": [
+    true,
+    {
+     "stated": "ba92b5d2fd7f62a4bf81c3b6ad6b227564595ac78040c244a0a3d4ee063fb2e8",
+     "recomputed": "ba92b5d2fd7f62a4bf81c3b6ad6b227564595ac78040c244a0a3d4ee063fb2e8",
+     "manifest_reportSha256": "sha256:ba92b5d2fd7f62a4bf81c3b6ad6b227564595ac78040c244a0a3d4ee063fb2e8"
+    }
+   ],
+   "manifest_reportSha_eq_stated": [
+    true,
+    {}
+   ],
+   "manifest_report_md_hash": [
+    true,
+    {}
+   ],
+   "source_sha_eq_rawFileHash": [
+    true,
+    {
+     "raw_hashes_in_report": 1,
+     "detail": [
+      [
+       "data/source/tableau1_long_synthetic.csv",
+       true
+      ]
+     ],
+     "source_files": [
+      "data/source/tableau1_long_synthetic.csv"
+     ]
+    }
+   ],
+   "nfr4_grep": [
+    true,
+    {
+     "hits": []
+    }
+   ]
+  }
+ },
+ {
+  "bundle": "949d5bcf-v3-nosource",
+  "checks": {
+   "manifest_sha_match": [
+    true,
+    {
+     "mismatch": [],
+     "missing": [],
+     "unlisted": [],
+     "n_files": 4
+    }
+   ],
+   "report_hash_recompute": [
+    true,
+    {
+     "stated": "d5be19fc9fa84fb75514058bfaf8d7ce6f67e0e109e344f77718b158b31f89f3",
+     "recomputed": "d5be19fc9fa84fb75514058bfaf8d7ce6f67e0e109e344f77718b158b31f89f3",
+     "manifest_reportSha256": "sha256:d5be19fc9fa84fb75514058bfaf8d7ce6f67e0e109e344f77718b158b31f89f3"
+    }
+   ],
+   "manifest_reportSha_eq_stated": [
+    true,
+    {}
+   ],
+   "manifest_report_md_hash": [
+    true,
+    {}
+   ],
+   "no_source_no_chart_csv": [
+    true,
+    {
+     "source": [],
+     "chart_csv": [],
+     "containsSourceData": false
+    }
+   ],
+   "nfr4_grep": [
+    true,
+    {
+     "hits": []
+    }
+   ]
+  }
+ },
+ {
+  "bundle": "949d5bcf-v3-second",
+  "checks": {
+   "manifest_sha_match": [
+    true,
+    {
+     "mismatch": [],
+     "missing": [],
+     "unlisted": [],
+     "n_files": 6
+    }
+   ],
+   "report_hash_recompute": [
+    true,
+    {
+     "stated": "ba92b5d2fd7f62a4bf81c3b6ad6b227564595ac78040c244a0a3d4ee063fb2e8",
+     "recomputed": "ba92b5d2fd7f62a4bf81c3b6ad6b227564595ac78040c244a0a3d4ee063fb2e8",
+     "manifest_reportSha256": "sha256:ba92b5d2fd7f62a4bf81c3b6ad6b227564595ac78040c244a0a3d4ee063fb2e8"
+    }
+   ],
+   "manifest_reportSha_eq_stated": [
+    true,
+    {}
+   ],
+   "manifest_report_md_hash": [
+    true,
+    {}
+   ],
+   "source_sha_eq_rawFileHash": [
+    true,
+    {
+     "raw_hashes_in_report": 1,
+     "detail": [
+      [
+       "data/source/tableau1_long_synthetic.csv",
+       true
+      ]
+     ],
+     "source_files": [
+      "data/source/tableau1_long_synthetic.csv"
+     ]
+    }
+   ],
+   "nfr4_grep": [
+    true,
+    {
+     "hits": []
+    }
+   ]
+  }
+ },
+ {
+  "bundle": "b305a9bf-v1",
+  "checks": {
+   "manifest_sha_match": [
+    true,
+    {
+     "mismatch": [],
+     "missing": [],
+     "unlisted": [],
+     "n_files": 5
+    }
+   ],
+   "report_hash_recompute": [
+    true,
+    {
+     "stated": "ca5b5701565a75fc3da40001285e5eea7d5e93d820ba6a352eed4f71daa17b11",
+     "recomputed": "ca5b5701565a75fc3da40001285e5eea7d5e93d820ba6a352eed4f71daa17b11",
+     "manifest_reportSha256": "sha256:ca5b5701565a75fc3da40001285e5eea7d5e93d820ba6a352eed4f71daa17b11"
+    }
+   ],
+   "manifest_reportSha_eq_stated": [
+    true,
+    {}
+   ],
+   "manifest_report_md_hash": [
+    true,
+    {}
+   ],
+   "source_sha_eq_rawFileHash": [
+    true,
+    {
+     "raw_hashes_in_report": 1,
+     "detail": [
+      [
+       "data/source/final_tableau2_synthetic.csv",
+       true
+      ]
+     ],
+     "source_files": [
+      "data/source/final_tableau2_synthetic.csv"
+     ]
+    }
+   ],
+   "nfr4_grep": [
+    true,
+    {
+     "hits": []
+    }
+   ]
+  }
+ },
+ {
+  "bundle": "c700a6bd-v1",
+  "checks": {
+   "manifest_sha_match": [
+    true,
+    {
+     "mismatch": [],
+     "missing": [],
+     "unlisted": [],
+     "n_files": 7
+    }
+   ],
+   "report_hash_recompute": [
+    true,
+    {
+     "stated": "067fa585d3e7f1a3c1bb84f0e2a2d10d4872f3aa53d65de78c5f997903252932",
+     "recomputed": "067fa585d3e7f1a3c1bb84f0e2a2d10d4872f3aa53d65de78c5f997903252932",
+     "manifest_reportSha256": "sha256:067fa585d3e7f1a3c1bb84f0e2a2d10d4872f3aa53d65de78c5f997903252932"
+    }
+   ],
+   "manifest_reportSha_eq_stated": [
+    true,
+    {}
+   ],
+   "manifest_report_md_hash": [
+    true,
+    {}
+   ],
+   "source_sha_eq_rawFileHash": [
+    true,
+    {
+     "raw_hashes_in_report": 1,
+     "detail": [
+      [
+       "data/source/final_tableau1_long_synthetic.csv",
+       true
+      ]
+     ],
+     "source_files": [
+      "data/source/final_tableau1_long_synthetic.csv"
+     ]
+    }
+   ],
+   "nfr4_grep": [
+    true,
+    {
+     "hits": []
+    }
+   ]
+  }
+ },
+ {
+  "bundle": "d37eff12-v1",
+  "checks": {
+   "manifest_sha_match": [
+    true,
+    {
+     "mismatch": [],
+     "missing": [],
+     "unlisted": [],
+     "n_files": 5
+    }
+   ],
+   "report_hash_recompute": [
+    true,
+    {
+     "stated": "92b37b54e13f8738d973fcd6e55aa7947385267026a1fd32b33667ccf3b559ad",
+     "recomputed": "92b37b54e13f8738d973fcd6e55aa7947385267026a1fd32b33667ccf3b559ad",
+     "manifest_reportSha256": "sha256:92b37b54e13f8738d973fcd6e55aa7947385267026a1fd32b33667ccf3b559ad"
+    }
+   ],
+   "manifest_reportSha_eq_stated": [
+    true,
+    {}
+   ],
+   "manifest_report_md_hash": [
+    true,
+    {}
+   ],
+   "source_sha_eq_rawFileHash": [
+    true,
+    {
+     "raw_hashes_in_report": 1,
+     "detail": [
+      [
+       "data/source/final_tableau2_synthetic.csv",
+       true
+      ]
+     ],
+     "source_files": [
+      "data/source/final_tableau2_synthetic.csv"
+     ]
+    }
+   ],
+   "nfr4_grep": [
+    true,
+    {
+     "hits": []
+    }
+   ]
+  }
+ },
+ {
+  "bundle": "eb9ab5bf-v1",
+  "checks": {
+   "manifest_sha_match": [
+    true,
+    {
+     "mismatch": [],
+     "missing": [],
+     "unlisted": [],
+     "n_files": 4
+    }
+   ],
+   "report_hash_recompute": [
+    true,
+    {
+     "stated": "ecb153f6a5e1392598299cad64d3335ffc1dcdee00f9473fb2c27ae007948963",
+     "recomputed": "ecb153f6a5e1392598299cad64d3335ffc1dcdee00f9473fb2c27ae007948963",
+     "manifest_reportSha256": "sha256:ecb153f6a5e1392598299cad64d3335ffc1dcdee00f9473fb2c27ae007948963"
+    }
+   ],
+   "manifest_reportSha_eq_stated": [
+    true,
+    {}
+   ],
+   "manifest_report_md_hash": [
+    true,
+    {}
+   ],
+   "source_sha_eq_rawFileHash": [
+    true,
+    {
+     "raw_hashes_in_report": 1,
+     "detail": [
+      [
+       "data/source/final_heatmap_synthetic.csv",
+       true
+      ]
+     ],
+     "source_files": [
+      "data/source/final_heatmap_synthetic.csv"
+     ]
+    }
+   ],
+   "nfr4_grep": [
+    true,
+    {
+     "hits": []
+    }
+   ]
+  }
+ },
+ {
+  "bundle": "DETERMINISM 949d5bcf-v3 vs second",
+  "det": {
+   "files_differing": [
+    "manifest.json"
+   ],
+   "report_lines_differing": [],
+   "manifest_keys_differing": [
+    "generatedAt"
+   ],
+   "manifest_file_hashes_differing": []
+  }
+ }
+]

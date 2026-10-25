@@ -1,0 +1,2 @@
+auc,aucCiHigh,aucCiLevel,aucCiLow,aucCiMethod,effectSize,feature,measurement,nGroupFrom,nGroupTo,pValue,reason,uStatistic
+0.6150793650793651,,0.95,,bootstrap,0.23015873015873012,__all__,microbiote_igg4_ent_059,9,14,0.37051184565070394,,77.5

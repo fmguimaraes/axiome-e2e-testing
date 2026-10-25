@@ -1,0 +1,73 @@
+subject_id,timepoint,term_as_written,organ_canonical,in_published_categories
+IGG4-001,Baseline,Parotid,salivary glands,True
+IGG4-001,Baseline,LN,lymph nodes,True
+IGG4-002,Baseline,RPF,retroperitoneal fibrosis,True
+IGG4-002,Baseline,LN,lymph nodes,True
+IGG4-002,Baseline,lung,lung,True
+IGG4-003,Baseline,Meninges,meninges,False
+IGG4-003,Baseline,aorta,aorta,False
+IGG4-004,Baseline,Pancreas,pancreas,True
+IGG4-005,Baseline,Kidney,kidney,True
+IGG4-005,Baseline,LN,lymph nodes,True
+IGG4-005,Baseline,lung,lung,True
+IGG4-005,Baseline,pancreas,pancreas,True
+IGG4-006,Baseline,SMG,salivary glands,True
+IGG4-006,Baseline,LN,lymph nodes,True
+IGG4-007,Baseline,RPF,retroperitoneal fibrosis,True
+IGG4-007,Baseline,lung,lung,True
+IGG4-007,Baseline,thyroid,thyroid,False
+IGG4-008,Baseline,RPF,retroperitoneal fibrosis,True
+IGG4-008,Baseline,pancreas,pancreas,True
+IGG4-008,Baseline,lung,lung,True
+IGG4-009,Baseline,Lung,lung,True
+IGG4-009,Baseline,LN,lymph nodes,True
+IGG4-009,Baseline,RPF,retroperitoneal fibrosis,True
+IGG4-010,Baseline,Bone,bone,False
+IGG4-010,Baseline,LN,lymph nodes,True
+IGG4-011,Baseline,RPF,retroperitoneal fibrosis,True
+IGG4-011,Baseline,lung,lung,True
+IGG4-011,Baseline,kidney,kidney,True
+IGG4-012,Baseline,Kidney,kidney,True
+IGG4-012,Baseline,lung,lung,True
+IGG4-012,Baseline,pancreas,pancreas,True
+IGG4-012,Baseline,prostate,prostate,False
+IGG4-012,Baseline,testis,testis,False
+IGG4-012,Baseline,LN,lymph nodes,True
+IGG4-013,Baseline,Orbit,orbit,True
+IGG4-013,Baseline,lung,lung,True
+IGG4-013,Baseline,LN,lymph nodes,True
+IGG4-013,Baseline,pancreas,pancreas,True
+IGG4-013,Baseline,SMG,salivary glands,True
+IGG4-014,Baseline,Mesenteritis,mesentery,False
+IGG4-015,Baseline,Orbit,orbit,True
+IGG4-016,Baseline,Kidney,kidney,True
+IGG4-016,Baseline,pancreas,pancreas,True
+IGG4-016,Baseline,LN,lymph nodes,True
+IGG4-017,Baseline,RPF,retroperitoneal fibrosis,True
+IGG4-018,Baseline,LN,lymph nodes,True
+IGG4-019,Baseline,Pancreas,pancreas,True
+IGG4-019,Baseline,LN,lymph nodes,True
+IGG4-019,Baseline,bile duct,bile ducts,True
+IGG4-020,Baseline,Pancreas,pancreas,True
+IGG4-021,Baseline,Bile duct,bile ducts,True
+IGG4-022,Baseline,Lung,lung,True
+IGG4-022,Baseline,SMG,salivary glands,True
+IGG4-022,Baseline,LN,lymph nodes,True
+IGG4-023,Baseline,Kidney,kidney,True
+IGG4-023,Baseline,SMG,salivary glands,True
+IGG4-023,Baseline,lung,lung,True
+IGG4-023,Baseline,LN,lymph nodes,True
+IGG4-024,Baseline,LN,lymph nodes,True
+IGG4-024,Baseline,pancreas,pancreas,True
+IGG4-024,Baseline,bile duct,bile ducts,True
+IGG4-025,Baseline,LN,lymph nodes,True
+IGG4-025,Baseline,pancreas,pancreas,True
+IGG4-026,Baseline,Pancreas,pancreas,True
+IGG4-026,Baseline,skin,skin,False
+IGG4-027,Baseline,Pancreas,pancreas,True
+IGG4-027,Baseline,liver,liver,False
+IGG4-027,Baseline,lung,lung,True
+IGG4-027,Baseline,LN,lymph nodes,True
+IGG4-028,Baseline,Dacryoadenitis,orbit,True
+IGG4-028,Baseline,LN,lymph nodes,True
+IGG4-028,Baseline,pancreas,pancreas,True

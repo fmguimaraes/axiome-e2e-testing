@@ -1,0 +1,27 @@
+{
+  "generatedAt": "2026-10-24T16:37:02.032Z",
+  "evidenceId": "eb9ab5bf-6486-4536-94d5-9ff335311164",
+  "versionNumber": 1,
+  "reportSha256": "sha256:ecb153f6a5e1392598299cad64d3335ffc1dcdee00f9473fb2c27ae007948963",
+  "includeSource": true,
+  "containsSourceData": true,
+  "notice": "This bundle contains the source file and row-level chart data, which may contain patient-level data. Handle it under your data-protection rules.",
+  "files": [
+    {
+      "filename": "charts/402ddb56-1a0f-470e-8447-0028d1ff45d4.png",
+      "sha256": "sha256:b13eea770c35b4b9812fc3489887a2a32fd851201ec1073e593c65d8a206214e"
+    },
+    {
+      "filename": "data/charts/402ddb56-1a0f-470e-8447-0028d1ff45d4.csv",
+      "sha256": "sha256:6c7fa95ac316dfc6c0732ce035149820881de77b8bae1045158541742085b883"
+    },
+    {
+      "filename": "data/source/final_heatmap_synthetic.csv",
+      "sha256": "sha256:559f35b8b59d86c372bf03b49d93c933f6f73477b61b8a3a2289a64afb86b3cf"
+    },
+    {
+      "filename": "report.md",
+      "sha256": "sha256:4bcf09de0b3e150000d0d32065a795ed2e1d837d714ea99846deadf363af83d4"
+    }
+  ]
+}

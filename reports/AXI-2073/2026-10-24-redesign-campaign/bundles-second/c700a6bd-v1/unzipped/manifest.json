@@ -1,0 +1,39 @@
+{
+  "generatedAt": "2026-10-24T16:37:58.915Z",
+  "evidenceId": "c700a6bd-e4e6-419d-b506-34190cc7fb0e",
+  "versionNumber": 1,
+  "reportSha256": "sha256:067fa585d3e7f1a3c1bb84f0e2a2d10d4872f3aa53d65de78c5f997903252932",
+  "includeSource": true,
+  "containsSourceData": true,
+  "notice": "This bundle contains the source file and row-level chart data, which may contain patient-level data. Handle it under your data-protection rules.",
+  "files": [
+    {
+      "filename": "charts/2aefc664-0111-441e-aa51-5a528c00c7c9.png",
+      "sha256": "sha256:03ab4d4d9e01c0d4a21b8cc71f07326f0d41932d97e2903d153af9cef8180940"
+    },
+    {
+      "filename": "data/charts/2aefc664-0111-441e-aa51-5a528c00c7c9.csv",
+      "sha256": "sha256:5e67e0944833ebf53ad4e91f795889b768349fd88b18545b48dfffab7b88d6ff"
+    },
+    {
+      "filename": "data/runs/3a4d494d-061e-4060-9feb-7ed8af6c979b.csv",
+      "sha256": "sha256:d8f69e04ca6cd656d41e3d4b298f7e5238b4e21bb94e35ad180621dcfc0a7ed9"
+    },
+    {
+      "filename": "data/runs/3debaa8f-9be6-4ef6-bba7-20bcd2e0c49c.csv",
+      "sha256": "sha256:814e940ab8a2ff97fb0c8a0059f2c5f6bd7b8c3066627754dc3fd9bb56b2434d"
+    },
+    {
+      "filename": "data/runs/5bca31b5-dbd9-4a3e-a27e-d0658ab76d24.csv",
+      "sha256": "sha256:fdeb2f914be16ab7f60bc9abefb3ac93d2386e215c460a213870c15aef9e7799"
+    },
+    {
+      "filename": "data/source/final_tableau1_long_synthetic.csv",
+      "sha256": "sha256:bc98a928ef3bce6a44b8bb2a180e16fb24f20bb72710697dd1ef3169e3f64b36"
+    },
+    {
+      "filename": "report.md",
+      "sha256": "sha256:bbfe9c91ad6f3193751edb8bd4d2741b1c8105a1911ae5ba93b541f2d4a6cbd3"
+    }
+  ]
+}

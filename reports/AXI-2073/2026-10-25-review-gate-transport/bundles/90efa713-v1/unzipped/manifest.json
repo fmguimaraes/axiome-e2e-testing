@@ -1,0 +1,179 @@
+{
+  "generatedAt": "2026-10-25T06:29:01.474Z",
+  "evidenceId": "90efa713-6909-4797-9454-a98badd0ec2d",
+  "versionNumber": 1,
+  "reportSha256": "sha256:5e6b512a6a4b4f40608abfbd7a10ed71b445bae8e8a740e99642c8bbafd31614",
+  "includeSource": true,
+  "containsSourceData": true,
+  "notice": "This bundle contains the source file and row-level chart data, which may contain patient-level data. Handle it under your data-protection rules.",
+  "files": [
+    {
+      "filename": "data/charts/084a70ee-f73f-4bbd-8bb3-902af0efa14c.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/194edd3d-495a-4db5-b434-19d2a10e9235.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/2537dfe5-0d8c-467c-ae86-cfa92f6cc017.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/39e089ca-5b79-4633-ba54-7398f8d79690.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/4d5d1240-9729-4a56-8a15-33401e0c22ce.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/6b4ee9b2-4349-4d58-b466-e60c223cb0c2.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/6f4fdd78-f6fd-4153-a5e8-1e7ca9fa8b70.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/70087790-d8df-4b15-b015-a5ed2970bf1c.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/91162649-6a98-42f3-a527-90f4f0f3085b.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/95fc9cee-012e-4645-b8b3-7425376bcdb9.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/97601991-2a96-465a-b8da-88e5c9043daa.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/9796e67f-288e-4b94-90a0-a5225ea86f91.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/9857d5e5-9110-4d32-8671-ce08ffec8b34.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/b14d88e3-ac8d-40fd-b5e1-50ed1dd33809.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/bb26f2e8-2e4a-46ad-8591-dd6239953cb8.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/c41cf2fe-b59a-4972-b015-67ffd1327fdf.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/c4c7fa51-ab0c-4b80-acd9-aa9b05fb6513.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/cf22b4b6-09be-45b8-b27e-0967b35af98c.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/d9c07be7-0c75-483a-b348-48fecb276d1d.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/charts/dc3e8f3d-b3b0-4690-90a8-7d83d2bee099.csv",
+      "sha256": "sha256:959a62346f45984f29316941c2254a07eacf597f3dae5e293bbb73cad05ec8cb"
+    },
+    {
+      "filename": "data/runs/1767fa76-6cb0-457c-88d3-42b819629cd7.csv",
+      "sha256": "sha256:0ca94ed6bb1d9ee00ef5a9238158d490e5d658d911af3668845842e6a2a420e8"
+    },
+    {
+      "filename": "data/runs/1b5dc00a-016c-404d-b648-99000a547081.csv",
+      "sha256": "sha256:113066fac549c0757f5e2e65134590bc5bc1f2c46d9e55942cb2b3f17a5e67c7"
+    },
+    {
+      "filename": "data/runs/20659b3d-87b7-4b13-96f1-bd08423089b9.csv",
+      "sha256": "sha256:fa95d7f9cb5fd37d6a74ccbc35d3df78bc216c0fede257a8d6bc8049b3de36b4"
+    },
+    {
+      "filename": "data/runs/2926fe5b-c4e3-44c7-bf45-dba7eeab7835.csv",
+      "sha256": "sha256:82b847e85e1c591df4e88284ee76610b6bd5349594406a2e299e1bf0b6dd3d59"
+    },
+    {
+      "filename": "data/runs/2d5a1dc2-5ebe-4ce8-b4fc-32ec4456f7d9.csv",
+      "sha256": "sha256:7fc041d6d6cdda3c771a613fe6d06dc844849e05b2e85b0305f7192472257a3e"
+    },
+    {
+      "filename": "data/runs/3d6e35ab-6404-4b2c-8fc2-bed3a9881ffa.csv",
+      "sha256": "sha256:03ed641b5fba20d10eb41c70d2bb2971ba11f7fac12fb85732914ac5406952cd"
+    },
+    {
+      "filename": "data/runs/47f29fc3-7616-40ba-b8ba-96259c65fd24.csv",
+      "sha256": "sha256:b01d4dc20d574238f47fcbef719814178b636f36281bfe9229c4cc4339197150"
+    },
+    {
+      "filename": "data/runs/526a28fe-8864-425d-80ab-085837510cd5.csv",
+      "sha256": "sha256:7816f1cc0a92d0d3080c6b66faf6dad2c9848c02f51997d56bba0db70246780c"
+    },
+    {
+      "filename": "data/runs/561b497d-69bc-44ba-b8a7-20e3d975fad4.csv",
+      "sha256": "sha256:bf5fb0576936b6518127807dc0b3a8e4321d7ad4d4de6d1cd2bc818c8284721a"
+    },
+    {
+      "filename": "data/runs/64357816-c2c4-43df-b81e-50ff47dc9308.csv",
+      "sha256": "sha256:971aaf2884890dbcc04733c1532926fa853ccc800d5824f7f33faa0691e3eade"
+    },
+    {
+      "filename": "data/runs/6a9599cf-38e1-40a3-81c9-722d2a137f9d.csv",
+      "sha256": "sha256:d880ca9a9721c98e795816da0f90c3f063747bff9ba6183c9e1f69ed87413237"
+    },
+    {
+      "filename": "data/runs/6e3694f6-71ae-4303-9bc4-33c64fbb0038.csv",
+      "sha256": "sha256:c5af9304623bcb3295640d82d8673af9bfb310d7b7d55acabc2ee09f92ef4c2c"
+    },
+    {
+      "filename": "data/runs/7009db4c-e73f-4413-8afe-c640367337f1.csv",
+      "sha256": "sha256:e7575d210922ae60433d88a20a5404a97a40d8e511b8389be9588c6cdbc4f797"
+    },
+    {
+      "filename": "data/runs/9162ca27-21d6-4e17-b778-2e2e4d9c254f.csv",
+      "sha256": "sha256:c84995f119b1859ffe7476286a24fb3887fbf0e87a58ac1e07a63d7647099a48"
+    },
+    {
+      "filename": "data/runs/a3dee9a9-f549-49ef-8e23-b4ae45ba70d6.csv",
+      "sha256": "sha256:4b06624dcdad0485246f3ff6880a15f0cde7a4a952c65c3780e09d6fe9860b03"
+    },
+    {
+      "filename": "data/runs/bf30aa8d-fc66-4efd-b1c0-2d06882a59f1.csv",
+      "sha256": "sha256:ed0bd691ec7cb438b9180c62e9bf966b4c5fc40bb7ab17fa4fce9c31dcc5677c"
+    },
+    {
+      "filename": "data/runs/cfb7e50b-9dc2-42e5-9d16-2b850ffae0b2.csv",
+      "sha256": "sha256:fb1142914150eab50d61a1917a96e4c7f8babbc13c3f18312c0c5375949ce2ad"
+    },
+    {
+      "filename": "data/runs/d444b726-118f-4317-809b-5a7679f68561.csv",
+      "sha256": "sha256:8dac6574e2a87f830009f473de2aa5bf92ca0508e6c715c7578a41cf90dfbf62"
+    },
+    {
+      "filename": "data/runs/dc09c36f-9d80-4a5b-a3b8-0cba96a9db8a.csv",
+      "sha256": "sha256:c46b95919d682f7264eb490ff63709e7be8a56539274ca1e4f4c92aaf449c5ab"
+    },
+    {
+      "filename": "data/runs/eabc6090-0dc6-472c-945d-192e4a0a5912.csv",
+      "sha256": "sha256:30df8118997b0d0ddc493df01526bd77c7dc6cda51b91f3b206909f4cff8cefd"
+    },
+    {
+      "filename": "data/source/statistical-trigger.csv",
+      "sha256": "sha256:53fbbdb9fad316b3008b1a7b654e3f4a0ac329ec90d630de4e7b7edf9172b0f6"
+    },
+    {
+      "filename": "report.md",
+      "sha256": "sha256:cca13f7675df5c11ab9955413130ccc5b95a0212cd0f7f196f8e6214be926aa9"
+    }
+  ]
+}
