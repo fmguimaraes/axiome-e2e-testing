@@ -1,0 +1,14 @@
+{
+  "generatedAt": "2026-10-25T10:02:08.524Z",
+  "evidenceId": "eb9ab5bf-6486-4536-94d5-9ff335311164",
+  "versionNumber": 1,
+  "reportSha256": "sha256:f26ee239144104b3632f58694b8168c4709e5e5896952204cbb2812bd878424d",
+  "includeSource": false,
+  "containsSourceData": false,
+  "files": [
+    {
+      "filename": "report.md",
+      "sha256": "sha256:b0050fae818a06b89573cda04b0eab08b2caad9917cc7ae704e0180185d255d4"
+    }
+  ]
+}

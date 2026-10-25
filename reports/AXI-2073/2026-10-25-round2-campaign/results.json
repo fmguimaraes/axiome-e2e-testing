@@ -1,0 +1,797 @@
+{
+  "config": {
+    "argv": [
+      "/usr/bin/node",
+      "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2257/node_modules/.bin/playwright",
+      "test",
+      "tests/AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+      "--project=chromium",
+      "--no-deps",
+      "--output=reports/AXI-2073/2026-10-25-round2-campaign/test-results",
+      "--reporter=list,json,html"
+    ],
+    "configFile": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2257/playwright.config.ts",
+    "rootDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2257/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2257/preflight/global-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2257/reports/AXI-2073/2026-10-25-round2-campaign/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "setup",
+        "name": "setup",
+        "testDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2257/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "/.*\\.setup\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2257/reports/AXI-2073/2026-10-25-round2-campaign/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2257/tests",
+        "testIgnore": [
+          "/.*\\.setup\\.ts/",
+          "/AXI-1462\\/AXI-1614-compiled-planner-shadow-run\\.spec\\.ts$/",
+          "/AXI-2060\\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset|AXI-2243-pairwise-pvalue-brackets)\\.spec\\.ts$/"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2257/reports/AXI-2073/2026-10-25-round2-campaign/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "shadow-run-api",
+        "name": "shadow-run-api",
+        "testDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2257/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "/AXI-1462\\/AXI-1614-compiled-planner-shadow-run\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2257/reports/AXI-2073/2026-10-25-round2-campaign/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "evidence-api",
+        "name": "evidence-api",
+        "testDir": "/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2257/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "/AXI-2060\\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset|AXI-2243-pairwise-pvalue-brackets)\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list"
+      ],
+      [
+        "json"
+      ],
+      [
+        "html"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 10,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+      "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "AXI-2257 round 2 audit report — read-only on the demo data",
+          "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+          "line": 94,
+          "column": 6,
+          "specs": [
+            {
+              "title": "@SI-016 R2-1 c700 headline is \"Traceable — with warnings\" (FR18, AC23)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:19.479Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-06de666d62d2784d41ca",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 101,
+              "column": 3
+            },
+            {
+              "title": "@SI-016 R2-2 verdict grouped: evidence first, then one group per facet run in facet order (FR18, FR24)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.100Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-335d462b38ab85a01a93",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 105,
+              "column": 3
+            },
+            {
+              "title": "@SI-016 R2-2b Methods run headings carry the verdict group label + run link (owner fix, FR5)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.114Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-320be1a9adb1bce53e25",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 115,
+              "column": 3
+            },
+            {
+              "title": "@SI-016 R2-3 rows inside every group are ordered error → warning → not recorded (FR18, AC25)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.126Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-6ba1e5c4044d19165341",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 122,
+              "column": 3
+            },
+            {
+              "title": "@SI-016 R2-4 evidence group names the scope mismatch on both sides (F3, FR22, EC17)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.141Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-2c70c4b9e1e0cceca654",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 130,
+              "column": 3
+            },
+            {
+              "title": "@SI-017 R2-5 per-facet Holm warning over 3 facets; Methods states the family size per facet (F1, FR5, FR20, AC27)",
+              "ok": true,
+              "tags": [
+                "SI-017"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.153Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-f4dd7bd369f7ded08d79",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 139,
+              "column": 3
+            },
+            {
+              "title": "@SI-017 R2-6 no omnibus line while the runs cite STAT-DUNN-POSTHOC v2 (no declaration ⇒ silent; F2, FR21, EC16)",
+              "ok": true,
+              "tags": [
+                "SI-017"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.166Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-3d0aaf9eb5b80fe3d319",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 149,
+              "column": 3
+            },
+            {
+              "title": "@SI-015 R2-7 attribution: interpretation self-approval warns; evidence approver from the audit log (F4, FR23, AC28)",
+              "ok": true,
+              "tags": [
+                "SI-015"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.178Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-93b5cbae9ee284f62b7a",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 155,
+              "column": 3
+            },
+            {
+              "title": "@SI-016 R2-8 evidence approved by its own author warns (b305a9bf v1; F4, FR23)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 64,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.190Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-04220990c1945323499c",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 164,
+              "column": 3
+            },
+            {
+              "title": "@SI-016 R2-9 data-view snapshot: producing run \"not applicable\", read-by run, data-view wording (F3, F5, FR4, FR24, EC14)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.262Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-dcf4c4c343d3a470cdb5",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 171,
+              "column": 3
+            },
+            {
+              "title": "@SI-016 R2-10 \"not applicable\" never reaches the verdict; Appendix A lists it (F5, FR4, AC24)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.274Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-32a82488788fd2f10d92",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 179,
+              "column": 3
+            },
+            {
+              "title": "@SI-016 R2-11 Population: one line per run in facet_order with facet, rows, cohort and n (F3, F7, FR24, AC29)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.287Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-7bc56b1c9622769076e8",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 189,
+              "column": 3
+            },
+            {
+              "title": "@SI-016 R2-12 raw cohort JSON only in Appendix A; units \"not recorded\" (F7, FR5, FR24)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.302Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-6268c2cca813cf184a01",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 199,
+              "column": 3
+            },
+            {
+              "title": "@SI-016 R2-13 broken run link is \"Not traceable\" (949d5bcf v3; FR18, AC12 amended)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 98,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.316Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-b0adc9b78559274707f2",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 207,
+              "column": 3
+            },
+            {
+              "title": "@SI-016 R2-14 every headline is one of the four (FR18)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.427Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-e303bbb7495cb619ae61",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 215,
+              "column": 3
+            },
+            {
+              "title": "@SI-016 R2-15 determinism: two downloads give the same report hash, and the hash verifies (FR13, NFR2, AC30)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2290,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:22.439Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-d45026e4d57ac3dcce0e",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 219,
+              "column": 3
+            },
+            {
+              "title": "@SI-016 R2-16 includeSource=false: same verdict, no chart image, image withheld line (FR12, AC20)",
+              "ok": true,
+              "tags": [
+                "SI-016"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 129,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "buffer": ""
+                        },
+                        {
+                          "buffer": ""
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-10-25T10:02:24.738Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12c597351e0319299d2-7ad18e63624c5ee2cc84",
+              "file": "AXI-2073/AXI-2257-round2-audit-findings.spec.ts",
+              "line": 227,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-25T10:02:18.364Z",
+    "duration": 6528.729,
+    "expected": 17,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
