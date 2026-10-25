@@ -139,3 +139,69 @@ export const access = {
   auditLogs: (a: Actor, projectId: string) =>
     a.api.get(apiUrl(`/api/v1/projects/${projectId}/audit-logs`)),
 };
+
+// ─── AXI-2268 additions (access predicate & ProjectAccessGuard) ───
+
+/** The refusal body minus its per-request fields — what NFR2 parity compares. */
+export interface Refusal {
+  status: number;
+  body: Record<string, unknown>;
+}
+
+export async function refusalOf(res: APIResponse): Promise<Refusal> {
+  const text = await res.text();
+  let body: Record<string, unknown> = {};
+  try {
+    body = text ? JSON.parse(text) : {};
+  } catch {
+    body = { raw: text };
+  }
+  const { path: _path, timestamp: _timestamp, ...stable } = body;
+  return { status: res.status(), body: stable };
+}
+
+/** A project id that was never created — the genuine-miss reference. */
+export function neverCreatedProjectId(): string {
+  const hex = () => Math.floor(Math.random() * 16).toString(16);
+  const block = (n: number) => Array.from({ length: n }, hex).join('');
+  return `${block(8)}-${block(4)}-4${block(3)}-a${block(3)}-${block(12)}`;
+}
+
+/**
+ * Per-request options that blank the actor's `X-Workspace-Id` (WorkspaceGuard
+ * treats an empty header as absent), so a probe reaches a workspace-optional
+ * route with no workspace check in front of the ProjectAccessGuard.
+ */
+export const NO_WORKSPACE_HEADER = { headers: { 'X-Workspace-Id': '' } };
+
+/**
+ * A tiny CSV dataset uploaded by `a` into the fixture workspace (initiate →
+ * presigned PUT → finalize). Ingestion is not awaited: the dataset row is what
+ * AC10 lists.
+ */
+export async function uploadCsvDataset(world: PrivateProjectsWorld, a: Actor): Promise<string> {
+  const base = `/api/v1/workspaces/${world.workspaceId}/datasets`;
+  const init = await json(
+    await a.api.post(apiUrl(base), {
+      data: { organizationId: world.orgId, originalFilename: `${unique('axi2268')}.csv`, contentType: 'text/csv' },
+    }),
+    'initiate dataset upload',
+  );
+  const datasetId: string = init?.dataset?.id;
+  const put = await fetch(init.presignedUrl, {
+    method: 'PUT',
+    headers: { 'content-type': 'text/csv' },
+    body: 'subject_id,value\nS1,1\nS2,2\n',
+  });
+  if (!put.ok) throw new Error(`AXI-2268 fixture presigned PUT -> ${put.status}`);
+  await json(await a.api.patch(apiUrl(`${base}/${datasetId}/finalize`)), 'finalize dataset');
+  return datasetId;
+}
+
+/** Project ids in a paginated `GET /api/v1/projects` reply. */
+export async function listedProjectIds(a: Actor, query = ''): Promise<string[]> {
+  const res = await a.api.get(apiUrl(`/api/v1/projects${query}`));
+  if (!res.ok()) throw new Error(`AXI-2268 list projects -> ${res.status()}: ${await res.text()}`);
+  const body = await res.json();
+  return (body?.data ?? []).map((p: { id: string }) => p.id);
+}
