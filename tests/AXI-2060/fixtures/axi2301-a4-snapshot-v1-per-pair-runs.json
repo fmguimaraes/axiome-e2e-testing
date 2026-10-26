@@ -1,0 +1,501 @@
+{
+ "_source": "42 live `stats.correlation` runs (Spearman, two_sided, xColumn=reference, yColumn=variable) over analysis A4 Snapshot v1 of final_tableau2_synthetic.csv, plus 7 per-reference `POST /rule-runs/correlation-family-adjust` calls (alpha 0.05), recorded 2026-10-26 on the demo stack for AXI-2301 AC1. Labels are the README section 6 display names; `starred` is the README section 6 reference star set.",
+ "references": [
+  {
+   "label": "CER228",
+   "column": "microbiote_igg4_cer_228"
+  },
+  {
+   "label": "MAG4-27",
+   "column": "microbiote_igg4_mag4_27"
+  },
+  {
+   "label": "MAG4-22",
+   "column": "microbiote_igg4_mag4_22"
+  },
+  {
+   "label": "MAG4-13",
+   "column": "microbiote_igg4_mag4_13"
+  },
+  {
+   "label": "CER215+234",
+   "column": "microbiote_igg4_cer_215_et_234"
+  },
+  {
+   "label": "CER229",
+   "column": "microbiote_igg4_cer_229"
+  },
+  {
+   "label": "ENT059",
+   "column": "microbiote_igg4_ent_059"
+  }
+ ],
+ "variables": [
+  {
+   "label": "sIgG4",
+   "column": "igg4_g_l"
+  },
+  {
+   "label": "IgG4-RD RI",
+   "column": "igg4_rd_ri"
+  },
+  {
+   "label": "IgG4+/HPF",
+   "column": "igg4_hpf"
+  },
+  {
+   "label": "Eosinophils",
+   "column": "eosinophils"
+  },
+  {
+   "label": "Plasmablasts",
+   "column": "plasmablasts_cd19_cd38_cd27_mm3"
+  },
+  {
+   "label": "TFH",
+   "column": "tfh_cxcr5_pd1_cd4"
+  }
+ ],
+ "cells": [
+  {
+   "reference": "microbiote_igg4_cer_228",
+   "variable": "igg4_g_l",
+   "rho": 0.591897233201581,
+   "pValue": 0.0029273622303769924,
+   "qValue": 0.011149097627387718,
+   "significance": "after_correction",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_cer_228",
+   "variable": "igg4_rd_ri",
+   "rho": 0.5800395256916997,
+   "pValue": 0.0037163658757959064,
+   "qValue": 0.011149097627387718,
+   "significance": "after_correction",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_cer_228",
+   "variable": "igg4_hpf",
+   "rho": 0.5266798418972332,
+   "pValue": 0.009823828373353952,
+   "qValue": 0.019647656746707903,
+   "significance": "after_correction",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_cer_228",
+   "variable": "eosinophils",
+   "rho": 0.22556390977443608,
+   "pValue": 0.33897093917086674,
+   "qValue": 0.40676512700504014,
+   "significance": "neither",
+   "n": 20
+  },
+  {
+   "reference": "microbiote_igg4_cer_228",
+   "variable": "plasmablasts_cd19_cd38_cd27_mm3",
+   "rho": 0.17272727272727273,
+   "pValue": 0.45402436101288696,
+   "qValue": 0.45402436101288696,
+   "significance": "neither",
+   "n": 21
+  },
+  {
+   "reference": "microbiote_igg4_cer_228",
+   "variable": "tfh_cxcr5_pd1_cd4",
+   "rho": 0.3348390739695088,
+   "pValue": 0.12770341679769573,
+   "qValue": 0.1915551251965436,
+   "significance": "neither",
+   "n": 22
+  },
+  {
+   "reference": "microbiote_igg4_mag4_27",
+   "variable": "igg4_g_l",
+   "rho": 0.3231225296442688,
+   "pValue": 0.13260645224986678,
+   "qValue": 0.26521290449973356,
+   "significance": "neither",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_mag4_27",
+   "variable": "igg4_rd_ri",
+   "rho": 0.42094861660079047,
+   "pValue": 0.04547120480280358,
+   "qValue": 0.13641361440841074,
+   "significance": "before_correction_only",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_mag4_27",
+   "variable": "igg4_hpf",
+   "rho": 0.6630434782608696,
+   "pValue": 0.0005643481284800096,
+   "qValue": 0.0033860887708800575,
+   "significance": "after_correction",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_mag4_27",
+   "variable": "eosinophils",
+   "rho": 0.20902255639097742,
+   "pValue": 0.37647233958713894,
+   "qValue": 0.4517668075045667,
+   "significance": "neither",
+   "n": 20
+  },
+  {
+   "reference": "microbiote_igg4_mag4_27",
+   "variable": "plasmablasts_cd19_cd38_cd27_mm3",
+   "rho": 0.17142857142857143,
+   "pValue": 0.45747702762159437,
+   "qValue": 0.4574770276215944,
+   "significance": "neither",
+   "n": 21
+  },
+  {
+   "reference": "microbiote_igg4_mag4_27",
+   "variable": "tfh_cxcr5_pd1_cd4",
+   "rho": 0.2399774138904574,
+   "pValue": 0.28205773909614285,
+   "qValue": 0.42308660864421427,
+   "significance": "neither",
+   "n": 22
+  },
+  {
+   "reference": "microbiote_igg4_mag4_22",
+   "variable": "igg4_g_l",
+   "rho": 0.6847826086956521,
+   "pValue": 0.00031249204759868865,
+   "qValue": 0.001874952285592132,
+   "significance": "after_correction",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_mag4_22",
+   "variable": "igg4_rd_ri",
+   "rho": 0.4871541501976285,
+   "pValue": 0.018391469138369237,
+   "qValue": 0.05517440741510771,
+   "significance": "before_correction_only",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_mag4_22",
+   "variable": "igg4_hpf",
+   "rho": 0.24604743083003952,
+   "pValue": 0.2577589090568497,
+   "qValue": 0.30931069086821966,
+   "significance": "neither",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_mag4_22",
+   "variable": "eosinophils",
+   "rho": 0.35488721804511275,
+   "pValue": 0.12468812756013883,
+   "qValue": 0.2493762551202777,
+   "significance": "neither",
+   "n": 20
+  },
+  {
+   "reference": "microbiote_igg4_mag4_22",
+   "variable": "plasmablasts_cd19_cd38_cd27_mm3",
+   "rho": 0.2311688311688312,
+   "pValue": 0.313347333132429,
+   "qValue": 0.313347333132429,
+   "significance": "neither",
+   "n": 21
+  },
+  {
+   "reference": "microbiote_igg4_mag4_22",
+   "variable": "tfh_cxcr5_pd1_cd4",
+   "rho": 0.27724449463579903,
+   "pValue": 0.21161051352664337,
+   "qValue": 0.30931069086821966,
+   "significance": "neither",
+   "n": 22
+  },
+  {
+   "reference": "microbiote_igg4_mag4_13",
+   "variable": "igg4_g_l",
+   "rho": 0.3636363636363636,
+   "pValue": 0.08807448930807442,
+   "qValue": 0.13211173396211162,
+   "significance": "neither",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_mag4_13",
+   "variable": "igg4_rd_ri",
+   "rho": 0.38241106719367585,
+   "pValue": 0.07172412485756559,
+   "qValue": 0.13211173396211162,
+   "significance": "neither",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_mag4_13",
+   "variable": "igg4_hpf",
+   "rho": 0.46739130434782605,
+   "pValue": 0.024527943235192938,
+   "qValue": 0.13211173396211162,
+   "significance": "before_correction_only",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_mag4_13",
+   "variable": "eosinophils",
+   "rho": 0.29473684210526313,
+   "pValue": 0.2071354208521537,
+   "qValue": 0.24856250502258445,
+   "significance": "neither",
+   "n": 20
+  },
+  {
+   "reference": "microbiote_igg4_mag4_13",
+   "variable": "plasmablasts_cd19_cd38_cd27_mm3",
+   "rho": 0.251948051948052,
+   "pValue": 0.2705631402262356,
+   "qValue": 0.2705631402262356,
+   "significance": "neither",
+   "n": 21
+  },
+  {
+   "reference": "microbiote_igg4_mag4_13",
+   "variable": "tfh_cxcr5_pd1_cd4",
+   "rho": 0.40711462450592883,
+   "pValue": 0.06004366570541113,
+   "qValue": 0.13211173396211162,
+   "significance": "neither",
+   "n": 22
+  },
+  {
+   "reference": "microbiote_igg4_cer_215_et_234",
+   "variable": "igg4_g_l",
+   "rho": 0.8013833992094862,
+   "pValue": 4.3137518512781445e-06,
+   "qValue": 2.5882511107668867e-05,
+   "significance": "after_correction",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_cer_215_et_234",
+   "variable": "igg4_rd_ri",
+   "rho": 0.6067193675889329,
+   "pValue": 0.002144202213860911,
+   "qValue": 0.0064326066415827336,
+   "significance": "after_correction",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_cer_215_et_234",
+   "variable": "igg4_hpf",
+   "rho": 0.30138339920948615,
+   "pValue": 0.16225571581325918,
+   "qValue": 0.16225571581325918,
+   "significance": "neither",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_cer_215_et_234",
+   "variable": "eosinophils",
+   "rho": 0.556390977443609,
+   "pValue": 0.010841753245056892,
+   "qValue": 0.021683506490113785,
+   "significance": "after_correction",
+   "n": 20
+  },
+  {
+   "reference": "microbiote_igg4_cer_215_et_234",
+   "variable": "plasmablasts_cd19_cd38_cd27_mm3",
+   "rho": 0.4454545454545455,
+   "pValue": 0.04299992874264288,
+   "qValue": 0.05159991449117145,
+   "significance": "before_correction_only",
+   "n": 21
+  },
+  {
+   "reference": "microbiote_igg4_cer_215_et_234",
+   "variable": "tfh_cxcr5_pd1_cd4",
+   "rho": 0.4884246188594016,
+   "pValue": 0.021089248085960247,
+   "qValue": 0.03163387212894037,
+   "significance": "after_correction",
+   "n": 22
+  },
+  {
+   "reference": "microbiote_igg4_cer_229",
+   "variable": "igg4_g_l",
+   "rho": 0.633399209486166,
+   "pValue": 0.0011765515263597326,
+   "qValue": 0.0038711424854442353,
+   "significance": "after_correction",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_cer_229",
+   "variable": "igg4_rd_ri",
+   "rho": 0.6294466403162056,
+   "pValue": 0.0012903808284814118,
+   "qValue": 0.0038711424854442353,
+   "significance": "after_correction",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_cer_229",
+   "variable": "igg4_hpf",
+   "rho": 0.366600790513834,
+   "pValue": 0.08532326296408224,
+   "qValue": 0.1706465259281645,
+   "significance": "neither",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_cer_229",
+   "variable": "eosinophils",
+   "rho": 0.3443609022556391,
+   "pValue": 0.13707258150434387,
+   "qValue": 0.2056088722565158,
+   "significance": "neither",
+   "n": 20
+  },
+  {
+   "reference": "microbiote_igg4_cer_229",
+   "variable": "plasmablasts_cd19_cd38_cd27_mm3",
+   "rho": 0.251948051948052,
+   "pValue": 0.2705631402262356,
+   "qValue": 0.32467576827148276,
+   "significance": "neither",
+   "n": 21
+  },
+  {
+   "reference": "microbiote_igg4_cer_229",
+   "variable": "tfh_cxcr5_pd1_cd4",
+   "rho": 0.09655561829474874,
+   "pValue": 0.6690506468846464,
+   "qValue": 0.6690506468846463,
+   "significance": "neither",
+   "n": 22
+  },
+  {
+   "reference": "microbiote_igg4_ent_059",
+   "variable": "igg4_g_l",
+   "rho": 0.7806281150892812,
+   "pValue": 1.109735370119189e-05,
+   "qValue": 6.658412220715134e-05,
+   "significance": "after_correction",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_ent_059",
+   "variable": "igg4_rd_ri",
+   "rho": 0.5327937392190338,
+   "pValue": 0.008856890624213732,
+   "qValue": 0.01811117334559813,
+   "significance": "after_correction",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_ent_059",
+   "variable": "igg4_hpf",
+   "rho": 0.3396434665266346,
+   "pValue": 0.11283239534677372,
+   "qValue": 0.11283239534677374,
+   "significance": "neither",
+   "n": 23
+  },
+  {
+   "reference": "microbiote_igg4_ent_059",
+   "variable": "eosinophils",
+   "rho": 0.5495503513640534,
+   "pValue": 0.012074115563732087,
+   "qValue": 0.01811117334559813,
+   "significance": "after_correction",
+   "n": 20
+  },
+  {
+   "reference": "microbiote_igg4_ent_059",
+   "variable": "plasmablasts_cd19_cd38_cd27_mm3",
+   "rho": 0.5539953271561254,
+   "pValue": 0.009166528013070881,
+   "qValue": 0.01811117334559813,
+   "significance": "after_correction",
+   "n": 21
+  },
+  {
+   "reference": "microbiote_igg4_ent_059",
+   "variable": "tfh_cxcr5_pd1_cd4",
+   "rho": 0.4312103110453142,
+   "pValue": 0.045105356746592884,
+   "qValue": 0.054126428095911464,
+   "significance": "before_correction_only",
+   "n": 22
+  }
+ ],
+ "starred": [
+  {
+   "reference": "microbiote_igg4_cer_215_et_234",
+   "variable": "eosinophils"
+  },
+  {
+   "reference": "microbiote_igg4_cer_215_et_234",
+   "variable": "igg4_rd_ri"
+  },
+  {
+   "reference": "microbiote_igg4_cer_215_et_234",
+   "variable": "tfh_cxcr5_pd1_cd4"
+  },
+  {
+   "reference": "microbiote_igg4_cer_215_et_234",
+   "variable": "igg4_g_l"
+  },
+  {
+   "reference": "microbiote_igg4_cer_228",
+   "variable": "igg4_hpf"
+  },
+  {
+   "reference": "microbiote_igg4_cer_228",
+   "variable": "igg4_rd_ri"
+  },
+  {
+   "reference": "microbiote_igg4_cer_228",
+   "variable": "igg4_g_l"
+  },
+  {
+   "reference": "microbiote_igg4_cer_229",
+   "variable": "igg4_rd_ri"
+  },
+  {
+   "reference": "microbiote_igg4_cer_229",
+   "variable": "igg4_g_l"
+  },
+  {
+   "reference": "microbiote_igg4_ent_059",
+   "variable": "eosinophils"
+  },
+  {
+   "reference": "microbiote_igg4_ent_059",
+   "variable": "igg4_rd_ri"
+  },
+  {
+   "reference": "microbiote_igg4_ent_059",
+   "variable": "plasmablasts_cd19_cd38_cd27_mm3"
+  },
+  {
+   "reference": "microbiote_igg4_ent_059",
+   "variable": "igg4_g_l"
+  },
+  {
+   "reference": "microbiote_igg4_mag4_22",
+   "variable": "igg4_g_l"
+  },
+  {
+   "reference": "microbiote_igg4_mag4_27",
+   "variable": "igg4_hpf"
+  }
+ ]
+}
