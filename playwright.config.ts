@@ -14,7 +14,12 @@ const SHADOW_RUN_SPEC = /AXI-1462\/AXI-1614-compiled-planner-shadow-run\.spec\.t
 // FIXTURE org, not the demo stack) is never a dependency for it. AXI-2244's
 // heatmap-dataset spec is the SAME shape (same project, same own-login),
 // so it joins the same pattern/project rather than forking a third one.
-const EVIDENCE_API_SPEC = /AXI-2060\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset|AXI-2243-pairwise-pvalue-brackets)\.spec\.ts$/;
+// AXI-2262 joins the same pattern (own admin login over the API, no `page`/
+// browser `context`, no business depending on the `setup` project's
+// storageState) — same reasoning as AXI-2243/AXI-2244/AXI-2065 above, just a
+// different epic folder (AXI-2073).
+const EVIDENCE_API_SPEC =
+  /AXI-2060\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset|AXI-2243-pairwise-pvalue-brackets)\.spec\.ts$|AXI-2073\/AXI-2262-chart-export-title-fallback\.spec\.ts$/;
 
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
