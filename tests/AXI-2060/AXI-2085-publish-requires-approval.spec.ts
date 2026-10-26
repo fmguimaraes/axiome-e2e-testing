@@ -1,6 +1,7 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, request as apiRequest } from '@playwright/test';
 import { adminApi, workspaceHeader, type Api } from '../AXI-1400/harness/api';
 import { ensureTenant, createAnalysis, createSnapshot, frozenRenderPayload, uniq, type Tenant } from '../AXI-1233/harness/seed-axi1234';
+import { apiUrl } from '../../config/env';
 
 /**
  * AXI-2085 (epic AXI-2060 — gap G3; FR20, FR21, FR16, AC9; owner ruling
@@ -31,13 +32,50 @@ import { ensureTenant, createAnalysis, createSnapshot, frozenRenderPayload, uniq
 
 let api: Api;
 let t: Tenant;
+// AXI-2258 (epic AXI-2073): `reviewed -> approved` now refuses the draft's
+// own author. `api` (the shared fixture admin) authors every decision this
+// spec creates, so approving must go through a DIFFERENT workspace member —
+// a throwaway self-registered actor added to the SAME fixture workspace,
+// removed again in `afterAll`.
+let approverUserId: string;
+let approverHeaders: Record<string, string>;
+let approverCtx: import('@playwright/test').APIRequestContext;
+
+async function registerApprover(): Promise<void> {
+  const email = `axi2085-approver-${uniq()}@axiome.local`;
+  const password = 'Axi2085-e2e-pw!';
+  const bootstrap = await apiRequest.newContext();
+  await bootstrap.post(apiUrl('/api/v1/auth/register'), {
+    data: { email, password, firstName: 'AXI2085', lastName: 'Approver' },
+  });
+  const loginRes = await bootstrap.post(apiUrl('/api/v1/auth/login'), { data: { email, password } });
+  const { accessToken } = await loginRes.json();
+  await bootstrap.dispose();
+  approverCtx = await apiRequest.newContext({ extraHTTPHeaders: { Authorization: `Bearer ${accessToken}` } });
+  const me = await (await approverCtx.get(apiUrl('/api/v1/auth/me'))).json();
+  approverUserId = me.id;
+  approverHeaders = workspaceHeader(t.workspaceId);
+  const add = await api.post(`/api/v1/workspaces/${t.workspaceId}/members`, {
+    userId: approverUserId,
+    organizationId: t.orgId,
+    role: 'admin',
+  }, t.headers);
+  expect(add.status, `add approver as member: ${JSON.stringify(add.body)}`).toBeLessThan(300);
+}
 
 test.beforeAll(async () => {
   api = await adminApi();
   t = await ensureTenant(api);
+  await registerApprover();
 });
 
 test.afterAll(async () => {
+  await api.ctx
+    .delete(apiUrl(`/api/v1/workspaces/${t.workspaceId}/members/${approverUserId}`), {
+      headers: t.headers,
+    })
+    .catch(() => undefined);
+  await approverCtx?.dispose();
   await api?.ctx.dispose();
 });
 
@@ -79,10 +117,21 @@ async function transition(decisionId: string, targetStatus: string): Promise<{ s
   return api.post(`/api/v1/workspaces/${t.workspaceId}/decisions/${decisionId}/transition`, { targetStatus }, t.headers);
 }
 
+/** AXI-2258: `reviewed -> approved` through the APPROVER actor, never `api`
+ *  (the decision's own author) — the self-approval guard refuses the latter. */
+async function approveAsApprover(decisionId: string): Promise<{ status: number; body: any }> {
+  const res = await approverCtx.post(
+    apiUrl(`/api/v1/workspaces/${t.workspaceId}/decisions/${decisionId}/transition`),
+    { data: { targetStatus: 'approved' }, headers: approverHeaders },
+  );
+  const text = await res.text();
+  return { status: res.status(), body: text ? JSON.parse(text) : undefined };
+}
+
 async function approve(decisionId: string): Promise<void> {
   const reviewed = await transition(decisionId, 'reviewed');
   expect(reviewed.status, `draft -> reviewed: ${JSON.stringify(reviewed.body)}`).toBeLessThan(300);
-  const approved = await transition(decisionId, 'approved');
+  const approved = await approveAsApprover(decisionId);
   expect(approved.status, `reviewed -> approved: ${JSON.stringify(approved.body)}`).toBeLessThan(300);
   expect(approved.body.status).toBe('approved');
 }
