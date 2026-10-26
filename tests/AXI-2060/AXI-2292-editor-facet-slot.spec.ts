@@ -9,14 +9,16 @@ import { apiUrl } from '../../config/env';
  * dropdown; Save persists `bindings.facet`. Candidate generation (which reads
  * the same templates) must still never bind an authoring slot.
  * Scenario doc: `axiome-docs/manual-e2e/AXI-2060-Microbiote-IgG4-Study-
- * Reproduction.md` § AXI-2292 (S1–S5). Tags: @SI-018, @SI-033, @SI-015, @SI-010.
+ * Reproduction.md` § AXI-2292 (S1–S5). Tags: @SI-018, @SI-033, @SI-015, @SI-010, @SI-017.
  *
- * S5 is RED on main as of 2026-10-26 (a real defect, reported to the lead): the
- * Editor's Save stores its PREVIEW chart-compute run as `spec.computeRunId`, so
- * the chart page renders the frozen, pre-computed (unfaceted) preview payload
- * as ONE panel and reads the id as an AXI-2243 comparison-run link
- * ("⚠ Linked run not found"). The same bindings saved WITHOUT that run id
- * render one panel per reference.
+ * S5 was RED on main 527e17a9/fc03ebf (a real defect): the Editor's Save
+ * stores its PREVIEW chart-compute run as `spec.computeRunId` (5778deb), so the
+ * chart page rendered that frozen, pre-computed (unfaceted) payload as ONE
+ * panel, and the AXI-2243 pairwise read took the id for a comparison-run link
+ * ("⚠ Linked run not found"). Fixed in AXI-2292 rework #2: the front never
+ * renders a frozen payload that cannot honour the spec's `facet`
+ * (`frozenPayloadFit.ts`), and the back resolves a chart-compute run as
+ * unlinked (`PairwiseComparisonService.resolve`).
  *
  * Isolation: the Editor scenarios run in a THROWAWAY analysis
  * (`[e2e AXI-2292 throwaway] …`) in the synthetic reproduction project 22585add
@@ -37,7 +39,7 @@ const THROWAWAY = '[e2e AXI-2292 throwaway]';
 const FACET_SLOT = { role: 'group', required: false };
 
 type Bindings = Record<string, unknown>;
-interface Spec { id: string; templateId: string; origin: string; title?: string | null; bindings: Bindings }
+interface Spec { id: string; templateId: string; origin: string; title?: string | null; bindings: Bindings; computeRunId?: string | null }
 interface Template { templateId: string; templateVersion: string; bindings: Bindings; authoringBindings?: Bindings }
 
 let api: APIRequestContext;
@@ -150,7 +152,7 @@ async function uploadSyntheticDataset(): Promise<string> {
   return uploadedDatasetId;
 }
 
-test.describe('AXI-2292 - the chart Editor sets the Facet of a strip chart', { tag: ['@SI-018', '@SI-033', '@SI-015', '@SI-010'] }, () => {
+test.describe('AXI-2292 - the chart Editor sets the Facet of a strip chart', { tag: ['@SI-018', '@SI-033', '@SI-015', '@SI-010', '@SI-017'] }, () => {
   test.describe.configure({ mode: 'serial', timeout: 240_000 });
   // Own login (below), never the fixture-org `setup` project's storageState.
   test.use({ storageState: { cookies: [], origins: [] } });
@@ -254,10 +256,22 @@ test.describe('AXI-2292 - the chart Editor sets the Facet of a strip chart', { t
 
   test('S5 AC2 - the chart the Editor saved with a Facet opens faceted: one panel per reference, no stray run warning', async ({ page }) => {
     expect(facetedSpecId, 'S2 saved the faceted chart').not.toBe('');
+    // Precondition (else S5 passes vacuously): the Editor stored its PREVIEW
+    // chart-compute run as `computeRunId` (5778deb) — the aggregated, unfaceted
+    // payload the chart page must NOT render for a faceted spec.
+    const saved = (await listSpecs(DATASET_ID, `?viewAnalysisId=${analysisId}`)).find((s) => s.id === facetedSpecId);
+    expect(saved?.computeRunId, 'the Editor saved its preview chart-compute run').toBeTruthy();
+
     await signIn(page);
+    const pairwise = page.waitForResponse((r) => r.url().includes(`/candidates/${facetedSpecId}/pairwise-comparison`));
     await page.goto(`/datasets/${DATASET_ID}/chart/${facetedSpecId}`);
     // Dataset 4c1bd11e carries 7 reference microbiota → 7 panels (xaxis … xaxis7).
-    await expect.poll(() => axisKeys(page), { timeout: 60_000 }).toEqual(expect.arrayContaining(['xaxis', 'xaxis2', 'xaxis7']));
+    await expect.configure({ soft: true }).poll(() => axisKeys(page), { timeout: 60_000 })
+      .toEqual(expect.arrayContaining(['xaxis', 'xaxis2', 'xaxis7']));
+    // A chart-compute run is not a comparison-run link: the server says so
+    // (linked: false), so no "⚠ Linked run not found" note is drawn.
+    const body = await (await pairwise).json();
+    expect(body, 'pairwise-comparison for a chart-compute computeRunId').toMatchObject({ linked: false, mismatch: false });
     await expect(page.getByText('Linked run not found')).toHaveCount(0);
   });
 });
