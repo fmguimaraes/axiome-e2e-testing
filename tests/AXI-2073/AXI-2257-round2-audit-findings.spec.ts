@@ -9,7 +9,7 @@ import { apiUrl } from '../../config/env';
 /**
  * AXI-2257 (epic AXI-2073, round 2 audit fixes F1–F7) — FR4, FR5, FR18,
  * FR20–FR24, EC14–EC19, AC23–AC30 of
- * `axiome-docs/05 - product/features/IN-PROGRESS-Evidence-Audit-Report.md`.
+ * `axiome-docs/05 - product/features/Evidence-Audit-Report.md`.
  *
  * READ-ONLY and REST-only: every scenario downloads the audit bundle of an
  * evidence that already exists in the demo data (the Microbiote IgG4 final

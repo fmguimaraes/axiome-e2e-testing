@@ -9,7 +9,7 @@ import { apiUrl } from '../../config/env';
 /**
  * AXI-2263 (epic AXI-2073, "Audit report also delivered as PDF") — FR25,
  * EC20, AC31–AC38 of
- * `axiome-docs/05 - product/features/IN-PROGRESS-Evidence-Audit-Report.md`.
+ * `axiome-docs/05 - product/features/Evidence-Audit-Report.md`.
  *
  * READ-ONLY and REST-only: every scenario downloads the audit bundle of an
  * evidence that already exists in the demo data (same three Mag4 targets as
