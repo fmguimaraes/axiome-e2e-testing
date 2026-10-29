@@ -157,8 +157,10 @@ test.describe('AXI-2315 — auth suite (@SI-011)', () => {
   test('AC8 regression (bounce #1, B3) — a hostile userId in the body cannot mutate another account', { tag: '@SI-011' }, async () => {
     const emailA = uniqueEmail('idor-a');
     const emailB = uniqueEmail('idor-b');
-    const { accessToken: tokenA } = await registerAndLogin(emailA, 'AccountAPass1');
-    const { accessToken: tokenB } = await registerAndLogin(emailB, 'AccountBPass1');
+    const passwordA = 'AccountAPass1';
+    const passwordB = 'AccountBPass1';
+    const { accessToken: tokenA } = await registerAndLogin(emailA, passwordA);
+    const { accessToken: tokenB } = await registerAndLogin(emailB, passwordB);
 
     const meB = await api.get(apiUrl('/api/v1/auth/me'), {
       headers: { Authorization: `Bearer ${tokenB}` },
@@ -166,47 +168,80 @@ test.describe('AXI-2315 — auth suite (@SI-011)', () => {
     expect(meB.ok()).toBe(true);
     const userB = await meB.json();
 
-    // Attempt 1: account A tries to change account B's password by supplying
-    // B's userId in the body, authenticated as A.
+    // Attempt 1: account A tries to change account B's password, supplying
+    // B's userId AND B's real current password (the attacker-knows-the-
+    // password case — the one scenario that can actually succeed if the
+    // userId override works). On fixed code `ChangePasswordDto` never
+    // declares `userId`, and the gateway's global ValidationPipe is
+    // `forbidNonWhitelisted: true` — an extra `userId` key rejects the WHOLE
+    // request with 400 ("property userId should not exist"), never reaching
+    // the handler. On unfixed code (plain inline body type, no DTO) the pipe
+    // never looks at it, the override succeeds, and B's real password is
+    // genuinely changed.
     const hostileChangePassword = await api.post(apiUrl('/api/v1/auth/change-password'), {
       headers: { Authorization: `Bearer ${tokenA}` },
       data: {
-        currentPassword: 'AccountAPass1',
+        currentPassword: passwordB,
         newPassword: 'AttackerChosenPass1',
         userId: userB.id,
       },
     });
-    // Whatever this call returns about A's own account, B's original
-    // password must still work — it must never have been touched.
-    void hostileChangePassword;
+    expect(hostileChangePassword.status()).toBe(400);
+    // Whatever this call returns, B's original password must still work —
+    // it must never have been touched.
     const loginBStillWorks = await api.post(apiUrl('/api/v1/auth/login'), {
-      data: { email: emailB, password: 'AccountBPass1' },
+      data: { email: emailB, password: passwordB },
     });
     expect(loginBStillWorks.ok()).toBe(true);
+    // And A's own password must be untouched too (the hostile call never
+    // legitimately changed anything for A either, since it 400'd).
+    const loginAStillWorks = await api.post(apiUrl('/api/v1/auth/login'), {
+      data: { email: emailA, password: passwordA },
+    });
+    expect(loginAStillWorks.ok()).toBe(true);
 
-    // Attempt 2: account A tries to take over B's email via /profile.
+    // Attempt 2: account A tries to take over B's email via /profile. The
+    // target address is freshly generated per run (`uniqueEmail`) so this
+    // never collides with a row a prior run's exploit may have left behind.
+    // On fixed code the DTO never declares `userId` as a settable field, and
+    // the gateway's global ValidationPipe is `forbidNonWhitelisted: true` —
+    // an extra `userId` key makes the WHOLE request 400, not just stripped.
+    // On unfixed code (plain inline body type, no DTO) the pipe never even
+    // looks at it and the override succeeds, actually mutating B.
+    const hostileTargetEmail = uniqueEmail('idor-takeover');
     const hostileProfile = await api.patch(apiUrl('/api/v1/auth/profile'), {
       headers: { Authorization: `Bearer ${tokenA}` },
-      data: { firstName: 'Attacker', userId: userB.id, email: 'attacker-takeover@axiome.test' },
+      data: { firstName: 'Attacker', userId: userB.id, email: hostileTargetEmail },
     });
-    void hostileProfile;
+    expect(hostileProfile.status()).toBe(400);
     const meBAfterProfileAttack = await api.get(apiUrl('/api/v1/auth/me'), {
       headers: { Authorization: `Bearer ${tokenB}` },
     });
     expect(meBAfterProfileAttack.ok()).toBe(true);
     expect((await meBAfterProfileAttack.json()).email).toBe(emailB);
+    // A's own profile must be untouched too — the whole request was rejected.
+    const meAAfterProfileAttack = await api.get(apiUrl('/api/v1/auth/me'), {
+      headers: { Authorization: `Bearer ${tokenA}` },
+    });
+    expect((await meAAfterProfileAttack.json()).email).toBe(emailA);
 
-    // Attempt 3: account A tries to flip B's theme preference.
+    // Attempt 3: account A tries to flip B's theme preference. Same
+    // mechanism and same expectation — 400, nobody's theme moves.
     const originalThemeB = userB.themePreference;
     const hostilePreferences = await api.patch(apiUrl('/api/v1/auth/preferences'), {
       headers: { Authorization: `Bearer ${tokenA}` },
       data: { themePreference: 'dark-attacker', userId: userB.id },
     });
-    void hostilePreferences;
+    expect(hostilePreferences.status()).toBe(400);
     const meBAfterPreferencesAttack = await api.get(apiUrl('/api/v1/auth/me'), {
       headers: { Authorization: `Bearer ${tokenB}` },
     });
     expect(meBAfterPreferencesAttack.ok()).toBe(true);
     expect((await meBAfterPreferencesAttack.json()).themePreference).toBe(originalThemeB);
+    // And A's own theme is unaffected too — the request never reached the handler.
+    const meAAfterPreferencesAttack = await api.get(apiUrl('/api/v1/auth/me'), {
+      headers: { Authorization: `Bearer ${tokenA}` },
+    });
+    expect((await meAAfterPreferencesAttack.json()).themePreference).not.toBe('dark-attacker');
   });
 });
