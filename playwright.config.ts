@@ -17,9 +17,16 @@ const SHADOW_RUN_SPEC = /AXI-1462\/AXI-1614-compiled-planner-shadow-run\.spec\.t
 // AXI-2262 joins the same pattern (own admin login over the API, no `page`/
 // browser `context`, no business depending on the `setup` project's
 // storageState) — same reasoning as AXI-2243/AXI-2244/AXI-2065 above, just a
-// different epic folder (AXI-2073).
+// different epic folder (AXI-2073). AXI-2248 is the SAME shape again (own
+// admin login over the API via `apiRequest.newContext()`, renders through
+// `/exports/render-charts` directly, no browser page).
 const EVIDENCE_API_SPEC =
-  /AXI-2060\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset|AXI-2243-pairwise-pvalue-brackets)\.spec\.ts$|AXI-2073\/AXI-2262-chart-export-title-fallback\.spec\.ts$/;
+  /AXI-2060\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset|AXI-2243-pairwise-pvalue-brackets|AXI-2248-pdf-export-display-params)\.spec\.ts$|AXI-2073\/AXI-2262-chart-export-title-fallback\.spec\.ts$/;
+
+// AXI-2315 — same AXI-1831 shape again: a fresh account is self-registered
+// per test (never the fixture-org `setup` project's storageState, and no
+// `page`/browser context at all — `request.newContext()` only).
+const AUTH_SUITE_SPEC = /AXI-2309\/AXI-2315-auth-suite\.spec\.ts$/;
 
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
@@ -91,7 +98,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -117,6 +124,11 @@ export default defineConfig({
     {
       name: 'evidence-api',
       testMatch: EVIDENCE_API_SPEC,
+    },
+    // AXI-2315 — API-only auth suite, no browser/storageState dependency.
+    {
+      name: 'auth-api',
+      testMatch: AUTH_SUITE_SPEC,
     },
   ],
 });
