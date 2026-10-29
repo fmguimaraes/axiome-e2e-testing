@@ -48,10 +48,30 @@ export const recordOnlyExecutor: CaseExecutor = async () => ({
   facts: {},
 });
 
+const isScalar = (v: unknown): v is string | number | boolean | null =>
+  v === null || typeof v === 'string' || typeof v === 'boolean' || (typeof v === 'number' && Number.isFinite(v));
+
+/**
+ * Enforce the {@link CaseResult} contract at RUNTIME (an executor may be
+ * loosely typed): a known outcome, a string-or-null reason, and flat scalar
+ * facts only — a nested object would be a body dump in the report (NFR3).
+ */
+export function validateCaseResult(result: unknown): CaseResult {
+  const r = result as Partial<CaseResult> | null;
+  if (!r || typeof r !== 'object') throw new Error('executor contract: result is not an object');
+  if (!CASE_OUTCOMES.includes(r.outcome as CaseOutcome)) throw new Error(`executor contract: unknown outcome ${JSON.stringify(r.outcome)}`);
+  if (r.reason != null && typeof r.reason !== 'string') throw new Error('executor contract: reason must be a string or null');
+  const facts = r.facts ?? {};
+  if (typeof facts !== 'object' || Array.isArray(facts)) throw new Error('executor contract: facts must be a flat object');
+  const bad = Object.entries(facts).filter(([, v]) => !isScalar(v)).map(([k]) => k);
+  if (bad.length > 0) throw new Error(`executor contract: non-scalar facts ${bad.sort().join(', ')}`);
+  return { outcome: r.outcome as CaseOutcome, reason: r.reason ?? null, facts: { ...(facts as CaseFacts) } };
+}
+
 async function runOne(planned: PlannedCase, ctx: CaseContext, executor: CaseExecutor): Promise<ExecutedCase> {
   try {
-    const result = await executor(planned, ctx);
-    return { ...planned, outcome: result.outcome, reason: result.reason, facts: { ...result.facts } };
+    const result = validateCaseResult(await executor(planned, ctx));
+    return { ...planned, ...result };
   } catch (err) {
     return { ...planned, outcome: 'error', reason: boundedMessage(err), facts: {} };
   }

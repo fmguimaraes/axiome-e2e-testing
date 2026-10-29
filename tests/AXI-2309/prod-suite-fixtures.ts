@@ -14,9 +14,17 @@ import type { ProdSuiteConfig } from './harness/prod-suite/config';
  * `view_shared` the served system catalogue is empty for a non-admin). The
  * platform admin only creates the objects; the suite then runs as the confined
  * identity. Every name carries `E2E AXI-2318` so the stand-in is recognisable.
+ *
+ * It also creates a DECOY org, standing in for Paul's CeRAINOM-IgG4 org: the
+ * identity is never a member of it, and its id is the world's
+ * `PROD_E2E_FORBIDDEN_ORG_IDS` (required and non-empty, EC9). Every client
+ * here, the admin's included, carries that id in its tripwire.
  */
 
 export const TEST_IDENTITY_PERMISSIONS = ['rule:read', 'rule:evaluate', 'rule:view_shared'];
+
+/** A syntactically valid org id no stack ever issues (v4 UUID, all zeros). */
+const NEVER_ISSUED_ORG_ID = '00000000-0000-4000-8000-000000000000';
 
 const unique = (label: string) => `${label}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 
@@ -32,6 +40,8 @@ export class LocalTestOrgWorld {
   organizationId!: string;
   workspaceId!: string;
   email!: string;
+  /** Id of the decoy "never touch" org — the stand-in's forbidden-org list. */
+  forbiddenOrgId!: string;
   password = 'AXI2318-e2e-pw!';
   private roleId: string | null = null;
 
@@ -39,12 +49,28 @@ export class LocalTestOrgWorld {
     const world = new LocalTestOrgWorld();
     const role = adminRole();
     const adminToken = await loginForToken(API_BASE_URL, role.email, role.password);
-    world.admin = createApiClient({ apiBaseUrl: API_BASE_URL, token: adminToken }, fetchTransport);
+    await world.createDecoyForbiddenOrg(adminToken);
+    world.admin = world.client(adminToken);
     await world.createOrgAndWorkspace();
     const userId = await world.registerIdentity();
     await world.grantIdentity(userId);
     world.identity = await world.identityClient();
     return world;
+  }
+
+  /** A plain client (no workspace header) armed with the decoy id. */
+  private client(token: string): ApiClient {
+    return createApiClient({ apiBaseUrl: API_BASE_URL, token, forbiddenIds: [this.forbiddenOrgId] }, fetchTransport);
+  }
+
+  /**
+   * Created through a one-off client armed with a never-issued id (the decoy's
+   * own id does not exist yet); nothing afterwards ever names it.
+   */
+  private async createDecoyForbiddenOrg(adminToken: string): Promise<void> {
+    const bootstrap = createApiClient({ apiBaseUrl: API_BASE_URL, token: adminToken, forbiddenIds: [NEVER_ISSUED_ORG_ID] }, fetchTransport);
+    const org = okBody(await bootstrap.post('/api/v1/organizations', { name: unique('E2E AXI-2318 forbidden decoy org'), type: 'cro' }), 'create decoy org');
+    this.forbiddenOrgId = org.id;
   }
 
   private async createOrgAndWorkspace(): Promise<void> {
@@ -59,12 +85,12 @@ export class LocalTestOrgWorld {
 
   private async registerIdentity(): Promise<string> {
     this.email = `${unique('axi2318-test-identity')}@axiome.local`;
-    const anon = createApiClient({ apiBaseUrl: API_BASE_URL, token: '' }, fetchTransport);
+    const anon = this.client('');
     okBody(await anon.post('/api/v1/auth/register', {
       email: this.email, password: this.password, firstName: 'AXI2318', lastName: 'test-identity',
     }), 'register test identity');
     const token = await loginForToken(API_BASE_URL, this.email, this.password);
-    const me = okBody(await createApiClient({ apiBaseUrl: API_BASE_URL, token }, fetchTransport).get('/api/v1/auth/me'), 'me');
+    const me = okBody(await this.client(token).get('/api/v1/auth/me'), 'me');
     return me.id;
   }
 
@@ -80,8 +106,8 @@ export class LocalTestOrgWorld {
     okBody(await this.admin.post(`/api/v1/users/${userId}/roles`, { roleId: role.id }), 'assign role');
   }
 
-  /** A client for the confined identity, optionally with the EC9 forbidden-id tripwire. */
-  async identityClient(forbiddenIds: string[] = []): Promise<ApiClient> {
+  /** A client for the confined identity, its EC9 tripwire armed with the decoy id by default. */
+  async identityClient(forbiddenIds: string[] = [this.forbiddenOrgId]): Promise<ApiClient> {
     const token = await loginForToken(API_BASE_URL, this.email, this.password);
     return createApiClient({ apiBaseUrl: API_BASE_URL, token, workspaceId: this.workspaceId, forbiddenIds }, fetchTransport);
   }
@@ -91,7 +117,7 @@ export class LocalTestOrgWorld {
     return {
       apiBaseUrl: apiUrl('').replace(/\/+$/, ''), email: this.email, password: this.password,
       organizationId: this.organizationId, workspaceId: this.workspaceId, fixtureIdsJson,
-      forbiddenOrgIds: [], targetLabel: 'local-stand-in', runId: unique('local-axi2318'),
+      forbiddenOrgIds: [this.forbiddenOrgId], targetLabel: 'local-stand-in', runId: unique('local-axi2318'),
       gitSha: null, trigger: 'local', ...overrides,
     };
   }

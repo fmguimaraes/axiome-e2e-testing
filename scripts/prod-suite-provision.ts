@@ -10,7 +10,9 @@ import { verifyIsolation } from '../tests/AXI-2309/harness/prod-suite/isolation-
  * the daily run.
  *
  * Same env as the daily suite, except `PROD_E2E_FIXTURE_IDS` is not needed
- * (this is what produces it). The isolation guard runs FIRST (EC9): nothing is
+ * (this is what produces it). `PROD_E2E_FORBIDDEN_ORG_IDS` IS required and must
+ * be a non-empty UUID list (Paul's prod org id) — the config refuses otherwise,
+ * as does the client constructor. The isolation guard runs FIRST (EC9): nothing is
  * uploaded unless the identity is confined to the test org. Idempotent — a
  * fixture whose bytes already exist in the workspace is reused, not re-uploaded.
  * Prints the JSON to store as the `PROD_E2E_FIXTURE_IDS` repo variable.

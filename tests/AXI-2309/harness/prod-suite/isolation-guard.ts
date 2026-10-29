@@ -91,6 +91,9 @@ export async function verifyIsolation(
   client: ApiClient,
   cfg: { organizationId: string; workspaceId: string; forbiddenOrgIds: readonly string[] },
 ): Promise<IsolationVerdict> {
+  if (cfg.forbiddenOrgIds.filter((id) => id.trim()).length === 0) {
+    throw new ProdSuiteAbort('isolation', 'FORBIDDEN_IDS_MISSING', 'PROD_E2E_FORBIDDEN_ORG_IDS is empty — the id-based guard would be off (EC9)');
+  }
   if (isForbiddenOrg({ id: cfg.organizationId, name: null, slug: null }, cfg.forbiddenOrgIds)) {
     throw new ProdSuiteAbort('isolation', 'CONFIGURED_ORG_FORBIDDEN', 'PROD_E2E_ORG_ID is a forbidden organization (EC9)');
   }

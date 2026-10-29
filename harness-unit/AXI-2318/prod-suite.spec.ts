@@ -5,8 +5,8 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { ProdSuiteAbort } from '../../tests/AXI-2309/harness/prod-suite/abort';
 import { createApiClient, ForbiddenReferenceError, type ApiResponse, type Transport } from '../../tests/AXI-2309/harness/prod-suite/api-client';
-import { recordOnlyExecutor, runCases } from '../../tests/AXI-2309/harness/prod-suite/cases';
-import { prodSuiteEnabled, readProdSuiteConfig, safeRunId, type ProdSuiteConfig } from '../../tests/AXI-2309/harness/prod-suite/config';
+import { recordOnlyExecutor, runCases, validateCaseResult } from '../../tests/AXI-2309/harness/prod-suite/cases';
+import { parseForbiddenOrgIds, prodSuiteEnabled, readProdSuiteConfig, safeRunId, type ProdSuiteConfig } from '../../tests/AXI-2309/harness/prod-suite/config';
 import { expectedRawFileHash, fixtureBytes, parseFixtureIds, provisionFixtures, PROD_SUITE_FIXTURES, resolveFixtures } from '../../tests/AXI-2309/harness/prod-suite/fixtures';
 import { assertConfined, isForbiddenOrg, verifyIsolation } from '../../tests/AXI-2309/harness/prod-suite/isolation-guard';
 import { findSecretShapes, planPublication, repoDirFor, s3KeyFor, safePrefix, stageForRepo, writePublicationPlan } from '../../tests/AXI-2309/harness/prod-suite/publish';
@@ -15,7 +15,7 @@ import { buildRunPlan, fetchActiveCatalogue, PAUL_OPERATIONS, type CatalogueRule
 import { configAbortReport, runProdSuite } from '../../tests/AXI-2309/harness/prod-suite/suite';
 
 /**
- * UT-PRODE2E-6000 .. UT-PRODE2E-6038 (epic AXI-2309 — AXI-2318, SI-042).
+ * UT-PRODE2E-6000 .. UT-PRODE2E-6045 (epic AXI-2309 — AXI-2318, SI-042).
  * Pure unit coverage of the prod E2E daily-suite harness: configuration, the
  * EC9 isolation guard + request tripwire, fixtures by ID (FR29), the FR30 run
  * order, the case seam, the deterministic report (FR33/NFR6) and its
@@ -53,8 +53,10 @@ const WS = '22222222-2222-4222-8222-222222222222';
 const DS1 = '33333333-3333-4333-8333-333333333333';
 const DS2 = '44444444-4444-4444-8444-444444444444';
 const OTHER_ORG = '55555555-5555-4555-8555-555555555555';
+/** Stand-in for Paul's prod org id — every client and config carries a non-empty forbidden list. */
+const PAUL = '66666666-6666-4666-8666-666666666666';
 
-const client = (http: FakeHttp, forbiddenIds: string[] = []) =>
+const client = (http: FakeHttp, forbiddenIds: string[] = [PAUL]) =>
   createApiClient({ apiBaseUrl: 'http://api.test', token: 't', workspaceId: WS, forbiddenIds }, http.transport);
 
 const orgsPage = (orgs: Array<{ id: string; name: string; slug?: string }>) =>
@@ -74,7 +76,7 @@ const rule = (id: string, code: string, operationId: string | null): CatalogueRu
 
 const baseConfig = (over: Partial<ProdSuiteConfig> = {}): ProdSuiteConfig => ({
   apiBaseUrl: 'http://api.test', email: 'e', password: 'p', organizationId: ORG, workspaceId: WS,
-  fixtureIdsJson: FIXTURE_IDS, forbiddenOrgIds: [], targetLabel: 'unit', runId: 'run-1', gitSha: null, trigger: 'unit', ...over,
+  fixtureIdsJson: FIXTURE_IDS, forbiddenOrgIds: [PAUL], targetLabel: 'unit', runId: 'run-1', gitSha: null, trigger: 'unit', ...over,
 });
 
 async function rejectsAbort(p: Promise<unknown>, code: string): Promise<ProdSuiteAbort> {
@@ -102,17 +104,17 @@ const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'ut-prode2e-'));
 test('UT-PRODE2E-6000: a config with nothing set names EVERY missing variable at once', () => {
   const result = readProdSuiteConfig({});
   assert.equal(result.ok, false);
-  assert.deepEqual(!result.ok && result.missing, ['API_BASE_URL', 'PROD_E2E_TEST_EMAIL', 'PROD_E2E_TEST_PASSWORD', 'PROD_E2E_ORG_ID', 'PROD_E2E_WORKSPACE_ID', 'PROD_E2E_FIXTURE_IDS']);
+  assert.deepEqual(!result.ok && result.missing, ['API_BASE_URL', 'PROD_E2E_TEST_EMAIL', 'PROD_E2E_TEST_PASSWORD', 'PROD_E2E_ORG_ID', 'PROD_E2E_WORKSPACE_ID', 'PROD_E2E_FIXTURE_IDS', 'PROD_E2E_FORBIDDEN_ORG_IDS']);
 });
 
 test('UT-PRODE2E-6001: a full config parses, trims the API origin and splits the forbidden-id list', () => {
   const result = readProdSuiteConfig({
     API_BASE_URL: 'https://api.example/', PROD_E2E_TEST_EMAIL: 'e', PROD_E2E_TEST_PASSWORD: 'p', PROD_E2E_ORG_ID: ORG,
-    PROD_E2E_WORKSPACE_ID: WS, PROD_E2E_FIXTURE_IDS: '{}', PROD_E2E_FORBIDDEN_ORG_IDS: ` ${OTHER_ORG}, x ,`, PROD_E2E_RUN_ID: '42-1',
+    PROD_E2E_WORKSPACE_ID: WS, PROD_E2E_FIXTURE_IDS: '{}', PROD_E2E_FORBIDDEN_ORG_IDS: ` ${OTHER_ORG}, ${PAUL} ,`, PROD_E2E_RUN_ID: '42-1',
   });
   assert.ok(result.ok);
   assert.equal(result.config.apiBaseUrl, 'https://api.example');
-  assert.deepEqual(result.config.forbiddenOrgIds, [OTHER_ORG, 'x']);
+  assert.deepEqual(result.config.forbiddenOrgIds, [OTHER_ORG, PAUL]);
   assert.equal(result.config.runId, '42-1');
 });
 
@@ -147,8 +149,8 @@ test('UT-PRODE2E-6005: a request whose BODY names a forbidden org id is refused 
 test('UT-PRODE2E-6006: the client sends the bearer + workspace headers, and no Authorization header without a token', async () => {
   const seen: Array<Record<string, string>> = [];
   const transport: Transport = async (_m, _u, headers) => { seen.push(headers); return { status: 200, body: {} }; };
-  await createApiClient({ apiBaseUrl: 'http://a/', token: 'tok', workspaceId: WS }, transport).get('/x');
-  await createApiClient({ apiBaseUrl: 'http://a', token: '' }, transport).get('x');
+  await createApiClient({ apiBaseUrl: 'http://a/', token: 'tok', workspaceId: WS, forbiddenIds: [PAUL] }, transport).get('/x');
+  await createApiClient({ apiBaseUrl: 'http://a', token: '', forbiddenIds: [PAUL] }, transport).get('x');
   assert.deepEqual(seen[0], { Authorization: 'Bearer tok', 'X-Workspace-Id': WS });
   assert.deepEqual(seen[1], {});
 });
@@ -185,7 +187,7 @@ test('UT-PRODE2E-6012: a configured org on the forbidden-id list aborts before A
 
 test('UT-PRODE2E-6013: a workspace owned by another org is WORKSPACE_OUTSIDE_TEST_ORG', async () => {
   const http = fakeHttp(orgsPage([{ id: ORG, name: 'test' }]), workspace(OTHER_ORG));
-  await rejectsAbort(verifyIsolation(client(http), { organizationId: ORG, workspaceId: WS, forbiddenOrgIds: [] }), 'WORKSPACE_OUTSIDE_TEST_ORG');
+  await rejectsAbort(verifyIsolation(client(http), { organizationId: ORG, workspaceId: WS, forbiddenOrgIds: [PAUL] }), 'WORKSPACE_OUTSIDE_TEST_ORG');
 });
 
 test('UT-PRODE2E-6014: forbidden-org matching is normalized over name AND slug, and exact on id', () => {
@@ -410,4 +412,68 @@ test('UT-PRODE2E-6038: staging copies ONLY report.json + report.md and the plan 
     rmSync(src, { recursive: true, force: true });
     rmSync(stage, { recursive: true, force: true });
   }
+});
+
+// ── review bounce #1 (B1: forbidden-org list fails closed; A3: executor contract) ──
+
+const fullEnv = (forbidden: string | undefined): Record<string, string | undefined> => ({
+  API_BASE_URL: 'https://api.example', PROD_E2E_TEST_EMAIL: 'e', PROD_E2E_TEST_PASSWORD: 'p', PROD_E2E_ORG_ID: ORG,
+  PROD_E2E_WORKSPACE_ID: WS, PROD_E2E_FIXTURE_IDS: '{}', PROD_E2E_FORBIDDEN_ORG_IDS: forbidden,
+});
+
+test('UT-PRODE2E-6039: a missing, blank or separator-only PROD_E2E_FORBIDDEN_ORG_IDS fails the config, naming it', () => {
+  for (const value of [undefined, '', '   ', ' , ,\n,']) {
+    const result = readProdSuiteConfig(fullEnv(value));
+    assert.equal(result.ok, false, JSON.stringify(value));
+    assert.deepEqual(!result.ok && result.missing, ['PROD_E2E_FORBIDDEN_ORG_IDS'], JSON.stringify(value));
+  }
+});
+
+test('UT-PRODE2E-6040: any non-UUID entry rejects the WHOLE forbidden list — a typo never quietly shrinks it', () => {
+  assert.equal(parseForbiddenOrgIds(`${PAUL}, cerainom`), null);
+  assert.equal(parseForbiddenOrgIds(`${PAUL.slice(0, -1)}`), null);
+  const result = readProdSuiteConfig(fullEnv(`${PAUL},not-a-uuid`));
+  assert.deepEqual(!result.ok && result.missing, ['PROD_E2E_FORBIDDEN_ORG_IDS']);
+  assert.deepEqual(parseForbiddenOrgIds(`${PAUL.toUpperCase()} ${OTHER_ORG}`), [PAUL.toUpperCase(), OTHER_ORG]);
+});
+
+test('UT-PRODE2E-6041: an API client cannot be built with an empty or blank forbidden list', () => {
+  const http = fakeHttp();
+  assert.throws(() => createApiClient({ apiBaseUrl: 'http://a', token: 't', forbiddenIds: [] }, http.transport), /non-empty forbiddenIds/);
+  assert.throws(() => createApiClient({ apiBaseUrl: 'http://a', token: 't', forbiddenIds: ['  ', ''] }, http.transport), /non-empty forbiddenIds/);
+  assert.equal(http.calls.length, 0);
+});
+
+test('UT-PRODE2E-6042: the isolation guard refuses an empty forbidden list (FORBIDDEN_IDS_MISSING) before any request', async () => {
+  const http = fakeHttp(orgsPage([{ id: ORG, name: 'test' }]), workspace(ORG));
+  await rejectsAbort(verifyIsolation(client(http), { organizationId: ORG, workspaceId: WS, forbiddenOrgIds: [] }), 'FORBIDDEN_IDS_MISSING');
+  await rejectsAbort(verifyIsolation(client(http), { organizationId: ORG, workspaceId: WS, forbiddenOrgIds: [' '] }), 'FORBIDDEN_IDS_MISSING');
+  assert.equal(http.calls.length, 0);
+});
+
+test('UT-PRODE2E-6043: a visible org whose NAME is innocuous but whose id is forbidden is FORBIDDEN_ORG_VISIBLE', async () => {
+  const http = fakeHttp(orgsPage([{ id: ORG, name: 'test' }, { id: PAUL, name: 'Renamed Client Org' }]), workspace(ORG));
+  await rejectsAbort(verifyIsolation(client(http), { organizationId: ORG, workspaceId: WS, forbiddenOrgIds: [PAUL] }), 'FORBIDDEN_ORG_VISIBLE');
+});
+
+test('UT-PRODE2E-6044: an executor returning nested facts or an unknown outcome is recorded as error, never trusted', async () => {
+  const plan = buildRunPlan([rule('a', 'A', null), rule('b', 'B', null), rule('c', 'C', null)]);
+  const bad: Record<string, unknown> = {
+    a: { outcome: 'pass', reason: null, facts: { body: { secret: 'x' } } },
+    b: { outcome: 'green', reason: null, facts: {} },
+    c: { outcome: 'pass', facts: { n: 1, ok: true, s: 'x', z: null } },
+  };
+  const executor = async (c: { id: string }) => bad[c.id] as never;
+  const ctx = { client: client(fakeHttp()), organizationId: ORG, workspaceId: WS, fixtures: [] };
+  const executed = await runCases(plan.cases, ctx, executor);
+  assert.deepEqual(executed.map((c) => [c.id, c.outcome]), [['a', 'error'], ['b', 'error'], ['c', 'pass']]);
+  assert.match(executed[0].reason ?? '', /non-scalar facts body/);
+  assert.deepEqual(executed[0].facts, {});
+  assert.deepEqual(executed[2].reason, null);
+});
+
+test('UT-PRODE2E-6045: the executor contract rejects a non-finite number fact and a non-string reason', () => {
+  assert.throws(() => validateCaseResult({ outcome: 'fail', reason: null, facts: { p: Number.NaN } }), /non-scalar facts p/);
+  assert.throws(() => validateCaseResult({ outcome: 'fail', reason: 42, facts: {} }), /reason/);
+  assert.throws(() => validateCaseResult(null), /not an object/);
 });

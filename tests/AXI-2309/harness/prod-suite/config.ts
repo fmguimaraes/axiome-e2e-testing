@@ -16,7 +16,11 @@ export interface ProdSuiteConfig {
   workspaceId: string;
   /** Raw `PROD_E2E_FIXTURE_IDS` JSON (fixture key → dataset id); parsed by fixtures.ts. */
   fixtureIdsJson: string;
-  /** Extra org ids the suite must never resolve (Paul's prod org id goes here). */
+  /**
+   * Org ids the suite must never resolve or name (Paul's prod org id goes here).
+   * REQUIRED and non-empty (EC9/NFR5): an empty list would silently turn the
+   * id-based guard and the request tripwire off, leaving only the name match.
+   */
   forbiddenOrgIds: string[];
   targetLabel: string;
   runId: string;
@@ -33,7 +37,20 @@ export const REQUIRED_VARS = [
   'PROD_E2E_ORG_ID',
   'PROD_E2E_WORKSPACE_ID',
   'PROD_E2E_FIXTURE_IDS',
+  'PROD_E2E_FORBIDDEN_ORG_IDS',
 ] as const;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The forbidden-org id list, or `null` when it is unusable: empty,
+ * separator-only, or holding any entry that is not a UUID (a typo must never
+ * quietly shrink the list). Fail closed — EC9.
+ */
+export function parseForbiddenOrgIds(raw: string): string[] | null {
+  const ids = parseIdList(raw);
+  return ids.length > 0 && ids.every((id) => UUID.test(id)) ? ids : null;
+}
 
 /** True only when the daily suite is deliberately switched on (the workflow sets it). */
 export function prodSuiteEnabled(env: Record<string, string | undefined>): boolean {
@@ -57,8 +74,10 @@ export function safeRunId(raw: string, now: Date): string {
 }
 
 export function readProdSuiteConfig(env: Record<string, string | undefined>, now = new Date()): ConfigResult {
-  const missing = REQUIRED_VARS.filter((name) => !read(env, name));
-  if (missing.length > 0) return { ok: false, missing: [...missing] };
+  const missing: string[] = REQUIRED_VARS.filter((name) => !read(env, name));
+  const forbiddenOrgIds = parseForbiddenOrgIds(read(env, 'PROD_E2E_FORBIDDEN_ORG_IDS'));
+  if (!forbiddenOrgIds && !missing.includes('PROD_E2E_FORBIDDEN_ORG_IDS')) missing.push('PROD_E2E_FORBIDDEN_ORG_IDS');
+  if (missing.length > 0 || !forbiddenOrgIds) return { ok: false, missing };
   return {
     ok: true,
     config: {
@@ -68,7 +87,7 @@ export function readProdSuiteConfig(env: Record<string, string | undefined>, now
       organizationId: read(env, 'PROD_E2E_ORG_ID'),
       workspaceId: read(env, 'PROD_E2E_WORKSPACE_ID'),
       fixtureIdsJson: read(env, 'PROD_E2E_FIXTURE_IDS'),
-      forbiddenOrgIds: parseIdList(read(env, 'PROD_E2E_FORBIDDEN_ORG_IDS')),
+      forbiddenOrgIds,
       targetLabel: read(env, 'PROD_E2E_TARGET_LABEL') || 'unlabelled',
       runId: safeRunId(read(env, 'PROD_E2E_RUN_ID'), now),
       gitSha: read(env, 'GITHUB_SHA') || null,

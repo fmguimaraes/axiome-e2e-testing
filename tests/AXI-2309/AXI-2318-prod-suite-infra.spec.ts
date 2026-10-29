@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { ForbiddenReferenceError } from './harness/prod-suite/api-client';
@@ -7,10 +7,11 @@ import { ProdSuiteAbort } from './harness/prod-suite/abort';
 import { prodSuiteEnabled } from './harness/prod-suite/config';
 import { provisionFixtures, resolveFixtures, PROD_SUITE_FIXTURES } from './harness/prod-suite/fixtures';
 import { verifyIsolation } from './harness/prod-suite/isolation-guard';
-import { planPublication } from './harness/prod-suite/publish';
+import { findSecretShapes, planPublication } from './harness/prod-suite/publish';
 import { writeReport } from './harness/prod-suite/report';
 import { buildRunPlan, fetchActiveCatalogue, PAUL_OPERATIONS } from './harness/prod-suite/run-plan';
 import { runProdSuite } from './harness/prod-suite/suite';
+import { API_BASE_URL } from '../../config/env';
 import { LocalTestOrgWorld } from './prod-suite-fixtures';
 
 /**
@@ -61,14 +62,16 @@ test.describe('AXI-2318 — prod E2E suite infra (local stand-in for the test or
   });
 
   test('AC11 EC9 NFR5 — an identity that can resolve other organizations is a hard failure', async () => {
+    // The admin sees every org, the decoy forbidden org included: the id-based check fires first.
     const abort = await abortOf(verifyIsolation(world.admin, world.config('{}')));
-    expect(abort.phase).toBe('isolation');
-    expect(['IDENTITY_NOT_CONFINED', 'FORBIDDEN_ORG_VISIBLE']).toContain(abort.code);
+    expect([abort.phase, abort.code]).toEqual(['isolation', 'FORBIDDEN_ORG_VISIBLE']);
   });
 
   test('AC11 EC9 — a forbidden org id is refused, and the client never even sends a request naming it', async () => {
     const forbidden = world.config('{}', { forbiddenOrgIds: [world.organizationId] });
     expect((await abortOf(verifyIsolation(world.identity, forbidden))).code).toBe('CONFIGURED_ORG_FORBIDDEN');
+    const disarmed = world.config('{}', { forbiddenOrgIds: [] });
+    expect((await abortOf(verifyIsolation(world.identity, disarmed))).code, 'an empty forbidden list fails closed').toBe('FORBIDDEN_IDS_MISSING');
     const tripwired = await world.identityClient([world.organizationId]);
     const err = await tripwired.get(`/api/v1/organizations/${world.organizationId}`).then(() => null, (e: unknown) => e);
     expect(err).toBeInstanceOf(ForbiddenReferenceError);
@@ -95,6 +98,7 @@ test.describe('AXI-2318 — prod E2E suite infra (local stand-in for the test or
     const plan = buildRunPlan(catalogue);
     const paulCount = catalogue.filter((r) => PAUL_OPERATIONS.includes(r.operationId ?? '')).length;
     expect(paulCount).toBeGreaterThan(0);
+    expect(plan.cases.length - paulCount, 'catalogue cases beyond Paul\'s methods').toBeGreaterThan(0);
     expect(plan.cases.slice(0, paulCount).every((c) => c.phase === 'paul-methods')).toBe(true);
     expect(plan.cases.slice(paulCount).every((c) => c.phase === 'catalogue')).toBe(true);
     expect(new Set(plan.cases.map((c) => c.id)).size).toBe(new Set(catalogue.map((r) => r.id)).size);
@@ -107,10 +111,17 @@ test.describe('AXI-2318 — prod E2E suite infra (local stand-in for the test or
     const report = await runProdSuite({ connect: () => world.identityClient(), config });
     expect(report.abort).toBeNull();
     expect(report.status).toBe('completed');
+    expect(report.summary.total).toBeGreaterThan(0);
     expect(report.summary.byOutcome['not-evaluated']).toBe(report.summary.total);
     const dir = mkdtempSync(path.join(os.tmpdir(), 'axi2318-report-'));
     try {
-      writeReport(dir, report);
+      for (const file of writeReport(dir, report)) {
+        const text = readFileSync(file, 'utf8');
+        expect(findSecretShapes(text)).toEqual([]);
+        expect(text).not.toMatch(/https?:\/\//i);
+        expect(text.includes(new URL(API_BASE_URL).host)).toBe(false);
+        expect(text.includes(world.email)).toBe(false);
+      }
       const { entries } = planPublication(dir, 'prod-e2e/daily');
       expect(entries.map((e) => e.s3Key)).toEqual(['report.json', 'report.md'].map(
         (f) => `prod-e2e/daily/${report.run.startedAt.slice(0, 10)}/${config.runId}/${f}`));

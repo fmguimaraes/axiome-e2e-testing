@@ -419,7 +419,11 @@ the EC9 isolation guard and the forbidden-org request tripwire, fixtures resolve
 ID and verified by content hash (FR29), the FR30 run order (Paul's methods first,
 then the full active catalogue), the case seam AXI-2319 plugs its pass rule into,
 the deterministic report (FR33/NFR6) and its publication (S3 key layout, secret
-scan, 2-file staging). HTTP is a scripted fake transport — no network, no browser.
+scan, 2-file staging). 6039–6045 (review bounce #1): `PROD_E2E_FORBIDDEN_ORG_IDS` is
+required and fails closed (missing, blank, separator-only or any non-UUID entry),
+the client and the guard refuse an empty list, and the executor result contract
+(known outcome, scalar facts only) is enforced at runtime. HTTP is a scripted fake
+transport — no network, no browser.
 
 | ID | Description | Status |
 |----|-------------|--------|
@@ -462,3 +466,10 @@ scan, 2-file staging). HTTP is a scripted fake transport — no network, no brow
 | UT-PRODE2E-6036 | an isolation abort stops the run before any fixture or catalogue read | Pass |
 | UT-PRODE2E-6037 | a run that cannot read its configuration still yields a report naming what is missing | Pass |
 | UT-PRODE2E-6038 | staging copies ONLY report.json + report.md and the plan lists exactly those two | Pass |
+| UT-PRODE2E-6039 | a missing, blank or separator-only PROD_E2E_FORBIDDEN_ORG_IDS fails the config, naming it | Pass |
+| UT-PRODE2E-6040 | any non-UUID entry rejects the WHOLE forbidden list — a typo never quietly shrinks it | Pass |
+| UT-PRODE2E-6041 | an API client cannot be built with an empty or blank forbidden list | Pass |
+| UT-PRODE2E-6042 | the isolation guard refuses an empty forbidden list (FORBIDDEN_IDS_MISSING) before any request | Pass |
+| UT-PRODE2E-6043 | a visible org whose NAME is innocuous but whose id is forbidden is FORBIDDEN_ORG_VISIBLE | Pass |
+| UT-PRODE2E-6044 | an executor returning nested facts or an unknown outcome is recorded as error, never trusted | Pass |
+| UT-PRODE2E-6045 | the executor contract rejects a non-finite number fact and a non-string reason | Pass |

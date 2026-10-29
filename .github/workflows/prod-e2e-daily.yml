@@ -25,7 +25,10 @@
 #   vars.PROD_E2E_BASE_URL, vars.PROD_E2E_API_BASE_URL   production origins
 #   vars.PROD_E2E_ORG_ID, vars.PROD_E2E_WORKSPACE_ID     the dedicated test org + its workspace
 #   vars.PROD_E2E_FIXTURE_IDS                            {"tableau1":"<uuid>","tableau2":"<uuid>"}
-#   vars.PROD_E2E_FORBIDDEN_ORG_IDS                      prod id(s) of Paul's org (and any other never-touch org)
+#   vars.PROD_E2E_FORBIDDEN_ORG_IDS                      REQUIRED, non-empty UUID list: the prod id(s) of Paul's
+#                                                        CeRAINOM-IgG4 org (and any other never-touch org). Empty,
+#                                                        blank or any non-UUID entry => the run aborts (EC9: an
+#                                                        empty list would switch the id-based guard off)
 #   vars.PROD_E2E_REPORTS_BUCKET, vars.PROD_E2E_S3_PREFIX (default prod-e2e/daily), vars.AWS_REGION
 #   secrets.PROD_E2E_TEST_EMAIL, secrets.PROD_E2E_TEST_PASSWORD   the confined test identity
 #   secrets.AWS_ACCESS_KEY_ID, secrets.AWS_SECRET_ACCESS_KEY      static keys (repo convention, no
@@ -86,10 +89,10 @@ jobs:
       PROD_E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
       PROD_E2E_REPORT_DIR: prod-suite-report
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
           cache: npm
@@ -123,7 +126,7 @@ jobs:
         run: npx tsx scripts/prod-suite-publish.ts "$PROD_E2E_REPORT_DIR" bundle
       - name: Upload the report bundle (report.json + report.md only)
         if: ${{ !cancelled() && steps.publish-plan.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: prod-e2e-report
           path: bundle/
@@ -141,7 +144,7 @@ jobs:
     if: ${{ !cancelled() && needs.suite.outputs.bundle == 'present' && (github.event_name == 'schedule' || inputs.publish) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: prod-e2e-report
           path: bundle
@@ -161,11 +164,16 @@ jobs:
         working-directory: bundle
         env:
           BUCKET: ${{ vars.PROD_E2E_REPORTS_BUCKET }}
+          PREFIX: ${{ vars.PROD_E2E_S3_PREFIX }}
         run: |
           set -euo pipefail
+          # Same default + slash-trim as scripts/prod-suite-publish.ts (safePrefix).
+          PREFIX="${PREFIX:-prod-e2e/daily}"; PREFIX="${PREFIX#/}"; PREFIX="${PREFIX%/}"
           while IFS=$'\t' read -r local key; do
             [ -n "$local" ] || continue
             case "$(basename "$local")" in report.json|report.md) ;; *) echo "::error::refusing to upload $local"; exit 1 ;; esac
+            case "$key" in "$PREFIX"/*) ;; *) echo "::error::refusing key outside the reports prefix: $key"; exit 1 ;; esac
+            case "$key" in *..*) echo "::error::refusing key with '..': $key"; exit 1 ;; esac
             aws s3 cp --only-show-errors "$local" "s3://${BUCKET}/${key}"
             echo "uploaded ${key}"
           done < publish-plan.tsv
@@ -178,10 +186,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: main
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: prod-e2e-report
           path: bundle
@@ -217,10 +225,10 @@ jobs:
       PROD_E2E_WORKSPACE_ID: ${{ vars.PROD_E2E_WORKSPACE_ID }}
       PROD_E2E_FORBIDDEN_ORG_IDS: ${{ vars.PROD_E2E_FORBIDDEN_ORG_IDS }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
           cache: npm

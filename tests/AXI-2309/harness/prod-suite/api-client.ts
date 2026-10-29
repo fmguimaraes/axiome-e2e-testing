@@ -5,9 +5,11 @@
  * resolver and run-plan builder drive the Playwright daily spec, the
  * one-time provisioning CLI and the unit tests (with a fake).
  *
- * EC9 tripwire: a client built with `forbiddenIds` refuses — before the request
- * leaves the process — any path or header carrying one of those ids, so the
- * suite can never even ASK for Paul's CeRAINOM-IgG4 org.
+ * EC9 tripwire: every client carries a NON-EMPTY `forbiddenIds` list and
+ * refuses — before the request leaves the process — any path, header or body
+ * carrying one of those ids, so the suite can never even ASK for Paul's
+ * CeRAINOM-IgG4 org. The list is required and an empty one is refused at
+ * construction: a tripwire that can be built disarmed fails open.
  */
 
 export interface ApiResponse {
@@ -40,7 +42,8 @@ export interface ClientOptions {
   apiBaseUrl: string;
   token: string;
   workspaceId?: string;
-  forbiddenIds?: readonly string[];
+  /** Required, non-empty: the org ids no request may name (EC9). */
+  forbiddenIds: readonly string[];
 }
 
 /** Throw if `text` mentions any forbidden id (case-insensitive). */
@@ -63,12 +66,16 @@ function headersFor(opts: ClientOptions): Record<string, string> {
 
 /** Build an {@link ApiClient} over `transport`, with the EC9 tripwire on every call. */
 export function createApiClient(opts: ClientOptions, transport: Transport): ApiClient {
+  const forbiddenIds = (opts.forbiddenIds ?? []).map((id) => id.trim()).filter(Boolean);
+  if (forbiddenIds.length === 0) {
+    throw new Error('EC9: createApiClient needs a non-empty forbiddenIds list — refusing to build a disarmed client');
+  }
   const base = opts.apiBaseUrl.replace(/\/+$/, '');
   const headers = headersFor(opts);
   const send = async (method: HttpMethod, path: string, data?: unknown): Promise<ApiResponse> => {
     const url = `${base}/${path.replace(/^\/+/, '')}`;
-    assertNoForbiddenReference(`${url} ${JSON.stringify(headers['X-Workspace-Id'] ?? '')}`, opts.forbiddenIds ?? []);
-    if (data !== undefined) assertNoForbiddenReference(JSON.stringify(data), opts.forbiddenIds ?? []);
+    assertNoForbiddenReference(`${url} ${JSON.stringify(headers['X-Workspace-Id'] ?? '')}`, forbiddenIds);
+    if (data !== undefined) assertNoForbiddenReference(JSON.stringify(data), forbiddenIds);
     return transport(method, url, headers, data);
   };
   return {
