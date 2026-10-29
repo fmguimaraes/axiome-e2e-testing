@@ -88,9 +88,8 @@ export interface RunArgs {
   chartStyleOverrides?: Record<string, unknown>;
 }
 
-/** Submits a run and polls until it leaves a non-terminal status. */
-export async function runAndWait(api: Api, t: Tenant, a: Analysis, datasetId: string, args: RunArgs): Promise<any> {
-  const body = {
+function runBody(t: Tenant, a: Analysis, datasetId: string, args: RunArgs): Record<string, unknown> {
+  return {
     ruleId: args.carrierRuleId,
     runKind: args.runKind ?? 'STATISTICAL',
     operationId: args.operationId,
@@ -101,7 +100,26 @@ export async function runAndWait(api: Api, t: Tenant, a: Analysis, datasetId: st
     projectId: t.projectId, workspaceId: t.workspaceId, datasetId,
     snapshotId: a.snapshotId, viewAnalysisId: a.analysisId, scope: 'FILTERED',
   };
-  const submitted = await api.post('/api/v1/rule-runs', body, t.headers);
+}
+
+/**
+ * AXI-2312 (review bounce #2) — the RAW `POST /rule-runs` reply (status +
+ * body), unasserted: the dedup-visibility and refusal scenarios assert on the
+ * submit RESPONSE itself (`chartStyleOverridesApplied`, a 400), which the
+ * polled run record below never carries.
+ */
+export async function submitRun(api: Api, t: Tenant, a: Analysis, datasetId: string, args: RunArgs): Promise<{ status: number; body: any }> {
+  return api.post('/api/v1/rule-runs', runBody(t, a, datasetId, args), t.headers);
+}
+
+/** The same body, sent to the no-write dry run (`POST /rule-runs/preflight`). */
+export async function preflightRun(api: Api, t: Tenant, a: Analysis, datasetId: string, args: RunArgs): Promise<{ status: number; body: any }> {
+  return api.post('/api/v1/rule-runs/preflight', runBody(t, a, datasetId, args), t.headers);
+}
+
+/** Submits a run and polls until it leaves a non-terminal status. */
+export async function runAndWait(api: Api, t: Tenant, a: Analysis, datasetId: string, args: RunArgs): Promise<any> {
+  const submitted = await submitRun(api, t, a, datasetId, args);
   expect(submitted.status, JSON.stringify(submitted.body)).toBeLessThan(300);
   const ruleRunId = submitted.body.ruleRunId;
 
@@ -173,4 +191,26 @@ export async function render(api: Api, t: Tenant, specId: string): Promise<any> 
   const res = await api.post(`/api/v1/workspaces/${t.workspaceId}/dataviews/${specId}/render`, {}, t.headers);
   expect(res.status, JSON.stringify(res.body)).toBeLessThan(300);
   return res.body;
+}
+
+const RESULT_TIMEOUT_MS = 90_000;
+const RESULT_POLL_MS = 2_000;
+
+/**
+ * AXI-2312 (review bounce #2 advisory) — "never blank" asserted as a REAL
+ * payload: a cache-miss render answers `rendering` (which `status !== 'error'`
+ * also accepts), so poll `GET dataviews/results/:instanceId` until the job
+ * lands `ready` with a payload, or fail at the deadline.
+ */
+export async function renderUntilReady(api: Api, t: Tenant, specId: string): Promise<any> {
+  const first = await render(api, t, specId);
+  if (first.payload !== undefined && first.payload !== null) return first;
+  expect(first.status, JSON.stringify(first)).not.toBe('error');
+  const deadline = Date.now() + RESULT_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const res = await api.get(`/api/v1/workspaces/${t.workspaceId}/dataviews/results/${first.instanceId}`, t.headers);
+    if (res.body?.status === 'ready' && res.body.payload != null) return res.body;
+    await sleep(RESULT_POLL_MS);
+  }
+  throw new Error(`render of spec ${specId} (instance ${first.instanceId}) never reached ready with a payload`);
 }

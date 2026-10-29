@@ -5,16 +5,21 @@ import {
   canonicalRunId,
   ingestFixture,
   pollRecommendedCandidate,
+  preflightRun,
   render,
+  renderUntilReady,
   resolveResultDatasetId,
   runAndWait,
+  submitRun,
+  type RunArgs,
 } from './harness/chart-style';
 
 /**
  * AXI-2312 (epic AXI-2309 — FR12, FR13, FR15, AC5).
  *
  * Scenario doc: manual-e2e/AXI-2309-Platform-Opening-Headless.md, "AXI-2312"
- * section (4.1, 4.2, 5.1).
+ * section (4.1, 4.2, 5.1; review bounce #2 adds 4.3 dedup visibility and
+ * 4.4 refusal + preflight parity).
  *
  * API-level only — this story's surface is the render response, not a UI
  * component, so there is no `page.goto`. Seeding reuses the AXI-1400 harness
@@ -68,19 +73,12 @@ test.describe('AXI-2312 — default-chart renderer & chart-spec defaults (FR12/F
   });
 
   test('AC5/FR13 — an explicit chartStyleOverrides.highlightedGroup wins over the owner default (§4.2)', async () => {
-    const run = await runAndWait(api, t, analysis, datasetId, {
-      operationId: 'stats.mann_whitney_u',
-      roleBindings: { groupColumn: 'group' },
-      pivot: { valueColumns: ['value2'] },
-      operationParams: { groupFrom: 'A', groupTo: 'B' },
-      // AXI-2312 (review bounce #1, B1/B3): the override travels on its OWN
-      // top-level field, never inside `operationParams` — `operationParams`
-      // is validated against the operation's declared parameter scheme, and
-      // no operation declares a `styleOverrides` parameter, so the old
-      // shape 400'd on every real submission.
-      chartStyleOverrides: { highlightedGroup: 'B' },
-      carrierRuleId: await carrierRuleId('stats.mann_whitney_u'),
-    });
+    // AXI-2312 (review bounce #1, B1/B3): the override travels on its OWN
+    // top-level field, never inside `operationParams` — `operationParams`
+    // is validated against the operation's declared parameter scheme, and
+    // no operation declares a `styleOverrides` parameter, so the old
+    // shape 400'd on every real submission.
+    const run = await runAndWait(api, t, analysis, datasetId, await overriddenRun({ highlightedGroup: 'B' }));
     const canonicalId = canonicalRunId(run);
     const resultDatasetId = await resolveResultDatasetId(api, t, analysis.analysisId, canonicalId);
     const recommended = await pollRecommendedCandidate(api, t, resultDatasetId, analysis.analysisId);
@@ -115,10 +113,10 @@ test.describe('AXI-2312 — default-chart renderer & chart-spec defaults (FR12/F
     const recommended = await pollRecommendedCandidate(api, t, resultDatasetId, analysis.analysisId);
     expect(recommended, 'no recommended-origin spec minted for the describe.count result (FR12)').toBeTruthy();
 
-    const rendered = await render(api, t, recommended.id);
-
-    // FR12: never blank — the render still succeeds and carries a payload.
-    expect(rendered.status).not.toBe('error');
+    // FR12: never blank — a REAL payload, polled past `rendering` (review
+    // bounce #2 advisory: `status !== 'error'` alone also passed for `rendering`).
+    const rendered = await renderUntilReady(api, t, recommended.id);
+    expect(rendered.payload, 'render reached ready with no payload (FR12: never blank)').toBeTruthy();
     // FR13/FR15 only act on a chart with a group dimension declared in
     // `GROUP_STYLED_TEMPLATE_IDS` (boxplot_v1/paired_slope_v1/km_survival_v1);
     // `bar_chart_v1` is not one of those, so `withChartStyle` returns the
@@ -128,4 +126,47 @@ test.describe('AXI-2312 — default-chart renderer & chart-spec defaults (FR12/F
     // unrelated fields, which masks the actual question).
     expect(rendered.style, 'a non-group-styled template must fabricate no style object').toBeUndefined();
   });
+
+  test('FR13 — resubmitting §4.2 with a DIFFERENT override dedups and says the style was NOT applied, never silently (§4.3)', async () => {
+    // Same fingerprint as §4.2 (the override is deliberately not run identity),
+    // so this dedups onto §4.2's canonical run — whose chart was minted once,
+    // with highlightedGroup 'B'. A palette nobody submits makes the differing
+    // style unambiguous whatever else the shared demo DB already holds.
+    const differing = await submitRun(api, t, analysis, datasetId, await overriddenRun({ highlightedGroup: 'B', palette: ['#0A1B2C'] }));
+    expect(differing.status, JSON.stringify(differing.body)).toBeLessThan(300);
+    expect(differing.body.deduped, 'resubmission did not dedup — fingerprint moved with the style override').toBe(true);
+    expect(differing.body.chartStyleOverridesApplied).toBe(false);
+    expect(differing.body.chartStyleOverridesNotApplied?.code).toBe('CHART_STYLE_NOT_APPLIED_ON_DEDUP');
+
+    // The SAME style as the canonical's resolves equal — applied, no reason.
+    const same = await submitRun(api, t, analysis, datasetId, await overriddenRun({ highlightedGroup: 'B' }));
+    expect(same.body.deduped).toBe(true);
+    expect(same.body.chartStyleOverridesApplied).toBe(true);
+    expect(same.body.chartStyleOverridesNotApplied).toBeUndefined();
+  });
+
+  test('FR13/NFR — a malformed override is refused 400 by execute and BLOCKed by preflight alike (§4.4)', async () => {
+    for (const bad of ['red', { highlightedGroup: 'B', evilKey: 'x' }]) {
+      const args = await overriddenRun(bad as never);
+      const executed = await submitRun(api, t, analysis, datasetId, args);
+      expect(executed.status, JSON.stringify(executed.body)).toBe(400);
+      expect(JSON.stringify(executed.body)).toContain('CHART_STYLE_OVERRIDES_INVALID');
+
+      const preflight = await preflightRun(api, t, analysis, datasetId, args);
+      expect(preflight.status, JSON.stringify(preflight.body)).toBeLessThan(300);
+      expect((preflight.body.blocks ?? []).map((b: any) => b.id)).toContain('CHART_STYLE_OVERRIDES_INVALID:chartStyleOverrides');
+    }
+  });
 });
+
+/** §4.2's exact submission (value2, A vs B), carrying the given chart-style override. */
+async function overriddenRun(chartStyleOverrides: Record<string, unknown>): Promise<RunArgs> {
+  return {
+    operationId: 'stats.mann_whitney_u',
+    roleBindings: { groupColumn: 'group' },
+    pivot: { valueColumns: ['value2'] },
+    operationParams: { groupFrom: 'A', groupTo: 'B' },
+    chartStyleOverrides,
+    carrierRuleId: await carrierRuleId('stats.mann_whitney_u'),
+  };
+}
