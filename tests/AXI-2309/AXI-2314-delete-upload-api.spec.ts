@@ -8,11 +8,14 @@ import {
 
 /**
  * AXI-2314 (epic AXI-2309 Platform Opening: Headless) — the Delete-upload API:
- * soft delete (FR19/FR20 — the dataset row is marked deleted, the raw/parquet
- * S3 objects are reclaimed, but the content hashes themselves are kept, never
- * cleared), and the cite-refusal (EC8/FR20 — a report or a published evidence
- * item citing the upload refuses the delete before any cleanup runs), plus
- * deny-by-default access (NFR1).
+ * soft delete (FR19/FR20 — the dataset row is marked deleted and stops being
+ * readable; hash retention + the delete audit row are unit-level facts,
+ * UT-DATA-6019/6020, because a soft-deleted dataset 404s on every read route),
+ * and the cite-refusal (EC8/FR20 — a report or an evidence item citing the
+ * upload refuses the delete before any cleanup runs), plus deny-by-default
+ * access (NFR1). The other citation edges (snapshots of other analyses, rule
+ * runs, merges, evidence chart/binding pins) are covered per edge by
+ * UT-DATA-6006..6017 — they need a full rule-run pipeline to reach over HTTP.
  *
  * Scenario doc: axiome-docs/manual-e2e/AXI-2309-Platform-Opening-Headless.md
  * § "AXI-2314 — Delete-upload API (soft delete, cite-refusal)" (AXI-2314.1 .. .4).
@@ -106,8 +109,9 @@ test.afterAll(async () => {
 });
 
 test.describe('AXI-2314 — Delete-upload API (soft delete, cite-refusal)', TAGS, () => {
-  test('AXI-2314.1: an uncited upload soft-deletes; the content hash is kept, not cleared', async () => {
-    // Arrange
+  test('AXI-2314.1 [AC7]: an uncited upload soft-deletes and is no longer readable', async () => {
+    // Arrange — a dataset with an analysis (auto v1 snapshot) but no evidence
+    // and no report: reachable, yet uncited.
     const { datasetId } = await datasetWithAnalysis('uncited');
     const before = await admin.api.get(datasets(`/${datasetId}`));
     expect(before.status(), await before.text()).toBe(200);
@@ -122,20 +126,15 @@ test.describe('AXI-2314 — Delete-upload API (soft delete, cite-refusal)', TAGS
     expect(del.status(), await del.text()).toBe(204);
     const after = await admin.api.get(datasets(`/${datasetId}`));
     expect(after.status()).toBe(404);
-    const logs = await admin.api.get(datasets(`/${datasetId}/audit-logs`));
-    expect(logs.status(), await logs.text()).toBe(200);
-    const logBody = await logs.json();
-    const actions = (logBody.data ?? logBody).map((l: { action: string }) => l.action);
-    expect(actions).toContain('delete');
-    // The hash is never cleared by a delete (FR20) — it travelled unchanged in
-    // the pre-delete read above; there is no post-delete GET to re-read it from
-    // (404, by soft-delete design), so the audit log is where it is pinned.
-    const deleteEntry = (logBody.data ?? logBody).find((l: { action: string }) => l.action === 'delete');
-    expect(deleteEntry).toBeTruthy();
-    expect(JSON.stringify(deleteEntry)).not.toMatch(/fileHash["']?\s*:\s*null/);
+    // FR20 "hash kept" and "delete is audited" are NOT observable over HTTP:
+    // every dataset read route (incl. `/audit-logs`) resolves the dataset
+    // through the live-dataset owner (`deletedAt: null`), so a soft-deleted
+    // row 404s by design. Both are pinned at the unit level instead —
+    // UT-DATA-6019 (the soft delete writes exactly `{ deletedAt }`) and
+    // UT-DATA-6020 (a `delete` audit row is written).
   });
 
-  test('AXI-2314.2: delete is refused when a report (published version) cites the upload', async () => {
+  test('AXI-2314.2 [AC7]: delete is refused when a report (published version) cites the upload', async () => {
     // Arrange
     const { datasetId, viewAnalysisId } = await datasetWithAnalysis('report-cited');
     const publishedVersionId = await citeAsReport(viewAnalysisId);
@@ -149,7 +148,12 @@ test.describe('AXI-2314 — Delete-upload API (soft delete, cite-refusal)', TAGS
     expect(body.errorCode).toBe(REFUSED_CODE);
     expect(body.errors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ field: 'report', code: publishedVersionId }),
+        expect.objectContaining({
+          field: 'report',
+          code: 'DATASET_CITED_BY_REPORT',
+          citingId: publishedVersionId,
+          viewAnalysisId,
+        }),
       ]),
     );
 
@@ -162,7 +166,7 @@ test.describe('AXI-2314 — Delete-upload API (soft delete, cite-refusal)', TAGS
     expect(reportStillThere.status()).toBe(200);
   });
 
-  test('AXI-2314.3: delete is refused when a published evidence item cites the upload', async () => {
+  test('AXI-2314.3 [AC7]: delete is refused when an evidence item (draft) cites the upload', async () => {
     // Arrange
     const { datasetId, viewAnalysisId } = await datasetWithAnalysis('evidence-cited');
     const evidenceId = await citeAsEvidence(viewAnalysisId);
@@ -175,7 +179,14 @@ test.describe('AXI-2314 — Delete-upload API (soft delete, cite-refusal)', TAGS
     const body = await del.json();
     expect(body.errorCode).toBe(REFUSED_CODE);
     expect(body.errors).toEqual(
-      expect.arrayContaining([expect.objectContaining({ field: 'evidence', code: evidenceId })]),
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: 'evidence',
+          code: 'DATASET_CITED_BY_EVIDENCE',
+          citingId: evidenceId,
+          viewAnalysisId,
+        }),
+      ]),
     );
 
     const stillThere = await admin.api.get(datasets(`/${datasetId}`));
@@ -189,7 +200,7 @@ test.describe('AXI-2314 — Delete-upload API (soft delete, cite-refusal)', TAGS
     expect(actions).toContain('delete_refused_cited');
   });
 
-  test('AXI-2314.4 — NFR1: delete is deny-by-default (no token, below-admin role, cross-workspace)', async () => {
+  test('AXI-2314.4 [AC7] — NFR1: delete is deny-by-default (no token, below-admin role, cross-workspace)', async () => {
     // Arrange
     const { datasetId } = await datasetWithAnalysis('deny-by-default');
     const anonymous = await apiRequest.newContext({
