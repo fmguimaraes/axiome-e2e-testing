@@ -14,7 +14,18 @@ import { type Analysis, type Tenant } from '../../AXI-1400/harness/seed';
  */
 
 export const FIXTURES_DIR = join(process.cwd(), 'tests', 'AXI-2309', 'fixtures');
-export const FIXTURE_FILE = 'chart-style-default.csv';
+/**
+ * Three numeric measurements (`value`/`value2`/`value3`) over a two-level
+ * `group`. `stats.mann_whitney_u` emits ONE ROW PER MEASUREMENT, and the
+ * recommended-chart builder withholds any figure below `MIN_CHARTABLE_ROWS`
+ * (2 — `recommended-chart-spec.ts`, "row floor"), so a single-measurement run
+ * never mints a default chart and AC5 would never be exercised. Each
+ * mann_whitney scenario therefore submits TWO measurements, and §4.1 and §4.2
+ * use different pairs so their fingerprints never collide. Renamed from
+ * `chart-style-default.csv` (two measurements) because `ingestFixture` reuses a
+ * prior upload by filename — an old two-column upload would silently survive.
+ */
+export const FIXTURE_FILE = 'chart-style-multi.csv';
 
 const INGEST_TIMEOUT_MS = 90_000;
 const INGEST_POLL_MS = 2_000;
@@ -86,6 +97,33 @@ export interface RunArgs {
    * (see `libs/contracts/src/rule-run/rule-run.patterns.ts`).
    */
   chartStyleOverrides?: Record<string, unknown>;
+  /**
+   * AXI-2310 (FR2, EC7) — the SAP version the run is bound to. Since AXI-2310
+   * every `POST /rule-runs` without one is refused 422 `SAP_VERSION_REQUIRED`
+   * (fail-closed unless the demo-only `SAP_RUN_BINDING=off` hatch is set).
+   * Obtain one through `createSapVersion`.
+   */
+  sapVersionId: string;
+}
+
+/**
+ * AXI-2310 — creates a SAP in the tenant's project (the same
+ * `POST /projects/:projectId/saps` AXI-2310's own spec drives) and returns its
+ * version-1 `sapVersionId`, the run-binding key. One SAP per spec run: the
+ * binding is NOT run identity (absent from every fingerprint), so dedup between
+ * scenarios is unaffected by which SAP version a run is bound to.
+ */
+export async function createSapVersion(api: Api, t: Tenant, operationIds: string[]): Promise<string> {
+  const res = await api.post(`/api/v1/projects/${t.projectId}/saps`, {
+    title: `E2E AXI-2312 chart-style SAP ${Date.now()}`,
+    questionText: 'Do the owner chart-style defaults reach the default chart?',
+    planText: 'Mann-Whitney U, group A vs B, per measurement; describe.count by group.',
+    linkedMethods: operationIds.map((operationId) => ({ operationId })),
+  }, t.headers);
+  if (res.status !== 201 || typeof res.body?.sapVersionId !== 'string') {
+    throw new Error(`SAP creation failed (${res.status}): ${JSON.stringify(res.body)}`);
+  }
+  return res.body.sapVersionId;
 }
 
 function runBody(t: Tenant, a: Analysis, datasetId: string, args: RunArgs): Record<string, unknown> {
@@ -97,6 +135,7 @@ function runBody(t: Tenant, a: Analysis, datasetId: string, args: RunArgs): Reco
     operationParams: args.operationParams,
     pivot: args.pivot,
     chartStyleOverrides: args.chartStyleOverrides,
+    sapVersionId: args.sapVersionId,
     projectId: t.projectId, workspaceId: t.workspaceId, datasetId,
     snapshotId: a.snapshotId, viewAnalysisId: a.analysisId, scope: 'FILTERED',
   };
@@ -149,6 +188,13 @@ export function canonicalRunId(run: any): string {
  * names it in `datasetId` (`rule-runs.service.ts#createRuleDerivedSnapshot`).
  * Polls because the snapshot materializes asynchronously after the run
  * reaches SUCCEEDED.
+ *
+ * Matched on the snapshot's own `ruleRunId` as well as its parent: every
+ * scenario in this spec runs against the SAME referent snapshot, so the
+ * parent alone matches EVERY scenario's result, and the newest-first listing
+ * then hands back whichever run finished last (a re-run of §4.1 deduped onto
+ * its canonical got §5.1's `bar_chart_v1` result — latently green on a fresh
+ * stack only because each scenario's own result happened to be newest).
  */
 export async function resolveResultDatasetId(api: Api, t: Tenant, analysisId: string, canonicalId: string): Promise<string> {
   const run = await api.get(`/api/v1/rule-runs/${canonicalId}`, t.headers);
@@ -157,7 +203,7 @@ export async function resolveResultDatasetId(api: Api, t: Tenant, analysisId: st
   while (Date.now() < deadline) {
     const res = await api.get(`/api/v1/view-analyses/${analysisId}/snapshots?page=1&limit=100`, t.headers);
     const derived = asList(res.body).find(
-      (s: any) => s.origin === 'rule_derived' && s.parentSnapshotId === referentSnapshotId,
+      (s: any) => s.origin === 'rule_derived' && s.parentSnapshotId === referentSnapshotId && s.ruleRunId === canonicalId,
     );
     if (derived) return derived.datasetId;
     await sleep(MINT_POLL_MS);
