@@ -67,12 +67,18 @@ test.describe('AXI-2312 — default-chart renderer & chart-spec defaults (FR12/F
     expect(rendered.style.controlLabelPatterns.length).toBeGreaterThan(0);
   });
 
-  test('AC5/FR13 — an explicit styleOverrides.highlightedGroup wins over the owner default (§4.2)', async () => {
+  test('AC5/FR13 — an explicit chartStyleOverrides.highlightedGroup wins over the owner default (§4.2)', async () => {
     const run = await runAndWait(api, t, analysis, datasetId, {
       operationId: 'stats.mann_whitney_u',
       roleBindings: { groupColumn: 'group' },
       pivot: { valueColumns: ['value2'] },
-      operationParams: { groupFrom: 'A', groupTo: 'B', styleOverrides: { highlightedGroup: 'B' } },
+      operationParams: { groupFrom: 'A', groupTo: 'B' },
+      // AXI-2312 (review bounce #1, B1/B3): the override travels on its OWN
+      // top-level field, never inside `operationParams` — `operationParams`
+      // is validated against the operation's declared parameter scheme, and
+      // no operation declares a `styleOverrides` parameter, so the old
+      // shape 400'd on every real submission.
+      chartStyleOverrides: { highlightedGroup: 'B' },
       carrierRuleId: await carrierRuleId('stats.mann_whitney_u'),
     });
     const canonicalId = canonicalRunId(run);
@@ -86,24 +92,40 @@ test.describe('AXI-2312 — default-chart renderer & chart-spec defaults (FR12/F
     expect(rendered.style?.accentColor, 'the owner accent default should still be present alongside the override').toBeTruthy();
   });
 
-  test('AC5 — a non-group-styled chart (scatter) renders successfully with no group-style fields, never blank (§5.1)', async () => {
+  test('AC5 — a non-group-styled chart (bar count) renders successfully with no group-style fields, never blank (§5.1)', async () => {
+    // AXI-2312 (review bounce #1, B3): `stats.correlation`'s own chart
+    // declaration is `surfaces: ['result']` ONLY — "The gallery has no pair
+    // of real columns to plot" (operation-registry.ts) — so it never mints a
+    // `recommended`-origin spec at all, and `pollRecommendedCandidate` below
+    // would always return `null` regardless of this story's fix.
+    // `describe.count` declares `surfaces: ['result', 'gallery']`, resolves
+    // to `bar_chart_v1` (NOT in `GROUP_STYLED_TEMPLATE_IDS`), and is the
+    // simplest operation this fixture can drive that actually reaches the
+    // gallery — the scenario doc's "e.g. a `volcano_v1`-templated result" is
+    // illustrative, not a literal operation requirement (§5.1).
     const run = await runAndWait(api, t, analysis, datasetId, {
-      operationId: 'stats.correlation',
-      roleBindings: { xColumn: 'value', yColumn: 'value2' },
-      operationParams: { method: 'pearson' },
-      carrierRuleId: await carrierRuleId('stats.correlation'),
+      operationId: 'describe.count',
+      runKind: 'DESCRIBE',
+      roleBindings: { groupColumns: 'group' },
+      operationParams: {},
+      carrierRuleId: await carrierRuleId('describe.count'),
     });
     const canonicalId = canonicalRunId(run);
     const resultDatasetId = await resolveResultDatasetId(api, t, analysis.analysisId, canonicalId);
     const recommended = await pollRecommendedCandidate(api, t, resultDatasetId, analysis.analysisId);
-    expect(recommended, 'no recommended-origin spec minted for the correlation result (FR12)').toBeTruthy();
+    expect(recommended, 'no recommended-origin spec minted for the describe.count result (FR12)').toBeTruthy();
 
     const rendered = await render(api, t, recommended.id);
 
     // FR12: never blank — the render still succeeds and carries a payload.
     expect(rendered.status).not.toBe('error');
-    // FR13/FR15 only act on a chart with a group dimension; a scatter has
-    // none, so no group-styling field is fabricated.
-    expect(rendered.style?.highlightedGroup).toBeUndefined();
+    // FR13/FR15 only act on a chart with a group dimension declared in
+    // `GROUP_STYLED_TEMPLATE_IDS` (boxplot_v1/paired_slope_v1/km_survival_v1);
+    // `bar_chart_v1` is not one of those, so `withChartStyle` returns the
+    // spec untouched and `style` is absent entirely — asserted directly
+    // (review bounce #1, B3: `rendered.style?.highlightedGroup` being
+    // `undefined` also passes when `rendered.style` itself is present with
+    // unrelated fields, which masks the actual question).
+    expect(rendered.style, 'a non-group-styled template must fabricate no style object').toBeUndefined();
   });
 });

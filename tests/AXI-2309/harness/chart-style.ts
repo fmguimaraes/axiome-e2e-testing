@@ -75,17 +75,29 @@ export interface RunArgs {
   operationParams: Record<string, unknown>;
   pivot?: { valueColumns?: string[] };
   carrierRuleId: string;
+  /** Defaults to `'STATISTICAL'` — override for an operation declared under a
+   *  different `RuleRunKind` (e.g. `describe.count` is `DESCRIBE`); the
+   *  submitted `runKind` is validated against the operation's own
+   *  declaration, so a mismatch here is a 400, not a silent coercion. */
+  runKind?: string;
+  /**
+   * AXI-2312 (review bounce #1, B1) — the chart-style carrier, a FIELD OF ITS
+   * OWN on `ExecuteRuleRunRequest`, deliberately NOT inside `operationParams`
+   * (see `libs/contracts/src/rule-run/rule-run.patterns.ts`).
+   */
+  chartStyleOverrides?: Record<string, unknown>;
 }
 
 /** Submits a run and polls until it leaves a non-terminal status. */
 export async function runAndWait(api: Api, t: Tenant, a: Analysis, datasetId: string, args: RunArgs): Promise<any> {
   const body = {
     ruleId: args.carrierRuleId,
-    runKind: 'STATISTICAL',
+    runKind: args.runKind ?? 'STATISTICAL',
     operationId: args.operationId,
     roleBindings: args.roleBindings,
     operationParams: args.operationParams,
     pivot: args.pivot,
+    chartStyleOverrides: args.chartStyleOverrides,
     projectId: t.projectId, workspaceId: t.workspaceId, datasetId,
     snapshotId: a.snapshotId, viewAnalysisId: a.analysisId, scope: 'FILTERED',
   };
