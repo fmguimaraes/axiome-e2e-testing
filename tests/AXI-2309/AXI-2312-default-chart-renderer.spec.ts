@@ -111,7 +111,7 @@ test.describe('AXI-2312 — default-chart renderer & chart-spec defaults (FR12/F
     // verification stack) — `GET dataviews/results/:instanceId` can never
     // reach `ready`, whatever this story does. Marked fixme rather than red or
     // deleted; un-fixme once the two versions are reconciled.
-    test.fixme(true, 'RENDER_ENGINE_VERSION mismatch (axiome-back 1.0.0 vs axiome-bio-compute 2.0.0): render poll can never resolve — pre-existing defect, tracked separately');
+    test.fixme(true, 'RENDER_ENGINE_VERSION mismatch (axiome-back 1.0.0 vs axiome-bio-compute 2.0.0): render poll can never resolve — pre-existing defect, tracked as AXI-2337');
     // AXI-2312 (review bounce #1, B3): `stats.correlation`'s own chart
     // declaration is `surfaces: ['result']` ONLY — "The gallery has no pair
     // of real columns to plot" (operation-registry.ts) — so it never mints a
