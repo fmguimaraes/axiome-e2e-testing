@@ -145,4 +145,68 @@ test.describe('AXI-2315 — auth suite (@SI-011)', () => {
     });
     expect(loginNew.ok()).toBe(true);
   });
+
+  // AXI-2315 bounce #1, B3 — gateway userId-spread IDOR regression. The
+  // reviewer proved live that `change-password`, `PATCH /profile` and
+  // `PATCH /preferences` built `{ userId: user.sub, ...body }`, letting a
+  // client-supplied `userId` in the body override the JWT-derived one. This
+  // test uses its OWN freshly-created accounts (never the reviewer's
+  // throwaway `e2e-review-idor-*@axiome.test` PoC accounts, which have been
+  // deleted from the shared demo DB) and proves account A sending account
+  // B's userId in any of the three routes leaves B completely unchanged.
+  test('AC8 regression (bounce #1, B3) — a hostile userId in the body cannot mutate another account', { tag: '@SI-011' }, async () => {
+    const emailA = uniqueEmail('idor-a');
+    const emailB = uniqueEmail('idor-b');
+    const { accessToken: tokenA } = await registerAndLogin(emailA, 'AccountAPass1');
+    const { accessToken: tokenB } = await registerAndLogin(emailB, 'AccountBPass1');
+
+    const meB = await api.get(apiUrl('/api/v1/auth/me'), {
+      headers: { Authorization: `Bearer ${tokenB}` },
+    });
+    expect(meB.ok()).toBe(true);
+    const userB = await meB.json();
+
+    // Attempt 1: account A tries to change account B's password by supplying
+    // B's userId in the body, authenticated as A.
+    const hostileChangePassword = await api.post(apiUrl('/api/v1/auth/change-password'), {
+      headers: { Authorization: `Bearer ${tokenA}` },
+      data: {
+        currentPassword: 'AccountAPass1',
+        newPassword: 'AttackerChosenPass1',
+        userId: userB.id,
+      },
+    });
+    // Whatever this call returns about A's own account, B's original
+    // password must still work — it must never have been touched.
+    void hostileChangePassword;
+    const loginBStillWorks = await api.post(apiUrl('/api/v1/auth/login'), {
+      data: { email: emailB, password: 'AccountBPass1' },
+    });
+    expect(loginBStillWorks.ok()).toBe(true);
+
+    // Attempt 2: account A tries to take over B's email via /profile.
+    const hostileProfile = await api.patch(apiUrl('/api/v1/auth/profile'), {
+      headers: { Authorization: `Bearer ${tokenA}` },
+      data: { firstName: 'Attacker', userId: userB.id, email: 'attacker-takeover@axiome.test' },
+    });
+    void hostileProfile;
+    const meBAfterProfileAttack = await api.get(apiUrl('/api/v1/auth/me'), {
+      headers: { Authorization: `Bearer ${tokenB}` },
+    });
+    expect(meBAfterProfileAttack.ok()).toBe(true);
+    expect((await meBAfterProfileAttack.json()).email).toBe(emailB);
+
+    // Attempt 3: account A tries to flip B's theme preference.
+    const originalThemeB = userB.themePreference;
+    const hostilePreferences = await api.patch(apiUrl('/api/v1/auth/preferences'), {
+      headers: { Authorization: `Bearer ${tokenA}` },
+      data: { themePreference: 'dark-attacker', userId: userB.id },
+    });
+    void hostilePreferences;
+    const meBAfterPreferencesAttack = await api.get(apiUrl('/api/v1/auth/me'), {
+      headers: { Authorization: `Bearer ${tokenB}` },
+    });
+    expect(meBAfterPreferencesAttack.ok()).toBe(true);
+    expect((await meBAfterPreferencesAttack.json()).themePreference).toBe(originalThemeB);
+  });
 });
