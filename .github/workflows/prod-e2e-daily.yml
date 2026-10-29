@@ -234,4 +234,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Upload fixtures once (isolation guard first; idempotent by content hash)
-        run: npx tsx scripts/prod-suite-provision.ts | tee -a "$GITHUB_STEP_SUMMARY"
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx scripts/prod-suite-provision.ts | tee -a "$GITHUB_STEP_SUMMARY"
