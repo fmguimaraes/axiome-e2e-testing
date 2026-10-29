@@ -14,16 +14,29 @@ import { apiUrl } from '../../config/env';
  * workspace — same shape as AXI-2065/AXI-2244/AXI-2243 above (own login,
  * no dependency on the fixture-org `setup` project's storageState).
  *
- * Deterministic by a GATE, not a sleep: after finalize #1 we assert via
- * `GET .../ingestions` that the auto-triggered ingestion is still
- * queued/running BEFORE attempting finalize #2. If that assertion ever
- * fails — bio-compute raced ahead of this test and ingestion #1 already
- * completed — the test SKIPS with a stated reason instead of flaking red
- * (no 409 could occur) or green on an unrelated timing accident. This
- * mirrors AXI-2064's own observed repro (gaps.md G2): "both datasets ended
- * up with one READY ingestion after two append attempts" — i.e. the race
- * window is routinely wide enough for a human append script to hit it, not
- * a microsecond window needing a test-only seam to force.
+ * Deterministic by a GATE, not a sleep — but review bounce #2 (B6) showed a
+ * single gate BEFORE finalize #2 is not enough: ingestion #1 can still
+ * finish in the gap between that check and the finalize #2 call itself
+ * (observed live), which would give a false fail even against FIXED code
+ * (no 409 could occur, so no `auto_ingestion_deferred` entry is written).
+ * This spec therefore branches on what ACTUALLY happened AFTER finalize #2:
+ * a missing `auto_ingestion_deferred` entry is a genuine failure only if
+ * ingestion #1 was STILL active at that point; if #1 had already gone
+ * terminal, the race this spec exists to force simply didn't occur this
+ * run, and it SKIPS with a stated reason instead of asserting on a race
+ * that never happened. This mirrors AXI-2064's own observed repro (gaps.md
+ * G2): "both datasets ended up with one READY ingestion after two append
+ * attempts" — i.e. the race window is routinely wide enough for a human
+ * append script to hit it, not a microsecond window needing a test-only
+ * seam to force — but still not wide enough to assert on blindly.
+ *
+ * AC2 asserts the NEWEST ingestion (the one created by finalize #2's
+ * deferred retry, identified by id — never just "any ingestion in the list
+ * is ready", which can true-but-meaninglessly pass on ingestion #1 itself
+ * reaching `ready` on its own). Teardown (`afterEach`) waits for EVERY
+ * ingestion for this dataset to reach a terminal state before deleting it —
+ * review bounce #2 (B6) observed a live run where the retried ingestion's
+ * callback arrived ~7s AFTER the dataset had already been deleted.
  */
 
 const WORKSPACE_ID = '8946e06a-4fe6-45ee-8d9a-58f7142e803a';
@@ -43,6 +56,10 @@ const ACTIVE_INGESTION_POLL = { attempts: 10, intervalMs: 500 };
 // asserts — give it enough headroom for a real bio-compute parse of a
 // 2-row CSV.
 const READY_POLL = { attempts: 40, intervalMs: 1500 };
+// Review bounce #2 (B6): teardown must not delete the dataset while any
+// ingestion for it is still queued/running — a live run saw the retried
+// ingestion's callback arrive ~7s after the dataset was already gone.
+const TERMINAL_POLL = { attempts: 40, intervalMs: 1500 };
 
 function headers(token: string) {
   return { Authorization: `Bearer ${token}`, 'X-Workspace-Id': WORKSPACE_ID };
@@ -64,6 +81,17 @@ test.beforeAll(async () => {
 
 test.afterEach(async () => {
   if (!createdDatasetId) return;
+  // Review bounce #2 (B6): never delete the dataset while an ingestion for
+  // it could still deliver a callback — wait for every ingestion (however
+  // many the race produced) to reach ready/failed first. Best-effort: if
+  // one never settles, delete anyway rather than leaking the teardown step
+  // itself and failing a later run's setup.
+  const datasetId = createdDatasetId;
+  await pollUntil(
+    () => ingestionsFor(datasetId),
+    (list) => list.length > 0 && list.every((i) => ['ready', 'failed'].includes(i.status)),
+    TERMINAL_POLL,
+  );
   await api.delete(apiUrl(`/api/v1/workspaces/${WORKSPACE_ID}/datasets/${createdDatasetId}`), {
     headers: headers(token),
   });
@@ -176,24 +204,42 @@ test('AC1/AC2 — a finalize racing a still-active ingestion defers the auto-tri
   // IS stored) — it is only the auto-ingestion refusal that must not vanish.
   expect(finalize2.ok(), `second finalize must still succeed: ${finalize2.status()}`).toBeTruthy();
 
+  // Review bounce #2 (B6): ingestion #1 can finish in the gap between the
+  // gate above and this exact point — a live run observed it. Read BOTH the
+  // audit log and the current ingestion list right now, once, and branch on
+  // what actually happened rather than assuming the race occurred.
   const auditLogs = await auditLogsFor(datasetId);
+  const deferred = auditLogs.some((entry) => entry.action === 'auto_ingestion_deferred');
+  const afterSecondFinalize = await ingestionsFor(datasetId);
+  const ingestion1Now = afterSecondFinalize.find((i) => i.id === ingestion1!.id);
+
+  test.skip(
+    !deferred && (!ingestion1Now || ['ready', 'failed'].includes(ingestion1Now.status)),
+    `no race occurred this run — ingestion #1 was already terminal (status: ${ingestion1Now?.status ?? 'missing'}) by ` +
+      'the time finalize #2 ran, so finalize #2\'s own auto-trigger could not have hit a 409 and no ' +
+      'auto_ingestion_deferred entry was expected. Skipping rather than asserting on a race that did not happen.',
+  );
+
   expect(
-    auditLogs.some((entry) => entry.action === 'auto_ingestion_deferred'),
+    deferred,
     `expected an auto_ingestion_deferred audit entry; got actions: ${auditLogs.map((e) => e.action).join(', ')}`,
   ).toBeTruthy();
 
-  // AC2: the deferred append is retried once the race clears — poll until a
-  // SECOND ingestion appears and reaches `ready`, proving the stored file
-  // (the last successful finalize) and the latest ingestion do not stay
-  // permanently disagreeing.
+  // AC2: the deferred append is retried once the race clears — poll until
+  // the NEWEST ingestion (the one the retry created, identified by id —
+  // never just "any ingestion in the list is ready", which can pass on
+  // ingestion #1 itself settling and prove nothing about the retry) reaches
+  // `ready`, proving the stored file (the last successful finalize) and the
+  // latest ingestion do not stay permanently disagreeing.
   const settled = await pollUntil(
     () => ingestionsFor(datasetId),
-    (list) => list.length >= 2 && list.some((i) => i.status === 'ready'),
+    (list) => list.some((i) => i.id !== ingestion1!.id && i.status === 'ready'),
     READY_POLL,
   );
+  const retried = settled?.find((i) => i.id !== ingestion1!.id);
   expect(
-    settled && settled.length >= 2,
-    `expected a second (retried) ingestion for dataset ${datasetId}; got: ${JSON.stringify(settled)}`,
+    retried,
+    `expected a second (retried) ingestion distinct from #1 (${ingestion1!.id}) for dataset ${datasetId}; got: ${JSON.stringify(settled)}`,
   ).toBeTruthy();
-  expect(settled?.some((i) => i.status === 'ready')).toBeTruthy();
+  expect(retried?.status).toBe('ready');
 });
