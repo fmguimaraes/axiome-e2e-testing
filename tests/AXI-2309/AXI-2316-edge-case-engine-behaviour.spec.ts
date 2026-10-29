@@ -180,8 +180,13 @@ test.describe('AXI-2316 — edge-case engine behaviour (AC9)', { tag: ['@SI-021'
     expect(table.totalRows).toBeGreaterThanOrEqual(1);
     const row = table.rows[0];
     // The statistic is DEFINED (computed over arms A/B after excluding C) —
-    // never undefined just because one arm was too small.
-    expect(row.hStatistic ?? row.reason, `row carries neither a statistic nor a reason: ${JSON.stringify(row)}`).toBeTruthy();
+    // never undefined just because one arm was too small. `row.hStatistic ??
+    // row.reason` would pass on EITHER a computed stat OR a (pre-fix)
+    // "insufficient groups" reason — it must fail on unfixed code, not just
+    // on a crash.
+    expect(row.reason, `row carries a reason — the test stayed undefined instead of running on the valid arms: ${JSON.stringify(row)}`).toBeFalsy();
+    expect(row.hStatistic, `row carries no hStatistic even though reason is falsy: ${JSON.stringify(row)}`).not.toBeNull();
+    expect(row.hStatistic).not.toBeUndefined();
   });
 
   test('AC9/EC2 — an all-tied column is a defined "not computable" result, never a crash (@SI-021)', async () => {
@@ -222,11 +227,22 @@ test.describe('AXI-2316 — edge-case engine behaviour (AC9)', { tag: ['@SI-021'
     const tableX = await resultTable(api, t, canonicalRunId(runX.run));
     const tableY = await resultTable(api, t, canonicalRunId(runY.run));
     // varX is missing exactly one of 6 rows (s2); varY is missing exactly one
-    // DIFFERENT row (s5) — each test's own `n` must reflect only ITS variable's
-    // usable rows (5 of 6), never a whole-row drop that also removes the row
-    // whose OTHER variable was fine.
-    expect(tableX.rows[0].n).toBe(5);
-    expect(tableY.rows[0].n).toBe(5);
+    // DIFFERENT row (s5) — each test's own usable-row count must reflect only
+    // ITS variable's usable rows (5 of 6), never a whole-row drop that also
+    // removes the row whose OTHER variable was fine. `stats.mann_whitney_u`'s
+    // row carries `nGroupFrom`/`nGroupTo` (groupFrom='A', groupTo='B'), not a
+    // bare `n` — there is no such field on this operation's contract, so the
+    // sum of the two sides is the "5 of 6 usable" fact under test.
+    const rowX = tableX.rows[0];
+    const rowY = tableY.rows[0];
+    expect((rowX.nGroupFrom as number) + (rowX.nGroupTo as number), JSON.stringify(rowX)).toBe(5);
+    expect((rowY.nGroupFrom as number) + (rowY.nGroupTo as number), JSON.stringify(rowY)).toBe(5);
+    // And the split itself is the variable's OWN missing row, not the other's:
+    // varX drops s2 (arm A) -> A=2/B=3; varY drops s5 (arm B) -> A=3/B=2.
+    expect(rowX.nGroupFrom).toBe(2);
+    expect(rowX.nGroupTo).toBe(3);
+    expect(rowY.nGroupFrom).toBe(3);
+    expect(rowY.nGroupTo).toBe(2);
   });
 
   test('AC9/EC5 — a merged xlsx header cell is flattened deterministically, never shifted/garbled (@SI-014)', async () => {
