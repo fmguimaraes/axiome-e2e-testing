@@ -18,8 +18,11 @@ const SHADOW_RUN_SPEC = /AXI-1462\/AXI-1614-compiled-planner-shadow-run\.spec\.t
 // browser `context`, no business depending on the `setup` project's
 // storageState) — same reasoning as AXI-2243/AXI-2244/AXI-2065 above, just a
 // different epic folder (AXI-2073).
+// AXI-2084 joins the same pattern: own admin login over the API, no `page`,
+// no dependency on the fixture-org `setup` project's storageState — it races
+// two finalizes against the demo stack's own seeded Microbiote workspace.
 const EVIDENCE_API_SPEC =
-  /AXI-2060\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset|AXI-2243-pairwise-pvalue-brackets)\.spec\.ts$|AXI-2073\/AXI-2262-chart-export-title-fallback\.spec\.ts$/;
+  /AXI-2060\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset|AXI-2243-pairwise-pvalue-brackets|AXI-2084-deferred-auto-ingestion)\.spec\.ts$|AXI-2073\/AXI-2262-chart-export-title-fallback\.spec\.ts$/;
 
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
