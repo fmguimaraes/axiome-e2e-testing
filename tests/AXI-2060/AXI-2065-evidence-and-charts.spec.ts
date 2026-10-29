@@ -4,58 +4,34 @@ import { apiUrl } from '../../config/env';
 /**
  * AXI-2065 — evidence + charts for the Microbiote IgG4 reproduction
  * (manual-e2e AXI-2060-Microbiote-IgG4-Study-Reproduction.md §AXI-2065,
- * FR17-FR19, AC8).
+ * FR17-FR19, AC8). READ-ONLY against the seeded demo project `Microbiote
+ * IgG4 — synthetic reproduction (AXI-2064)` (org CeRAINOM-IgG4, workspace
+ * Mag4), own admin login (not the fixture-org `setup` project).
  *
- * READ-ONLY against the seeded demo project `Microbiote IgG4 — synthetic
- * reproduction (AXI-2064)` (org CeRAINOM-IgG4, workspace Mag4). This spec
- * makes no POST/PATCH call — it only verifies what
- * `demo/mag4-microbiote/scripts/build_evidence_and_charts.py` already
- * created on the shared demo stack: one evidence per slide-2/slide-3
- * question per reference (21), carrying a hand-built `boxplot_v1` chart,
- * plus one heatmap evidence carrying a hand-built `heatmap_annotated_v1`
- * chart over the 42-row Spearman summary dataset.
- *
- * Login is the demo stack default (`admin@cro-one.com`/`admin`,
- * `feedback_default_local_login.md`) — this is NOT the fixture org every
- * other spec provisions; it is the ONE project this epic's W4 stories
- * create (NFR4), so the spec discovers everything by exact name rather
- * than hardcoding ids that a re-run of the (idempotent) build scripts
- * would keep stable anyway, but need not be pinned here.
- *
- * Review bounce #1 (2026-10-20) — heatmap provenance: the original
- * heatmap analysis/evidence/dataset ("...AXI-2065)") are now a
- * superseded v1 object graph, left live and read-only, labelled
- * superseded in their own text/notes (never deleted). Every
- * boxplot/heatmap text carries its source run id(s).
- *
- * AXI-2247 (2026-10-29) — the evidence/analysis chain kept moving after
- * this spec was written (AXI-2178 per-group slide-2 refit superseded the
- * original 21 boxplot evidences' Q1/Dunn pair; AXI-2154 then AXI-2244
- * then AXI-2245 each superseded/updated the heatmap evidence again), and
- * this spec never followed any of it — it kept asserting against
- * evidence ids/names a prior story's PATCH had already labelled
- * SUPERSEDED, so 9/11 tests went silently red (the e2e suite does not
- * run in CI). Fixed by never hardcoding a "current" evidence id or
- * analysis name: every per-reference boxplot/Dunn/correlation test now
- * discovers the full evidence set for its analysis and filters to the
- * subset no OTHER evidence in that set names as its
- * `datasetBinding.parentEvidenceId` (AC1) — the structural definition of
- * "not superseded", instead of a hardcoded superseded string (AC3). The
- * heatmap tests go one step further: the heatmap analysis itself has
- * been superseded four times under different names/ids
- * (v1→v2→v3→v4, see `HEATMAP_NAME_PREFIX`), so `resolveHeatmapEvidence()`
- * discovers every analysis under that name prefix, pools their
- * evidences, and applies the same parentEvidenceId filter across the
- * whole pool to land on today's one surviving (current) evidence,
- * whatever its id or analysis name turns out to be. That current
- * evidence's own live `currentVersion.text` is `null` as of AXI-2245 (a
- * display-only PATCH that replaced the chart binding without re-sending
- * provenance text — a real, not reproduced-here, platform fact); rather
- * than assert against that null, `latestNonNullText()` walks the
- * evidence's own version history for the most recent version that still
- * carries the provenance text nothing since has contradicted — still the
- * SAME (current) evidence id, just the right version of it (AC1's "or by
- * the latest version['s]" clause).
+ * AXI-2247 (2026-10-29, bounce 1) — the evidence/analysis chain kept
+ * moving after this spec was written (AXI-2178/AXI-2154/AXI-2244/AXI-2245
+ * each superseded/updated evidence this spec never re-pointed at), so it
+ * silently went 9/11 red (the suite does not run in CI). Fixed by never
+ * hardcoding a "current" evidence id/analysis name/text: `currentEvidences`
+ * keeps only the evidences no sibling evidence names as its
+ * `datasetBinding.parentEvidenceId` (AC1); `perReferenceEvidences` further
+ * scopes to this story's own `"<reference>: ..."` title convention, since
+ * later demo-polish work added a cross-reference evidence sharing the
+ * same analysis under a different convention; `resolveHeatmapEvidence`
+ * pools every analysis sharing the heatmap's name prefix (superseded 4x
+ * under different names/ids) and applies the same filter; every evidence
+ * under test also has its cited dataset asserted non-empty via
+ * `assertCitedDatasetNonEmpty` (AC2 — bounce 1 found the ORIGINAL spec's
+ * `chartArtifactIds.length > 0` + text-content checks pass straight
+ * through a dataset that is `available` but `rowCount: 0`, exactly
+ * AXI-2244's defect class on the live-but-superseded v3 heatmap dataset
+ * `f6625291`) and its cited chart(s) resolved to an actual, existing chart
+ * spec via `assertCitedChartExists` (not just a non-zero id count).
+ * `latestNonNullText()` reads the SAME (current) evidence's own version
+ * history for the latest version carrying text, because the current
+ * heatmap evidence's live `currentVersion.text` is `null` as of AXI-2245
+ * (a display-only chart-binding PATCH that did not resend provenance
+ * text — a real platform fact, not fixed here).
  */
 
 const WORKSPACE_ID = '8946e06a-4fe6-45ee-8d9a-58f7142e803a';
@@ -102,7 +78,8 @@ type Evidence = {
     title: string;
     chartArtifactIds: string[];
     text: string | null;
-    datasetBinding?: { parentEvidenceId?: string | null };
+    datasetBinding?: { parentEvidenceId?: string | null; datasetId?: string | null };
+    charts?: Array<{ chartArtifactId: string; datasetVersionId: string; frozen?: boolean }>;
   };
 };
 
@@ -192,8 +169,84 @@ async function latestNonNullText(evidenceId: string): Promise<string> {
   return withText!.text as string;
 }
 
+// AC2 (bounce 1) — "a chart exists and has a chartArtifactId" is not the
+// same fact as "the dataset it cites actually has rows". Bounce 1 found
+// the live, structurally-identical counter-example: the superseded v3
+// heatmap evidence (d576b8d2) cites dataset f6625291, `available` but
+// `rowCount: 0` — AXI-2244's own defect class. Same endpoint/shape as
+// AXI-2244-heatmap-dataset.spec.ts's own check, just applied to every
+// CURRENT evidence this spec resolves, not hardcoded to one heatmap name.
+async function assertCitedDatasetNonEmpty(evidence: Evidence): Promise<void> {
+  const datasetId = evidence.currentVersion.datasetBinding?.datasetId;
+  expect(datasetId, `evidence ${evidence.id} must bind a dataset`).toBeTruthy();
+  const res = await api.get(apiUrl(`/api/v1/workspaces/${WORKSPACE_ID}/datasets/${datasetId}`), {
+    headers: headers(token),
+  });
+  expect(res.ok()).toBeTruthy();
+  const dataset = (await res.json()) as { availability: string; latestIngestion: { rowCount: number } | null };
+  expect(dataset.availability, `evidence ${evidence.id}'s cited dataset ${datasetId} must be available`).toBe(
+    'available',
+  );
+  expect(
+    dataset.latestIngestion?.rowCount ?? 0,
+    `evidence ${evidence.id}'s cited dataset ${datasetId} must not be empty (rowCount)`,
+  ).toBeGreaterThan(0);
+}
+
+// AC2 — resolve each cited chartArtifactId to an actual, existing chart
+// spec, not just a non-zero id count (same `.../candidates/:specId`
+// resolution AXI-2178-slide2-strip-median.spec.ts's specById() uses).
+// Confirmed live that NEITHER a chart entry's own `datasetVersionId` NOR
+// the evidence's `datasetBinding.datasetId` is reliably the right id to
+// resolve against: for the Dunn/KW-group evidences both happen to agree;
+// for the Dunn/MWU/partial-correlation evidences only the chart entry's
+// own `datasetVersionId` resolves (datasetBinding.datasetId 404s — the
+// chart was built against a different, cohort-derived dataset than the
+// evidence's own citation); for the heatmap evidence only
+// `datasetBinding.datasetId` resolves (the chart entry's own
+// `datasetVersionId` there holds the ingestion id, not a dataset id).
+// Try both and accept whichever resolves, rather than hardcode either
+// field as "the" dataset id. Only covers non-frozen charts: a frozen
+// render's chartArtifactId is a render fingerprint (`dvi_…`,
+// AXI-1234/AXI-2296), not a live candidate spec id, and none of this
+// story's hand-built evidence charts are frozen — if a future evidence
+// here ever is, this check cannot resolve it and should be extended
+// rather than silently skipped.
+async function candidateResolves(datasetId: string, specId: string): Promise<boolean> {
+  const res = await api.get(apiUrl(`/api/v1/workspaces/${WORKSPACE_ID}/datasets/${datasetId}/candidates/${specId}`), {
+    headers: headers(token),
+  });
+  return res.ok();
+}
+
+async function assertCitedChartExists(evidence: Evidence): Promise<void> {
+  const charts = evidence.currentVersion.charts ?? [];
+  expect(charts.length, `evidence ${evidence.id} must cite at least one chart`).toBeGreaterThan(0);
+  const boundDatasetId = evidence.currentVersion.datasetBinding?.datasetId;
+  for (const chart of charts) {
+    expect(
+      chart.frozen,
+      `evidence ${evidence.id}'s chart ${chart.chartArtifactId} is frozen — assertCitedChartExists cannot resolve a frozen render fingerprint`,
+    ).toBeFalsy();
+    const candidateIds = [chart.datasetVersionId, boundDatasetId].filter(
+      (id, idx, arr): id is string => Boolean(id) && arr.indexOf(id) === idx,
+    );
+    let resolved = false;
+    for (const datasetId of candidateIds) {
+      if (await candidateResolves(datasetId, chart.chartArtifactId)) {
+        resolved = true;
+        break;
+      }
+    }
+    expect(
+      resolved,
+      `evidence ${evidence.id}'s cited chart ${chart.chartArtifactId} must actually exist (tried dataset ids: ${candidateIds.join(', ')})`,
+    ).toBeTruthy();
+  }
+}
+
 for (const reference of REFERENCES) {
-  test(`AC8 — ${reference} carries boxplot/Dunn/correlation evidences, each with a chart citing its own run (FR17)`, async () => {
+  test(`AC8 — ${reference} carries boxplot/Dunn/correlation evidences, each with a chart citing its own run (FR17) @SI-053`, async () => {
     const analysisName = `synthetic — ${reference} reproduction`;
     const analysis = await analysisByName(analysisName);
     expect(analysis, `analysis "${analysisName}" must exist`).toBeTruthy();
@@ -214,18 +267,33 @@ for (const reference of REFERENCES) {
     for (const evidence of current) {
       expect(evidence.currentVersion.chartArtifactIds.length).toBeGreaterThan(0);
       expect(evidence.currentVersion.text).toContain('hand_built');
-      // Review bounce #1 — every current evidence cites its source run id.
+      // Review bounce #1 (AXI-2065) — every current evidence cites its source run id.
       expect(evidence.currentVersion.text).toContain('Source run:');
+      // AC3 — a CURRENT evidence must never itself read as superseded text.
+      expect(evidence.currentVersion.text).not.toContain('SUPERSEDED');
+      // AC2 (bounce 1) — the cited dataset must actually have rows, and
+      // the cited chart must actually resolve, not just exist by id count.
+      await assertCitedDatasetNonEmpty(evidence);
+      await assertCitedChartExists(evidence);
     }
   });
 }
 
-test('AC8/FR19 — the current Spearman heatmap evidence covers 6 variables x 7 references with a hand-built heatmap chart', async () => {
+test('AC8/FR19 — the current Spearman heatmap evidence covers 6 variables x 7 references with a hand-built heatmap chart @SI-053', async () => {
   const { evidence } = await resolveHeatmapEvidence();
 
   expect(evidence.currentVersion.chartArtifactIds.length).toBe(1);
+  // AC2 (bounce 1) — same live counter-example as the per-reference loop:
+  // the superseded v3 heatmap evidence's dataset is `available` with
+  // `rowCount: 0`. Assert the CURRENT evidence's own cited dataset/chart
+  // are real, not just non-zero ids.
+  await assertCitedDatasetNonEmpty(evidence);
+  await assertCitedChartExists(evidence);
+
   const text = await latestNonNullText(evidence.id);
   expect(text).toContain('hand_built');
+  // AC3 — never satisfied by a SUPERSEDED version's text.
+  expect(text).not.toContain('SUPERSEDED');
 
   // FR19 — every one of the 7 references appears in the per-cell significance table.
   for (const reference of REFERENCES) {
@@ -233,12 +301,16 @@ test('AC8/FR19 — the current Spearman heatmap evidence covers 6 variables x 7 
   }
 });
 
-test('AC1/AC3 (AXI-2247) — the current heatmap evidence states its 42 cells are copied, not recomputed, and cites the withheld recommended chart', async () => {
+test('AC1/AC3 (AXI-2247) — the current heatmap evidence states its 42 cells are copied, not recomputed, and cites the withheld recommended chart @SI-053', async () => {
   const { evidence } = await resolveHeatmapEvidence();
+
+  await assertCitedDatasetNonEmpty(evidence);
+  await assertCitedChartExists(evidence);
 
   const text = await latestNonNullText(evidence.id);
   expect(text).toContain('COPIED');
   expect(text).toContain('recomputed');
+  expect(text).not.toContain('SUPERSEDED');
   // the hand-built-vs-correlation_heatmap_v1 reasoning from review bounce #1 (AXI-2065).
   expect(text).toContain('correlation_heatmap_v1');
 });
