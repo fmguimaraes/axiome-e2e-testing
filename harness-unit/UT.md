@@ -410,3 +410,55 @@ browser.
 | UT-RTT-32 | An unrecognised `case_kind` makes compareFixture throw "unsupported fixture shape," never a silent pass | Pass |
 | UT-RTT-33 | A refusal fixture missing the mandatory `message_contains` (AXI-1957, FR16) throws rather than silently skipping the message check | Pass |
 | UT-RTT-34 | A refusal with the right code/severity but a non-matching message substring fails | Pass |
+
+## AXI-2318/prod-suite.spec.ts
+
+AXI-2318 (epic AXI-2309 — FR28–FR30, FR32, FR33, NFR5, NFR6, EC9; SI-042). The
+prod E2E daily-suite harness (`tests/AXI-2309/harness/prod-suite/`): configuration,
+the EC9 isolation guard and the forbidden-org request tripwire, fixtures resolved by
+ID and verified by content hash (FR29), the FR30 run order (Paul's methods first,
+then the full active catalogue), the case seam AXI-2319 plugs its pass rule into,
+the deterministic report (FR33/NFR6) and its publication (S3 key layout, secret
+scan, 2-file staging). HTTP is a scripted fake transport — no network, no browser.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-PRODE2E-6000 | a config with nothing set names EVERY missing variable at once | Pass |
+| UT-PRODE2E-6001 | a full config parses, trims the API origin and splits the forbidden-id list | Pass |
+| UT-PRODE2E-6002 | a run id that is not a safe path segment is refused; an empty one gets a local id | Pass |
+| UT-PRODE2E-6003 | the daily suite is enabled only by PROD_E2E_SUITE=1\|true | Pass |
+| UT-PRODE2E-6004 | a request whose path names a forbidden org id is refused BEFORE the transport is called | Pass |
+| UT-PRODE2E-6005 | a request whose BODY names a forbidden org id is refused before sending | Pass |
+| UT-PRODE2E-6006 | the client sends the bearer + workspace headers, and no Authorization header without a token | Pass |
+| UT-PRODE2E-6007 | exactly one visible org, the configured one, passes the confinement check | Pass |
+| UT-PRODE2E-6008 | a visible CeRAINOM-IgG4 org is FORBIDDEN_ORG_VISIBLE, even when it is the configured one | Pass |
+| UT-PRODE2E-6009 | an identity seeing more than one org is IDENTITY_NOT_CONFINED | Pass |
+| UT-PRODE2E-6010 | an identity seeing no org at all is IDENTITY_NOT_CONFINED, never a pass | Pass |
+| UT-PRODE2E-6011 | one visible org that is not PROD_E2E_ORG_ID is ORG_MISMATCH | Pass |
+| UT-PRODE2E-6012 | a configured org on the forbidden-id list aborts before ANY request is made | Pass |
+| UT-PRODE2E-6013 | a workspace owned by another org is WORKSPACE_OUTSIDE_TEST_ORG | Pass |
+| UT-PRODE2E-6014 | forbidden-org matching is normalized over name AND slug, and exact on id | Pass |
+| UT-PRODE2E-6015 | PROD_E2E_FIXTURE_IDS that is not JSON is FIXTURE_IDS_MALFORMED | Pass |
+| UT-PRODE2E-6016 | a manifest key with no id, or a non-UUID id, is FIXTURE_ID_MISSING | Pass |
+| UT-PRODE2E-6017 | a fixture id that does not resolve is FIXTURE_NOT_FOUND and nothing is uploaded | Pass |
+| UT-PRODE2E-6018 | a dataset whose rawFileHash differs from the committed bytes is FIXTURE_HASH_MISMATCH | Pass |
+| UT-PRODE2E-6019 | a fixture dataset outside the test workspace, or deleted, is refused | Pass |
+| UT-PRODE2E-6020 | the committed fixtures are byte-identical to the Microbiote final reference set inputs | Pass |
+| UT-PRODE2E-6021 | provisioning REUSES a dataset already holding the same bytes — no upload | Pass |
+| UT-PRODE2E-6022 | provisioning uploads a missing fixture once: initiate -> presigned PUT -> finalize | Pass |
+| UT-PRODE2E-6023 | Paul's methods come first in PAUL_OPERATIONS order, then the rest by code | Pass |
+| UT-PRODE2E-6024 | an empty catalogue is CATALOGUE_EMPTY — never a vacuous "full catalogue" pass | Pass |
+| UT-PRODE2E-6025 | duplicate rows collapse by id; every rule carrying a Paul operation runs; missing ones are listed | Pass |
+| UT-PRODE2E-6026 | the catalogue read pages through and keeps only published SYSTEM rules | Pass |
+| UT-PRODE2E-6027 | cases run sequentially in plan order; a throwing case is recorded as error and the run continues | Pass |
+| UT-PRODE2E-6028 | the placeholder executor records not-evaluated with a reason — never pass | Pass |
+| UT-PRODE2E-6029 | the report summarizes outcomes/phases and is aborted exactly when an abort is recorded | Pass |
+| UT-PRODE2E-6030 | serialization is deterministic (fixtures sorted, facts key-sorted) and the Markdown derives from it | Pass |
+| UT-PRODE2E-6031 | a report built by the suite carries no URL, hostname or credential (NFR3) | Pass |
+| UT-PRODE2E-6032 | the secret scanner names every token / credential shape and passes a clean report | Pass |
+| UT-PRODE2E-6033 | publication refuses a report carrying a secret, a wrong schema version or an unsafe run id | Pass |
+| UT-PRODE2E-6034 | S3 keys are <prefix>/<date>/<runId>/<file>, repo dir is reports/AXI-2318/<date>-prod-daily-<runId> | Pass |
+| UT-PRODE2E-6035 | a login failure is recorded as an aborted report (config/LOGIN_FAILED), not a missing one | Pass |
+| UT-PRODE2E-6036 | an isolation abort stops the run before any fixture or catalogue read | Pass |
+| UT-PRODE2E-6037 | a run that cannot read its configuration still yields a report naming what is missing | Pass |
+| UT-PRODE2E-6038 | staging copies ONLY report.json + report.md and the plan lists exactly those two | Pass |

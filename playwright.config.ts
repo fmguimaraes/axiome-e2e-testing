@@ -28,6 +28,13 @@ const EVIDENCE_API_SPEC =
 // `page`/browser context at all — `request.newContext()` only).
 const AUTH_SUITE_SPEC = /AXI-2309\/AXI-2315-auth-suite\.spec\.ts$/;
 
+// AXI-2318 — the prod E2E daily suite and its infra verification spec: API-only
+// (the harness's own fetch client, never a `page`), no `setup` storageState
+// dependency, and NO trace/video/screenshot — a trace records the test user's
+// bearer token (NFR6) and the daily run happens against production. The daily
+// workflow runs only the daily spec, via `--project=prod-suite-api`.
+const PROD_SUITE_SPEC = /AXI-2309\/AXI-2318-prod-(daily-suite|suite-infra)\.spec\.ts$/;
+
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
  *
@@ -98,7 +105,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -129,6 +136,12 @@ export default defineConfig({
     {
       name: 'auth-api',
       testMatch: AUTH_SUITE_SPEC,
+    },
+    // AXI-2318 — prod E2E daily suite + its infra verification (see PROD_SUITE_SPEC).
+    {
+      name: 'prod-suite-api',
+      testMatch: PROD_SUITE_SPEC,
+      use: { trace: 'off', video: 'off', screenshot: 'off' },
     },
   ],
 });
