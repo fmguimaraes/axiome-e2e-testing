@@ -27,6 +27,12 @@ import { apiUrl } from '../../config/env';
  * AXI-2244's defect class on the live-but-superseded v3 heatmap dataset
  * `f6625291`) and its cited chart(s) resolved to an actual, existing chart
  * spec via `assertCitedChartExists` (not just a non-zero id count).
+ * Bounce 2 — resolving a chart's spec only proves the spec exists, not
+ * that ITS source dataset has rows: for 3 of the 5 per-reference
+ * families the chart resolves against a different dataset than the
+ * evidence's own bound citation. `assertCitedChartExists` now also runs
+ * the same non-empty check (factored into `assertDatasetNonEmpty`) on
+ * whichever dataset id actually resolved the chart's spec.
  * `latestNonNullText()` reads the SAME (current) evidence's own version
  * history for the latest version carrying text, because the current
  * heatmap evidence's live `currentVersion.text` is `null` as of AXI-2245
@@ -176,21 +182,35 @@ async function latestNonNullText(evidenceId: string): Promise<string> {
 // `rowCount: 0` — AXI-2244's own defect class. Same endpoint/shape as
 // AXI-2244-heatmap-dataset.spec.ts's own check, just applied to every
 // CURRENT evidence this spec resolves, not hardcoded to one heatmap name.
-async function assertCitedDatasetNonEmpty(evidence: Evidence): Promise<void> {
-  const datasetId = evidence.currentVersion.datasetBinding?.datasetId;
-  expect(datasetId, `evidence ${evidence.id} must bind a dataset`).toBeTruthy();
+// AC2 (bounce 1) — "a chart exists and has a chartArtifactId" is not the
+// same fact as "the dataset it cites actually has rows". The actual GET
+// + availability/rowCount assertion lives here so BOTH the evidence's
+// bound dataset (assertCitedDatasetNonEmpty) and a chart's resolved
+// source dataset (assertCitedChartExists, bounce 2) run the exact same
+// check — never two different notions of "non-empty".
+async function assertDatasetNonEmpty(datasetId: string, label: string): Promise<void> {
   const res = await api.get(apiUrl(`/api/v1/workspaces/${WORKSPACE_ID}/datasets/${datasetId}`), {
     headers: headers(token),
   });
   expect(res.ok()).toBeTruthy();
   const dataset = (await res.json()) as { availability: string; latestIngestion: { rowCount: number } | null };
-  expect(dataset.availability, `evidence ${evidence.id}'s cited dataset ${datasetId} must be available`).toBe(
-    'available',
-  );
+  expect(dataset.availability, `${label} (dataset ${datasetId}) must be available`).toBe('available');
   expect(
     dataset.latestIngestion?.rowCount ?? 0,
-    `evidence ${evidence.id}'s cited dataset ${datasetId} must not be empty (rowCount)`,
+    `${label} (dataset ${datasetId}) must not be empty (rowCount)`,
   ).toBeGreaterThan(0);
+}
+
+// Bounce 1 found the live, structurally-identical counter-example: the
+// superseded v3 heatmap evidence (d576b8d2) cites dataset f6625291,
+// `available` but `rowCount: 0` — AXI-2244's own defect class. Same
+// endpoint/shape as AXI-2244-heatmap-dataset.spec.ts's own check, just
+// applied to every CURRENT evidence this spec resolves, not hardcoded to
+// one heatmap name.
+async function assertCitedDatasetNonEmpty(evidence: Evidence): Promise<void> {
+  const datasetId = evidence.currentVersion.datasetBinding?.datasetId;
+  expect(datasetId, `evidence ${evidence.id} must bind a dataset`).toBeTruthy();
+  await assertDatasetNonEmpty(datasetId!, `evidence ${evidence.id}'s bound dataset`);
 }
 
 // AC2 — resolve each cited chartArtifactId to an actual, existing chart
@@ -198,20 +218,22 @@ async function assertCitedDatasetNonEmpty(evidence: Evidence): Promise<void> {
 // resolution AXI-2178-slide2-strip-median.spec.ts's specById() uses).
 // Confirmed live that NEITHER a chart entry's own `datasetVersionId` NOR
 // the evidence's `datasetBinding.datasetId` is reliably the right id to
-// resolve against: for the Dunn/KW-group evidences both happen to agree;
-// for the Dunn/MWU/partial-correlation evidences only the chart entry's
-// own `datasetVersionId` resolves (datasetBinding.datasetId 404s — the
-// chart was built against a different, cohort-derived dataset than the
-// evidence's own citation); for the heatmap evidence only
-// `datasetBinding.datasetId` resolves (the chart entry's own
-// `datasetVersionId` there holds the ingestion id, not a dataset id).
+// resolve against: for the Dunn/KW-group AND heatmap evidences both
+// happen to agree; for the MWU/cluster/partial-correlation evidences
+// only the chart entry's own `datasetVersionId` resolves
+// (datasetBinding.datasetId 404s — the chart was built against a
+// different, cohort-derived dataset than the evidence's own citation).
 // Try both and accept whichever resolves, rather than hardcode either
-// field as "the" dataset id. Only covers non-frozen charts: a frozen
-// render's chartArtifactId is a render fingerprint (`dvi_…`,
-// AXI-1234/AXI-2296), not a live candidate spec id, and none of this
-// story's hand-built evidence charts are frozen — if a future evidence
-// here ever is, this check cannot resolve it and should be extended
-// rather than silently skipped.
+// field as "the" dataset id.
+//
+// Bounce 2: resolving the candidates endpoint only proves the SPEC
+// exists, not that its SOURCE dataset has rows — the endpoint returns
+// 200 for a spec built on an empty dataset (confirmed live: chart
+// a374642d resolves against f6625291, rowCount 0). For 3 of the 5
+// per-reference families the chart's resolving id (e.g. 82e850af) is a
+// DIFFERENT dataset than the evidence's bound id, so
+// assertCitedDatasetNonEmpty alone never checks it. Whichever id
+// resolves the spec is the dataset that must be checked for rows.
 async function candidateResolves(datasetId: string, specId: string): Promise<boolean> {
   const res = await api.get(apiUrl(`/api/v1/workspaces/${WORKSPACE_ID}/datasets/${datasetId}/candidates/${specId}`), {
     headers: headers(token),
@@ -219,29 +241,56 @@ async function candidateResolves(datasetId: string, specId: string): Promise<boo
   return res.ok();
 }
 
+// Returns the dataset id that actually resolves `chart`'s spec — trying
+// the chart's own `datasetVersionId` first, then the evidence's bound
+// `datasetBinding.datasetId` — or `undefined` if neither resolves.
+async function resolvingDatasetId(
+  chart: { chartArtifactId: string; datasetVersionId: string; frozen?: boolean },
+  boundDatasetId: string | undefined,
+): Promise<string | undefined> {
+  const candidateIds = [chart.datasetVersionId, boundDatasetId].filter(
+    (id, idx, arr): id is string => Boolean(id) && arr.indexOf(id) === idx,
+  );
+  for (const datasetId of candidateIds) {
+    if (await candidateResolves(datasetId, chart.chartArtifactId)) {
+      return datasetId;
+    }
+  }
+  return undefined;
+}
+
 async function assertCitedChartExists(evidence: Evidence): Promise<void> {
   const charts = evidence.currentVersion.charts ?? [];
   expect(charts.length, `evidence ${evidence.id} must cite at least one chart`).toBeGreaterThan(0);
   const boundDatasetId = evidence.currentVersion.datasetBinding?.datasetId;
   for (const chart of charts) {
+    // Only covers non-frozen charts: a frozen render's chartArtifactId is
+    // a render fingerprint (`dvi_…`, AXI-1234/AXI-2296), not a live
+    // candidate spec id, and none of this story's hand-built evidence
+    // charts are frozen — if a future evidence here ever is, this check
+    // cannot resolve it and should be extended rather than silently
+    // skipped.
     expect(
       chart.frozen,
       `evidence ${evidence.id}'s chart ${chart.chartArtifactId} is frozen — assertCitedChartExists cannot resolve a frozen render fingerprint`,
     ).toBeFalsy();
-    const candidateIds = [chart.datasetVersionId, boundDatasetId].filter(
-      (id, idx, arr): id is string => Boolean(id) && arr.indexOf(id) === idx,
-    );
-    let resolved = false;
-    for (const datasetId of candidateIds) {
-      if (await candidateResolves(datasetId, chart.chartArtifactId)) {
-        resolved = true;
-        break;
-      }
-    }
+    const resolvedId = await resolvingDatasetId(chart, boundDatasetId ?? undefined);
     expect(
-      resolved,
-      `evidence ${evidence.id}'s cited chart ${chart.chartArtifactId} must actually exist (tried dataset ids: ${candidateIds.join(', ')})`,
+      resolvedId,
+      `evidence ${evidence.id}'s cited chart ${chart.chartArtifactId} must actually exist (tried dataset ids: ${[
+        chart.datasetVersionId,
+        boundDatasetId,
+      ]
+        .filter(Boolean)
+        .join(', ')})`,
     ).toBeTruthy();
+    // Bounce 2 — the dataset that actually RESOLVES the chart's spec is
+    // the chart's true source dataset and must itself be checked for
+    // rows; it is not always the same id as the evidence's bound
+    // dataset (assertCitedDatasetNonEmpty), e.g. 3 of the 5
+    // per-reference families resolve against a different, cohort-derived
+    // dataset (82e850af) than the evidence's own citation.
+    await assertDatasetNonEmpty(resolvedId!, `evidence ${evidence.id}'s chart ${chart.chartArtifactId}'s source dataset`);
   }
 }
 
@@ -322,6 +371,11 @@ test('Review bounce #1 — the superseded v1 heatmap evidence is labelled SUPERS
   const evidences = await evidencesFor(v1Analysis!.id);
   expect(evidences.length).toBeGreaterThanOrEqual(1);
   expect(evidences[0].currentVersion.text).toContain('SUPERSEDED');
+});
+
+test('Review bounce #2 — assertDatasetNonEmpty rejects a known-empty dataset, so the check cannot silently pass regardless of the bug', async () => {
+  const EMPTY_DATASET_ID = 'f6625291-4c6d-4675-a1a0-027376ce9999'; // the superseded v3 heatmap's cited dataset, `available` but rowCount: 0.
+  await expect(assertDatasetNonEmpty(EMPTY_DATASET_ID, 'negative-check dataset')).rejects.toThrow();
 });
 
 test('FR20/FR21 — no analysis has been published yet (interpretation + publish are human acts owed to AXI-2066+)', async () => {
