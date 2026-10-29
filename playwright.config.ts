@@ -21,6 +21,11 @@ const SHADOW_RUN_SPEC = /AXI-1462\/AXI-1614-compiled-planner-shadow-run\.spec\.t
 const EVIDENCE_API_SPEC =
   /AXI-2060\/(AXI-2065-evidence-and-charts|AXI-2244-heatmap-dataset|AXI-2243-pairwise-pvalue-brackets)\.spec\.ts$|AXI-2073\/AXI-2262-chart-export-title-fallback\.spec\.ts$/;
 
+// AXI-2315 — same AXI-1831 shape again: a fresh account is self-registered
+// per test (never the fixture-org `setup` project's storageState, and no
+// `page`/browser context at all — `request.newContext()` only).
+const AUTH_SUITE_SPEC = /AXI-2309\/AXI-2315-auth-suite\.spec\.ts$/;
+
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
  *
@@ -91,7 +96,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -117,6 +122,11 @@ export default defineConfig({
     {
       name: 'evidence-api',
       testMatch: EVIDENCE_API_SPEC,
+    },
+    // AXI-2315 — API-only auth suite, no browser/storageState dependency.
+    {
+      name: 'auth-api',
+      testMatch: AUTH_SUITE_SPEC,
     },
   ],
 });

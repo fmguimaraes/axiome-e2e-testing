@@ -56,6 +56,27 @@ export const LIVE_LLM = /^(1|true)$/i.test(process.env.E2E_LIVE_LLM ?? '');
 export const LIVE_LLM_SKIP_REASON =
   'real Anthropic planner calls are opt-in — set E2E_LIVE_LLM=1 to run this spec (billed)';
 
+/**
+ * Dedicated test-mailbox credentials (AXI-2315 — FR24/NFR8). Reads the REAL
+ * Mailjet-delivered password-reset email from a test inbox via API, never a
+ * human checking a human inbox and never a committed credential. Absent in
+ * most local/dev runs — the forgot-password scenario `test.skip()`s with
+ * {@link TEST_MAILBOX_SKIP_REASON} rather than faking a result (EC11: a
+ * missing seam must never read as a pass).
+ */
+export const TEST_MAILBOX_API_TOKEN = fromEnv('TEST_MAILBOX_API_TOKEN', '');
+export const TEST_MAILBOX_INBOX_ID = fromEnv('TEST_MAILBOX_INBOX_ID', '');
+export const TEST_MAILBOX_ACCOUNT_ID = fromEnv('TEST_MAILBOX_ACCOUNT_ID', '');
+export const TEST_MAILBOX_ADDRESS = fromEnv('TEST_MAILBOX_ADDRESS', '');
+
+export const HAS_TEST_MAILBOX = Boolean(
+  TEST_MAILBOX_API_TOKEN && TEST_MAILBOX_INBOX_ID && TEST_MAILBOX_ACCOUNT_ID && TEST_MAILBOX_ADDRESS,
+);
+
+export const TEST_MAILBOX_SKIP_REASON =
+  'no dedicated test mailbox configured — set TEST_MAILBOX_API_TOKEN/_INBOX_ID/_ACCOUNT_ID/_ADDRESS ' +
+  '(never committed, NFR8) to run the real Mailjet-reset-email scenario';
+
 /** Join an API path onto {@link API_BASE_URL} (leading slash optional). */
 export function apiUrl(path: string): string {
   return `${API_BASE_URL}/${path.replace(/^\/+/, '')}`;
