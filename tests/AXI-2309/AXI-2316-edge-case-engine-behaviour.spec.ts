@@ -17,19 +17,19 @@ import { ensureTenant, ensureAnalysis, carrierRuleId, type Tenant, type Analysis
  * boundary; see §5.7 of the scenario doc and the AXI-2316 learnings block in
  * the Developer Epic Context.
  *
- * STATUS: authored against the real request/response contracts this suite's
- * own harness already exercises live (`POST /rule-runs`, `POST
- * /datasets/:id/query` — see `tests/AXI-2031/AXI-2034-correlation-q-values.spec.ts`
- * and `tests/AXI-1604/harness/anchor-dataset.ts` for the exact shapes this
- * file reuses). It was NOT RUN this story: the shared demo stack's
- * `axiome-demo-biocompute` container binds the PRIMARY `axiome-bio-compute`
- * checkout (`docker inspect`), not this story's worktree/branch, and three
- * sibling AXI-2309 stories had live sidecar containers on the shared network
- * at the time of writing — standing up a fourth, bespoke bio-compute sidecar
- * to point a gateway at this branch risked colliding with their in-flight
- * work. Do not read a green/red result from this file until it has actually
- * been executed (`npx playwright test tests/AXI-2309/AXI-2316-*`) against a
- * stack actually running this story's `axiome-bio-compute` branch.
+ * STATUS: RUN headless, 8/8 green (2026-10-29, review bounce #2 rework),
+ * against an ISOLATED stack serving this story's branches — never the shared
+ * demo DB: a throwaway Postgres/Mongo/Redis, an own RabbitMQ vhost, own MinIO
+ * buckets, and sidecar containers for axiome-back (gateway + user/event/
+ * organization/control-plane services) and axiome-bio-compute, each mounting
+ * the AXI-2316 worktree. Negative control: the same spec against the
+ * pre-rework bio-compute (d8b07e5) fails the boolean-arm test with the
+ * reviewer's exact "insufficient groups: 0" and the BOM test with
+ * `\ufeffid` / `Value.1.1` — so neither new test is latently green.
+ * Run with: `API_BASE_URL=<gateway> npx playwright test tests/AXI-2309/AXI-2316-*`.
+ *
+ * Every STATISTICAL run is bound to a SAP version (AXI-2310, merged on main:
+ * `SAP_VERSION_REQUIRED` otherwise) — see `sapVersionFor`.
  *
  * Seeding reuses the AXI-1400 harness (`ensureTenant`/`ensureAnalysis`/
  * `carrierRuleId`) read-only, additive; this story owns only its own fixtures
@@ -126,9 +126,16 @@ async function runAndWait(api: Api, t: Tenant, a: Analysis, datasetId: string, a
     pivot: args.pivot,
     projectId: t.projectId, workspaceId: t.workspaceId, datasetId,
     snapshotId: a.snapshotId, viewAnalysisId: a.analysisId, scope: 'FILTERED',
+    sapVersionId: await sapVersionFor(api, t),
   };
   const submitted = await api.post('/api/v1/rule-runs', body, t.headers);
-  if (submitted.status >= 400) return { submitted };
+  // Every caller of this helper expects an ACCEPTED run — a refusal here is
+  // the failure under test (e.g. the pre-B1 `sufficient_group_members` BLOCK
+  // refusing EC1's n=1 arm at submission), so surface it verbatim instead of
+  // returning an undefined `run` for the caller to trip over.
+  if (submitted.status >= 400) {
+    throw new Error(`rule-run submission of ${args.operationId} refused (${submitted.status}): ${JSON.stringify(submitted.body)}`);
+  }
   const ruleRunId = submitted.body.ruleRunId;
   const deadline = Date.now() + RUN_TIMEOUT_MS;
   while (Date.now() < deadline) {
@@ -137,6 +144,29 @@ async function runAndWait(api: Api, t: Tenant, a: Analysis, datasetId: string, a
     await sleep(RUN_POLL_MS);
   }
   throw new Error(`run of ${args.operationId} timed out`);
+}
+
+/**
+ * AXI-2310 (merged on main): every STATISTICAL run must be bound to a SAP
+ * version of its own project (`SAP_VERSION_REQUIRED` otherwise, EC7). One
+ * SAP per tenant project for this spec, created once, linking every method
+ * the spec runs — so a refusal here is never about the missing binding.
+ */
+let sapVersionId: Promise<string> | undefined;
+function sapVersionFor(api: Api, t: Tenant): Promise<string> {
+  sapVersionId ??= (async () => {
+    const res = await api.post(`/api/v1/projects/${t.projectId}/saps`, {
+      title: `AXI-2316 edge-case engine behaviour ${Date.now()}`,
+      questionText: 'Do the edge-case referents (n=1 arm, all-tied, per-variable missing) compute as Feature §12 specifies?',
+      planText: 'Kruskal-Wallis across every arm; Mann-Whitney U between arms A and B; alpha = 0.05, two-sided.',
+      linkedMethods: [{ operationId: 'stats.kruskal_wallis' }, { operationId: 'stats.mann_whitney_u' }],
+    }, t.headers);
+    if (res.status !== 201 || !res.body?.sapVersionId) {
+      throw new Error(`SAP creation for project ${t.projectId} failed (${res.status}): ${JSON.stringify(res.body)}`);
+    }
+    return res.body.sapVersionId as string;
+  })();
+  return sapVersionId;
 }
 
 function canonicalRunId(run: any): string {
@@ -187,6 +217,29 @@ test.describe('AXI-2316 — edge-case engine behaviour (AC9)', { tag: ['@SI-021'
     expect(row.reason, `row carries a reason — the test stayed undefined instead of running on the valid arms: ${JSON.stringify(row)}`).toBeFalsy();
     expect(row.hStatistic, `row carries no hStatistic even though reason is falsy: ${JSON.stringify(row)}`).not.toBeNull();
     expect(row.hStatistic).not.toBeUndefined();
+    // Only the two valid arms (A, B) entered the comparison — C was excluded.
+    expect(row.nGroups, JSON.stringify(row)).toBe(2);
+  });
+
+  test('AC9/EC1 — a BOOLEAN group column is compared over its real arms, never "insufficient groups: 0" (@SI-021)', async () => {
+    // Review bounce #2, R1: a `true`/`false` CSV column is inferred Boolean
+    // by polars. The referent labels were once `str()`-rendered (`"True"`)
+    // while groups were keyed by polars' cast (`"true"`): no arm matched,
+    // every arm was "excluded" at n=0, and the test came back undefined.
+    const datasetId = await ingestFixture(api, t, 'booleanArm.csv');
+    const boolAnalysis = await ensureAnalysis(api, t, 'AXI-2316 boolean arm', datasetId);
+
+    const { run } = await runAndWait(api, t, boolAnalysis, datasetId, {
+      operationId: 'stats.kruskal_wallis',
+      roleBindings: { groupColumn: 'arm' },
+      pivot: { valueColumns: ['score'] },
+    });
+    expect(['SUCCEEDED', 'DEDUPED'], JSON.stringify(run)).toContain(run.status);
+
+    const row = (await resultTable(api, t, canonicalRunId(run))).rows[0];
+    expect(row.reason, `a 3/3 boolean group column must be computable: ${JSON.stringify(row)}`).toBeFalsy();
+    expect(row.nGroups, JSON.stringify(row)).toBe(2);
+    expect(row.n, JSON.stringify(row)).toBe(6);
   });
 
   test('AC9/EC2 — an all-tied column is a defined "not computable" result, never a crash (@SI-021)', async () => {
@@ -264,6 +317,21 @@ test.describe('AXI-2316 — edge-case engine behaviour (AC9)', { tag: ['@SI-021'
     expect(rows[0]['Value.1']).toBe(20);
   });
 
+  test('AC9/EC6 — a BOM-prefixed CSV with duplicate names keeps every real column\'s identity (@SI-014)', async () => {
+    // Review bounce #2, R2 + R3: Excel's "CSV UTF-8" export (BOM) with
+    // `Value,Value,Value.1`. The first column stays `id` (polars' own parse,
+    // never `﻿id`); the REAL `Value.1` keeps its name and data; only
+    // the repeated `Value` is renamed — to `Value.2`, skipping the taken name.
+    const datasetId = await ingestFixture(api, t, 'bomDuplicateColumns.csv');
+    const { columns, rows } = await queryDataset(api, t, datasetId);
+
+    expect(columns).toEqual(['id', 'Value', 'Value.2', 'Value.1']);
+    expect(rows[0].id).toBe('s1');
+    expect(rows[0].Value).toBe(10);
+    expect(rows[0]['Value.2']).toBe(20);
+    expect(rows[0]['Value.1']).toBe(30);
+  });
+
   test('AC9/EC12 — an unresolvable operation id is refused by name, never guessed (@SI-021)', async () => {
     const datasetId = await ingestFixture(api, t, 'armExclusion.csv');
     const refusalAnalysis = await ensureAnalysis(api, t, 'AXI-2316 unresolved operation', datasetId);
@@ -277,6 +345,9 @@ test.describe('AXI-2316 — edge-case engine behaviour (AC9)', { tag: ['@SI-021'
       pivot: { valueColumns: ['score'] },
       projectId: t.projectId, workspaceId: t.workspaceId, datasetId,
       snapshotId: refusalAnalysis.snapshotId, viewAnalysisId: refusalAnalysis.analysisId, scope: 'FILTERED',
+      // Bound to a valid SAP version, so the refusal under test is the
+      // unresolvable operation — never the (AXI-2310) missing SAP binding.
+      sapVersionId: await sapVersionFor(api, t),
     };
     const submitted = await api.post('/api/v1/rule-runs', body, t.headers);
     expect(submitted.status, 'an unresolvable operation id must be REFUSED, never accepted/guessed').toBeGreaterThanOrEqual(400);
