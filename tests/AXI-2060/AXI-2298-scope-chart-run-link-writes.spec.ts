@@ -2,12 +2,18 @@ import { test, expect, request as apiRequest, type APIRequestContext } from '@pl
 import { apiUrl } from '../../config/env';
 
 /**
- * AXI-2298 (epic AXI-2060, review follow-up to AXI-2295): the two WRITE paths
- * — `PATCH …/compute-run-link` (`CandidatesService.updateComputeRunLink`) and
- * `PATCH …/facet-compute-run-links` (`updateFacetComputeRunLinks`) — now
- * apply the SAME ownership rule the read-side picker already applies
+ * AXI-2298 (epic AXI-2060, review follow-up to AXI-2295): the three WRITE
+ * paths that can set a chart's linked comparison run — `PATCH
+ * …/compute-run-link` (`CandidatesService.updateComputeRunLink`), `PATCH
+ * …/facet-compute-run-links` (`updateFacetComputeRunLinks`), and `POST
+ * …/candidates` (`createVisualizationSpec`, a chart created WITH a link) —
+ * now apply the SAME ownership rule the read-side picker already applies
  * (`fittingRunOwnerWhere`): a run owned by a DIFFERENT analysis is refused
  * (404), never silently linked.
+ *
+ * Review bounce 2, Finding 1: the CREATE route's tenancy comes from the
+ * ROUTE's own `:workspaceId`, never a client-supplied body field — S5c below
+ * proves this directly (a bogus body `workspaceId` is ignored).
  * Scenario doc: `axiome-docs/manual-e2e/AXI-2060-Microbiote-IgG4-Study-
  * Reproduction.md` § AXI-2298. Tags: @SI-033, @SI-017, @SI-015.
  *
@@ -106,6 +112,12 @@ function getChart(specId: string): Promise<{ computeRunId: string | null; facetC
   return ok('get chart', api.get(candidatesUrl(`/${specId}`)));
 }
 
+/** Raw POST /candidates — returns the response unconsumed so a caller can
+ * inspect a 404 as well as a 201 (unlike `ok`, which asserts success). */
+function postCandidate(body: Record<string, unknown>) {
+  return api.post(candidatesUrl(), { data: body });
+}
+
 function patchComputeRunLink(specId: string, computeRunId: string | null) {
   return api.patch(candidatesUrl(`/${specId}/compute-run-link`), { data: { computeRunId } });
 }
@@ -183,5 +195,56 @@ test.describe('AXI-2298 - chart run-link WRITES are scoped to the chart\'s own a
     expect(res.ok(), `${res.status()} ${await res.text()}`).toBeTruthy();
     const after = await getChart(facetedSpecId);
     expect(after.facetComputeRunIds).toEqual({ [REFERENCE]: a.runId });
+  });
+
+  // AXI-2298 review bounce 2, Finding 2: createVisualizationSpec (B2) had no
+  // e2e coverage at all — S1-S4 only exercised the two PATCH routes.
+  test('AC1 - S5a: POST …/candidates with B\'s run and viewAnalysisId=A 404s, no chart created', async () => {
+    const res = await postCandidate({
+      ...strip,
+      bindings: { y: { column_id: 'col_pct' }, group: { column_id: 'col_group' } },
+      filters: FILTERS_A,
+      title: `${THROWAWAY} create-refused`,
+      viewAnalysisId: a.analysisId,
+      computeRunId: b.runId,
+    });
+    expect(res.status()).toBe(404);
+  });
+
+  test('AC1 - S5b: POST …/candidates with A\'s OWN run and viewAnalysisId=A creates the chart (201)', async () => {
+    const res = await postCandidate({
+      ...strip,
+      bindings: { y: { column_id: 'col_pct' }, group: { column_id: 'col_group' } },
+      filters: FILTERS_A,
+      title: `${THROWAWAY} create-allowed`,
+      viewAnalysisId: a.analysisId,
+      computeRunId: a.runId,
+    });
+    expect(res.ok(), `${res.status()} ${await res.text()}`).toBeTruthy();
+    const created = await res.json();
+    specIds.push(created.id);
+    expect(created.computeRunId).toBe(a.runId);
+  });
+
+  // Review bounce 2, Finding 1: proves the gateway fix — a bogus workspaceId
+  // asserted in the BODY must be ignored; the ROUTE's own :workspaceId
+  // (this fixture's WORKSPACE_ID) is what tenancy is decided from. Before the
+  // fix, `{...body, workspaceId}` put the body's value last and this request
+  // would have been evaluated (and could 404, or admit a foreign-tenant run)
+  // under the ATTACKER-CHOSEN workspace instead of the caller's real one.
+  test('AC1 - S5c: a body-supplied workspaceId is ignored — the ROUTE\'s own workspace wins, and A\'s own run still links', async () => {
+    const res = await postCandidate({
+      ...strip,
+      bindings: { y: { column_id: 'col_pct' }, group: { column_id: 'col_group' } },
+      filters: FILTERS_A,
+      title: `${THROWAWAY} create-route-wins`,
+      viewAnalysisId: a.analysisId,
+      computeRunId: a.runId,
+      workspaceId: '00000000-0000-4000-8000-000000000099',
+    });
+    expect(res.ok(), `${res.status()} ${await res.text()}`).toBeTruthy();
+    const created = await res.json();
+    specIds.push(created.id);
+    expect(created.computeRunId).toBe(a.runId);
   });
 });
