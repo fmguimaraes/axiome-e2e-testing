@@ -51,8 +51,20 @@ async function ok<T>(label: string, res: Promise<import('@playwright/test').APIR
   return (await r.json()) as T;
 }
 
-/** POST /rule-runs and wait for a terminal status; a DEDUPED run resolves to
- * its canonical id (the id a link carries, FR29). */
+/**
+ * POST /rule-runs and wait for a terminal status; a DEDUPED run resolves to
+ * its canonical id (the id a link carries, FR29).
+ *
+ * Review fix B4: this is what makes the "still allows a run owned by the
+ * chart's OWN analysis" assertions below (S2/S4) robust to A's run coming
+ * back DEDUPED — which it legitimately can, across repeated e2e runs on the
+ * same dataset/filters/rule. `a.runId` is already the CANONICAL id a link
+ * would carry (same as the picker offers); the backend admits it via
+ * `admittedLinkRunIds`/`runLinkId` judging A's OWN (possibly DEDUPED) row,
+ * never the canonical row directly — exactly the B1 defect this story fixes.
+ * No separate "explicit dedup scenario" is needed: every run of this suite
+ * on a warm dataset already exercises that path whenever dedup fires.
+ */
 async function runDunn(analysisId: string, snapshotId: string, filters: unknown[]): Promise<string> {
   const created = await ok<{ ruleRunId: string }>('rule run', api.post(apiUrl('/api/v1/rule-runs'), {
     data: {
