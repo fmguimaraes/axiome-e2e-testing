@@ -15,9 +15,10 @@ import type { Scope } from './workbench';
  * suite would replay a cached answer forever. A DEDUPED STATISTICAL run is
  * therefore re-executed from its canonical record (`POST /rule-runs/:id/re-execute`,
  * AXI-2044: bypasses dedup against that run, same inputs and seed) and the
- * FRESH run is the one judged. Other run kinds have no re-execute path; their
- * deduped answer is judged and the case carries `deduped: true` so the report
- * says the engine did not run today.
+ * FRESH run is the one judged. Other run kinds (e.g. DESCRIBE, AXI-1558) have
+ * no re-execute path: the canonical run's status is returned as a FACT with
+ * `deduped: true, reExecuted: false`, and the verdict (`judgeFreshness`) never
+ * lets that pass — the engine did not run today.
  */
 
 export interface DriverTiming {
@@ -68,6 +69,7 @@ export type ChartOutcome =
   | { state: 'not-minted'; resultDatasetId: string }
   | { state: 'render-refused'; specId: string; httpStatus: number }
   | { state: 'rendered'; specId: string; templateId: string | null; payload: unknown }
+  | { state: 'render-error'; specId: string; instanceId: string; error: string }
   | { state: 'never-ready'; specId: string; instanceId: string | null; diagnostic: string | null };
 
 const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -95,6 +97,13 @@ export function refusalDetail(status: number, body: any): string {
   const msg = typeof body?.message === 'string' ? body.message : Array.isArray(body?.message) ? body.message.join('; ') : null;
   const text = [msg, fieldErrors(body)].filter(Boolean).join(' ');
   return [`HTTP ${status}`, code, text.slice(0, 240) || null].filter(Boolean).join(' ');
+}
+
+/** The reason an errored render instance gives (bounded; never the raw body). */
+export function renderError(body: any): string {
+  const candidates = [body?.payload?.error, body?.error, body?.errorMessage, body?.statusMessage];
+  const hit = candidates.find((c) => typeof c === 'string' && c.length > 0) as string | undefined;
+  return hit ? hit.slice(0, 160) : 'no error message';
 }
 
 export function createRunDriver(deps: DriverDeps) {
@@ -223,17 +232,22 @@ export function createRunDriver(deps: DriverDeps) {
     if (first.status >= 300) return { state: 'render-refused', specId, httpStatus: first.status };
     if (first.body?.payload != null) return { state: 'rendered', specId, templateId, payload: first.body.payload };
     const instanceId = typeof first.body?.instanceId === 'string' ? first.body.instanceId : null;
-    const deadline = now() + renderWaitMs;
-    while (instanceId) {
+    const polled = instanceId ? await pollRender(instanceId, renderWaitMs) : null;
+    if (polled?.status === 'ready') return { state: 'rendered', specId, templateId, payload: polled.payload };
+    if (polled?.status === 'error') return { state: 'render-error', specId, instanceId: instanceId!, error: polled.error };
+    return { state: 'never-ready', specId, instanceId, diagnostic: await renderDiagnostic(specId) };
+  }
+
+  /** Poll one render instance until ready, an explicit error, or the wait runs out (null). */
+  async function pollRender(instanceId: string, waitMs: number): Promise<{ status: 'ready'; payload: unknown } | { status: 'error'; error: string } | null> {
+    const deadline = now() + waitMs;
+    for (;;) {
       const res = await client.get(`/api/v1/workspaces/${workspaceId}/dataviews/results/${instanceId}`);
-      if (res.status === 200 && res.body?.status === 'ready' && res.body?.payload != null) {
-        return { state: 'rendered', specId, templateId, payload: res.body.payload };
-      }
-      if (res.status === 200 && res.body?.status === 'error') break;
-      if (now() >= deadline) break;
+      if (res.status === 200 && res.body?.status === 'ready' && res.body?.payload != null) return { status: 'ready', payload: res.body.payload };
+      if (res.status === 200 && res.body?.status === 'error') return { status: 'error', error: renderError(res.body) };
+      if (now() >= deadline) return null;
       await sleep(timing.pollMs);
     }
-    return { state: 'never-ready', specId, instanceId, diagnostic: await renderDiagnostic(specId) };
   }
 
   return { run, table, chart, timing };

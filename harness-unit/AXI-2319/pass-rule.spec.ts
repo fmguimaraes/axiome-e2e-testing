@@ -10,7 +10,7 @@ import {
   assertReferenceCovers, assertReferenceFresh, currentInputHashes, loadPaulReference,
   type PaulProbe, type PaulReference, type RReference,
 } from '../../tests/AXI-2309/harness/prod-suite/paul-reference';
-import { judgeCheck, judgeRenderPayload, judgeRunStatus, matchesR, matchesTarget } from '../../tests/AXI-2309/harness/prod-suite/pass-rule';
+import { judgeCheck, judgeFreshness, judgeRenderPayload, judgeRunStatus, matchesR, matchesTarget } from '../../tests/AXI-2309/harness/prod-suite/pass-rule';
 import { chartDeclarationOf, chartFailure, createPassRuleExecutor } from '../../tests/AXI-2309/harness/prod-suite/pass-rule-executor';
 import { CATALOGUE_RECIPES, recipeParams } from '../../tests/AXI-2309/harness/prod-suite/recipes';
 import { createRunDriver, refusalDetail, type DriverTiming } from '../../tests/AXI-2309/harness/prod-suite/run-driver';
@@ -18,7 +18,7 @@ import { PAUL_OPERATIONS, type PlannedCase } from '../../tests/AXI-2309/harness/
 import { ensureWorkbench, scopeName, WORKBENCH_PROJECT_NAME, WORKBENCH_SAP_TITLE } from '../../tests/AXI-2309/harness/prod-suite/workbench';
 
 /**
- * UT-PRODE2E-6046 .. UT-PRODE2E-6078 (epic AXI-2309 — AXI-2319, FR31/AC12,
+ * UT-PRODE2E-6046 .. UT-PRODE2E-6081 (epic AXI-2309 — AXI-2319, FR31/AC12,
  * SI-042 + SI-053). Unit coverage of the prod E2E PASS RULE: the pure verdicts
  * (Paul's slide targets at printed precision, R parity tolerances, the default
  * chart payload), the committed expected values (fresh, complete, and
@@ -60,6 +60,8 @@ interface FakeOptions {
   replayUnreadable?: boolean;
   mint?: boolean;
   renderReady?: boolean;
+  /** The render instance ends in `status: 'error'` with this message. */
+  renderErrorMessage?: string;
   payload?: unknown;
   defaultChartNullFor?: string[];
   existing?: { project?: boolean; sap?: boolean };
@@ -77,7 +79,7 @@ function fakePlatform(o: FakeOptions = {}) {
     : [{ id: 'proj-other-name', name: `${WORKBENCH_PROJECT_NAME} (copy)`, workspaceId: WS, createdAt: '2025-01-01' }];
   const saps: any[] = o.existing?.sap ? [{ id: 'sap-old', title: WORKBENCH_SAP_TITLE, projectId: 'proj-old', sapVersionId: 'sapv-old', createdAt: '2026-01-01' }] : [];
   const analyses: any[] = [];
-  const ops = ['stats.dunn_posthoc', 'stats.mann_whitney_u', 'stats.kruskal_wallis', 'stats.correlation', 'stats.partial_correlation', 'stats.chi_square', 'stratify.explicit_groups']
+  const ops = ['describe.count', 'stats.dunn_posthoc', 'stats.mann_whitney_u', 'stats.kruskal_wallis', 'stats.correlation', 'stats.partial_correlation', 'stats.chi_square', 'stratify.explicit_groups']
     .map((operationId) => ({ operationId, defaultChart: (o.defaultChartNullFor ?? []).includes(operationId) ? null : { type: 'box_plot' } }))
     .concat([{ operationId: 'stats.fisher_exact', defaultChart: { type: 'heatmap', surfaces: ['result'] } as any }]);
 
@@ -138,6 +140,7 @@ function fakePlatform(o: FakeOptions = {}) {
     m = p.match(/\/dataviews\/results\/([^/]+)$/);
     if (m) {
       if (m[1].startsWith('art-')) return { status: 200, body: { status: 'ready', payload: { error: 'binding columns not found', data: [] } } };
+      if (o.renderErrorMessage) return { status: 200, body: { status: 'error', errorMessage: o.renderErrorMessage, rows: ['SECRET-ROW'] } };
       return o.renderReady === false
         ? { status: 200, body: { status: 'pending' } }
         : { status: 200, body: { status: 'ready', payload: o.payload ?? { type: 'boxplot', data: [{ x: 1 }] } } };
@@ -301,6 +304,8 @@ test('UT-PRODE2E-6059: a chart payload passes only with data and no error', () =
   assert.equal(judgeRenderPayload({ type: 'boxplot', data: [], error: 'binding columns not found' }).ok, false);
   assert.equal(judgeRenderPayload({ type: 'boxplot', data: [] }).ok, false);
   assert.equal(judgeRenderPayload({ type: 'heatmap', data: {} }).ok, false);
+  assert.equal(judgeRenderPayload({ type: 'scatter', data: { x: [], y: [] } }).ok, false, 'an object of empty series is not data');
+  assert.equal(judgeRenderPayload({ type: 'scatter', data: { x: [], y: [2] } }).ok, true);
   assert.equal(judgeRenderPayload({ type: 'boxplot' }).ok, false, 'no data key is not a chart');
   assert.equal(judgeRenderPayload(null).ok, false);
 });
@@ -330,12 +335,17 @@ test('UT-PRODE2E-6061: a DEDUPED STATISTICAL run is re-executed from its canonic
   assert.ok(replay.url.includes('/rule-runs/run-1/'), 'replays the CANONICAL run, not the deduped row');
 });
 
-test('UT-PRODE2E-6062: a DEDUPED non-STATISTICAL run is judged on its canonical and says deduped; a replay that dedups again never passes', async () => {
+test('UT-PRODE2E-6062: a DEDUPED non-STATISTICAL run is NOT fresh evidence — reported deduped, not re-executed, and refused by the freshness verdict; a replay that dedups again never passes', async () => {
   const f = fakePlatform({ dedupOnSubmit: true });
   const out = await driverOf(f).run({ ...req, runKind: 'DESCRIBE' }, scope);
-  assert.equal(out.status, 'SUCCEEDED');
+  assert.equal(out.status, 'SUCCEEDED', "the canonical run's status is a fact, not a verdict");
   assert.deepEqual([out.deduped, out.reExecuted], [true, false]);
   assert.equal(f.calls.some((c) => c.url.endsWith('/re-execute')), false);
+  const fresh = judgeFreshness(out, 'DESCRIBE');
+  assert.equal(fresh.ok, false, 'a cached answer is never judged as today');
+  assert.equal((fresh as { why: string }).why, `engine did not run today: deduped onto ${out.runId}, no re-execute path for DESCRIBE`);
+  assert.equal(judgeFreshness({ runId: 'r', deduped: false, reExecuted: false }, 'DESCRIBE').ok, true);
+  assert.equal(judgeFreshness({ runId: 'r', deduped: true, reExecuted: true }, 'STATISTICAL').ok, true);
   const again = await driverOf(fakePlatform({ dedupOnSubmit: true, replayStatus: 'DEDUPED' })).run(req, scope);
   assert.equal(again.status, 'DEDUPED');
   assert.equal(judgeRunStatus(again.status, again.detail).ok, false);
@@ -552,4 +562,49 @@ test('UT-PRODE2E-6078: a run the identity cannot read (403/404) is UNREADABLE at
   const v = judgeRunStatus(out.status, out.detail);
   assert.equal(v.ok, false);
   assert.match((v as { why: string }).why, /run not readable by the suite identity \(GET run HTTP 404\)/);
+});
+
+test('UT-PRODE2E-6079: a catalogue DESCRIBE case answered from the dedup cache is not-evaluated — never pass, and its cached chart is never judged', async () => {
+  const f = fakePlatform({ dedupOnSubmit: true });
+  const r = validateCaseResult(await exec(f)(planned({ operationId: 'describe.count', runKind: 'DESCRIBE' }), ctxOf(f.client)));
+  assert.equal(r.outcome, 'not-evaluated');
+  assert.equal(r.reason, `engine did not run today: deduped onto ${r.facts.runId}, no re-execute path for DESCRIBE`);
+  assert.equal(f.runs.get(String(r.facts.runId))?.status, 'SUCCEEDED', 'the cached canonical run itself SUCCEEDED');
+  assert.deepEqual([r.facts.deduped, r.facts.reExecuted, r.facts.engineRanToday], [true, false, false]);
+  assert.equal(f.calls.some((c) => c.url.includes('/candidates') || c.url.endsWith('/render')), false, 'no chart is read for a cached run');
+  // Control: the same case on a fresh run is judged normally and passes.
+  const g = fakePlatform();
+  const ok = validateCaseResult(await exec(g)(planned({ operationId: 'describe.count', runKind: 'DESCRIBE' }), ctxOf(g.client)));
+  assert.equal(ok.outcome, 'pass', ok.reason ?? '');
+  assert.equal(ok.facts.engineRanToday, true);
+});
+
+test("UT-PRODE2E-6080: a Paul case whose probes came from the dedup cache without re-execution is not-evaluated, never pass; the same probes re-executed fresh pass", async () => {
+  const f = fakePlatform({ rowsFor: paulRows(), dedupOnSubmit: true });
+  const r = validateCaseResult(await exec(f)(planned({ phase: 'paul-methods', operationId: 'stats.mann_whitney_u', runKind: 'DESCRIBE' }), ctxOf(f.client)));
+  assert.equal(r.outcome, 'not-evaluated');
+  assert.match(r.reason!, /engine did not run today: deduped onto run-\d+, no re-execute path for DESCRIBE/);
+  assert.equal(r.facts.engineRanToday, false);
+  assert.equal(r.facts.checks, 0, 'cached rows are never judged');
+  const g = fakePlatform({ rowsFor: paulRows(), dedupOnSubmit: true });
+  const fresh = validateCaseResult(await exec(g)(planned({ phase: 'paul-methods', operationId: 'stats.mann_whitney_u' }), ctxOf(g.client)));
+  assert.equal(fresh.outcome, 'pass', fresh.reason ?? '');
+  assert.equal(fresh.facts.reExecuted, fresh.facts.probes, 'a STATISTICAL pass rests on re-executed runs');
+  assert.equal(fresh.facts.engineRanToday, true);
+});
+
+test('UT-PRODE2E-6081: a render that ends in error fails with its own message (bounded, no body echo); a breaker-tripped fail says so', async () => {
+  const d = driverOf(fakePlatform({ renderErrorMessage: 'binding columns not found' }));
+  const out = await d.run(req, scope);
+  const chart = await d.chart(out.runId!, 'va-1');
+  assert.equal(chart.state, 'render-error');
+  assert.equal(chartFailure(chart), 'default chart: render failed (binding columns not found)');
+  assert.equal(JSON.stringify(chart).includes('SECRET-ROW'), false);
+  const f = fakePlatform({ renderReady: false });
+  const e = exec(f, { timing: { ...FAST, renderTimeoutMs: 50 } });
+  const results = [];
+  for (let i = 0; i < 4; i++) results.push(validateCaseResult(await e(planned({ id: `rule-${i}` }), ctxOf(f.client))));
+  assert.deepEqual(results.map((r) => r.facts.renderBreakerTripped), [false, false, false, true]);
+  assert.match(results[3].reason!, /render breaker tripped after 3 consecutive never-ready renders: checked once, not waited/);
+  assert.equal(/breaker/.test(results[0].reason!), false);
 });

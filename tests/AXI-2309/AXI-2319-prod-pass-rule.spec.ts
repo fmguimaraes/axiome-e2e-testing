@@ -20,14 +20,15 @@ import { LocalTestOrgWorld } from './prod-suite-fixtures';
  * — `dailyExecutor` is one instance of it) over the live active catalogue:
  * Paul's methods judged on his slide numbers + R parity (positively, and
  * negatively with a perturbed expectation), the same-day re-run re-executed
- * rather than replayed from the dedup cache, a catalogue rule's verdict
+ * rather than replayed from the dedup cache, a DESCRIBE re-run answered from
+ * the cache recorded `not-evaluated` (never pass), a catalogue rule's verdict
  * following its default chart, and the rules the suite cannot judge recorded
  * `not-evaluated` with a reason. NEVER runs against production: it needs the
  * platform admin to build its stand-in, so it skips whenever the daily-suite
  * switch is on.
  *
  * Scenario doc: axiome-docs/manual-e2e/AXI-2309-Platform-Opening-Headless.md
- * § "AXI-2319 — Prod E2E pass rule" (AXI-2319.1 .. .6).
+ * § "AXI-2319 — Prod E2E pass rule" (AXI-2319.1 .. .6, .8).
  */
 
 test.use({ storageState: { cookies: [], origins: [] }, trace: 'off' });
@@ -166,6 +167,21 @@ test.describe('AXI-2319 — prod E2E pass rule (local stand-in for the test org)
         expect(seen.status === 'ready' && seen.hasPayload && !seen.payloadError, 'render is NOT ready with a clean payload').toBe(false);
       }
     }
+  });
+
+  test('FR31 — AXI-2319.8 a DESCRIBE rule re-run the same day is answered from the dedup cache and is not-evaluated, never pass', async () => {
+    test.setTimeout(5 * 60_000);
+    // Step .4 already ran this rule in this world; the platform dedups DESCRIBE
+    // before executing (AXI-1558) and DESCRIBE has no re-execute path, so today's
+    // engine does not run — exactly the day-2+ state of every DESCRIBE recipe on prod.
+    const [again] = await runCases([firstOf('describe.count')], ctx, createPassRuleExecutor());
+    executed.push(again);
+    expect(again.facts.deduped, 'the re-run deduped onto step .4').toBe(true);
+    expect(again.facts.reExecuted).toBe(false);
+    expect(again.outcome, again.reason ?? '').toBe('not-evaluated');
+    expect(again.facts.engineRanToday).toBe(false);
+    expect(again.reason).toMatch(/^engine did not run today: deduped onto \S+, no re-execute path for DESCRIBE$/);
+    expect(again.facts.chartState, 'a cached run is never judged on its chart').toBeUndefined();
   });
 
   test('FR31 — AXI-2319.5 a rule the suite cannot judge is not-evaluated with its reason, never pass', async () => {

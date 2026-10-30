@@ -15,14 +15,17 @@ import { describeCheck, rowMatches, type PaulCheck, type PaulProbe, type RRefere
  *    rendered (FR14 — AXI-2312's contract: a `recommended`-origin DataviewSpec
  *    was minted for the run's result AND a render of it reached `ready` with a
  *    payload that carries data and no error).
- *  - FR14 is a platform-wide requirement, so the chart is required of Paul's
- *    methods too (the conservative reading — a Paul rule with right numbers
- *    and no chart is not "working").
+ *  - The chart is NOT part of Paul's verdict: FR31 phrases his pass on
+ *    expected values only, and his single-measurement probes never mint a
+ *    gallery chart (row floor / result-surface only) — owner ruling requested.
+ *  - A verdict rests on TODAY's engine run only (`judgeFreshness`): a run
+ *    answered from the dedup cache with no re-execution is never `pass`.
  *
  * Outcomes: `pass` only when every check held; `fail` when the platform was
  * wrong (refused / FAILED / timed-out run, value mismatch, no chart, render
  * error or never ready); `not-evaluated` when the suite has no way to judge the
- * rule (no recipe, not runnable, no default chart by declaration) — never
+ * rule (no recipe, not runnable, no default chart by declaration, the engine
+ * did not run today because the answer came from the dedup cache) — never
  * `pass`. An executor exception is recorded `error` by the infrastructure.
  */
 
@@ -100,9 +103,18 @@ export function judgeRenderPayload(payload: unknown): Verdict {
   if (payload === null || payload === undefined || typeof payload !== 'object') return no('render returned no payload');
   const p = payload as Record<string, unknown>;
   if (p.error) return no(`render payload error: ${String(p.error).slice(0, 120)}`);
-  const data = p.data;
-  const hasData = Array.isArray(data) ? data.length > 0 : data !== null && typeof data === 'object' && Object.keys(data).length > 0;
-  return hasData ? OK : no('render payload carries no data');
+  return hasData(p.data) ? OK : no('render payload carries no data');
+}
+
+/** One value inside a data object carries data: a non-empty array/object, or a scalar. */
+const carries = (v: unknown): boolean =>
+  Array.isArray(v) ? v.length > 0 : v !== null && v !== undefined && (typeof v !== 'object' || Object.keys(v).length > 0);
+
+/** Data is a non-empty array, or an object at least one of whose values carries data (`{ x: [], y: [] }` does not). */
+function hasData(data: unknown): boolean {
+  if (Array.isArray(data)) return data.length > 0;
+  if (data === null || typeof data !== 'object') return false;
+  return Object.values(data).some(carries);
 }
 
 export type RunStatus = 'SUCCEEDED' | 'FAILED' | 'DEDUPED' | 'TIMEOUT' | 'REFUSED' | 'UNREADABLE';
@@ -114,4 +126,22 @@ export function judgeRunStatus(status: RunStatus, detail: string | null): Verdic
   if (status === 'UNREADABLE') return no(`run not readable by the suite identity${detail ? ` (${detail})` : ''}`);
   if (status === 'DEDUPED') return no('run deduped and could not be re-executed');
   return no(`run FAILED${detail ? ` (${detail})` : ''}`);
+}
+
+/** What the driver knows about whether today's engine produced the judged run. */
+export interface RunProvenance {
+  runId: string | null;
+  deduped: boolean;
+  reExecuted: boolean;
+}
+
+/**
+ * B1 (review round 1): a SUCCEEDED answer that came from the dedup cache with
+ * no re-execution is yesterday's evidence, not today's — the fixtures are fixed
+ * (FR29), so from day 2 it would pass forever even if the engine regressed.
+ * Such a run never passes; the executor records it `not-evaluated`.
+ */
+export function judgeFreshness(run: RunProvenance, runKind: string): Verdict {
+  if (!run.deduped || run.reExecuted) return OK;
+  return no(`engine did not run today: deduped onto ${run.runId ?? 'an unnamed run'}, no re-execute path for ${runKind}`);
 }

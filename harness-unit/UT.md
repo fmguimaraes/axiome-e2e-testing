@@ -483,7 +483,8 @@ precision) AND R parity (statistic relative 1e-9, p-value |Δ ln p| ≤ 1e-6) fr
 committed, freshness-guarded `paul-r-reference.json`; every other rule on run
 SUCCEEDED + its default chart rendered; the run driver's dedup re-execution,
 bounded waits and refusal detail; the workbench's reuse-by-name; the recipes; and
-`not-evaluated` (never `pass`) for what the suite cannot judge. HTTP is a scripted
+`not-evaluated` (never `pass`) for what the suite cannot judge — including a run
+answered from the dedup cache that could not be re-executed (engine did not run today). HTTP is a scripted
 fake platform — no network, no browser, no Docker.
 
 | ID | Description | Status |
@@ -501,10 +502,10 @@ fake platform — no network, no browser, no Docker.
 | UT-PRODE2E-6056 | a probe with no R entry, or a checked row R never computed, is refused at load | Pass |
 | UT-PRODE2E-6057 | every one of Paul's operations has at least one probe, and probes bind only real fixture columns | Pass |
 | UT-PRODE2E-6058 | every catalogue recipe binds only real fixture columns | Pass |
-| UT-PRODE2E-6059 | a chart payload passes only with data and no error | Pass |
+| UT-PRODE2E-6059 | a chart payload passes only with data and no error (an object of empty series is not data) | Pass |
 | UT-PRODE2E-6060 | only SUCCEEDED passes the run check; FAILED, refused, timed-out and un-replayed DEDUPED all fail | Pass |
 | UT-PRODE2E-6061 | a DEDUPED STATISTICAL run is re-executed from its canonical record and the FRESH run is judged | Pass |
-| UT-PRODE2E-6062 | a DEDUPED non-STATISTICAL run is judged on its canonical and says deduped; a replay that dedups again never passes | Pass |
+| UT-PRODE2E-6062 | a DEDUPED non-STATISTICAL run is NOT fresh evidence — reported deduped, not re-executed, and refused by the freshness verdict; a replay that dedups again never passes (inverted in review round 1, B1) | Pass |
 | UT-PRODE2E-6063 | a refused submission is REFUSED with its status, code and message — never the rest of the response body | Pass |
 | UT-PRODE2E-6064 | a run that never leaves QUEUED is a TIMEOUT within the bounded wait | Pass |
 | UT-PRODE2E-6065 | the chart check finds the recommended spec of THIS run and waits for a ready payload | Pass |
@@ -521,3 +522,6 @@ fake platform — no network, no browser, no Docker.
 | UT-PRODE2E-6076 | a field-level submission refusal names its fields (bounded), and still never echoes other body content | Pass |
 | UT-PRODE2E-6077 | every split rule asks its own question per run (unique questionKey), and contingency recipes bind categorical columns only | Pass |
 | UT-PRODE2E-6078 | a run the identity cannot read (403/404) is UNREADABLE at once — never a wait-out, never a pass from the dedup cache | Pass |
+| UT-PRODE2E-6079 | a catalogue DESCRIBE case answered from the dedup cache is not-evaluated — never pass, and its cached chart is never judged | Pass |
+| UT-PRODE2E-6080 | a Paul case whose probes came from the dedup cache without re-execution is not-evaluated, never pass; the same probes re-executed fresh pass | Pass |
+| UT-PRODE2E-6081 | a render that ends in error fails with its own message (bounded, no body echo); a breaker-tripped fail says so | Pass |

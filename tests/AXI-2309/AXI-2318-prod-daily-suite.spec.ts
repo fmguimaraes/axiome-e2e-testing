@@ -134,6 +134,11 @@ test.describe('AXI-2318 — prod E2E daily suite', TAGS, () => {
     // Strict on purpose: FR31 says EVERY active rule passes, so a rule the suite
     // cannot judge (no recipe, no server-renderable default chart, not runnable)
     // is a gap in AC12, reported here separately from real failures above.
-    expect(listed(report.cases.filter((c) => c.outcome === 'not-evaluated')), 'rules not evaluated').toEqual([]);
+    // A rule answered from the dedup cache (engine did not run today — never a
+    // pass) is listed on its own line, so a stale day is not read as a gap.
+    const notEvaluated = report.cases.filter((c) => c.outcome === 'not-evaluated');
+    const cached = notEvaluated.filter((c) => c.facts.engineRanToday === false);
+    expect.soft(listed(cached), 'rules answered from the dedup cache — engine did not run today').toEqual([]);
+    expect(listed(notEvaluated.filter((c) => !cached.includes(c))), 'rules not evaluated').toEqual([]);
   });
 });
