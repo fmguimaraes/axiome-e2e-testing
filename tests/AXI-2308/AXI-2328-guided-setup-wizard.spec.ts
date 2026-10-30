@@ -329,7 +329,7 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await choose(page, 'na-run');
     const answer = await (await launched).json();
     expect(answer.ok, JSON.stringify(answer)).toBe(true);
-    await expect(page).toHaveURL(new RegExp(`/projects/${t.projectId}/view-analyses/${answer.viewAnalysisId}$`), { timeout: 30_000 });
+    await expect(page).toHaveURL(new RegExp(`/projects/${t.projectId}/runs/${answer.runId}$`), { timeout: 30_000 });
     await expectRecordOf(answer.runId, answer.viewAnalysisId, callId);
   });
 
