@@ -86,6 +86,7 @@ test.afterAll(async () => {
 
 test.describe('AXI-2310 — SAP entity & API', TAGS, () => {
   let created: any;
+  let ofB: any;
 
   test('AC1, AC2 — AXI-2310.1: a SAP is created and read back verbatim with every contract field', async () => {
     // Act
@@ -113,10 +114,11 @@ test.describe('AXI-2310 — SAP entity & API', TAGS, () => {
     expect(body.planText).toBe(PLAN_TEXT);
   });
 
-  test('AC1 — AXI-2310.2: the list is per project — the latest version of each of A\'s SAPs, never B\'s', async () => {
+  // AXI-2338 (Headless §10 delta, §17 D8): a project holds exactly ONE SAP, so
+  // A's list is its one SAP (a second create is AXI-2338.1's 409).
+  test('AC1 — AXI-2310.2: the list is per project — A\'s one SAP at its latest version, never B\'s', async () => {
     // Arrange
-    const second = await createSap(editor, projectA);
-    const ofB = await createSap(editor, projectB);
+    ofB = await createSap(editor, projectB);
 
     // Act
     const res = await editor.api.get(saps(projectA, '?page=1&limit=100'));
@@ -125,9 +127,9 @@ test.describe('AXI-2310 — SAP entity & API', TAGS, () => {
     expect(res.status()).toBe(200);
     const body = await res.json();
     const ids = body.data.map((s: { id: string }) => s.id);
-    expect(ids.sort()).toEqual([created.id, second.id].sort());
+    expect(ids).toEqual([created.id]);
     expect(ids).not.toContain(ofB.id);
-    expect(body.meta).toMatchObject({ total: 2, page: 1, limit: 100 });
+    expect(body.meta).toMatchObject({ total: 1, page: 1, limit: 100 });
   });
 
   test('AC1 — AXI-2310.3: re-plan creates version 2; version 1 is retained unchanged and points at it; stale re-plan is 409', async () => {
@@ -164,9 +166,10 @@ test.describe('AXI-2310 — SAP entity & API', TAGS, () => {
     // Arrange
     const missingRule = { ruleId: neverCreatedProjectId(), ruleVersion: 1 };
     const refs = [{ operationId: REGISTERED_OP }, { operationId: 'stats.not_a_registered_operation' }, missingRule];
+    const projectC = await newProject('C'); // AXI-2338: one SAP per project — A already holds one
 
     // Act
-    const sap = await createSap(editor, projectA, content({ linkedMethods: refs }));
+    const sap = await createSap(editor, projectC, content({ linkedMethods: refs }));
 
     // Assert
     expect(sap.linkedMethods).toEqual(refs);
@@ -178,8 +181,7 @@ test.describe('AXI-2310 — SAP entity & API', TAGS, () => {
   });
 
   test('AC1, EC7 — AXI-2310.5: a run with no bound SAP version (or another project\'s) is refused; nothing executes', async () => {
-    // Arrange
-    const ofB = await createSap(editor, projectB);
+    // Arrange — B's one SAP was created in §.2 (AXI-2338: one SAP per project)
     const run = (extra: Record<string, unknown>) =>
       editor.api.post(apiUrl('/api/v1/rule-runs'), {
         data: { ruleId: neverCreatedProjectId(), projectId: projectA, workspaceId: world.workspaceId, ...extra },
