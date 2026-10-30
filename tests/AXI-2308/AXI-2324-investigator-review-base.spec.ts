@@ -279,6 +279,8 @@ test.describe('AXI-2324 — Investigator surface on the review base @SI-066 @SI-
       ['PATCH review-question', () => investigator.api.patch(apiUrl(`/api/v1/view-analyses/${analysisId}/review-question`), { data: { text: 'x' } })],
       ['POST assumptions', () => investigator.api.post(apiUrl(`/api/v1/view-analyses/${analysisId}/assumptions`), { data: { type: 'other', text: 'x' } })],
       ['GET snapshot-comments', () => investigator.api.get(apiUrl(`/api/v1/snapshot-comments?anchorType=published_analysis_version&anchorId=${publishedVersionId}`))],
+      // AXI-2323 (owner ruling Q8, 2026-10-30): the comment count is re-closed — his front never reads it.
+      ['GET snapshot-comments/count', () => investigator.api.get(apiUrl(`/api/v1/snapshot-comments/count?anchorType=published_analysis_version&anchorId=${publishedVersionId}`))],
       ['POST snapshot-comments', () => investigator.api.post(apiUrl('/api/v1/snapshot-comments'), { data: { anchorType: 'published_analysis_version', anchorId: publishedVersionId, content: 'x' } })],
       ['POST styling-presets', () => investigator.api.post(apiUrl('/api/v1/styling-presets'), { data: { name: 'x' } })],
       ['GET users/extended/list', () => investigator.api.get(apiUrl('/api/v1/users/extended/list'))],
@@ -289,14 +291,12 @@ test.describe('AXI-2324 — Investigator surface on the review base @SI-066 @SI-
     const outcomes: string[] = [];
     for (const [label, call] of refused) outcomes.push(`${label} ${(await call()).status()}`);
     const name = await investigator.api.get(apiUrl(`/api/v1/users/extended/${approver.userId}`));
-    const count = await investigator.api.get(apiUrl(`/api/v1/snapshot-comments/count?anchorType=published_analysis_version&anchorId=${publishedVersionId}`));
     const presets = await investigator.api.get(apiUrl('/api/v1/styling-presets'));
 
     // Assert
     expect(outcomes).toEqual(refused.map(([label]) => `${label} 403`));
     expect(name.status()).toBe(200);
     expect(await name.json()).toEqual({ id: approver.userId, firstName: 'AXI2324', lastName: 'approver' });
-    expect(count.status()).toBe(200);
     expect(presets.status()).toBe(200);
   });
 
