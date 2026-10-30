@@ -77,6 +77,31 @@ export const TEST_MAILBOX_SKIP_REASON =
   'no dedicated test mailbox configured — set TEST_MAILBOX_API_TOKEN/_INBOX_ID/_ACCOUNT_ID/_ADDRESS ' +
   '(never committed, NFR8) to run the real Mailjet-reset-email scenario';
 
+/**
+ * Write access to the daily prod-E2E report store the backend lists
+ * (AXI-2320 — FR34). Used ONLY to seed fixture `report.json` objects into a
+ * worktree-owned bucket so the admin listing has known data to show; must name
+ * the SAME bucket/prefix the organization-service reads
+ * (`PROD_E2E_REPORTS_BUCKET` / `PROD_E2E_S3_PREFIX`). Never pointed at the
+ * production bucket. Absent ⇒ the seeded-data scenarios `test.skip()` with
+ * {@link REPORT_STORE_SKIP_REASON}; the access-boundary scenarios still run.
+ * Credentials are never committed (NFR3).
+ */
+export const REPORT_STORE_ENDPOINT = normalizeOrigin(fromEnv('E2E_REPORTS_S3_ENDPOINT', ''));
+export const REPORT_STORE_BUCKET = fromEnv('E2E_REPORTS_S3_BUCKET', '');
+export const REPORT_STORE_PREFIX = fromEnv('E2E_REPORTS_S3_PREFIX', 'prod-e2e/daily');
+export const REPORT_STORE_REGION = fromEnv('E2E_REPORTS_S3_REGION', 'us-east-1');
+export const REPORT_STORE_ACCESS_KEY = fromEnv('E2E_REPORTS_S3_ACCESS_KEY', '');
+export const REPORT_STORE_SECRET_KEY = fromEnv('E2E_REPORTS_S3_SECRET_KEY', '');
+
+export const HAS_REPORT_STORE = Boolean(
+  REPORT_STORE_ENDPOINT && REPORT_STORE_BUCKET && REPORT_STORE_ACCESS_KEY && REPORT_STORE_SECRET_KEY,
+);
+
+export const REPORT_STORE_SKIP_REASON =
+  'no seedable report store configured — set E2E_REPORTS_S3_ENDPOINT/_BUCKET/_ACCESS_KEY/_SECRET_KEY ' +
+  '(the same bucket/prefix the backend lists; never the production bucket) to run the seeded-data scenarios';
+
 /** Join an API path onto {@link API_BASE_URL} (leading slash optional). */
 export function apiUrl(path: string): string {
   return `${API_BASE_URL}/${path.replace(/^\/+/, '')}`;
