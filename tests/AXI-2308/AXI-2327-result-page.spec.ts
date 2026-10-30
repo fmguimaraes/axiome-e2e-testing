@@ -163,7 +163,7 @@ test.describe.serial('AXI-2327 result page — answer, charts & navigation, evid
     await expect(page.getByTestId('rp-new-analysis')).toBeVisible();
   });
 
-  test('AC25 FR32 — AXI-2327.4 the evidence is collapsed and lists n per group, method, why, parameters, family size, data hash, rule version, mode @SI-034 @SI-013', async ({ page }) => {
+  test('AC25 FR32 — AXI-2327.4 the evidence is collapsed and lists n per group, method, why, parameters, family size, data hash, analysis version, mode @SI-034 @SI-013', async ({ page }) => {
     // Arrange
     await openTeamPage(page, t1RunId);
     const evidence = page.getByTestId('rp-evidence');
@@ -180,7 +180,7 @@ test.describe.serial('AXI-2327 result page — answer, charts & navigation, evid
     await expect(page.getByTestId('rp-evidence-parameters')).toContainText('groupFrom');
     await expect(page.getByTestId('rp-evidence-family-size')).toHaveText('not applicable — this test declares no multiple-testing correction');
     await expect(page.getByTestId('rp-evidence-data-hash')).toHaveText(/^sha256:[0-9a-f]{64} \(version \d+\)$/);
-    await expect(page.getByTestId('rp-evidence-rule-version')).toHaveText(/ v\d+$/);
+    await expect(page.getByTestId('rp-evidence-analysis-version')).toHaveText(/ v\d+$/);
     await expect(page.getByTestId('rp-evidence-mode')).toHaveText('guided (template T1)');
   });
 
