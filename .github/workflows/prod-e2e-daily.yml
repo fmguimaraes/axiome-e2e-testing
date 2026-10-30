@@ -1,0 +1,240 @@
+# Prod E2E daily suite (AXI-2318 — epic AXI-2309: FR28–FR30, FR32, FR33, NFR5, NFR6, EC9).
+#
+# Runs the prod E2E daily suite (tests/AXI-2309/AXI-2318-prod-daily-suite.spec.ts)
+# every day against PRODUCTION, inside the DEDICATED TEST ORG only, as a confined
+# test identity — never Paul's CeRAINOM-IgG4 org or any client org (NFR5). The
+# isolation guard aborts the run if the identity can resolve any org but the test
+# org (EC9). The run's report (report.json + report.md, ids/hashes/counts only) is
+# uploaded to S3 and committed under reports/AXI-2318/ (FR33, NFR6). Playwright
+# traces are never produced, uploaded or committed (they carry the bearer token).
+#
+# Separate from ci.yml on purpose: the PR gate (`ci.yml`) targets `vars.BASE_URL`
+# and runs EVERY spec, many of which need the platform admin and create orgs and
+# workspaces. NEVER point `vars.BASE_URL` at production — this workflow uses its
+# own `vars.PROD_E2E_*` names instead.
+#
+# Jobs (least privilege: test code never runs beside AWS keys or a write token):
+#   suite   — contents: read. Runs the daily spec, validates + secret-scans the
+#             report, uploads a 2-file bundle artifact. Fails the run if a test failed.
+#   publish — no repo code, no npm: copies exactly the bundle's planned files to S3.
+#   commit  — contents: write. Commits the bundle's report files to main.
+#   provision — workflow_dispatch `mode: provision-fixtures` only: the ONE-TIME
+#             fixture upload (FR29); prints the PROD_E2E_FIXTURE_IDS value.
+#
+# Configuration (repository settings; none of it is committed):
+#   vars.PROD_E2E_BASE_URL, vars.PROD_E2E_API_BASE_URL   production origins
+#   vars.PROD_E2E_ORG_ID, vars.PROD_E2E_WORKSPACE_ID     the dedicated test org + its workspace
+#   vars.PROD_E2E_FIXTURE_IDS                            {"tableau1":"<uuid>","tableau2":"<uuid>"}
+#   vars.PROD_E2E_FORBIDDEN_ORG_IDS                      REQUIRED, non-empty UUID list: the prod id(s) of Paul's
+#                                                        CeRAINOM-IgG4 org (and any other never-touch org). Empty,
+#                                                        blank or any non-UUID entry => the run aborts (EC9: an
+#                                                        empty list would switch the id-based guard off)
+#   vars.PROD_E2E_REPORTS_BUCKET, vars.PROD_E2E_S3_PREFIX (default prod-e2e/daily), vars.AWS_REGION
+#   secrets.PROD_E2E_TEST_EMAIL, secrets.PROD_E2E_TEST_PASSWORD   the confined test identity
+#   secrets.AWS_ACCESS_KEY_ID, secrets.AWS_SECRET_ACCESS_KEY      static keys (repo convention, no
+#             OIDC role exists) — scope them to s3:PutObject on the reports prefix only.
+# A missing setting fails the run loudly (exit 78, or an `aborted` report) — a daily job that silently
+# skips is exactly the gap FR32 closes.
+
+name: Prod E2E daily
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # daily, 03:17 UTC
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "run = the daily suite; provision-fixtures = one-time fixture upload (FR29)"
+        type: choice
+        options: [run, provision-fixtures]
+        default: run
+      publish:
+        description: "Publish the report to S3 and commit it (uncheck for a dry run)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: prod-e2e-daily
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  suite:
+    name: Prod E2E daily suite
+    if: ${{ github.event_name == 'schedule' || inputs.mode == 'run' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      bundle: ${{ steps.publish-plan.outputs.repo_dir != '' && 'present' || '' }}
+      repo_dir: ${{ steps.publish-plan.outputs.repo_dir }}
+      status: ${{ steps.publish-plan.outputs.status }}
+    env:
+      BASE_URL: ${{ vars.PROD_E2E_BASE_URL }}
+      API_BASE_URL: ${{ vars.PROD_E2E_API_BASE_URL }}
+      # The preflight (globalSetup) logs in with E2E_ADMIN_*: on prod that is the
+      # confined test identity, never an admin.
+      E2E_ADMIN_EMAIL: ${{ secrets.PROD_E2E_TEST_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.PROD_E2E_TEST_PASSWORD }}
+      PROD_E2E_SUITE: "1"
+      PROD_E2E_TEST_EMAIL: ${{ secrets.PROD_E2E_TEST_EMAIL }}
+      PROD_E2E_TEST_PASSWORD: ${{ secrets.PROD_E2E_TEST_PASSWORD }}
+      PROD_E2E_ORG_ID: ${{ vars.PROD_E2E_ORG_ID }}
+      PROD_E2E_WORKSPACE_ID: ${{ vars.PROD_E2E_WORKSPACE_ID }}
+      PROD_E2E_FIXTURE_IDS: ${{ vars.PROD_E2E_FIXTURE_IDS }}
+      PROD_E2E_FORBIDDEN_ORG_IDS: ${{ vars.PROD_E2E_FORBIDDEN_ORG_IDS }}
+      PROD_E2E_S3_PREFIX: ${{ vars.PROD_E2E_S3_PREFIX }}
+      PROD_E2E_TARGET_LABEL: production
+      PROD_E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+      PROD_E2E_REPORT_DIR: prod-suite-report
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      # What the preflight needs to even reach prod. Everything else (org,
+      # workspace, fixture ids) is checked by the spec itself, which then
+      # publishes an `aborted` report naming what is missing.
+      - name: Check reachability configuration (fail loud, never skip)
+        id: config
+        run: |
+          missing=""
+          for name in BASE_URL API_BASE_URL PROD_E2E_TEST_EMAIL PROD_E2E_TEST_PASSWORD; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::prod E2E daily suite is not configured — missing:$missing"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Run the daily suite (API-only, no traces)
+        id: run
+        if: ${{ steps.config.outputs.ok == 'true' }}
+        run: |
+          set +e
+          npx playwright test tests/AXI-2309/AXI-2318-prod-daily-suite.spec.ts --project=prod-suite-api --reporter=list
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+      - name: Validate, secret-scan and stage the report
+        id: publish-plan
+        if: ${{ !cancelled() && steps.config.outputs.ok == 'true' }}
+        run: npx tsx scripts/prod-suite-publish.ts "$PROD_E2E_REPORT_DIR" bundle
+      - name: Upload the report bundle (report.json + report.md only)
+        if: ${{ !cancelled() && steps.publish-plan.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: prod-e2e-report
+          path: bundle/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Fail the job if the suite failed or was not configured
+        if: ${{ !cancelled() }}
+        run: |
+          [ "${{ steps.config.outputs.ok }}" = "true" ] || exit 78
+          [ "${{ steps.run.outputs.exit }}" = "0" ] || { echo "::error::prod E2E suite failed (status: ${{ steps.publish-plan.outputs.status }})"; exit 1; }
+
+  publish:
+    name: Publish report to S3
+    needs: suite
+    if: ${{ !cancelled() && needs.suite.outputs.bundle == 'present' && (github.event_name == 'schedule' || inputs.publish) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: prod-e2e-report
+          path: bundle
+      - name: Check S3 configuration
+        env:
+          BUCKET: ${{ vars.PROD_E2E_REPORTS_BUCKET }}
+          REGION: ${{ vars.AWS_REGION }}
+        run: |
+          [ -n "$BUCKET" ] && [ -n "$REGION" ] || { echo "::error::vars.PROD_E2E_REPORTS_BUCKET / vars.AWS_REGION not set"; exit 78; }
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Upload exactly the planned files
+        working-directory: bundle
+        env:
+          BUCKET: ${{ vars.PROD_E2E_REPORTS_BUCKET }}
+          PREFIX: ${{ vars.PROD_E2E_S3_PREFIX }}
+        run: |
+          set -euo pipefail
+          # Same default + slash-trim as scripts/prod-suite-publish.ts (safePrefix).
+          PREFIX="${PREFIX:-prod-e2e/daily}"; PREFIX="${PREFIX#/}"; PREFIX="${PREFIX%/}"
+          while IFS=$'\t' read -r local key; do
+            [ -n "$local" ] || continue
+            case "$(basename "$local")" in report.json|report.md) ;; *) echo "::error::refusing to upload $local"; exit 1 ;; esac
+            case "$key" in "$PREFIX"/*) ;; *) echo "::error::refusing key outside the reports prefix: $key"; exit 1 ;; esac
+            case "$key" in *..*) echo "::error::refusing key with '..': $key"; exit 1 ;; esac
+            aws s3 cp --only-show-errors "$local" "s3://${BUCKET}/${key}"
+            echo "uploaded ${key}"
+          done < publish-plan.tsv
+
+  commit:
+    name: Commit report under reports/AXI-2318
+    needs: suite
+    if: ${{ !cancelled() && needs.suite.outputs.bundle == 'present' && (github.event_name == 'schedule' || inputs.publish) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: prod-e2e-report
+          path: bundle
+      - name: Commit and push (retry on a concurrent push)
+        env:
+          REPO_DIR: ${{ needs.suite.outputs.repo_dir }}
+          STATUS: ${{ needs.suite.outputs.status }}
+        run: |
+          set -euo pipefail
+          case "$REPO_DIR" in reports/AXI-2318/*) ;; *) echo "::error::unexpected report dir '$REPO_DIR'"; exit 1 ;; esac
+          mkdir -p "$REPO_DIR"
+          cp bundle/"$REPO_DIR"/report.json bundle/"$REPO_DIR"/report.md "$REPO_DIR"/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$REPO_DIR"
+          git diff --cached --quiet && { echo "nothing to commit"; exit 0; }
+          git commit -m "AXI-2318 - prod E2E daily report $(basename "$REPO_DIR") ($STATUS) [skip ci]"
+          for _ in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git pull --rebase origin main
+          done
+          echo "::error::could not push the report after 3 attempts"; exit 1
+
+  provision:
+    name: Provision prod-suite fixtures (one-time, FR29)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'provision-fixtures' }}
+    runs-on: ubuntu-latest
+    env:
+      API_BASE_URL: ${{ vars.PROD_E2E_API_BASE_URL }}
+      PROD_E2E_TEST_EMAIL: ${{ secrets.PROD_E2E_TEST_EMAIL }}
+      PROD_E2E_TEST_PASSWORD: ${{ secrets.PROD_E2E_TEST_PASSWORD }}
+      PROD_E2E_ORG_ID: ${{ vars.PROD_E2E_ORG_ID }}
+      PROD_E2E_WORKSPACE_ID: ${{ vars.PROD_E2E_WORKSPACE_ID }}
+      PROD_E2E_FORBIDDEN_ORG_IDS: ${{ vars.PROD_E2E_FORBIDDEN_ORG_IDS }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Upload fixtures once (isolation guard first; idempotent by content hash)
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx scripts/prod-suite-provision.ts | tee -a "$GITHUB_STEP_SUMMARY"

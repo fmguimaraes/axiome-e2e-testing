@@ -11,6 +11,11 @@ playwright-report/
 blob-report/
 playwright/.cache/
 
+# AXI-2318 — prod E2E daily suite run outputs. The report is committed only by
+# the workflow's commit job, under reports/AXI-2318/<date>-prod-daily-<runId>/.
+/prod-suite-report/
+/bundle/
+
 # Campaign reports are committed under reports/<JIRA-ID>/ (owner rule
 # 2026-10-25: reports live here, never on claude.ai artifacts). Re-include the
 # Playwright outputs there, but never traces: a trace.zip records the test
