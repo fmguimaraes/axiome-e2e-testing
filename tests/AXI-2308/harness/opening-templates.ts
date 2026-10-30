@@ -64,6 +64,16 @@ export function compileTemplate(api: Api, t: Tenant, dataset: unknown, templateI
   return api.post(`${OPENING_TEMPLATES_PATH}/compile`, { projectId: t.projectId, dataset, templateId, parameters }, t.headers);
 }
 
+/**
+ * AXI-2342 (FR28, AC22, STRETCH). POST /opening-templates/suggestions — the ranked, deterministic,
+ * LLM-free "questions this data can answer" (one per eligible template, capped at ~5).
+ */
+export async function suggestTemplates(api: Api, t: Tenant, dataset: unknown): Promise<any[]> {
+  const res = await api.post(`${OPENING_TEMPLATES_PATH}/suggestions`, { projectId: t.projectId, dataset }, t.headers);
+  if (res.status >= 300) throw new Error(`suggest refused (${res.status}): ${JSON.stringify(res.body)}`);
+  return res.body as any[];
+}
+
 /** Submit a compiled plan to the governed engine; throws with the body on refusal. */
 export async function submitGoverned(api: Api, t: Tenant, plan: any, datasetId: string): Promise<string> {
   const res = await api.post('/api/v1/governed-execution/submit', {
