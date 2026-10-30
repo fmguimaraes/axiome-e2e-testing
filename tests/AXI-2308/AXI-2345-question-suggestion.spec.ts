@@ -18,14 +18,17 @@ import { ensureTenant, type Tenant } from '../AXI-1400/harness/seed';
  * levels only; no patient value anywhere. The dataset id is a fresh UUID with no stored
  * declaration, so the server-side stamp adds nothing.
  *
- * Recordings (blind Claude Code author, 0 USD): `apps/organization-service/llm-debug/recordings/
- * intent-prefill/54f77aab….json` (§.4) and `83d17fbb….json` (§.5). §.7 deliberately has none.
+ * Recordings (blind Claude Code author, 0 USD; re-authored on claude-haiku-5-5 by AXI-2352):
+ * `apps/organization-service/llm-debug/recordings/intent-prefill/54f77aab….json` (§.4) and the
+ * §.5 one. §.7 deliberately has none. Since AXI-2352 every result carries `callId` (null unless
+ * an answered call was logged).
  *
  * Run: `API_BASE_URL=<gateway serving the AXI-2345 branch> npx playwright test tests/AXI-2308/AXI-2345-* --no-deps`.
  */
 
 const CATALOG_PATH = '/api/v1/guided-analysis/intent-prefill/catalog';
 const SUGGEST_PATH = '/api/v1/guided-analysis/intent-prefill/suggest';
+const CALL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const MICROBIOTE = [
   'microbiote_igg4_cer_228',
@@ -129,8 +132,8 @@ test.describe('AXI-2345 question suggestion @SI-045 @SI-010 @SI-002', () => {
     expect(res.body.status).toBe('answered');
     expect(res.body.intent).toBe('compare_groups');
     expect(res.body.slots.map((s: any) => [s.slot, s.value])).toEqual([
-      ['groupingColumn', CLUSTER],
       ['outcome', 'igg4_g_l'],
+      ['groupingColumn', CLUSTER],
       ['groups', 'C1'],
       ['groups', 'C3'],
     ]);
@@ -138,6 +141,7 @@ test.describe('AXI-2345 question suggestion @SI-045 @SI-010 @SI-002', () => {
     for (const g of res.body.slots.filter((s: any) => s.slot === 'groups')) expect(g.column).toBe(CLUSTER);
     expectSpansAreTheQuestionsWords(question, res.body.slots);
     expect(res.body.contradictions).toEqual([]);
+    expect(res.body.callId).toMatch(CALL_ID); // AXI-2352: the FR27 call-log handle a Run may cite
   });
 
   test('AXI-2345.5 (AC43, EC21, EC22) words the vocabulary lacks are never served as a value @SI-045', async () => {
@@ -164,7 +168,7 @@ test.describe('AXI-2345 question suggestion @SI-045 @SI-010 @SI-002', () => {
     const res = await suggest('Does ccl19 differ between P001 and P002?', dataset);
 
     expect(res.status, JSON.stringify(res.body)).toBe(200);
-    expect(res.body).toEqual({ status: 'skipped_identifying', intent: null, slots: [], contradictions: [] });
+    expect(res.body).toEqual({ status: 'skipped_identifying', intent: null, slots: [], contradictions: [], callId: null });
   });
 
   test('AXI-2345.7 (AC48, AC17) no answer available is an empty suggestion, never an error @SI-045 @SI-010', async () => {
@@ -173,7 +177,7 @@ test.describe('AXI-2345 question suggestion @SI-045 @SI-010 @SI-002', () => {
     const res = await suggest(`An unrecorded question ${randomUUID()} about igg4_g_l?`);
 
     expect(res.status, JSON.stringify(res.body)).toBe(200);
-    expect(res.body).toEqual({ status: 'recording_missing', intent: null, slots: [], contradictions: [] });
+    expect(res.body).toEqual({ status: 'recording_missing', intent: null, slots: [], contradictions: [], callId: null });
     expect(Date.now() - started).toBeLessThan(8_000);
   });
 

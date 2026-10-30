@@ -140,7 +140,9 @@ test.describe.serial('AXI-2349 setup wizard — wizard record & run launch @SI-0
   test('AXI-2349.3 AC16 AC46 — Run stores ONE wizard record and starts a guided governed run under it', async () => {
     const slots = t1Slots().map((s) => ({ ...s, answeredBy: 'attacker' }));
 
-    const res = await launch(body({ intentSource: 'suggested', suggestionModel: MODEL, slots }));
+    // AXI-2352: a `suggested` intent now needs a cited call-log row (AXI-2352-suggestion-call-log.spec.ts);
+    // this Run keeps the question-read value with a chosen intent, so no suggestion is cited.
+    const res = await launch(body({ slots }));
 
     expect(res.status, JSON.stringify(res.body)).toBe(200);
     const { ok, record, runId, viewAnalysisId, planId } = res.body;
@@ -148,7 +150,7 @@ test.describe.serial('AXI-2349 setup wizard — wizard record & run launch @SI-0
     expect(planId).toMatch(PL_ID);
     expect(record).toMatchObject({
       projectId: t.projectId, datasetId, runId, viewAnalysisId, planId,
-      question: QUESTION, intent: 'compare_groups', intentSource: 'suggested', suggestionModel: MODEL,
+      question: QUESTION, intent: 'compare_groups', intentSource: 'chosen', suggestionModel: null, suggestionCallId: null,
       sapChoice: null, templateId: 'T1', templateVersion: catalogVersion, createdBy: callerId,
     });
     expect(record.slots.map((s: any) => [s.slot, s.value, s.provenance])).toEqual([
@@ -216,8 +218,8 @@ test.describe.serial('AXI-2349 setup wizard — wizard record & run launch @SI-0
       const statuses = await Promise.all([
         launch({ ...body(), plan: { nodes: [] } }),
         launch({ ...body(), caller: { userId: 'attacker' } }),
-        launch(body({ suggestionModel: 'model <script>' })),
-        launch(body({ suggestionModel: 'x'.repeat(201) })),
+        launch(body({ suggestionModel: MODEL })), // AXI-2352: the model is read server-side, never sent
+        launch(body({ suggestionCallId: 'model <script>' })),
       ]);
       for (const res of statuses) expect(res.status, JSON.stringify(res.body)).toBe(400);
 

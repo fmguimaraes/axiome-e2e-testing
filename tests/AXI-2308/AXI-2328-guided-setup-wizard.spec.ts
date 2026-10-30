@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { adminApi, adminToken, type Api } from '../AXI-1400/harness/api';
 import { ensureTenant, type Tenant } from '../AXI-1400/harness/seed';
+import { anchorDataset } from '../AXI-1604/harness/anchor-dataset';
 import { approveCarriersFor } from '../AXI-1762/seeded-rule-approval';
 import { silenceTours } from '../AXI-1904/harness/tours';
 import { ingestCsvFixture } from './harness/opening-templates';
@@ -34,6 +35,11 @@ import {
  *  - the project SAP list — so "project has a SAP" is a per-test fact, never another spec's state.
  *  - `…/semantic-declaration/ensure-recognized-fill` — an idempotent WRITE (AXI-2326); answered
  *    `null` so this spec writes nothing; the call itself is asserted.
+ * AXI-2352: a Run that relies on a suggestion cites its FR27 call-log row (`suggestionCallId`) and
+ * the server stores the model READ FROM THAT ROW; an uncited `suggested` intent is refused. So
+ * §.11's launch first makes ONE real (recorded-transport) suggestion call for SEX_QUESTION on this
+ * project and hands its `callId` to the stubbed answer — the UI stays deterministic, the row the
+ * server reads is real.
  * NOT stubbed: Run. AXI-2349's `POST /guided-analysis/wizard-runs` is the real route — §.11 runs
  * the analysis for real (the server re-checks the answers, compiles T1, writes the wizard record,
  * starts the governed run) and lands on the run's analysis page; its refusal case alters the
@@ -88,17 +94,25 @@ function withOutcome(body: any, value: string) {
 }
 
 /** The one wizard record the UI's Run stored: the UI's answers, provenance and span, the caller's run. */
-async function expectRecordOf(runId: string, viewAnalysisId: string) {
+async function expectRecordOf(runId: string, viewAnalysisId: string, callId: string) {
   const res = await api.get(`${WIZARD_RUNS}?projectId=${t.projectId}&runId=${runId}`, t.headers);
   expect(res.status, JSON.stringify(res.body)).toBe(200);
   expect(res.body.records).toHaveLength(1);
   const record = res.body.records[0];
-  expect(record).toMatchObject({ runId, viewAnalysisId, question: SEX_QUESTION, intent: 'compare_groups', intentSource: 'suggested', templateId: 'T1', suggestionModel: null, sapChoice: null });
+  expect(record).toMatchObject({ runId, viewAnalysisId, question: SEX_QUESTION, intent: 'compare_groups', intentSource: 'suggested', templateId: 'T1', suggestionCallId: callId, suggestionModel: 'claude-haiku-5-5', sapChoice: null });
   const bySlot = Object.fromEntries(record.slots.map((s: any) => [s.slot, s]));
   expect(bySlot.outcome).toMatchObject({ value: 'age', provenance: 'decided' });
   expect(bySlot.groupingColumn).toMatchObject({ value: 'sexe', provenance: 'question', sourceSpan: { text: 'by sex' } });
   expect(SEX_QUESTION.slice(bySlot.groupingColumn.sourceSpan.start, bySlot.groupingColumn.sourceSpan.end)).toBe('by sex');
   for (const s of record.slots) expect(Date.parse(s.answeredAt), JSON.stringify(s)).not.toBeNaN();
+}
+
+/** AXI-2352: one real recorded-transport suggestion for SEX_QUESTION on this project — its logged call handle. */
+async function loggedSuggestionCallId(): Promise<string> {
+  const dataset = await anchorDataset(api, t.workspaceId, t.projectId, { datasetId });
+  const res = await api.post('/api/v1/guided-analysis/intent-prefill/suggest', { projectId: t.projectId, question: SEX_QUESTION, dataset }, t.headers);
+  expect(res.body, JSON.stringify(res.body)).toMatchObject({ status: 'answered', intent: 'compare_groups' });
+  return res.body.callId;
 }
 
 /** Question → suggested intent → suggested T1 → Read → Ready, by the SEX_READ suggestion. */
@@ -291,7 +305,8 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
   });
 
   test('AC45 AC13 AC16 AC46 — AXI-2328.11 Ready shows the design by origin, Change re-asks a read value, Run launches and opens the run @SI-066 @SI-010', async ({ page }) => {
-    await openWizard(page, { suggestion: { kind: 'answer', body: SEX_READ } });
+    const callId = await loggedSuggestionCallId();
+    await openWizard(page, { suggestion: { kind: 'answer', body: { ...SEX_READ, callId } } });
     await reachReadyBySex(page);
     await expect(page.getByTestId('na-run')).toBeFocused();
     await expect(page.getByTestId('na-step-ready').getByRole('heading', { level: 1 })).toHaveText('Here is the exploratory analysis you have set up.');
@@ -315,7 +330,7 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     const answer = await (await launched).json();
     expect(answer.ok, JSON.stringify(answer)).toBe(true);
     await expect(page).toHaveURL(new RegExp(`/projects/${t.projectId}/view-analyses/${answer.viewAnalysisId}$`), { timeout: 30_000 });
-    await expectRecordOf(answer.runId, answer.viewAnalysisId);
+    await expectRecordOf(answer.runId, answer.viewAnalysisId, callId);
   });
 
   test('AC50 EC26 — AXI-2328.11 a refusal from the server is shown on Ready and routes back to the parameter it names; nothing is opened @SI-066 @SI-010', async ({ page }) => {
