@@ -127,7 +127,9 @@ test.describe.serial('AXI-2355 personal names in category levels are refused @SI
 
   test('AXI-2355.5b NFR11b — the NOM_Prenom export shape and other separators are refused the same way', async () => {
     // Two levels each: a one-level column is not a grouping column and is never sent at all.
-    const shapes = [['MARTIN_Sophie', 'DUPONT_Jean'], ['Jean.Dupont', 'Marie.Curie'], ['Dupont/Jean', 'Curie/Marie'], ['Jean Dupont (CHU)', 'Marie Curie (CHU)']];
+    const shapes = [['MARTIN_Sophie', 'DUPONT_Jean'], ['Jean.Dupont', 'Marie.Curie'], ['Dupont/Jean', 'Curie/Marie'], ['Jean Dupont (CHU)', 'Marie Curie (CHU)'],
+      // review B2: a site prefix or a duplicate-sample suffix never hides the name next to it
+      ['Site 3 - Jean Dupont', 'CHU_DUPONT_Jean'], ['DUPONT_JEAN2', 'CURIE_MARIE2']];
     for (const categories of shapes) {
       const dataset = { datasetId: randomUUID(), columns: [{ name: 'ccl19', type: 'numeric' }, { name: 'referent', type: 'categorical', categories }] };
       const res = await api.post('/api/v1/guided-analysis/intent-prefill/suggest',
