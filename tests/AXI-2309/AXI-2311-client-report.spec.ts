@@ -13,15 +13,23 @@ import { PrivateProjectsWorld, refusalOf, type Actor } from '../AXI-2265/private
  * `GET /api/v1/projects/:projectId/rule-runs/:ruleRunId/client-report?format=zip|md|pdf`.
  *
  * Scenario doc: axiome-docs/manual-e2e/AXI-2309-Platform-Opening-Headless.md
- * § "AXI-2311 — Client report profile" (AXI-2311.1 .. AXI-2311.6).
+ * § "AXI-2311 — Client report profile" (AXI-2311.1 .. AXI-2311.7).
  *
  * API-level by design: the download UI is the Guided epic's (AXI-2331).
  * Self-provisioned: a fresh workspace (PrivateProjectsWorld), a fresh project,
- * and a dataset whose content carries a per-run token — so the run can never
- * DEDUP onto an earlier one and always completes (SUCCEEDED) itself.
+ * and a dataset whose content carries a per-run token — so the first run can
+ * never DEDUP onto an earlier one and always completes (SUCCEEDED) itself;
+ * AXI-2311.7 then deliberately re-submits it to get a DEDUPED run.
  *
  * Requires organization-service with `SAP_RUN_BINDING` unset (fail-closed
  * default): the run is bound to a SAP version, which the report echoes.
+ *
+ * Requires the answer sentence to be MINTED for an ad-hoc run. The spec PUTs
+ * the workspace's statistical minting setting to `all`, but that override does
+ * not reach `ResultSentenceService` today (its resolver is an `import type`, so
+ * Nest injects nothing into the @Optional() slot — latent AXI-1746 defect,
+ * reported by AXI-2311). Until it is fixed, run organization-service with
+ * `STATISTICAL_MINTING_MODE=all`.
  */
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -40,7 +48,9 @@ const COMPLETION_LISTENER_GRACE_MS = 8_000;
 const NEVER_CREATED_RUN = '00000000-0000-4000-8000-000000000000';
 const TOKEN = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 const QUESTION_TEXT = `Q1: is CD8 % different between arm A and arm B?\n  (run ${TOKEN})`;
-const PLAN_TEXT = 'Mann–Whitney U, two-sided, α = 0.05.\n```\nliteral fence inside the plan\n```\n# not a heading — kept verbatim';
+// The `Generated: ` line is a verbatim BODY line: it must be hashed (only the two header lines are not).
+const PLAN_TEXT = 'Mann–Whitney U, two-sided, α = 0.05.\n```\nliteral fence inside the plan\n```\n# not a heading — kept verbatim\nGenerated: by the steering committee';
+const DEDUP_SAP_TITLE = `AXI-2311 re-run SAP ${TOKEN}`;
 
 let world: PrivateProjectsWorld;
 let admin: APIRequestContext;
@@ -49,6 +59,8 @@ let outsider: Actor;
 let projectId: string;
 let otherProjectId: string;
 let ruleRunId: string;
+let dedupedRunId: string;
+let submission: Record<string, unknown>;
 
 const reportUrl = (project: string, run: string, format?: string) =>
   apiUrl(`/api/v1/projects/${project}/rule-runs/${run}/client-report${format === undefined ? '' : `?format=${format}`}`);
@@ -105,10 +117,10 @@ async function analysisWithReferent(datasetId: string): Promise<{ analysisId: st
   return { analysisId: analysis.id, snapshotId: snapshot.id };
 }
 
-async function sapVersion(): Promise<string> {
+async function sapVersion(title = `AXI-2311 SAP ${TOKEN}`): Promise<string> {
   const sap = await ok(
     await admin.post(apiUrl(`/api/v1/projects/${projectId}/saps`), {
-      data: { title: `AXI-2311 SAP ${TOKEN}`, questionText: QUESTION_TEXT, planText: PLAN_TEXT, linkedMethods: [{ operationId: OPERATION }] },
+      data: { title, questionText: QUESTION_TEXT, planText: PLAN_TEXT, linkedMethods: [{ operationId: OPERATION }] },
       ...ws(),
     }),
     'create SAP',
@@ -118,20 +130,17 @@ async function sapVersion(): Promise<string> {
 
 async function runToCompletion(datasetId: string): Promise<string> {
   const { analysisId, snapshotId } = await analysisWithReferent(datasetId);
+  submission = {
+    ruleId: await carrierRuleId(OPERATION),
+    runKind: 'STATISTICAL',
+    operationId: OPERATION,
+    roleBindings: { groupColumn: 'arm' },
+    pivot: { valueColumns: ['cd8_pct'] },
+    operationParams: { groupFrom: 'A', groupTo: 'B' },
+    projectId, workspaceId: world.workspaceId, datasetId, snapshotId, viewAnalysisId: analysisId, scope: 'FILTERED',
+  };
   const submitted = await ok(
-    await admin.post(apiUrl('/api/v1/rule-runs'), {
-      data: {
-        ruleId: await carrierRuleId(OPERATION),
-        runKind: 'STATISTICAL',
-        operationId: OPERATION,
-        roleBindings: { groupColumn: 'arm' },
-        pivot: { valueColumns: ['cd8_pct'] },
-        operationParams: { groupFrom: 'A', groupTo: 'B' },
-        projectId, workspaceId: world.workspaceId, datasetId, snapshotId, viewAnalysisId: analysisId, scope: 'FILTERED',
-        sapVersionId: await sapVersion(),
-      },
-      ...ws(),
-    }),
+    await admin.post(apiUrl('/api/v1/rule-runs'), { data: { ...submission, sapVersionId: await sapVersion() }, ...ws() }),
     'submit run',
   );
   const id: string = submitted.ruleRunId;
@@ -154,10 +163,73 @@ function readZip(zip: Buffer): Map<string, Buffer> {
   return entries;
 }
 
-/** The published verification rule: SHA-256 of report.md minus its two variable lines. */
+/**
+ * The published verification rule (libs/contracts client-report.contract.ts): SHA-256 of
+ * report.md minus exactly two HEADER lines, by position — the first `Generated: ` line and
+ * the first `Report SHA-256: ` line before the first `## ` heading.
+ */
 function recomputeReportHash(markdown: string): string {
-  const kept = markdown.split('\n').filter((l) => !l.startsWith('Generated: ') && !l.startsWith('Report SHA-256: '));
-  return createHash('sha256').update(kept.join('\n'), 'utf8').digest('hex');
+  const lines = markdown.split('\n');
+  const heading = lines.findIndex((l) => l.startsWith('## '));
+  const headerEnd = heading === -1 ? lines.length : heading;
+  const excluded = new Set(
+    ['Generated: ', 'Report SHA-256: ']
+      .map((prefix) => lines.findIndex((l) => l.startsWith(prefix)))
+      .filter((i) => i !== -1 && i < headerEnd),
+  );
+  return sha256(lines.filter((_, i) => !excluded.has(i)).join('\n'));
+}
+
+/** The rule the audit report profile uses — drops every prefixed line, wherever it is. */
+function contentPrefixHash(markdown: string): string {
+  return sha256(markdown.split('\n').filter((l) => !l.startsWith('Generated: ') && !l.startsWith('Report SHA-256: ')).join('\n'));
+}
+
+function sha256(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+/**
+ * Mint the answer sentence for an ad-hoc run: the workspace's statistical minting setting
+ * (AXI-1739) defaults to plan-driven, under which a direct STATISTICAL run gets no sentence.
+ */
+async function mintSentencesForAdHocRuns(): Promise<void> {
+  await ok(
+    await admin.put(apiUrl(`/api/v1/workspaces/${world.workspaceId}/statistical-minting-setting`), { data: { mode: 'all' }, ...ws() }),
+    'statistical minting setting',
+  );
+}
+
+/** The `## Answer` section's body. */
+function answerOf(markdown: string): string {
+  return markdown.slice(markdown.indexOf('## Answer') + '## Answer'.length, markdown.indexOf('## Figure')).trim();
+}
+
+/**
+ * B2 (review round 1): overwrite the answer text on EVERY Decision in the workspace through
+ * the client PATCH route. The report must never quote it.
+ */
+async function tamperEveryDecisionSentence(text: string): Promise<number> {
+  const list = await ok(await admin.get(apiUrl(`/api/v1/workspaces/${world.workspaceId}/decisions?limit=100`), ws()), 'list decisions');
+  const drafts: Array<{ id: string; context?: Record<string, unknown> }> = list.data ?? list.items ?? list;
+  for (const draft of drafts) {
+    const context = { ...(draft.context ?? {}), intendedUse: 'RUO', resultSentence: { ...((draft.context?.resultSentence as object) ?? {}), text } };
+    await ok(await admin.patch(apiUrl(`/api/v1/workspaces/${world.workspaceId}/decisions/${draft.id}`), { data: { context }, ...ws() }), 'tamper decision');
+    const read = await ok(await admin.get(apiUrl(`/api/v1/workspaces/${world.workspaceId}/decisions/${draft.id}`), ws()), 'read decision');
+    expect(read.context?.resultSentence?.text, 'the PATCH must really land').toBe(text);
+  }
+  return drafts.length;
+}
+
+/** Re-submit the SAME computation bound to a DIFFERENT SAP — the SAP is not dedup identity. */
+async function dedupedRerun(): Promise<string> {
+  const reply = await ok(
+    await admin.post(apiUrl('/api/v1/rule-runs'), { data: { ...submission, sapVersionId: await sapVersion(DEDUP_SAP_TITLE) }, ...ws() }),
+    'resubmit run',
+  );
+  expect(reply.status, JSON.stringify(reply)).toBe('DEDUPED');
+  expect(reply.dedupedFromRunId).toBe(ruleRunId);
+  return reply.ruleRunId;
 }
 
 test.beforeAll(async () => {
@@ -168,6 +240,7 @@ test.beforeAll(async () => {
   await world.addMember(viewer, 'viewer');
   projectId = await newProject('report');
   otherProjectId = await newProject('other');
+  await mintSentencesForAdHocRuns();
   ruleRunId = await runToCompletion(await uploadDataset());
   await sleep(COMPLETION_LISTENER_GRACE_MS);
 });
@@ -199,6 +272,9 @@ test.describe('AXI-2311 — client report profile', TAGS, () => {
     expect(markdown).toContain('  - groupFrom: A');
     expect(markdown).toContain('- Family size (multiple-testing correction):');
     expect(markdown).toContain('- Mode: not recorded');
+    // The answer is a real rendered sentence (minting is on for this workspace).
+    expect(answerOf(markdown)).not.toMatch(/^Not recorded/);
+    expect(answerOf(markdown).length).toBeGreaterThan(20);
     expect(markdown).toContain('with the Mann-Whitney U test');
     expect(markdown).toMatch(/^- SAP version: [0-9a-f-]{36} · version 1 · content hash sha256:[0-9a-f]{64}$/m);
     // NFR7: no row of the data in the body.
@@ -213,6 +289,11 @@ test.describe('AXI-2311 — client report profile', TAGS, () => {
     const hash = recomputeReportHash(text);
     expect(again.headers()['x-report-hash']).toBe(hash);
     expect(text).toContain(`Report SHA-256: sha256:${hash}`);
+    // The verbatim plan line `Generated: by the steering committee` IS hashed:
+    // editing it changes the hash, and a rule that dropped it would disagree.
+    expect(text).toContain('\nGenerated: by the steering committee\n');
+    expect(recomputeReportHash(text.replace('Generated: by the steering committee', 'Generated: edited'))).not.toBe(hash);
+    expect(contentPrefixHash(text)).not.toBe(hash);
   });
 
   test('AC3, AC4 — AXI-2311.3: the zip (default format) ships report.md byte for byte, the result CSV and a manifest naming every file (@SI-016 @SI-018)', async () => {
@@ -245,6 +326,34 @@ test.describe('AXI-2311 — client report profile', TAGS, () => {
       expect(pdf.status()).toBe(409);
       expect((await pdf.json()).errorCode).toBe('CLIENT_REPORT_PDF_NOT_PRODUCED');
     }
+  });
+
+  test('AC3, AC4 — AXI-2311.7: a DEDUPED re-run has its OWN report: the reused computation, ITS OWN SAP, and a record naming the reused run (FR7) (@SI-016)', async () => {
+    dedupedRunId = await dedupedRerun();
+    // B2: a client rewrites the sentence on every Decision BEFORE this report is generated.
+    const tampered = `TAMPERED ${TOKEN}`;
+    expect(await tamperEveryDecisionSentence(tampered)).toBeGreaterThan(0);
+
+    const res = await admin.get(reportUrl(projectId, dedupedRunId, 'md'), ws());
+    const text = await res.text();
+    const zip = readZip(await (await admin.get(reportUrl(projectId, dedupedRunId), ws())).body());
+    const manifest = JSON.parse(zip.get('manifest.json')!.toString('utf8'));
+
+    expect(res.status(), text).toBe(200);
+    expect(text).toContain(`· Run ${dedupedRunId}`);
+    expect(text).toMatch(new RegExp(`^- Reused result: run ${ruleRunId} — this run was deduplicated onto it`, 'm'));
+    expect(text).toContain(['```', DEDUP_SAP_TITLE, '```'].join('\n'));
+    expect(text).not.toContain(`AXI-2311 SAP ${TOKEN}`);
+    expect(text).toMatch(/^Generated: .* — on first download/m);
+    expect(res.headers()['x-report-hash']).toBe(recomputeReportHash(text));
+    expect(text).not.toBe(markdown);
+    // The answer is re-rendered from the run's records: the same computation's sentence, never the tampered text.
+    expect(text).not.toContain(tampered);
+    expect(answerOf(text)).toBe(answerOf(markdown));
+    expect(manifest).toMatchObject({ ruleRunId: dedupedRunId, reusedFromRunId: ruleRunId, generationSource: 'first_download' });
+    expect(zip.has(`data/runs/${ruleRunId}.csv`)).toBe(true);
+    // The canonical run's own report is untouched.
+    expect(await (await admin.get(reportUrl(projectId, ruleRunId, 'md'), ws())).text()).toBe(markdown);
   });
 
   test('FR11/NFR1 — AXI-2311.5: the download is deny-by-default; a refusal never says whether the run exists (@SI-010)', async () => {
