@@ -1,6 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
-import { adminApi, type Api } from '../AXI-1400/harness/api';
+import { adminApi, adminToken, type Api } from '../AXI-1400/harness/api';
 import { ensureTenant, type Tenant } from '../AXI-1400/harness/seed';
+import { approveCarriersFor } from '../AXI-1762/seeded-rule-approval';
+import { silenceTours } from '../AXI-1904/harness/tours';
 import { ingestCsvFixture } from './harness/opening-templates';
 import {
   answered,
@@ -32,8 +34,11 @@ import {
  *  - the project SAP list — so "project has a SAP" is a per-test fact, never another spec's state.
  *  - `…/semantic-declaration/ensure-recognized-fill` — an idempotent WRITE (AXI-2326); answered
  *    `null` so this spec writes nothing; the call itself is asserted.
- * Run hands the wizard record to AXI-2349's launcher; until AXI-2349 fills it the Ready step says
- * running is not connected yet — asserted here, extended by AXI-2349 to the result page.
+ * NOT stubbed: Run. AXI-2349's `POST /guided-analysis/wizard-runs` is the real route — §.11 runs
+ * the analysis for real (the server re-checks the answers, compiles T1, writes the wizard record,
+ * starts the governed run) and lands on the run's analysis page; its refusal case alters the
+ * launch body IN FLIGHT to an outcome the dataset lacks (the UI only offers valid choices), so
+ * the refusal shown is the SERVER's, routed back to the parameter it names (EC26).
  *
  * Fixture: `tests/AXI-2308/fixtures/opening-templates-paul-header.csv` (AXI-2339's synthetic
  * Paul-header file: `igg4_g_l`, `age`, MAG4 columns continuous; `sexe` F/M; the ACR/EULAR cluster
@@ -41,6 +46,8 @@ import {
  *
  * Run: `BASE_URL=<worktree Vite serving the AXI-2328 branch> API_BASE_URL=<its gateway>
  *       npx playwright test tests/AXI-2308/AXI-2328-*`.
+ * Run analysis needs the T1 carrier approved on that stack (`approveCarriersFor`, refused on the
+ * shared demo :3000 by design) — so this spec runs on an isolated stack only.
  */
 
 const FIXTURE = 'opening-templates-paul-header.csv';
@@ -73,6 +80,27 @@ async function checkedKeys(page: Page, group: string): Promise<string[]> {
   return ids.map((id) => id.replace('na-choice-', ''));
 }
 
+const WIZARD_RUNS = '/api/v1/guided-analysis/wizard-runs';
+
+/** The launch body with `outcome` swapped — the in-flight edit that makes the server refuse. */
+function withOutcome(body: any, value: string) {
+  return { ...body, slots: body.slots.map((s: any) => (s.slot === 'outcome' ? { ...s, value } : s)) };
+}
+
+/** The one wizard record the UI's Run stored: the UI's answers, provenance and span, the caller's run. */
+async function expectRecordOf(runId: string, viewAnalysisId: string) {
+  const res = await api.get(`${WIZARD_RUNS}?projectId=${t.projectId}&runId=${runId}`, t.headers);
+  expect(res.status, JSON.stringify(res.body)).toBe(200);
+  expect(res.body.records).toHaveLength(1);
+  const record = res.body.records[0];
+  expect(record).toMatchObject({ runId, viewAnalysisId, question: SEX_QUESTION, intent: 'compare_groups', intentSource: 'suggested', templateId: 'T1', suggestionModel: null, sapChoice: null });
+  const bySlot = Object.fromEntries(record.slots.map((s: any) => [s.slot, s]));
+  expect(bySlot.outcome).toMatchObject({ value: 'age', provenance: 'decided' });
+  expect(bySlot.groupingColumn).toMatchObject({ value: 'sexe', provenance: 'question', sourceSpan: { text: 'by sex' } });
+  expect(SEX_QUESTION.slice(bySlot.groupingColumn.sourceSpan.start, bySlot.groupingColumn.sourceSpan.end)).toBe('by sex');
+  for (const s of record.slots) expect(Date.parse(s.answeredAt), JSON.stringify(s)).not.toBeNaN();
+}
+
 /** Question → suggested intent → suggested T1 → Read → Ready, by the SEX_READ suggestion. */
 async function reachReadyBySex(page: Page) {
   await askQuestion(page, SEX_QUESTION);
@@ -91,6 +119,8 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     api = await adminApi();
     t = await ensureTenant(api);
     datasetId = await ingestCsvFixture(api, t, FIXTURE);
+    await approveCarriersFor(['stats.mann_whitney_u']); // T1's carrier — Run executes for real
+    await silenceTours(await adminToken()); // a fresh stack's admin gets the first-visit tour, which navigate()s away
   });
 
   test.afterAll(async () => {
@@ -260,7 +290,7 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await expect(page.getByTestId('na-ready-handled')).toContainText('Holm correction across the pairs of groups');
   });
 
-  test('AC45 AC13 — AXI-2328.11 Ready shows the design by origin, Change re-asks a read value, Run hands off to the launcher @SI-066', async ({ page }) => {
+  test('AC45 AC13 AC16 AC46 — AXI-2328.11 Ready shows the design by origin, Change re-asks a read value, Run launches and opens the run @SI-066 @SI-010', async ({ page }) => {
     await openWizard(page, { suggestion: { kind: 'answer', body: SEX_READ } });
     await reachReadyBySex(page);
     await expect(page.getByTestId('na-run')).toBeFocused();
@@ -280,9 +310,31 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await expect(page.getByTestId('na-ready-decided')).toContainText('age');
     await expect(page.getByTestId('na-ready-question')).not.toContainText('from IgG4');
 
+    const launched = page.waitForResponse((r) => r.url().includes(WIZARD_RUNS) && r.request().method() === 'POST');
     await choose(page, 'na-run');
-    await expect(page.getByTestId('na-run-refused')).toContainText('not connected yet — nothing was run');
+    const answer = await (await launched).json();
+    expect(answer.ok, JSON.stringify(answer)).toBe(true);
+    await expect(page).toHaveURL(new RegExp(`/projects/${t.projectId}/view-analyses/${answer.viewAnalysisId}$`), { timeout: 30_000 });
+    await expectRecordOf(answer.runId, answer.viewAnalysisId);
+  });
+
+  test('AC50 EC26 — AXI-2328.11 a refusal from the server is shown on Ready and routes back to the parameter it names; nothing is opened @SI-066 @SI-010', async ({ page }) => {
+    await openWizard(page, { suggestion: { kind: 'answer', body: SEX_READ } });
+    await reachReadyBySex(page);
+    await page.route(`**${WIZARD_RUNS}`, (route) => route.continue({ postData: JSON.stringify(withOutcome(route.request().postDataJSON(), 'not_a_column')) }));
+    const refused = page.waitForResponse((r) => r.url().includes(WIZARD_RUNS) && r.request().method() === 'POST');
+
+    await choose(page, 'na-run');
+
+    const answer = await (await refused).json();
+    expect(answer, JSON.stringify(answer)).toMatchObject({ ok: false, code: 'ANSWERS_REFUSED', slots: ['outcome'] });
+    const panel = page.getByTestId('na-run-refused');
+    await expect(panel).toContainText(answer.messages[0]);
     await expect(page).toHaveURL(/\/new-analysis/);
+    await expect(page.getByTestId('na-refused-back-groupingColumn')).toHaveCount(0); // only what the server named
+    await expect(page.getByTestId('na-refused-back-outcome')).toHaveText('Answer “Measurement compared” again');
+    await choose(page, 'na-refused-back-outcome');
+    await expect(page.getByTestId('na-step-decide-outcome')).toBeVisible();
   });
 
   test('AC47 EC27 EC24 — AXI-2328.12 keyboard only: focus on every transition, held Enter advances once, back named, a new question invalidates @SI-066', async ({ page }) => {
@@ -339,9 +391,10 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
           expect(m.focusRing, `${step} ${m.theme} ${m.testId} focus ring contrast`).toBeGreaterThanOrEqual(3);
           if (m.border !== null) expect(m.border, `${step} ${m.theme} ${m.testId} border contrast`).toBeGreaterThanOrEqual(3);
         }
-        await expect(page.getByRole('button', { name: /\brule\b/i })).toHaveCount(0);
-        await expect(page.getByRole('table')).toHaveCount(0);
-        await expect(page.getByRole('combobox')).toHaveCount(0);
+        const path = page.getByTestId('na-page'); // AC18 is about the wizard path, not the app shell (whose role chip reads "Rule approver" for an approver)
+        await expect(path.getByRole('button', { name: /\brule\b/i })).toHaveCount(0);
+        await expect(path.getByRole('table')).toHaveCount(0);
+        await expect(path.getByRole('combobox')).toHaveCount(0);
       };
       await page.getByLabel('What do you want to find out?').fill(SEX_QUESTION);
       await check('na-step-question');
