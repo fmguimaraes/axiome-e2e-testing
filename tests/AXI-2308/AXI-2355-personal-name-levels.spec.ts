@@ -14,7 +14,7 @@ import { automaticDataFlow, automaticPlan, callLogRows, debugHolder, type DebugH
  * which send the same levels to AWS Bedrock. Ordinary levels (sex, arms, site codes, gene
  * symbols, group labels) are not flagged.
  *
- * Scenario doc: `axiome-docs/manual-e2e/AXI-2308-Platform-Opening-Human-Guided.md` § AXI-2355.3–.6 (incl. .5b).
+ * Scenario doc: `axiome-docs/manual-e2e/AXI-2308-Platform-Opening-Human-Guided.md` § AXI-2355.3–.6 (incl. .5b, .5c).
  * API-level (no browser).
  *
  * ZERO SPEND BY CONSTRUCTION. Recorded transport, no provider key, no AWS credential. A refusal
@@ -140,6 +140,17 @@ test.describe.serial('AXI-2355 personal names in category levels are refused @SI
       expect(res.status, JSON.stringify(res.body)).toBe(200);
       expect(res.body.status, categories.join('|')).toBe('skipped_identifying');
     }
+  });
+
+  test('AXI-2355.5c NFR11b — a client-supplied 1,200-character hyphenated level is refused promptly, never screened for minutes (review round 4, CWE-407)', async () => {
+    const dataset = { datasetId: randomUUID(), columns: [{ name: 'ccl19', type: 'numeric' }, { name: 'referent', type: 'categorical', categories: ['a-'.repeat(600), 'Placebo'] }] };
+    const started = Date.now();
+    const res = await api.post('/api/v1/guided-analysis/intent-prefill/suggest',
+      { projectId: t.projectId, question: 'Does ccl19 differ by referent?', dataset }, t.headers);
+    const elapsed = Date.now() - started;
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.status).toBe('skipped_identifying'); // too long to be a category: refused unread, nothing sent
+    expect(elapsed, `${elapsed} ms`).toBeLessThan(5_000); // the unbounded rule took ~89 s on this input
   });
 
   test('AXI-2355.6 NFR11c — the data-flow statement states the check', async () => {
