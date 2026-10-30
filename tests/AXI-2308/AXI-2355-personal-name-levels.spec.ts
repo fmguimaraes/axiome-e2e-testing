@@ -14,7 +14,7 @@ import { automaticDataFlow, automaticPlan, callLogRows, debugHolder, type DebugH
  * which send the same levels to AWS Bedrock. Ordinary levels (sex, arms, site codes, gene
  * symbols, group labels) are not flagged.
  *
- * Scenario doc: `axiome-docs/manual-e2e/AXI-2308-Platform-Opening-Human-Guided.md` § AXI-2355.3–.6.
+ * Scenario doc: `axiome-docs/manual-e2e/AXI-2308-Platform-Opening-Human-Guided.md` § AXI-2355.3–.6 (incl. .5b).
  * API-level (no browser).
  *
  * ZERO SPEND BY CONSTRUCTION. Recorded transport, no provider key, no AWS credential. A refusal
@@ -22,20 +22,21 @@ import { automaticDataFlow, automaticPlan, callLogRows, debugHolder, type DebugH
  * hits the committed AXI-2341 T1 recording (`llm-debug/recordings/compiled-planner/`). No new
  * recording was authored for this story.
  *
- * Fixture (synthetic, no real person): `automatic-name-levels.csv` — `referent` holds full names,
- * `infirmiere` holds given names, beside five ordinary categorical columns; headers are neutral so
+ * Fixture (synthetic, no real person): `automatic-name-levels-v2.csv` — `referent` holds full names,
+ * `infirmiere` holds given names,
+ * `saisi_par` holds the NOM_Prenom export shape (review B1), beside five ordinary categorical columns; headers are neutral so
  * only the level rule can fire.
  *
  * Run: `API_BASE_URL=<gateway serving the AXI-2355 branch> npx playwright test tests/AXI-2308/AXI-2355-* --no-deps`.
  * Never against the shared demo gateway (:3000): it approves seeded carriers (append-only).
  */
 
-const NAMES = 'automatic-name-levels.csv';
+const NAMES = 'automatic-name-levels-v2.csv'; // v2: + saisi_par (NOM_Prenom). The harness reuses a dataset BY FILENAME, so a changed fixture needs a new name.
 const PAUL = 'opening-templates-paul-header.csv';
 const MAG4_27 = 'microbiote_igg4_mag4_27';
 const Q_T1 = `Does ${MAG4_27} differ between F and M of sexe?`; // the AXI-2341 recording's question
 const Q_NAMES = 'Does igg4_g_l differ between Placebo and Traitement A of bras?';
-const NAME_TEXT = /Dupont|Lefebvre|Benali|Sophie|Nathalie|Camille/;
+const NAME_TEXT = /Dupont|Lefebvre|Benali|Sophie|Nathalie|Camille|MARTIN/;
 const ORDINARY = ['sexe', 'bras', 'site', 'gene_mute', 'groupe'];
 
 let api: Api;
@@ -84,6 +85,7 @@ test.describe.serial('AXI-2355 personal names in category levels are refused @SI
     expect(l4).toEqual([
       { columnIndex: indexOf(names, 'referent'), kind: 'level', ruleId: 'NFR11-L4' },
       { columnIndex: indexOf(names, 'infirmiere'), kind: 'level', ruleId: 'NFR11-L4' },
+      { columnIndex: indexOf(names, 'saisi_par'), kind: 'level', ruleId: 'NFR11-L4' }, // NOM_Prenom (review B1)
     ]);
     expect(JSON.stringify(refusal)).not.toMatch(NAME_TEXT);
 
@@ -119,6 +121,20 @@ test.describe.serial('AXI-2355 personal names in category levels are refused @SI
     const fresh = (await callLogRows(holder, t)).filter((r) => r.callSite === 'intent-prefill' && !before.has(r.correlationId));
     expect(fresh).toHaveLength(1);
     expect(fresh[0]).toMatchObject({ outcome: 'skipped_identifying', model: 'not_called' });
+    expect(JSON.stringify(fresh[0])).not.toMatch(NAME_TEXT);
+    expect(JSON.stringify(res.body)).not.toMatch(NAME_TEXT);
+  });
+
+  test('AXI-2355.5b NFR11b — the NOM_Prenom export shape and other separators are refused the same way', async () => {
+    // Two levels each: a one-level column is not a grouping column and is never sent at all.
+    const shapes = [['MARTIN_Sophie', 'DUPONT_Jean'], ['Jean.Dupont', 'Marie.Curie'], ['Dupont/Jean', 'Curie/Marie'], ['Jean Dupont (CHU)', 'Marie Curie (CHU)']];
+    for (const categories of shapes) {
+      const dataset = { datasetId: randomUUID(), columns: [{ name: 'ccl19', type: 'numeric' }, { name: 'referent', type: 'categorical', categories }] };
+      const res = await api.post('/api/v1/guided-analysis/intent-prefill/suggest',
+        { projectId: t.projectId, question: 'Does ccl19 differ by referent?', dataset }, t.headers);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(res.body.status, categories.join('|')).toBe('skipped_identifying');
+    }
   });
 
   test('AXI-2355.6 NFR11c — the data-flow statement states the check', async () => {
