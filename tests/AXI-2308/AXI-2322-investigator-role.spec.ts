@@ -160,7 +160,8 @@ test.describe('AXI-2322 Investigator role — server side @SI-001 @SI-010 @SI-01
       ['GET /derived-evidence/:id/lineage', () => investigator.api.get(apiUrl(`/api/v1/derived-evidence/${anyId}/lineage`))],
       ['POST /de-evidence-references/:id/finalize', () => investigator.api.post(apiUrl(`/api/v1/de-evidence-references/${anyId}/finalize`), { data: {} })],
       ['POST /rule-runs', () => investigator.api.post(apiUrl('/api/v1/rule-runs'), { data: {} })],
-      ['POST /workspaces/:ws/datasets/:id/query', () => investigator.api.post(apiUrl(`/api/v1/workspaces/${ws}/datasets/${anyId}/query`), { data: {} })],
+      // AXI-2324 (D18, owner ruling 2026-10-30): the dataset row query is opened to the
+      // Investigator (the published figure reads it) — its probes live in the AXI-2324 spec.
       ['GET /view-analyses/evidences/:id/versions/1/audit-report', () => investigator.api.get(apiUrl(`/api/v1/view-analyses/evidences/${anyId}/versions/1/audit-report`))],
     ];
 
