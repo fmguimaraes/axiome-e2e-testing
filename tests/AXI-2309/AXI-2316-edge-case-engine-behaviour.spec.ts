@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
 import { adminApi, asList, sleep, type Api } from '../AXI-1400/harness/api';
 import { ensureTenant, ensureAnalysis, carrierRuleId, type Tenant, type Analysis } from '../AXI-1400/harness/seed';
+import { projectSapVersionId } from '../AXI-2308/harness/project-sap';
 
 /**
  * AXI-2316 (epic AXI-2309 — Feature doc §12, owner-approved 2026-10-29; AC9):
@@ -148,24 +149,19 @@ async function runAndWait(api: Api, t: Tenant, a: Analysis, datasetId: string, a
 
 /**
  * AXI-2310 (merged on main): every STATISTICAL run must be bound to a SAP
- * version of its own project (`SAP_VERSION_REQUIRED` otherwise, EC7). One
- * SAP per tenant project for this spec, created once, linking every method
- * the spec runs — so a refusal here is never about the missing binding.
+ * version of its own project (`SAP_VERSION_REQUIRED` otherwise, EC7). Since
+ * AXI-2338 a project holds exactly one SAP, so the reused tenant project's SAP
+ * is created on the first run and bound on every later one
+ * (`projectSapVersionId`) — a refusal here is never about the missing binding.
  */
 let sapVersionId: Promise<string> | undefined;
 function sapVersionFor(api: Api, t: Tenant): Promise<string> {
-  sapVersionId ??= (async () => {
-    const res = await api.post(`/api/v1/projects/${t.projectId}/saps`, {
-      title: `AXI-2316 edge-case engine behaviour ${Date.now()}`,
-      questionText: 'Do the edge-case referents (n=1 arm, all-tied, per-variable missing) compute as Feature §12 specifies?',
-      planText: 'Kruskal-Wallis across every arm; Mann-Whitney U between arms A and B; alpha = 0.05, two-sided.',
-      linkedMethods: [{ operationId: 'stats.kruskal_wallis' }, { operationId: 'stats.mann_whitney_u' }],
-    }, t.headers);
-    if (res.status !== 201 || !res.body?.sapVersionId) {
-      throw new Error(`SAP creation for project ${t.projectId} failed (${res.status}): ${JSON.stringify(res.body)}`);
-    }
-    return res.body.sapVersionId as string;
-  })();
+  sapVersionId ??= projectSapVersionId(api, t.projectId, t.headers, {
+    title: `AXI-2316 edge-case engine behaviour ${Date.now()}`,
+    questionText: 'Do the edge-case referents (n=1 arm, all-tied, per-variable missing) compute as Feature §12 specifies?',
+    planText: 'Kruskal-Wallis across every arm; Mann-Whitney U between arms A and B; alpha = 0.05, two-sided.',
+    linkedMethods: [{ operationId: 'stats.kruskal_wallis' }, { operationId: 'stats.mann_whitney_u' }],
+  });
   return sapVersionId;
 }
 

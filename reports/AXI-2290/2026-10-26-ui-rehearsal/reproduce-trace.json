@@ -1,0 +1,27 @@
+{
+ "project": "e1d35325-b6a4-45b6-95aa-2b79a48f0ead",
+ "datasets": {
+  "T1": "85f635ce-e964-4ba5-a1bc-49349f550239",
+  "T2": "85ca14bc-a155-4997-9482-6016facde5f0"
+ },
+ "analyses": {
+  "A1": "d2d9dac7-ee17-44db-b892-6f2eb1c0dd16",
+  "A2": "0442ee6a-df5b-4f08-a8d1-159a39f1e4c4"
+ },
+ "img1": {
+  "ENT059": {
+   "input_snap": "bf8536a6-352d-42cc-ab18-b052a1e211ba",
+   "run": "c4663fa6-75d7-41bf-83e0-e4f8fada51f1",
+   "result_snap": "c2e76d4e-4a22-4857-a10b-098107c2b244",
+   "holm_HD": 0.02173,
+   "holm_SD": 0.02173
+  },
+  "CER229": {
+   "result_snap": "c880fe11-d67f-40ec-a76d-b5e96d72cb55",
+   "holm_HD": 0.0378,
+   "holm_SD": 0.0378,
+   "expect": 0.0381,
+   "status": "STOPPED: differs from Expect; identical to canonical run 3debaa8f (0.037804)"
+  }
+ }
+}

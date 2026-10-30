@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { expect } from '@playwright/test';
 import { asList, sleep, type Api } from '../../AXI-1400/harness/api';
 import { type Analysis, type Tenant } from '../../AXI-1400/harness/seed';
+import { projectSapVersionId } from '../../AXI-2308/harness/project-sap';
 
 /**
  * AXI-2312 (epic AXI-2309 — FR12, FR13, FR15, AC5) — polling helpers.
@@ -107,23 +108,20 @@ export interface RunArgs {
 }
 
 /**
- * AXI-2310 — creates a SAP in the tenant's project (the same
- * `POST /projects/:projectId/saps` AXI-2310's own spec drives) and returns its
- * version-1 `sapVersionId`, the run-binding key. One SAP per spec run: the
- * binding is NOT run identity (absent from every fingerprint), so dedup between
- * scenarios is unaffected by which SAP version a run is bound to.
+ * AXI-2310 — the tenant project's SAP version, the run-binding key. Since
+ * AXI-2338 a project holds exactly one SAP (a second create is 409
+ * `SAP_ALREADY_EXISTS`), so a re-run of this spec against the reused tenant
+ * project binds the SAP the first run created. The binding is NOT run identity
+ * (absent from every fingerprint), so dedup between scenarios is unaffected by
+ * which SAP version a run is bound to.
  */
 export async function createSapVersion(api: Api, t: Tenant, operationIds: string[]): Promise<string> {
-  const res = await api.post(`/api/v1/projects/${t.projectId}/saps`, {
+  return projectSapVersionId(api, t.projectId, t.headers, {
     title: `E2E AXI-2312 chart-style SAP ${Date.now()}`,
     questionText: 'Do the owner chart-style defaults reach the default chart?',
     planText: 'Mann-Whitney U, group A vs B, per measurement; describe.count by group.',
     linkedMethods: operationIds.map((operationId) => ({ operationId })),
-  }, t.headers);
-  if (res.status !== 201 || typeof res.body?.sapVersionId !== 'string') {
-    throw new Error(`SAP creation failed (${res.status}): ${JSON.stringify(res.body)}`);
-  }
-  return res.body.sapVersionId;
+  });
 }
 
 function runBody(t: Tenant, a: Analysis, datasetId: string, args: RunArgs): Record<string, unknown> {
