@@ -1,0 +1,265 @@
+{
+  "generator": {
+    "image": "rocker/r-ver:4.4.2",
+    "rVersion": "R version 4.4.2 (2024-10-31)",
+    "packages": {
+      "stats": "4.4.2",
+      "FSA": "0.9.5",
+      "ppcor": "1.1"
+    },
+    "probesSha256": "1f77c2ef71b28393e190bb98c2bf8009205e2d6f58069d4fff92098907ead33d",
+    "scriptSha256": "3d543f8c2e224b7ff149f68c4e7e27439b2d0a9445c4e347265db8d5c736cb78",
+    "fixtureSha256": {
+      "tableau1": "bc98a928ef3bce6a44b8bb2a180e16fb24f20bb72710697dd1ef3169e3f64b36",
+      "tableau2": "42fede8a595e05f09589910d5ba91f1602d4a5762c4f834de075d472743e3cbc"
+    }
+  },
+  "probes": [
+    {
+      "id": "dunn-ent059",
+      "operationId": "stats.dunn_posthoc",
+      "n": 46,
+      "rows": [
+        {
+          "row": {
+            "groupA": "HD",
+            "groupB": "IgG4-RD"
+          },
+          "values": {
+            "zStatistic": -2.6854966462123,
+            "pValue": 0.0072422101587166,
+            "adjustedPValue": 0.0217266304761498
+          }
+        },
+        {
+          "row": {
+            "groupA": "HD",
+            "groupB": "SD"
+          },
+          "values": {
+            "zStatistic": -0.0418439751858469,
+            "pValue": 0.966623078564228,
+            "adjustedPValue": 0.966623078564228
+          }
+        },
+        {
+          "row": {
+            "groupA": "IgG4-RD",
+            "groupB": "SD"
+          },
+          "values": {
+            "zStatistic": 2.63520644684503,
+            "pValue": 0.00840861234483538,
+            "adjustedPValue": 0.0217266304761498
+          }
+        }
+      ]
+    },
+    {
+      "id": "dunn-cer229",
+      "operationId": "stats.dunn_posthoc",
+      "n": 46,
+      "rows": [
+        {
+          "row": {
+            "groupA": "HD",
+            "groupB": "IgG4-RD"
+          },
+          "values": {
+            "zStatistic": -2.49484151531867,
+            "pValue": 0.0126013398783573,
+            "adjustedPValue": 0.0378040196350719
+          }
+        },
+        {
+          "row": {
+            "groupA": "HD",
+            "groupB": "SD"
+          },
+          "values": {
+            "zStatistic": -0.0833153350506738,
+            "pValue": 0.933600807080782,
+            "adjustedPValue": 0.933600807080782
+          }
+        },
+        {
+          "row": {
+            "groupA": "IgG4-RD",
+            "groupB": "SD"
+          },
+          "values": {
+            "zStatistic": 2.39470894446612,
+            "pValue": 0.0166335631871723,
+            "adjustedPValue": 0.0378040196350719
+          }
+        }
+      ]
+    },
+    {
+      "id": "dunn-cer215-234",
+      "operationId": "stats.dunn_posthoc",
+      "n": 46,
+      "rows": [
+        {
+          "row": {
+            "groupA": "HD",
+            "groupB": "IgG4-RD"
+          },
+          "values": {
+            "zStatistic": 0.776916051742222,
+            "pValue": 0.437208300273287,
+            "adjustedPValue": 0.437208300273287
+          }
+        },
+        {
+          "row": {
+            "groupA": "HD",
+            "groupB": "SD"
+          },
+          "values": {
+            "zStatistic": 1.80911521874825,
+            "pValue": 0.0704331052213639,
+            "adjustedPValue": 0.211299315664092
+          }
+        },
+        {
+          "row": {
+            "groupA": "IgG4-RD",
+            "groupB": "SD"
+          },
+          "values": {
+            "zStatistic": 1.39736984306414,
+            "pValue": 0.162302382885804,
+            "adjustedPValue": 0.324604765771608
+          }
+        }
+      ]
+    },
+    {
+      "id": "kruskal-clusters-ent059",
+      "operationId": "stats.kruskal_wallis",
+      "n": 23,
+      "rows": [
+        {
+          "row": {},
+          "values": {
+            "hStatistic": 4.87081483637776,
+            "pValue": 0.181504834489697
+          }
+        }
+      ]
+    },
+    {
+      "id": "mann-whitney-pancreatic-ent059",
+      "operationId": "stats.mann_whitney_u",
+      "n": 23,
+      "rows": [
+        {
+          "row": {},
+          "values": {
+            "uStatistic": 77.5,
+            "pValue": 0.370511845650704
+          }
+        }
+      ]
+    },
+    {
+      "id": "spearman-ent059-sigg4",
+      "operationId": "stats.correlation",
+      "n": 23,
+      "rows": [
+        {
+          "row": {},
+          "values": {
+            "coefficient": 0.780628115089281,
+            "pValue": 0.0000110973537011919
+          }
+        }
+      ]
+    },
+    {
+      "id": "spearman-ent059-igg4-rd-ri",
+      "operationId": "stats.correlation",
+      "n": 23,
+      "rows": [
+        {
+          "row": {},
+          "values": {
+            "coefficient": 0.532793739219034,
+            "pValue": 0.00885689062421372
+          }
+        }
+      ]
+    },
+    {
+      "id": "spearman-ent059-igg4-hpf",
+      "operationId": "stats.correlation",
+      "n": 23,
+      "rows": [
+        {
+          "row": {},
+          "values": {
+            "coefficient": 0.339643466526635,
+            "pValue": 0.112832395346774
+          }
+        }
+      ]
+    },
+    {
+      "id": "spearman-ent059-eosinophils",
+      "operationId": "stats.correlation",
+      "n": 23,
+      "rows": [
+        {
+          "row": {},
+          "values": {
+            "coefficient": 0.549550351364054,
+            "pValue": 0.012074115563732
+          }
+        }
+      ]
+    },
+    {
+      "id": "spearman-ent059-plasmablasts",
+      "operationId": "stats.correlation",
+      "n": 23,
+      "rows": [
+        {
+          "row": {},
+          "values": {
+            "coefficient": 0.553995327156125,
+            "pValue": 0.00916652801307088
+          }
+        }
+      ]
+    },
+    {
+      "id": "spearman-ent059-tfh",
+      "operationId": "stats.correlation",
+      "n": 23,
+      "rows": [
+        {
+          "row": {},
+          "values": {
+            "coefficient": 0.431210311045314,
+            "pValue": 0.045105356746593
+          }
+        }
+      ]
+    },
+    {
+      "id": "partial-spearman-ent059-ri-given-sigg4",
+      "operationId": "stats.partial_correlation",
+      "n": 23,
+      "rows": [
+        {
+          "row": {},
+          "values": {
+            "coefficient": 0.147426437358099,
+            "pValue": 0.512648077419475
+          }
+        }
+      ]
+    }
+  ]
+}

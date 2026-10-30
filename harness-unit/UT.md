@@ -473,3 +473,51 @@ transport — no network, no browser.
 | UT-PRODE2E-6043 | a visible org whose NAME is innocuous but whose id is forbidden is FORBIDDEN_ORG_VISIBLE | Pass |
 | UT-PRODE2E-6044 | an executor returning nested facts or an unknown outcome is recorded as error, never trusted | Pass |
 | UT-PRODE2E-6045 | the executor contract rejects a non-finite number fact and a non-string reason | Pass |
+
+## AXI-2319/pass-rule.spec.ts
+
+AXI-2319 (epic AXI-2309 — FR31, FR14, AC12; SI-042 + SI-053). The prod E2E PASS
+RULE plugged into AXI-2318's case seam (`dailyExecutor` =
+`createPassRuleExecutor()`): Paul's methods judged on his slide targets (printed
+precision) AND R parity (statistic relative 1e-9, p-value |Δ ln p| ≤ 1e-6) from the
+committed, freshness-guarded `paul-r-reference.json`; every other rule on run
+SUCCEEDED + its default chart rendered; the run driver's dedup re-execution,
+bounded waits and refusal detail; the workbench's reuse-by-name; the recipes; and
+`not-evaluated` (never `pass`) for what the suite cannot judge. HTTP is a scripted
+fake platform — no network, no browser, no Docker.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-PRODE2E-6046 | Paul's target is checked at the precision the slide prints it | Pass |
+| UT-PRODE2E-6047 | 'ns' means the adjusted p is above 0.05 — 0.05 itself and below are significant | Pass |
+| UT-PRODE2E-6048 | an unparseable target is a failure, never a pass | Pass |
+| UT-PRODE2E-6049 | a p-value agrees with R within \|Δ ln p\| ≤ 1e-6, and a non-positive p never passes loosely | Pass |
+| UT-PRODE2E-6050 | a statistic agrees with R within relative 1e-9; a sign flip or a 1e-8 drift fails | Pass |
+| UT-PRODE2E-6051 | a check reads exactly ONE result row — none or two matching rows is a failure | Pass |
+| UT-PRODE2E-6052 | a missing, null or string value is a failure, never coerced | Pass |
+| UT-PRODE2E-6053 | a value must satisfy BOTH Paul's slide and R — either alone is not a pass | Pass |
+| UT-PRODE2E-6054 | the committed R reference is fresh, complete, and itself reproduces every one of Paul's slide targets | Pass |
+| UT-PRODE2E-6055 | a reference generated from other probes, another R script or other fixture bytes is refused as stale | Pass |
+| UT-PRODE2E-6056 | a probe with no R entry, or a checked row R never computed, is refused at load | Pass |
+| UT-PRODE2E-6057 | every one of Paul's operations has at least one probe, and probes bind only real fixture columns | Pass |
+| UT-PRODE2E-6058 | every catalogue recipe binds only real fixture columns | Pass |
+| UT-PRODE2E-6059 | a chart payload passes only with data and no error | Pass |
+| UT-PRODE2E-6060 | only SUCCEEDED passes the run check; FAILED, refused, timed-out and un-replayed DEDUPED all fail | Pass |
+| UT-PRODE2E-6061 | a DEDUPED STATISTICAL run is re-executed from its canonical record and the FRESH run is judged | Pass |
+| UT-PRODE2E-6062 | a DEDUPED non-STATISTICAL run is judged on its canonical and says deduped; a replay that dedups again never passes | Pass |
+| UT-PRODE2E-6063 | a refused submission is REFUSED with its status, code and message — never the rest of the response body | Pass |
+| UT-PRODE2E-6064 | a run that never leaves QUEUED is a TIMEOUT within the bounded wait | Pass |
+| UT-PRODE2E-6065 | the chart check finds the recommended spec of THIS run and waits for a ready payload | Pass |
+| UT-PRODE2E-6066 | a render that never becomes ready fails with the lineage diagnostic — the stale artifact never passes it | Pass |
+| UT-PRODE2E-6067 | a ready render whose payload is an error or empty is a failure | Pass |
+| UT-PRODE2E-6068 | the workbench reuses the project and SAP of the same name in THIS workspace, ignoring look-alikes | Pass |
+| UT-PRODE2E-6069 | the workbench creates what is missing, and a scope is created once then reused | Pass |
+| UT-PRODE2E-6070 | a non-runnable rule and an operation with no recipe are not-evaluated with a reason, never pass | Pass |
+| UT-PRODE2E-6071 | a catalogue rule passes on SUCCEEDED + default chart rendered, and fails when the run FAILED | Pass |
+| UT-PRODE2E-6072 | a default chart that is undeclared, or declared for the result surface only, is not-evaluated even when the run SUCCEEDED | Pass |
+| UT-PRODE2E-6073 | a Paul case passes when every probe reproduces the slide and R, each probe running the case's own rule | Pass |
+| UT-PRODE2E-6074 | a Paul case with one value off R, or one probe run FAILED, FAILS and names it; the chart is not part of Paul's verdict | Pass |
+| UT-PRODE2E-6075 | after 3 consecutive never-ready renders later cases stop waiting (breaker) but still FAIL; the daily executor is no longer the placeholder | Pass |
+| UT-PRODE2E-6076 | a field-level submission refusal names its fields (bounded), and still never echoes other body content | Pass |
+| UT-PRODE2E-6077 | every split rule asks its own question per run (unique questionKey), and contingency recipes bind categorical columns only | Pass |
+| UT-PRODE2E-6078 | a run the identity cannot read (403/404) is UNREADABLE at once — never a wait-out, never a pass from the dedup cache | Pass |
