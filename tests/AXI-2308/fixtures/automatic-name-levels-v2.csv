@@ -1,0 +1,25 @@
+patient_id,igg4_g_l,sexe,bras,site,gene_mute,groupe,referent,infirmiere,saisi_par,age
+S001,2.84,F,Traitement A,La Timone,TP53,Controle,Marie Lefebvre,Camille,DUPONT_Jean,31
+S002,2.59,M,Placebo,MRS,KRAS,Controle,Ahmed Benali,Sophie,LEROY_Nathalie,67
+S003,6.49,F,Traitement A,CHU Nord,KRAS,Malade,Jean Dupont,Nathalie,MARTIN_Sophie,70
+S004,0.62,M,Placebo,La Timone,EGFR,Malade,Marie Lefebvre,Camille,DUPONT_Jean,80
+S005,0.89,F,Traitement A,MRS,EGFR,Malade,Ahmed Benali,Sophie,LEROY_Nathalie,58
+S006,3.84,M,Placebo,CHU Nord,TP53,Controle,Jean Dupont,Nathalie,MARTIN_Sophie,67
+S007,2.12,F,Traitement A,La Timone,TP53,Controle,Marie Lefebvre,Camille,DUPONT_Jean,75
+S008,7.43,M,Placebo,MRS,KRAS,Controle,Ahmed Benali,Sophie,LEROY_Nathalie,45
+S009,2.52,F,Traitement A,CHU Nord,KRAS,Malade,Jean Dupont,Nathalie,MARTIN_Sophie,37
+S010,5.55,M,Placebo,La Timone,EGFR,Malade,Marie Lefebvre,Camille,DUPONT_Jean,56
+S011,5.52,F,Traitement A,MRS,EGFR,Malade,Ahmed Benali,Sophie,LEROY_Nathalie,51
+S012,0.87,M,Placebo,CHU Nord,TP53,Controle,Jean Dupont,Nathalie,MARTIN_Sophie,57
+S013,3.79,F,Traitement A,La Timone,TP53,Controle,Marie Lefebvre,Camille,DUPONT_Jean,77
+S014,5.63,M,Placebo,MRS,KRAS,Controle,Ahmed Benali,Sophie,LEROY_Nathalie,75
+S015,7.08,F,Traitement A,CHU Nord,KRAS,Malade,Jean Dupont,Nathalie,MARTIN_Sophie,60
+S016,3.57,M,Placebo,La Timone,EGFR,Malade,Marie Lefebvre,Camille,DUPONT_Jean,57
+S017,1.57,F,Traitement A,MRS,EGFR,Malade,Ahmed Benali,Sophie,LEROY_Nathalie,41
+S018,8.74,M,Placebo,CHU Nord,TP53,Controle,Jean Dupont,Nathalie,MARTIN_Sophie,55
+S019,4.2,F,Traitement A,La Timone,TP53,Controle,Marie Lefebvre,Camille,DUPONT_Jean,63
+S020,0.62,M,Placebo,MRS,KRAS,Controle,Ahmed Benali,Sophie,LEROY_Nathalie,66
+S021,8.85,F,Traitement A,CHU Nord,KRAS,Malade,Jean Dupont,Nathalie,MARTIN_Sophie,44
+S022,5.43,M,Placebo,La Timone,EGFR,Malade,Marie Lefebvre,Camille,DUPONT_Jean,45
+S023,7.62,F,Traitement A,MRS,EGFR,Malade,Ahmed Benali,Sophie,LEROY_Nathalie,50
+S024,5.65,M,Placebo,CHU Nord,TP53,Controle,Jean Dupont,Nathalie,MARTIN_Sophie,65
