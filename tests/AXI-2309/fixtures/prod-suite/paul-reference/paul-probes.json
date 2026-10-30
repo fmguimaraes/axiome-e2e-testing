@@ -1,0 +1,191 @@
+{
+  "description": "AXI-2319 (epic AXI-2309, FR31/AC12, SI-042 + SI-053) — the ONE declaration of every probe the prod pass rule runs for Paul Dalmas's methods. Each probe is one rule run on a provisioned prod-suite fixture. Both the R reference generator (paul-r-reference.R) and the TypeScript executor read this file, so the run the platform executes and the computation R repeats can never drift apart. `target` = the number on Paul's slide, as printed (digits after the point = the precision it is checked at; \"ns\" = Holm-adjusted p > 0.05). Targets are copied from axiome-docs/demo/mag4-microbiote/data/targets.json (sha256 5334dd18f0b554e4fbcae93fab97909ef295d7a94d27395f9d6fa09d2f170a7f) and REPRODUCTION-REPORT.md, the AXI-2066 reproduction on these exact fixture bytes. stats.partial_correlation is in Paul's methods text but on no slide, so it has no target: R parity is its only expected value.",
+  "targetsSource": {
+    "file": "axiome-docs/demo/mag4-microbiote/data/targets.json",
+    "sha256": "5334dd18f0b554e4fbcae93fab97909ef295d7a94d27395f9d6fa09d2f170a7f"
+  },
+  "probes": [
+    {
+      "id": "dunn-ent059",
+      "operationId": "stats.dunn_posthoc",
+      "fixture": "tableau1",
+      "filters": [
+        { "column": "group", "operator": "in", "value": ["HD", "IgG4-RD", "SD"] },
+        { "column": "reference", "operator": "eq", "value": "ENT 059" }
+      ],
+      "roleBindings": { "groupColumn": "group" },
+      "pivot": { "valueColumn": "pct" },
+      "operationParams": {},
+      "rowKey": ["groupA", "groupB"],
+      "checks": [
+        { "row": { "groupA": "HD", "groupB": "IgG4-RD" }, "field": "adjustedPValue", "target": "0.022", "targetKey": "slide2_dunn_holm.references.ENT059.IgG4-RD_vs_HD" },
+        { "row": { "groupA": "IgG4-RD", "groupB": "SD" }, "field": "adjustedPValue", "target": "0.022", "targetKey": "slide2_dunn_holm.references.ENT059.IgG4-RD_vs_SD" },
+        { "row": { "groupA": "HD", "groupB": "SD" }, "field": "adjustedPValue" },
+        { "row": { "groupA": "HD", "groupB": "IgG4-RD" }, "field": "zStatistic" },
+        { "row": { "groupA": "HD", "groupB": "SD" }, "field": "zStatistic" },
+        { "row": { "groupA": "IgG4-RD", "groupB": "SD" }, "field": "zStatistic" }
+      ]
+    },
+    {
+      "id": "dunn-cer229",
+      "operationId": "stats.dunn_posthoc",
+      "fixture": "tableau1",
+      "filters": [
+        { "column": "group", "operator": "in", "value": ["HD", "IgG4-RD", "SD"] },
+        { "column": "reference", "operator": "eq", "value": "CER 229" }
+      ],
+      "roleBindings": { "groupColumn": "group" },
+      "pivot": { "valueColumn": "pct" },
+      "operationParams": {},
+      "rowKey": ["groupA", "groupB"],
+      "checks": [
+        { "row": { "groupA": "HD", "groupB": "IgG4-RD" }, "field": "adjustedPValue", "target": "0.038", "targetKey": "slide2_dunn_holm.references.CER229.IgG4-RD_vs_HD" },
+        { "row": { "groupA": "IgG4-RD", "groupB": "SD" }, "field": "adjustedPValue", "target": "0.038", "targetKey": "slide2_dunn_holm.references.CER229.IgG4-RD_vs_SD" },
+        { "row": { "groupA": "HD", "groupB": "SD" }, "field": "adjustedPValue" },
+        { "row": { "groupA": "HD", "groupB": "IgG4-RD" }, "field": "zStatistic" },
+        { "row": { "groupA": "HD", "groupB": "SD" }, "field": "zStatistic" },
+        { "row": { "groupA": "IgG4-RD", "groupB": "SD" }, "field": "zStatistic" }
+      ]
+    },
+    {
+      "id": "dunn-cer215-234",
+      "operationId": "stats.dunn_posthoc",
+      "fixture": "tableau1",
+      "filters": [
+        { "column": "group", "operator": "in", "value": ["HD", "IgG4-RD", "SD"] },
+        { "column": "reference", "operator": "eq", "value": "CER 215 et 234" }
+      ],
+      "roleBindings": { "groupColumn": "group" },
+      "pivot": { "valueColumn": "pct" },
+      "operationParams": {},
+      "rowKey": ["groupA", "groupB"],
+      "checks": [
+        { "row": { "groupA": "HD", "groupB": "IgG4-RD" }, "field": "adjustedPValue", "target": "ns", "targetKey": "slide2_dunn_holm.references.CER215+234.IgG4-RD_vs_HD" },
+        { "row": { "groupA": "IgG4-RD", "groupB": "SD" }, "field": "adjustedPValue", "target": "ns", "targetKey": "slide2_dunn_holm.references.CER215+234.IgG4-RD_vs_SD" },
+        { "row": { "groupA": "HD", "groupB": "SD" }, "field": "adjustedPValue" },
+        { "row": { "groupA": "HD", "groupB": "IgG4-RD" }, "field": "zStatistic" },
+        { "row": { "groupA": "HD", "groupB": "SD" }, "field": "zStatistic" },
+        { "row": { "groupA": "IgG4-RD", "groupB": "SD" }, "field": "zStatistic" }
+      ]
+    },
+    {
+      "id": "kruskal-clusters-ent059",
+      "operationId": "stats.kruskal_wallis",
+      "fixture": "tableau2",
+      "filters": [],
+      "roleBindings": { "groupColumn": "cluster_selon_acr_eular_2019" },
+      "pivot": { "valueColumn": "microbiote_igg4_ent_059" },
+      "operationParams": {},
+      "rowKey": [],
+      "checks": [
+        { "field": "pValue", "target": "0.182", "targetKey": "slide3_boxplots.targets.kruskal_wallis_clusters_p" },
+        { "field": "hStatistic" }
+      ]
+    },
+    {
+      "id": "mann-whitney-pancreatic-ent059",
+      "operationId": "stats.mann_whitney_u",
+      "fixture": "tableau2",
+      "filters": [],
+      "roleBindings": { "groupColumn": "atteinte_pancreatique" },
+      "pivot": { "valueColumn": "microbiote_igg4_ent_059" },
+      "operationParams": { "alternative": "two_sided", "groupFrom": "0", "groupTo": "1" },
+      "rowKey": [],
+      "checks": [
+        { "field": "pValue", "target": "0.371", "targetKey": "slide3_boxplots.targets.mann_whitney_pancreatic_p" },
+        { "field": "uStatistic" }
+      ]
+    },
+    {
+      "id": "spearman-ent059-sigg4",
+      "operationId": "stats.correlation",
+      "fixture": "tableau2",
+      "filters": [],
+      "roleBindings": { "xColumn": "microbiote_igg4_ent_059", "yColumn": "igg4_g_l" },
+      "operationParams": { "method": "spearman" },
+      "rowKey": [],
+      "checks": [
+        { "field": "coefficient", "target": "0.78", "targetKey": "heatmap.rho.sIgG4[ENT059]" },
+        { "field": "pValue" }
+      ]
+    },
+    {
+      "id": "spearman-ent059-igg4-rd-ri",
+      "operationId": "stats.correlation",
+      "fixture": "tableau2",
+      "filters": [],
+      "roleBindings": { "xColumn": "microbiote_igg4_ent_059", "yColumn": "igg4_rd_ri" },
+      "operationParams": { "method": "spearman" },
+      "rowKey": [],
+      "checks": [
+        { "field": "coefficient", "target": "0.53", "targetKey": "heatmap.rho.IgG4-RD RI[ENT059]" },
+        { "field": "pValue" }
+      ]
+    },
+    {
+      "id": "spearman-ent059-igg4-hpf",
+      "operationId": "stats.correlation",
+      "fixture": "tableau2",
+      "filters": [],
+      "roleBindings": { "xColumn": "microbiote_igg4_ent_059", "yColumn": "igg4_hpf" },
+      "operationParams": { "method": "spearman" },
+      "rowKey": [],
+      "checks": [
+        { "field": "coefficient", "target": "0.34", "targetKey": "heatmap.rho.IgG4+/HPF[ENT059]" },
+        { "field": "pValue" }
+      ]
+    },
+    {
+      "id": "spearman-ent059-eosinophils",
+      "operationId": "stats.correlation",
+      "fixture": "tableau2",
+      "filters": [],
+      "roleBindings": { "xColumn": "microbiote_igg4_ent_059", "yColumn": "eosinophils" },
+      "operationParams": { "method": "spearman" },
+      "rowKey": [],
+      "checks": [
+        { "field": "coefficient", "target": "0.55", "targetKey": "heatmap.rho.Eosinophils[ENT059]" },
+        { "field": "pValue" }
+      ]
+    },
+    {
+      "id": "spearman-ent059-plasmablasts",
+      "operationId": "stats.correlation",
+      "fixture": "tableau2",
+      "filters": [],
+      "roleBindings": { "xColumn": "microbiote_igg4_ent_059", "yColumn": "plasmablasts_cd19_cd38_cd27_mm3" },
+      "operationParams": { "method": "spearman" },
+      "rowKey": [],
+      "checks": [
+        { "field": "coefficient", "target": "0.55", "targetKey": "heatmap.rho.Plasmablasts[ENT059]" },
+        { "field": "pValue" }
+      ]
+    },
+    {
+      "id": "spearman-ent059-tfh",
+      "operationId": "stats.correlation",
+      "fixture": "tableau2",
+      "filters": [],
+      "roleBindings": { "xColumn": "microbiote_igg4_ent_059", "yColumn": "tfh_cxcr5_pd1_cd4" },
+      "operationParams": { "method": "spearman" },
+      "rowKey": [],
+      "checks": [
+        { "field": "coefficient", "target": "0.43", "targetKey": "heatmap.rho.TFH[ENT059]" },
+        { "field": "pValue" }
+      ]
+    },
+    {
+      "id": "partial-spearman-ent059-ri-given-sigg4",
+      "operationId": "stats.partial_correlation",
+      "fixture": "tableau2",
+      "filters": [],
+      "roleBindings": { "xColumn": "microbiote_igg4_ent_059", "yColumn": "igg4_rd_ri", "covariateColumns": ["igg4_g_l"] },
+      "operationParams": { "method": "spearman" },
+      "rowKey": [],
+      "checks": [
+        { "field": "coefficient" },
+        { "field": "pValue" }
+      ]
+    }
+  ]
+}

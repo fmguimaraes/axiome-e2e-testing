@@ -22,10 +22,15 @@ import { configAbortReport, runProdSuite } from './harness/prod-suite/suite';
  * cases) and ALWAYS writes `report.json`/`report.md` to `PROD_E2E_REPORT_DIR`
  * (default `prod-suite-report/`), so an aborted day is still published. The
  * following tests turn the report into the run's verdict per requirement.
- * Pass/fail of each case is AXI-2319's (FR31) — see harness/prod-suite/executor.ts.
+ * Pass/fail of each case is AXI-2319's pass rule (FR31/AC12 — Paul's methods on
+ * slide targets + R parity, every other rule on run SUCCEEDED + default chart
+ * rendered; harness/prod-suite/pass-rule-executor.ts); the last three tests
+ * below turn those outcomes into the day's verdict. The 60-min budget covers
+ * the measured stand-in run (~4 min catalogue with the render breaker) plus a
+ * worst case where every gallery chart waits its full 45 s render window.
  *
  * Scenario doc: axiome-docs/manual-e2e/AXI-2309-Platform-Opening-Headless.md
- * § "AXI-2318 — Prod E2E suite infra" (AXI-2318.1).
+ * § "AXI-2318 — Prod E2E suite infra" (AXI-2318.1) and § "AXI-2319 — Prod E2E pass rule".
  */
 
 test.use({ storageState: { cookies: [], origins: [] }, trace: 'off', video: 'off', screenshot: 'off' });
@@ -101,5 +106,39 @@ test.describe('AXI-2318 — prod E2E daily suite', TAGS, () => {
     expect(report.cases.filter((c) => c.phase === 'paul-methods').every((c) => PAUL_OPERATIONS.includes(c.operationId ?? ''))).toBe(true);
     expect(report.cases.map((c) => c.order)).toEqual(report.cases.map((_, i) => i + 1));
     expect(report.summary.total).toBeGreaterThan(0);
+  });
+
+  // ── AXI-2319 (FR31, AC12, SI-053) — the PASS RULE verdicts ─────────────
+  // The executor (harness/prod-suite/pass-rule-executor.ts) has already judged
+  // every case; these tests turn its outcomes into the day's verdict. Each
+  // lists the offending cases (code · outcome · reason) so a red day says why.
+
+  const listed = (cases: ProdSuiteReport['cases']) => cases.map((c) => `${c.order} ${c.code} ${c.operationId ?? '—'} · ${c.outcome} · ${c.reason ?? ''}`);
+
+  test("AC12 FR31 — Paul's methods pass on their expected values (slide targets + R parity)", { tag: ['@SI-053'] }, async () => {
+    expect(report.abort, 'run aborted').toBeNull();
+    const paul = report.cases.filter((c) => c.phase === 'paul-methods');
+    expect(paul.length, "Paul's-methods cases").toBeGreaterThan(0);
+    expect(listed(paul.filter((c) => c.outcome !== 'pass')), "Paul's methods not passing").toEqual([]);
+  });
+
+  test('AC12 FR31 FR14 — no evaluated catalogue rule fails (run SUCCEEDED + default chart rendered)', async () => {
+    expect(report.abort, 'run aborted').toBeNull();
+    const catalogue = report.cases.filter((c) => c.phase === 'catalogue');
+    expect(catalogue.filter((c) => c.outcome === 'pass' || c.outcome === 'fail').length, 'catalogue rules actually judged').toBeGreaterThan(0);
+    expect(listed(catalogue.filter((c) => c.outcome === 'fail' || c.outcome === 'error')), 'catalogue rules failing').toEqual([]);
+  });
+
+  test('AC12 FR31 — every active rule is evaluated (none left not-evaluated)', async () => {
+    expect(report.abort, 'run aborted').toBeNull();
+    // Strict on purpose: FR31 says EVERY active rule passes, so a rule the suite
+    // cannot judge (no recipe, no server-renderable default chart, not runnable)
+    // is a gap in AC12, reported here separately from real failures above.
+    // A rule answered from the dedup cache (engine did not run today — never a
+    // pass) is listed on its own line, so a stale day is not read as a gap.
+    const notEvaluated = report.cases.filter((c) => c.outcome === 'not-evaluated');
+    const cached = notEvaluated.filter((c) => c.facts.engineRanToday === false);
+    expect.soft(listed(cached), 'rules answered from the dedup cache — engine did not run today').toEqual([]);
+    expect(listed(notEvaluated.filter((c) => !cached.includes(c))), 'rules not evaluated').toEqual([]);
   });
 });

@@ -36,7 +36,8 @@ const AUTH_SUITE_SPEC = /AXI-2309\/AXI-2315-auth-suite\.spec\.ts$/;
 // dependency, and NO trace/video/screenshot — a trace records the test user's
 // bearer token (NFR6) and the daily run happens against production. The daily
 // workflow runs only the daily spec, via `--project=prod-suite-api`.
-const PROD_SUITE_SPEC = /AXI-2309\/AXI-2318-prod-(daily-suite|suite-infra)\.spec\.ts$/;
+// AXI-2319 — its pass-rule stand-in verification spec runs in the same project.
+const PROD_SUITE_SPEC = /AXI-2309\/(AXI-2318-prod-(daily-suite|suite-infra)|AXI-2319-prod-pass-rule)\.spec\.ts$/;
 
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
