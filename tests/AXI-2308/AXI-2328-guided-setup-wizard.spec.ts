@@ -67,6 +67,12 @@ let api: Api;
 let t: Tenant;
 let datasetId: string;
 
+/** AXI-2361 (D21): the Template step's choice id is the (template, dataset) PAIR key — this
+ * spec's project links exactly one dataset, so every pair key is `<templateId>::${datasetId}`. */
+function pk(templateId: string): string {
+  return `${templateId}::${datasetId}`;
+}
+
 async function openWizard(page: Page, stubs: WizardStubs = {}) {
   await seedScope(page, t);
   const log = await stubWizardRoutes(page, stubs);
@@ -121,7 +127,7 @@ async function reachReadyBySex(page: Page) {
   await expect(page.getByTestId('na-choice-compare_groups')).toHaveAttribute('aria-checked', 'true');
   await choose(page, 'na-choice-compare_groups');
   await expect(page.getByTestId('na-step-template')).toBeVisible();
-  await choose(page, 'na-choice-T1');
+  await choose(page, `na-choice-${pk('T1')}`);
   await expect(page.getByTestId('na-step-read')).toBeVisible();
   await choose(page, 'na-read-confirm');
   await expect(page.getByTestId('na-step-ready')).toBeVisible();
@@ -232,18 +238,18 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await askQuestion(page, SEX_QUESTION);
     await choose(page, 'na-choice-compare_groups');
     await expect(page.getByTestId('na-step-template')).toBeVisible();
-    expect(await choiceKeys(page, 'Analysis')).toEqual(['T1', 'T2', 'T4', 'T3']);
-    expect(await checkedKeys(page, 'Analysis')).toEqual(['T1']);
-    await expect(page.getByTestId('na-choice-T1')).toContainText('Compare groups');
-    await expect(page.getByTestId('na-choice-T1')).toContainText('Mann-Whitney U test');
-    await expect(page.getByTestId('na-choice-T1')).toContainText('suggested');
+    expect(await choiceKeys(page, 'Analysis')).toEqual(['T1', 'T2', 'T4', 'T3'].map(pk));
+    expect(await checkedKeys(page, 'Analysis')).toEqual([pk('T1')]);
+    await expect(page.getByTestId(`na-choice-${pk('T1')}`)).toContainText('Compare groups');
+    await expect(page.getByTestId(`na-choice-${pk('T1')}`)).toContainText('Mann-Whitney U test');
+    await expect(page.getByTestId(`na-choice-${pk('T1')}`)).toContainText('suggested');
     await expect(page.getByTestId('na-back')).toHaveText('← Back to intent');
     await press(page, 'Escape');
     await expect(page.getByTestId('na-step-intent')).toBeVisible();
     await choose(page, 'na-choice-explore_dataset');
     await expect(page.getByTestId('na-step-template')).toBeVisible();
-    expect(await choiceKeys(page, 'Analysis')).toEqual(['T3', 'T1', 'T2', 'T4']);
-    expect(await checkedKeys(page, 'Analysis')).toEqual(['T3']);
+    expect(await choiceKeys(page, 'Analysis')).toEqual(['T3', 'T1', 'T2', 'T4'].map(pk));
+    expect(await checkedKeys(page, 'Analysis')).toEqual([pk('T3')]);
   });
 
   test('AC15 — AXI-2328.8 when no analysis fits the data the step says so and offers nothing to run @SI-066', async ({ page }) => {
@@ -260,7 +266,7 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await openWizard(page, { suggestion: { kind: 'answer', body: withNoise } });
     await askQuestion(page, SEX_QUESTION);
     await choose(page, 'na-choice-compare_groups');
-    await choose(page, 'na-choice-T1');
+    await choose(page, `na-choice-${pk('T1')}`);
     await expect(page.getByTestId('na-step-read')).toBeVisible();
     await expect(page.getByTestId('na-read-outcome')).toContainText('igg4_g_l');
     await expect(page.getByTestId('na-read-outcome')).toContainText('from IgG4');
@@ -271,7 +277,7 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await openWizard(page, { suggestion: { kind: 'answer', body: answered(SEX_QUESTION, 'compare_groups') } });
     await askQuestion(page, SEX_QUESTION);
     await choose(page, 'na-choice-compare_groups');
-    await choose(page, 'na-choice-T1');
+    await choose(page, `na-choice-${pk('T1')}`);
     await expect(page.getByTestId('na-step-decide-groupingColumn')).toBeVisible();
     await expect(page.getByTestId('na-bar-read')).toHaveCount(0);
   });
@@ -281,7 +287,7 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await openWizard(page, { suggestion: { kind: 'answer', body: answered(question, 'compare_groups', [], [['outcome', 'CCL19']]) } });
     await askQuestion(page, question);
     await choose(page, 'na-choice-compare_groups');
-    await choose(page, 'na-choice-T2');
+    await choose(page, `na-choice-${pk('T2')}`);
     // The fixture's profile offers two grouping columns with three or more levels (the cluster,
     // and the first MAG4 column the profiler types as a timepoint — AXI-2339's noted defect).
     const grouping = page.getByTestId('na-step-decide-groupingColumn');
@@ -364,7 +370,7 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await page.keyboard.down('Enter');
     await page.keyboard.up('Enter');
     await expect(page.getByTestId('na-step-template')).toBeVisible();
-    expect(await focusedTestId(page)).toBe('na-choice-T1');
+    expect(await focusedTestId(page)).toBe(pk('T1'));
     await expect(page.getByTestId('na-back')).toHaveText('← Back to intent');
     await press(page, 'Escape');
     await expect(page.getByTestId('na-step-intent')).toBeVisible();
@@ -418,7 +424,7 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
       await expect(page.getByTestId('na-choice-compare_groups')).toHaveAttribute('aria-checked', 'true');
       await choose(page, 'na-choice-compare_groups');
       await check('na-step-template');
-      await choose(page, 'na-choice-T1');
+      await choose(page, `na-choice-${pk('T1')}`);
       await check('na-step-read');
       await choose(page, 'na-read-confirm');
       await check('na-step-ready');

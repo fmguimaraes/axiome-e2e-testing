@@ -134,7 +134,9 @@ test.describe.serial('AXI-2327 result page — answer, charts & navigation, evid
     await gotoSettled(page, `/new-analysis?datasetId=${dataset.datasetId}`);
     await askQuestion(page, SEX_QUESTION);
     await choose(page, 'na-choice-compare_groups');
-    await choose(page, 'na-choice-T1');
+    // AXI-2361 (D21): the Template step's choice id is the (template, dataset) pair key; this
+    // test opens the wizard on exactly one dataset (`?datasetId=`), so T1's pair is that dataset's.
+    await choose(page, `na-choice-T1::${dataset.datasetId}`);
     await choose(page, 'na-read-confirm');
     await expect(page.getByTestId('na-step-ready')).toBeVisible();
     const launched = page.waitForResponse((r) => r.url().includes(WIZARD_RUNS) && r.request().method() === 'POST');

@@ -100,7 +100,7 @@ async function reachReadyBySex(page: Page) {
   await expect(page.getByTestId('na-choice-compare_groups')).toHaveAttribute('aria-checked', 'true');
   await choose(page, 'na-choice-compare_groups');
   await expect(page.getByTestId('na-step-template')).toBeVisible();
-  await choose(page, 'na-choice-T1');
+  await choose(page, `na-choice-T1::${datasetId}`); // AXI-2361 (D21): choice id is the (template, dataset) pair key
   await expect(page.getByTestId('na-step-read')).toBeVisible();
   await choose(page, 'na-read-confirm');
   await expect(page.getByTestId('na-step-ready')).toBeVisible();
@@ -111,7 +111,7 @@ async function reachPairs(page: Page, column: string) {
   await askQuestion(page, GROUPS_QUESTION);
   await choose(page, 'na-choice-compare_groups');
   await expect(page.getByTestId('na-step-template')).toBeVisible();
-  await choose(page, 'na-choice-T1');
+  await choose(page, `na-choice-T1::${datasetId}`); // AXI-2361 (D21): choice id is the (template, dataset) pair key
   await expect(page.getByTestId('na-step-decide-groupingColumn')).toBeVisible();
   await chooseRadio(page, new RegExp(`^${column}\\b`));
   await expect(page.getByTestId('na-step-decide-groups')).toBeVisible();
