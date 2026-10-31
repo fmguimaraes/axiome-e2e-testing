@@ -85,16 +85,18 @@ test.describe.serial('AXI-2370 a (template, dataset) pair is offered only if the
     await expect(page.getByTestId(pk(badDataset2))).toBeVisible();
   });
 
-  test('AC3 — AXI-2370.3 the backend independently refuses a launch whose dataset lacks a column the question names, even bypassing the UI guard', async ({ page }) => {
+  test('AC3 — AXI-2370.3 the backend independently refuses a launch whose dataset lacks a column the question names, even bypassing the UI guard and WITHOUT any client-reported dataset list', async ({ page }) => {
     await seedScope(page, t);
     const badSchema = { datasetId: badDataset1, displayName: FIXTURE_BAD_1, versionHash: 'sha256:' + '0'.repeat(64), columns: [{ name: 'biomarker_x', type: 'numeric' }, { name: 'group_arm', type: 'categorical', categories: ['A', 'B'] }, { name: 'visit_age', type: 'numeric' }] };
-    const matchingSchema = { datasetId: matchingDataset, displayName: FIXTURE_MATCHING, versionHash: 'sha256:' + '1'.repeat(64), columns: [{ name: 'igg4_g_l', type: 'numeric' }, { name: 'sexe', type: 'categorical', categories: ['F', 'M'] }] };
     const body = {
       projectId: t.projectId,
       dataset: badSchema,
-      // AC3: the server re-checks `question` against EVERY candidate dataset reported — the
-      // same set the Template step's own guard (AC2) already saw — never just the one picked.
-      candidateDatasets: [badSchema, matchingSchema],
+      // AXI-2370 (AC3, review bounce 1 B1): no `candidateDatasets` field - that field is GONE
+      // from the contract. The server resolves the column universe itself from every dataset
+      // LINKED to this project (`matchingDataset`, ingested + linked in `beforeAll`, carries
+      // `igg4_g_l`/`sexe`), so the question is refused even though this request names no client
+      // list at all - exactly the caller this AC exists for (a hand-built request, a stale
+      // build, a bug in the UI guard).
       question: QUESTION,
       intent: 'compare_groups',
       intentSource: 'chosen',
