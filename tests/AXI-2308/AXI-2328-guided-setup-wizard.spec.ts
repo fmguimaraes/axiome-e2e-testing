@@ -151,8 +151,12 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await seedScope(page, t);
     await stubWizardRoutes(page);
     await gotoSettled(page, '/project-datasets');
-    await page.getByRole('button', { name: 'New analysis' }).click();
-    await expect(page).toHaveURL(/\/new-analysis/);
+    // AXI-2369 removed Dataset Tables' own header "New analysis" button; the
+    // page's entry point is now the per-row "Analyse this dataset" action,
+    // which preselects this row's dataset (`?datasetId=`).
+    const row = page.locator('tr', { has: page.getByTestId('row-analyse-dataset') }).first();
+    await row.getByTestId('row-analyse-dataset').click();
+    await expect(page).toHaveURL(new RegExp(`/new-analysis\\?datasetId=${datasetId}`));
     await expect(page.getByLabel('What do you want to find out?')).toBeFocused();
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toHaveCount(0);
     const bar = await page.getByTestId('na-step-bar').boundingBox();
