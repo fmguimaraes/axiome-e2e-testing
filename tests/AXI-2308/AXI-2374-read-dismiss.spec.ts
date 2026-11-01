@@ -166,9 +166,17 @@ test.describe.serial('AXI-2374 per-value dismissal on the Read step @SI-066 @AXI
     await expect(page.getByTestId('na-read-populationFilter')).toHaveCount(0);
     await expect(page.getByTestId('na-read-confirm')).toBeFocused();
 
-    // Enter confirms whatever remains (nothing) — the wizard moves on, not stuck.
+    // Enter confirms whatever remains (nothing) — the wizard moves on, not stuck. Review bounce 2
+    // (BLOCKING 1): both dismissed rows had a required landing slot (`target` -> `outcome`), so
+    // this must land on the Decide step's blocking "Must be decided" question, never merely "read
+    // is gone" — `na-step-read` disappearing is also true of the bug where Confirm silently
+    // restarted the wizard on the question step instead of advancing.
     await press(page, 'Enter');
     await expect(page.getByTestId('na-step-read')).toHaveCount(0);
+    await expect(page.getByTestId('na-step-question')).toHaveCount(0);
+    const outcome = page.getByTestId('na-step-decide-outcome');
+    await expect(outcome).toBeVisible();
+    await expect(page.getByTestId('na-decide-blocks')).toBeVisible();
   });
 
   test('AXI-2374.5 — Esc on the Read step still returns to the question, dismissal included @SI-066 @AXI-2374', async ({ page }) => {
