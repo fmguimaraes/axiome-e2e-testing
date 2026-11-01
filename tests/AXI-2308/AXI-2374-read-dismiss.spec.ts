@@ -179,7 +179,7 @@ test.describe.serial('AXI-2374 per-value dismissal on the Read step @SI-066 @AXI
     await expect(page.getByTestId('na-decide-blocks')).toBeVisible();
   });
 
-  test('AXI-2374.5 — Esc on the Read step still returns to the question, dismissal included @SI-066 @AXI-2374', async ({ page }) => {
+  test('AXI-2374.5 — Esc on the Read step goes back one step (Template), nothing is discarded @SI-066 @AXI-2374', async ({ page }) => {
     await openWizard(page);
     await reachReadStep(page);
 
@@ -188,6 +188,6 @@ test.describe.serial('AXI-2374 per-value dismissal on the Read step @SI-066 @AXI
     await row.focus();
     await press(page, 'Escape');
 
-    await expect(page.getByTestId('na-step-question')).toBeVisible();
+    await expect(page.getByTestId('na-step-template')).toBeVisible();
   });
 });
