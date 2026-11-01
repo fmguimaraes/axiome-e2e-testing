@@ -30,6 +30,7 @@ import { answered, askQuestion, choose, chooseRadio, gotoSettled, press, seedSco
 
 const FIXTURE = 'opening-templates-paul-header.csv';
 const READ_PATH = '**/api/v1/guided-analysis/question-reading/read';
+const WIZARD_RUNS = '/api/v1/guided-analysis/wizard-runs';
 const QUESTION = 'Does IgG4 differ by sex among adults?';
 
 let api: Api;
@@ -117,6 +118,15 @@ test.describe.serial('AXI-2374 per-value dismissal on the Read step @SI-066 @AXI
     // "decided by you", never "from your question": the re-answered value lands in the
     // "What you decided here" card, not the question card, and carries no dismissed trace.
     await expect(page.getByTestId('na-ready-decided')).toContainText('igg4_g_l');
+
+    // Review bounce 1 (BLOCKING 1): the dismissal's recorded sourceSpan must actually be
+    // ACCEPTED by the server at launch — this is the end-to-end proof the span the front
+    // located (or honestly omitted) never trips `WIZ_DISMISSAL_SPAN_INVALID`/`ANSWERS_REFUSED`.
+    const launched = page.waitForResponse((r) => r.url().includes(WIZARD_RUNS) && r.request().method() === 'POST');
+    await choose(page, 'na-run');
+    const answer = await (await launched).json();
+    expect(answer.ok, JSON.stringify(answer)).toBe(true);
+    await expect(page).toHaveURL(new RegExp(`/projects/${t.projectId}/runs/${answer.runId}$`), { timeout: 30_000 });
   });
 
   test('AXI-2374.3 — dismissing a row that lands on nothing reopens it as an offer on Ready @SI-066 @AXI-2374', async ({ page }) => {
