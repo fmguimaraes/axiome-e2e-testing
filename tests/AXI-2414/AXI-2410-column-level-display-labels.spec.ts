@@ -1,37 +1,50 @@
+import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
-import { adminApi, asList, type Api } from '../AXI-1400/harness/api';
+import { adminApi, type Api } from '../AXI-1400/harness/api';
 import { ensureTenant, type Tenant } from '../AXI-1400/harness/seed';
 import { ingestCsvFixture } from '../AXI-2308/harness/opening-templates';
 
 /**
  * AXI-2410 (epic AXI-2414 — FR61, FR13 amended, AC58, EC33; SI-068, SI-014). Column and level
  * display labels for question reading. `POST /api/v1/guided-analysis/question-reading/read`
- * (call site `question-reading`, prompt `reading/2`, RECORDED transport) now also matches the
- * investigator's words against a column/level's declared clinician-facing label, falling back
- * to the id when no label is declared (EC33/NFR3).
+ * (call site `question-reading`, prompt `reading/1` — B5 review fix: the system prompt text is
+ * UNCHANGED by this story, RECORDED transport) now also matches the investigator's words against
+ * a column/level's declared clinician-facing label, falling back to the id when no label is
+ * declared (EC33/NFR3).
  *
  * Scenario doc: `axiome-docs/manual-e2e/AXI-2414-Guided-Wizard-Follow-up.md` § AXI-2410.
  *
  * AXI-2410.1/.2 (an "answered" reading that resolves a LABEL word to its column/level id) are
- * DEFERRED — same precedent as AXI-2364's own §.2/§.3: they need an
- * `llm-debug/recordings/question-reading/` entry keyed under the `reading/2` prompt, which can
- * only be captured against a RUNNING deployment of this story's merged code (this pre-merge
- * worktree cannot provision an isolated stack — `wt-up.sh` is blocked for story-developer
- * agents — and hot-patching the shared demo stack with an unmerged branch would disrupt the
- * sibling epic stories concurrently using it). The deterministic label -> id resolution itself
- * (exact, case-insensitive, ambiguity, fallback-to-id) is covered unit-to-unit, AAA, in
+ * DEFERRED — same precedent as AXI-2364's own §.2/§.3, for the SAME reason AXI-2364 itself never
+ * built an "answered" assertion either: every dataset here is freshly ingested per run
+ * (`ingestCsvFixture`), so its `datasetId` — and therefore the request hash the recorded
+ * transport looks up by — differs on every run and can never match a committed recording. A
+ * genuine "answered, label resolved" assertion needs a FIXED seeded dataset id (e.g. the MAG4
+ * demo project's own datasets, `reading/__fixtures__/mag4-demo-vocabularies.ts`) with a
+ * real persisted `displayLabels` declaration and an offline-authored recording keyed to that
+ * exact request — real follow-up work, not done here. The deterministic label -> id resolution
+ * itself (exact, case-insensitive, ambiguity, fallback-to-id) IS covered unit-to-unit, AAA, in
  * `dataset-semantic-declaration.spec.ts` (`UT-DSD-2410-*`), `reading-vocabulary.spec.ts`
  * (`UT-READING-2410-01*`) and `reading.validator.spec.ts` (`UT-READING-2410-00*`).
  *
- * AXI-2410.3 (a label-less column/level still resolves by its own id) IS run below: it is the
- * EC33 fallback behaviour, identical to AXI-2364's pre-existing id-only matching, so it does not
- * depend on this story's new prompt/resolver code being deployed - a genuine regression guard.
+ * AXI-2410.3 (review fix B4) pins the EXACT deterministic outcome — `recording_missing` with an
+ * empty reading (the AXI-2364.4 shape) — rather than accepting any of several statuses, so a
+ * regression that silently changed the no-recording contract (an invented label leaking into
+ * the empty reading, a non-empty `readings` array, a different status) fails this test. A real
+ * HTTP round-trip that PERSISTS a `displayLabels` declaration via `PUT
+ * /datasets/:id/semantic-declaration` and then reads it back through `question-reading/read` was
+ * attempted and withdrawn: the shared demo backend this worktree runs against serves the
+ * PRE-MERGE org-service (its declaration validator does not know `displayLabels` yet — `400
+ * DECL_UNKNOWN_KEY`), so that round-trip can only be run after this story's backend change is
+ * deployed — the SAME deployment dependency AXI-2410.1/.2 are deferred for. Tracked as the same
+ * follow-up: author it on a fixed seeded dataset once this branch (or a later one) is live.
  *
  * Run: `API_BASE_URL=<gateway serving the AXI-2410 branch> npx playwright test --project=axi-2410-api tests/AXI-2414/AXI-2410-*`.
  */
 
 const READ_PATH = '/api/v1/guided-analysis/question-reading/read';
 const FIXTURE = 'opening-templates-paul-header.csv';
+const NO_READING = { type: null, readings: [], clarifyingQuestion: null, callId: null };
 
 function fixtureSchema(datasetId: string) {
   const numeric = (name: string) => ({ name, type: 'numeric' });
@@ -70,27 +83,20 @@ test.describe('AXI-2410 column/level display labels @SI-068 @SI-014', () => {
   });
 
   test.skip(
-    'AXI-2410.1 (AC58) a question naming a declared column label resolves to that column id — DEFERRED: needs a reading/2 recording',
+    'AXI-2410.1 (AC58) a question naming a declared column label resolves to that column id — DEFERRED: needs a fixed-dataset reading/1 recording',
     () => {},
   );
   test.skip(
-    'AXI-2410.2 (AC58) a question naming a declared level label resolves to that level id — DEFERRED: needs a reading/2 recording',
+    'AXI-2410.2 (AC58) a question naming a declared level label resolves to that level id — DEFERRED: needs a fixed-dataset reading/1 recording',
     () => {},
   );
 
-  test('AXI-2410.3 (EC33, NFR3) a column/level with no declared label still resolves by its own raw id @SI-068 @SI-014', async () => {
-    const res = await read('Does igg4_g_l differ by sexe, adjusted for age?', [fixtureSchema(ownDatasetId)]);
+  test('AXI-2410.3 (EC33, NFR3) a recording miss is loud — pinned recording_missing with an empty reading, never a label fallback or a status drift @SI-068 @SI-014', async () => {
+    const res = await read(`An unrecorded AXI-2410 question ${randomUUID()} about igg4_g_l and age?`, [
+      fixtureSchema(ownDatasetId),
+    ]);
 
-    // Either the recorded transport has no entry for this exact question (loud miss, still a
-    // 200 with an empty reading - FR54) or it answers; either way the response is well-formed
-    // and never invents a label where none was declared on this fixture's bare schema.
     expect(res.status, JSON.stringify(res.body)).toBe(200);
-    expect(['recording_missing', 'answered', 'unavailable', 'skipped_identifying']).toContain(res.body?.status);
-    if (res.body?.status === 'answered') {
-      const values = asList(res.body.readings).flatMap((r: any) =>
-        Object.values(r.slots ?? {}).flatMap((s: any) => (s?.state === 'settled' ? s.values : [])),
-      );
-      for (const v of values) expect(typeof v.value).toBe('string');
-    }
+    expect(res.body).toEqual({ status: 'recording_missing', ...NO_READING });
   });
 });
