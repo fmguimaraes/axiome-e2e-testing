@@ -31,6 +31,14 @@ const EVIDENCE_API_SPEC =
 // `page`/browser context at all — `request.newContext()` only).
 const AUTH_SUITE_SPEC = /AXI-2309\/AXI-2315-auth-suite\.spec\.ts$/;
 
+// AXI-2410 (epic AXI-2414) — same AXI-1831 shape again: own admin login over the
+// API via `adminApi()`/`apiRequest.newContext()`, no `page`/browser `context`, so
+// it has no business depending on the fixture-org `setup` project's persisted
+// storageState. Without its own project it inherited 'chromium's storageState
+// path and failed `ENOENT .auth/admin.json` before any API call (the same
+// AXI-1831 failure mode) whenever run with `--no-deps` to skip `setup`.
+const AXI_2410_SPEC = /AXI-2414\/AXI-2410-column-level-display-labels\.spec\.ts$/;
+
 // AXI-2318 — the prod E2E daily suite and its infra verification spec: API-only
 // (the harness's own fetch client, never a `page`), no `setup` storageState
 // dependency, and NO trace/video/screenshot — a trace records the test user's
@@ -109,7 +117,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -146,6 +154,12 @@ export default defineConfig({
       name: 'prod-suite-api',
       testMatch: PROD_SUITE_SPEC,
       use: { trace: 'off', video: 'off', screenshot: 'off' },
+    },
+    // AXI-2410 (epic AXI-2414) — API-only, own admin login, no browser/storageState
+    // dependency (see AXI_2410_SPEC above).
+    {
+      name: 'axi-2410-api',
+      testMatch: AXI_2410_SPEC,
     },
   ],
 });
