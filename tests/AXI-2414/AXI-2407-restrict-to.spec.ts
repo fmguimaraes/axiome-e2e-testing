@@ -228,6 +228,8 @@ test.describe.serial('AXI-2407 restrictTo template parameter @SI-045 @SI-017 @SI
     // Act
     const offer = await offerFor(WIZARD_QUESTION, 'sexe');
     const silent = await offerFor(`Does ${MAG4} differ between F and M?`, 'sexe');
+    // B5: an article or a count is never read as a level — "a", "2" are ordinary words here
+    const ordinary = await offerFor(`Is there a difference in ${MAG4} between F and M, comparing 2 groups?`, 'sexe');
 
     // Assert
     expect(offer.wording).toEqual({
@@ -240,6 +242,7 @@ test.describe.serial('AXI-2407 restrictTo template parameter @SI-045 @SI-017 @SI
     expect(offer.reading).toMatchObject({ column: CLUSTER, levels: ['C2', 'C4'], sourceSpan: { text: 'C2 or C4' } });
     expect(WIZARD_QUESTION.slice(offer.reading.sourceSpan.start, offer.reading.sourceSpan.end)).toBe('C2 or C4');
     expect(silent.reading).toBeNull();
+    expect(ordinary.reading).toBeNull();
   });
 
   test('FR58 AC55 — AXI-2407.7 a wizard launch carrying the question\'s restriction compiles the filter, runs on it and records it @SI-045 @SI-017 @SI-010', async () => {
