@@ -134,7 +134,7 @@ test.describe.serial('AXI-2412 deterministic chart variant + save chart as evide
       t, dataset, 'T2', `Does ${NEGATIVE_OUTCOME} differ across the clusters on a log scale?`, 'compare_groups', t2Slots(NEGATIVE_OUTCOME),
     ));
     neverRunId = await launchAndDrain(api, t, wizardBody(
-      t, dataset, 'T2', `Does ${IGG4} differ across the clusters, shown with brackets?`, 'compare_groups', t2Slots(IGG4, 'never'),
+      t, dataset, 'T2', `Does ${IGG4} differ across the clusters, shown with pairwise brackets?`, 'compare_groups', t2Slots(IGG4, 'never'),
     ));
     stripRunId = await launchAndDrain(api, t, wizardBody(t, small, 'T1', 'Does titre differ between A and B?', 'compare_groups', [
       { slot: 'groupingColumn', value: 'arm' }, { slot: 'groups', value: ['A', 'B'] }, { slot: 'outcome', value: 'titre' },
@@ -213,7 +213,7 @@ test.describe.serial('AXI-2412 deterministic chart variant + save chart as evide
     expect(never.variants.offered.filter((v: any) => v.pairwiseBrackets)).toEqual([]);
     expect(never.variants.selectedKey).toBe('box_linear');
     expect(never.variants.mismatch.statement).toBe(
-      'Your question asks for "brackets", but no pairwise post-hoc comparison was run, so there are no brackets to draw; showing Box + all points, linear y instead.',
+      'Your question asks for "pairwise brackets", but no pairwise post-hoc comparison was run, so there are no brackets to draw; showing Box + all points, linear y instead.',
     );
   });
 
