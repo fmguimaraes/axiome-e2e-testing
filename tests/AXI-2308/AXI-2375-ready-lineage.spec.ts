@@ -9,7 +9,7 @@ import { answered, askQuestion, choose, gotoSettled, seedScope, stubWizardRoutes
  * Epic AXI-2308, W5 validation (replaces AXI-2375's React Flow graph): the Ready step's orientation
  * is a one-line lineage strip (`ReadyLineage.tsx`), plus the data check under "Handled for you".
  *
- * Scenario doc: `axiome-docs/manual-e2e/AXI-2308-Platform-Opening-Human-Guided.md` § AXI-2375.1–.2.
+ * Scenario doc: `axiome-docs/manual-e2e/AXI-2308-Platform-Opening-Human-Guided.md` § AXI-2375.1–.3.
  *
  * Stubbed in the browser (`harness/new-analysis.ts`), same discipline as AXI-2328/AXI-2361:
  * the intent-prefill suggestion + catalog, and the project SAP list.
@@ -82,5 +82,16 @@ test.describe.serial('Ready step lineage strip @SI-066', () => {
     const before = await page.getByTestId('na-ready-lineage-dataset').textContent();
     await page.getByTestId(`na-change-dataset-${dataset2}`).click();
     await expect(page.getByTestId('na-ready-lineage-dataset')).not.toHaveText(before ?? '');
+  });
+
+  test('FR47 — AXI-2375.3 the data check states its counts and the footer no longer mentions a signature', async ({ page }) => {
+    await openWizard(page, '/new-analysis', { suggestion: { kind: 'answer', body: { ...answered(QUESTION, 'compare_groups'), datasetIds: [dataset1] } } });
+    await reachReady(page, dataset1);
+    const check = page.getByTestId('na-ready-row-dataCheck');
+    await expect(check).toContainText(/n=\d+ .*\d+ missing/);
+    await expect(check).toContainText(/Smallest group n=\d+ · \d+ tied values/);
+    const step = page.getByTestId('na-step-ready');
+    await expect(step).toContainText(/run · Esc back/);
+    await expect(step).not.toContainText('signature');
   });
 });
