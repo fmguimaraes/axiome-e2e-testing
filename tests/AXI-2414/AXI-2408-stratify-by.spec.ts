@@ -42,6 +42,8 @@ const UI_FIXTURE = 'opening-templates-paul-header.csv';
 const KW = 'stats.kruskal_wallis';
 const DUNN = 'stats.dunn_posthoc';
 const SVC = 'organization_svc';
+/** The result page's catch-all panel refusal (`result-page-preset.ts#PANEL_NOT_RUN`). */
+const PANEL_NOT_RUN = 'Not run: an earlier step for this level was refused.';
 const GROUPS = ['HD', 'IgG4-RD', 'SD'];
 const STRATA = ['CER 215 et 234', 'CER 229', 'ENT 059'];
 const REFERENCES = ['CER 215 et 234', 'CER 228', 'CER 229', 'ENT 059', 'MAG4 13', 'MAG4 22', 'MAG4 27'];
@@ -166,6 +168,14 @@ test.describe.serial('AXI-2408 stratifyBy — one run per stratum, a faceted cha
     expect(groupFilter?.params).toMatchObject({ operator: 'in', value: GROUPS });
     for (const n of nodesOf(plan, KW)) expect(ancestorsOf(plan, n.id)).toContain(groupFilter.id);
     for (const n of nodesOf(plan, DUNN)) expect(n.params.multipleTesting).toMatchObject({ method: 'holm', declaredFamilySize: 3 });
+    // D29 for the omnibus too (review bounce #1, B2): no family pooled across the strata - each
+    // stratum's Kruskal–Wallis is declared outside it and keeps its own ceiling (never 'exploratory')
+    expect(plan.declaredFamily).toMatchObject({ familySize: 0, memberNodeIds: [] });
+    for (const n of nodesOf(plan, KW)) {
+      expect(n.familyId ?? null).toBeNull();
+      expect(n.proposedClaimCeiling).not.toBe('exploratory');
+      expect(n.params.in_correction_family).toBe(false);
+    }
 
     // Assert — every preset faceted by reference, one panel per stratum citing its own nodes only
     for (const preset of compiled.body.chartPresets) {
@@ -290,6 +300,11 @@ test.describe.serial('AXI-2408 stratifyBy — one run per stratum, a faceted cha
     const empty = preset.panels.find((p: any) => p.facet === UNOBSERVED[0]);
     expect(empty).toMatchObject({ chartRuleRunId: null });
     expect(String(empty.refusal ?? '')).not.toBe('');
+    // ...and it is the stratum's OWN recorded reason (D30), never the "an earlier step was refused"
+    // catch-all: the empty stratum's Kruskal-Wallis records why it failed (review bounce #1, B1)
+    expect(empty.refusal).not.toBe(PANEL_NOT_RUN);
+    const pairwise = resultFor(served, DUNN, 'ENT 059')?.preset;
+    if (pairwise) expect(pairwise.panels.find((p: any) => p.facet === UNOBSERVED[0])?.refusal).toBe(empty.refusal);
     expect(preset.panels.find((p: any) => p.facet === 'ENT 059')).toMatchObject({ refusal: null });
 
     // Assert — the browser lists the refused stratum with its reason under the figure
