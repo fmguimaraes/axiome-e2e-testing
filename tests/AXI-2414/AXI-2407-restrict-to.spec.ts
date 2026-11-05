@@ -23,6 +23,11 @@ import { psql, psqlRows } from '../AXI-1640/harness/seed';
  * `question` or `decided`), re-checks it, compiles it and records it. Ready shows it as a
  * "Limited to" row with a plain-words Change — never a filter table.
  *
+ * Review bounce #3 (B6, owner ruling): the question is read ONLY when it names exactly one level
+ * of one column with no list. A list ("in C2 or C4") or a second candidate level is AMBIGUOUS —
+ * `reading: null`, asked in plain words (AC55 "read from the question OR asked"), never resolved
+ * from free text. .6/.8/.9 assert the list question is asked; .7 launches a single-level reading.
+ *
  * Scenarios: `axiome-docs/manual-e2e/AXI-2414-Guided-Wizard-Follow-up.md` § AXI-2407 (.1–.9).
  *
  * .4/.8 (EC32, zero rows) need a declared-but-unobserved level, which the profiler alone can never
@@ -50,8 +55,14 @@ const MW = 'stats.mann_whitney_u';
 const SVC = 'organization_svc';
 const UNOBSERVED = 'C5-unobserved';
 const ALL_ROWS_N = 24;
+/** A LIST of levels: never read from the question — asked (B6). */
 const WIZARD_QUESTION = `Does ${MAG4} differ between F and M in C2 or C4?`;
+/** One level of one column, cued, no list: read directly. */
+const SINGLE_QUESTION = `Does ${MAG4} differ between F and M in C2?`;
 const T1_SLOTS = [{ slot: 'groupingColumn', value: 'sexe' }, { slot: 'groups', value: ['F', 'M'] }, { slot: 'outcome', value: MAG4 }];
+/** .7: cluster C1 vs C2 limited to one sex — read from the question ("among F", 12 rows: C1 = 6 F, C2 = 6 F). */
+const READ_LAUNCH_QUESTION = `Does ${MAG4} differ between C1 and C2 among F?`;
+const READ_LAUNCH_SLOTS = [{ slot: 'groupingColumn', value: CLUSTER }, { slot: 'groups', value: ['C1', 'C2'] }, { slot: 'outcome', value: MAG4 }];
 const UI_QUESTION = 'Does IgG4 differ by sex in C2 or C4?';
 const UI_READ = answered(UI_QUESTION, 'compare_groups', [['outcome', 'igg4_g_l', 'IgG4'], ['groupingColumn', 'sexe', 'by sex']]);
 
@@ -110,12 +121,14 @@ async function mannWhitneyN(tableRunId: string): Promise<number> {
   return Number(row.nGroupFrom) + Number(row.nGroupTo);
 }
 
-/** The analysis's ONE filter snapshot naming `CLUSTER` (the baseline has no filters). */
-function clusterFilterSnapshots(viewAnalysisId: string): string[] {
+/** The analysis's filter snapshots naming `column` (the baseline has no filters). */
+function filterSnapshotsOn(viewAnalysisId: string, column: string): string[] {
   return psqlRows(
-    `SELECT id FROM ${SVC}.view_analysis_snapshots WHERE view_analysis_id = '${viewAnalysisId}' AND origin = 'filter' AND filters::text LIKE '%${CLUSTER}%'`,
+    `SELECT id FROM ${SVC}.view_analysis_snapshots WHERE view_analysis_id = '${viewAnalysisId}' AND origin = 'filter' AND filters::text LIKE '%${column}%'`,
   );
 }
+
+const clusterFilterSnapshots = (viewAnalysisId: string): string[] => filterSnapshotsOn(viewAnalysisId, CLUSTER);
 
 async function submitRaw(plan: unknown) {
   return api.post('/api/v1/governed-execution/submit', { projectId: t.projectId, plan, datasetId: dataset.datasetId, workspaceId: t.workspaceId }, t.headers);
@@ -224,47 +237,54 @@ test.describe.serial('AXI-2407 restrictTo template parameter @SI-045 @SI-017 @SI
     expect(await mannWhitneyN(filtered.tableRunId)).toBe(12);
   });
 
-  test('FR58 FR49 AC55 — AXI-2407.6 the wizard offer reads the restriction from the question, with its exact words, in the server\'s one wording @SI-045 @SI-010', async () => {
+  test('FR58 FR49 AC55 — AXI-2407.6 the wizard offer reads ONE level from the question with its exact words, and asks for a list, in the server\'s one wording @SI-045 @SI-010', async () => {
     // Act
-    const offer = await offerFor(WIZARD_QUESTION, 'sexe');
+    const single = await offerFor(SINGLE_QUESTION, 'sexe');
+    const list = await offerFor(WIZARD_QUESTION, 'sexe');
     const silent = await offerFor(`Does ${MAG4} differ between F and M?`, 'sexe');
     // B5: an article or a count is never read as a level — "a", "2" are ordinary words here
     const ordinary = await offerFor(`Is there a difference in ${MAG4} between F and M, comparing 2 groups?`, 'sexe');
 
-    // Assert
-    expect(offer.wording).toEqual({
-      name: 'Limited to',
-      question: 'Do you want to limit this to certain rows?',
-      hint: 'Pick a column and the level(s) to keep — e.g. only disease cases, or only one visit.',
-    });
-    expect(offer.options.map((o: any) => o.column)).toContain(CLUSTER);
-    expect(offer.options.map((o: any) => o.column)).not.toContain('sexe');
-    expect(offer.reading).toMatchObject({ column: CLUSTER, levels: ['C2', 'C4'], sourceSpan: { text: 'C2 or C4' } });
-    expect(WIZARD_QUESTION.slice(offer.reading.sourceSpan.start, offer.reading.sourceSpan.end)).toBe('C2 or C4');
+    // Assert — the one wording and the offered columns, whatever the question says
+    for (const offer of [single, list]) {
+      expect(offer.wording).toEqual({
+        name: 'Limited to',
+        question: 'Do you want to limit this to certain rows?',
+        hint: 'Pick a column and the level(s) to keep — e.g. only disease cases, or only one visit.',
+      });
+      expect(offer.options.map((o: any) => o.column)).toContain(CLUSTER);
+      expect(offer.options.map((o: any) => o.column)).not.toContain('sexe');
+    }
+    // one level, cued, no list: read directly with its span
+    expect(single.reading).toMatchObject({ column: CLUSTER, levels: ['C2'], sourceSpan: { text: 'C2' } });
+    expect(SINGLE_QUESTION.slice(single.reading.sourceSpan.start, single.reading.sourceSpan.end)).toBe('C2');
+    // B6: a list of levels is ambiguous — never read (not even partly), asked instead
+    expect(list.reading).toBeNull();
     expect(silent.reading).toBeNull();
     expect(ordinary.reading).toBeNull();
   });
 
-  test('FR58 AC55 — AXI-2407.7 a wizard launch carrying the question\'s restriction compiles the filter, runs on it and records it @SI-045 @SI-017 @SI-010', async () => {
+  test('FR58 AC55 — AXI-2407.7 a wizard launch carrying the question\'s single-level restriction compiles the filter, runs on it and records it @SI-045 @SI-017 @SI-010', async () => {
     // Arrange
-    const { reading } = await offerFor(WIZARD_QUESTION, 'sexe');
+    const { reading } = await offerFor(READ_LAUNCH_QUESTION, CLUSTER);
+    expect(reading).toMatchObject({ column: 'sexe', levels: ['F'], sourceSpan: { text: 'F' } });
     const restrictTo = { column: reading.column, levels: reading.levels, provenance: 'question', sourceSpan: reading.sourceSpan, answeredAt: new Date().toISOString() };
 
     // Act
-    const res = await api.post(WIZARD_RUNS, { ...wizardBody(t, dataset, 'T1', WIZARD_QUESTION, 'compare_groups', T1_SLOTS), restrictTo }, t.headers);
+    const res = await api.post(WIZARD_RUNS, { ...wizardBody(t, dataset, 'T1', READ_LAUNCH_QUESTION, 'compare_groups', READ_LAUNCH_SLOTS), restrictTo }, t.headers);
     expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body.ok, JSON.stringify(res.body)).toBe(true);
     const settled = await drainGoverned(api, t, res.body.runId);
 
     // Assert — the record carries the answer; the operation read the filter's 12 rows
     const records = (await api.get(`${WIZARD_RUNS}?projectId=${t.projectId}&runId=${res.body.runId}`, t.headers)).body.records;
-    expect(records[0].restrictTo).toMatchObject({ column: CLUSTER, levels: ['C2', 'C4'], provenance: 'question', sourceSpan: reading.sourceSpan });
+    expect(records[0].restrictTo).toMatchObject({ column: 'sexe', levels: ['F'], provenance: 'question', sourceSpan: reading.sourceSpan });
     const run = await operationRun(settled);
-    expect(clusterFilterSnapshots(res.body.viewAnalysisId)).toEqual([run.snapshotId]);
+    expect(filterSnapshotsOn(res.body.viewAnalysisId, 'sexe')).toEqual([run.snapshotId]);
     expect(await mannWhitneyN(run.tableRunId)).toBe(12);
   });
 
-  test('FR49 — AXI-2407.8 a "question" restriction the question does not say is refused, and a zero-row restriction is EMPTY_FILTER_RESULT — neither writes anything @SI-045 @SI-010', async () => {
+  test('FR49 — AXI-2407.8 a "question" restriction the question does not say (incl. a list it names) is refused, and a zero-row restriction is EMPTY_FILTER_RESULT — none writes anything @SI-045 @SI-010', async () => {
     // Arrange
     const before = durableWrites();
     const at = new Date().toISOString();
@@ -273,17 +293,22 @@ test.describe.serial('AXI-2407 restrictTo template parameter @SI-045 @SI-017 @SI
 
     // Act
     const unread = await api.post(WIZARD_RUNS, { ...base, restrictTo: { column: CLUSTER, levels: ['C1'], provenance: 'question', sourceSpan: span, answeredAt: at } }, t.headers);
+    // B6: the question names a list — claiming it was READ is refused (it is asked: provenance decided)
+    const listSpan = { text: 'C2 or C4', start: WIZARD_QUESTION.indexOf('C2'), end: WIZARD_QUESTION.indexOf('C4') + 2 };
+    const listClaim = await api.post(WIZARD_RUNS, { ...base, restrictTo: { column: CLUSTER, levels: ['C2', 'C4'], provenance: 'question', sourceSpan: listSpan, answeredAt: at } }, t.headers);
     const empty = await api.post(WIZARD_RUNS, { ...base, restrictTo: { column: CLUSTER, levels: [UNOBSERVED], provenance: 'decided', answeredAt: at } }, t.headers);
 
     // Assert
     expect(unread.status, JSON.stringify(unread.body)).toBe(200);
     expect(unread.body).toMatchObject({ ok: false, code: 'ANSWERS_REFUSED', ruleIds: ['WIZ_RESTRICT_TO_NOT_READ'] });
+    expect(listClaim.status, JSON.stringify(listClaim.body)).toBe(200);
+    expect(listClaim.body).toMatchObject({ ok: false, code: 'ANSWERS_REFUSED', ruleIds: ['WIZ_RESTRICT_TO_NOT_READ'] });
     expect(empty.status, JSON.stringify(empty.body)).toBe(200);
     expect(empty.body).toMatchObject({ ok: false, code: 'EMPTY_FILTER_RESULT' });
     expect(durableWrites()).toEqual(before);
   });
 
-  test('AC55 FR22 — AXI-2407.9 Ready shows "Limited to" from the question\'s words, asks in plain words on Change (no filter table), and Run sends it @SI-066 @SI-010', async ({ page }) => {
+  test('AC55 FR22 — AXI-2407.9 a question naming a list shows "All rows" on Ready, asks in plain words on Change (no filter table), and Run sends the decided answer @SI-066 @SI-010', async ({ page }) => {
     // Arrange — a real suggestion call id, so the question-read slots are citable (AXI-2327's recipe)
     const suggested = await api.post('/api/v1/guided-analysis/intent-prefill/suggest', { projectId: t.projectId, question: UI_QUESTION, dataset }, t.headers);
     expect(suggested.body, JSON.stringify(suggested.body)).toMatchObject({ status: 'answered' });
@@ -296,23 +321,31 @@ test.describe.serial('AXI-2407 restrictTo template parameter @SI-045 @SI-017 @SI
     await choose(page, 'na-read-confirm');
     await expect(page.getByTestId('na-step-ready')).toBeVisible();
 
-    // Act / Assert — the row, then the plain-words ask, then cancel back to the reading
+    // Act / Assert — B6: "C2 or C4" is a list, so nothing is read from the question: "All rows", no quoted words
     const row = page.getByTestId('na-ready-row-restrictTo');
     await expect(row).toContainText('Limited to', { timeout: 30_000 });
-    await expect(page.getByTestId('na-restrict-to-value')).toHaveText(`${CLUSTER}: C2, C4`);
-    await expect(row).toContainText('from C2 or C4');
+    await expect(page.getByTestId('na-restrict-to-value')).toHaveText('All rows');
+    await expect(row).not.toContainText('from C2');
+    // the plain-words ask: no table; the investigator names the column and both levels himself
     await page.getByTestId('na-change-restrictTo').click();
     const ask = page.getByTestId('na-restrict-to-ask');
     await expect(ask).toContainText('Do you want to limit this to certain rows?');
     await expect(ask.locator('table')).toHaveCount(0);
-    await page.getByTestId('na-restrict-to-cancel').click();
+    await page.getByTestId(`na-restrict-to-column-${CLUSTER}`).click();
+    await page.getByTestId('na-restrict-to-level-C2').check();
+    await page.getByTestId('na-restrict-to-level-C4').check();
+    await page.getByTestId('na-restrict-to-keep').click();
+    await expect(page.getByTestId('na-restrict-to-value')).toHaveText(`${CLUSTER}: C2, C4`);
+    await expect(row).not.toContainText('from C2');
     const launched = page.waitForResponse((r) => r.url().endsWith(WIZARD_RUNS) && r.request().method() === 'POST');
     await choose(page, 'na-run');
     const response = await launched;
     const answer = await response.json();
 
-    // Assert — the launch carried the question's restriction with its span, and the server accepted it
-    expect(response.request().postDataJSON().restrictTo).toMatchObject({ column: CLUSTER, levels: ['C2', 'C4'], provenance: 'question', sourceSpan: { text: 'C2 or C4' } });
+    // Assert — the launch carried the investigator's decided restriction (no span), and the server accepted it
+    const sent = response.request().postDataJSON().restrictTo;
+    expect(sent).toMatchObject({ column: CLUSTER, levels: ['C2', 'C4'], provenance: 'decided' });
+    expect(sent.sourceSpan).toBeUndefined();
     expect(answer.ok, JSON.stringify(answer)).toBe(true);
   });
 });
