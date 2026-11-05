@@ -60,7 +60,11 @@ const WIZARD_QUESTION = `Does ${MAG4} differ between F and M in C2 or C4?`;
 /** One level of one column, cued, no list: read directly. */
 const SINGLE_QUESTION = `Does ${MAG4} differ between F and M in C2?`;
 const T1_SLOTS = [{ slot: 'groupingColumn', value: 'sexe' }, { slot: 'groups', value: ['F', 'M'] }, { slot: 'outcome', value: MAG4 }];
-/** .7: cluster C1 vs C2 limited to one sex — read from the question ("among F", 12 rows: C1 = 6 F, C2 = 6 F). */
+/**
+ * .7: cluster C1 vs C2 limited to one sex — read from the question ("among F", 12 rows: C1 = 6 F,
+ * C2 = 6 F). Both clusters are single-sex, so n = 12 with or without the filter; narrowing is proven
+ * by the run's referent being the sexe filter snapshot, not by n.
+ */
 const READ_LAUNCH_QUESTION = `Does ${MAG4} differ between C1 and C2 among F?`;
 const READ_LAUNCH_SLOTS = [{ slot: 'groupingColumn', value: CLUSTER }, { slot: 'groups', value: ['C1', 'C2'] }, { slot: 'outcome', value: MAG4 }];
 const UI_QUESTION = 'Does IgG4 differ by sex in C2 or C4?';
@@ -276,7 +280,10 @@ test.describe.serial('AXI-2407 restrictTo template parameter @SI-045 @SI-017 @SI
     expect(res.body.ok, JSON.stringify(res.body)).toBe(true);
     const settled = await drainGoverned(api, t, res.body.runId);
 
-    // Assert — the record carries the answer; the operation read the filter's 12 rows
+    // Assert — the record carries the answer, and the operation's referent IS the sexe filter
+    // snapshot. That snapshot-identity assertion is the proof of narrowing: `mannWhitneyN === 12`
+    // alone proves nothing here, because every cluster in this fixture is single-sex, so the
+    // unfiltered C1-vs-C2 comparison would also read 12 rows. The n check only guards the count.
     const records = (await api.get(`${WIZARD_RUNS}?projectId=${t.projectId}&runId=${res.body.runId}`, t.headers)).body.records;
     expect(records[0].restrictTo).toMatchObject({ column: 'sexe', levels: ['F'], provenance: 'question', sourceSpan: reading.sourceSpan });
     const run = await operationRun(settled);
