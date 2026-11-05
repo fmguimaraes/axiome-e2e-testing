@@ -24,11 +24,16 @@ import { psqlRows } from '../AXI-1640/harness/seed';
  * Scenarios: `axiome-docs/manual-e2e/AXI-2414-Guided-Wizard-Follow-up.md` § AXI-2411 (.1–.7).
  *
  * Fixture: `tests/AXI-2308/fixtures/opening-templates-paul-header.csv` (AXI-2339; synthetic,
- * 24 rows, `cluster_selon_acr_eular_2019` C1–C4, six rows each). Its Kruskal–Wallis p is whatever
- * the fixture holds. .5 reads it from the run and asserts the branch that p implies; it never
- * hard-codes a p.
+ * 24 rows, `cluster_selon_acr_eular_2019` C1–C4, six rows each). Each branch of `if_significant`
+ * is driven by its own column whose Kruskal–Wallis p over the clusters is a fixed fact of this
+ * fixture (scipy, AXI-2411 review bounce #1, B1):
+ * - `igg4_g_l`, p = 0.006: significant. .5a asserts Dunn runs and the brackets are drawn. .4 uses it
+ *   too, so the "no brackets" of `never` is caused by the choice, not by the data.
+ * - `microbiote_igg4_cer_228`, p = 0.933: not significant. .5b asserts Dunn is withheld.
+ * Neither scenario branches on a p read at run time: a data-dependent branch only ever exercises
+ * one side.
  *
- * .5 reads the Dunn step's recorded output from the append-only `governed_run_events` log through
+ * .5a/.5b read the Dunn step's recorded output from the append-only `governed_run_events` log through
  * `psql` on the stack's Postgres container (`E2E_PG_CONTAINER`), because the status read carries
  * no step output.
  *
@@ -39,13 +44,16 @@ import { psqlRows } from '../AXI-1640/harness/seed';
 
 const FIXTURE = 'opening-templates-paul-header.csv';
 const CLUSTER = 'cluster_selon_acr_eular_2019';
-const OUTCOME = 'igg4_g_l';
+const OUTCOME = 'igg4_g_l'; // KW p = 0.006 over C1–C4: significant
+const NOT_SIGNIFICANT = 'microbiote_igg4_cer_228'; // KW p = 0.933 over C1–C4
+const PAIRS = 6; // k(k-1)/2 over C1–C4
 const KW = 'stats.kruskal_wallis';
 const DUNN = 'stats.dunn_posthoc';
 const SVC = 'organization_svc';
 const ALPHA = 0.05;
 const ALPHA_ORIGIN = 'platform_default_awaiting_confirmation';
-const QUESTION = `Does ${OUTCOME} differ across the clusters?`;
+const questionOf = (outcome: string) => `Does ${outcome} differ across the clusters?`;
+const QUESTION = questionOf(OUTCOME);
 const UI_QUESTION = 'Does IgG4 differ across clusters?';
 const UI_READ = answered(UI_QUESTION, 'compare_groups', [['outcome', OUTCOME, 'IgG4'], ['groupingColumn', CLUSTER, 'clusters']]);
 
@@ -53,15 +61,15 @@ let api: Api;
 let t: Tenant;
 let dataset: AnchoredDataset;
 
-const t2Parameters = (posthoc?: string) => ({
+const t2Parameters = (posthoc?: string, outcome = OUTCOME) => ({
   datasetId: dataset.datasetId,
   groupingColumn: CLUSTER,
-  outcome: OUTCOME,
+  outcome,
   ...(posthoc ? { posthoc } : {}),
 });
-const t2Slots = (posthoc: string) => [
+const t2Slots = (posthoc: string, outcome = OUTCOME) => [
   { slot: 'groupingColumn', value: CLUSTER },
-  { slot: 'outcome', value: OUTCOME },
+  { slot: 'outcome', value: outcome },
   { slot: 'posthoc', value: posthoc },
 ];
 
@@ -94,6 +102,29 @@ function recordedOutputs(runId: string, planNodeId: string): any[] {
     `SELECT payload->'output' FROM ${SVC}.governed_run_events WHERE run_id = '${runId}' ` +
     `AND node_id = '${runId}__${planNodeId}' AND kind IN ('StepSucceeded', 'StepReused') ORDER BY seq`;
   return psqlRows(sql).map((row) => JSON.parse(row));
+}
+
+/** Launches T2 `if_significant` on `outcome`; returns the served page, its two results and Dunn's last recorded output. */
+async function launchIfSignificant(outcome: string) {
+  const compiled = await compileTemplate(api, t, dataset, 'T2', t2Parameters('if_significant', outcome));
+  expect(compiled.body.ok, JSON.stringify(compiled.body)).toBe(true);
+  const dunnPlanNodeId = nodeOf(compiled.body.plan, DUNN).id;
+  const body = wizardBody(t, dataset, 'T2', questionOf(outcome), 'compare_groups', t2Slots('if_significant', outcome));
+  const runId = await launchAndDrain(api, t, body);
+  const served = await resultPage(runId);
+  const kw = served.results.find((r: any) => r.operationId === KW);
+  expect(kw?.ruleRunId, JSON.stringify(served.results)).toBeTruthy();
+  const outputs = recordedOutputs(runId, dunnPlanNodeId);
+  expect(outputs.length, `no recorded Dunn output for ${runId}__${dunnPlanNodeId}`).toBeGreaterThan(0);
+  const dunn = served.results.find((r: any) => r.operationId === DUNN);
+  return { served, kw, dunn, output: outputs[outputs.length - 1], p: Number(kw.rows[0].pValue) };
+}
+
+/** The Kruskal–Wallis preset's annotations are served (its badge cites KW), so `pairwise` is a real read, never `?? []`. */
+function servedAnnotations(kw: any) {
+  expect(kw.preset?.annotations, JSON.stringify(kw.preset)).toBeTruthy();
+  expect(kw.preset.annotations.testAnnotation).toMatchObject({ operationId: KW, pValue: kw.rows[0].pValue });
+  return kw.preset.annotations;
 }
 
 test.describe.serial('AXI-2411 T2 post-hoc choice — always / only if significant / never @SI-045 @SI-017 @SI-066', () => {
@@ -159,17 +190,18 @@ test.describe.serial('AXI-2411 T2 post-hoc choice — always / only if significa
     expect(onT1.body.ruleIds).toContain('posthoc');
   });
 
-  test('AC59 AC60 FR62 FR22 — AXI-2411.4 a wizard launch with never runs Kruskal–Wallis only: no Dunn result, no brackets @SI-045 @SI-017 @SI-066', async () => {
+  test('AC59 AC60 FR62 FR22 — AXI-2411.4 a wizard launch with never runs Kruskal–Wallis only on a SIGNIFICANT column: no Dunn result, no brackets @SI-045 @SI-017 @SI-066', async () => {
     test.setTimeout(300_000);
-    // Act
+    // Act — igg4_g_l (KW p = 0.006): .5a draws brackets on it, so their absence here is `never`'s doing
     const runId = await launchAndDrain(api, t, wizardBody(t, dataset, 'T2', QUESTION, 'compare_groups', t2Slots('never')));
 
     // Assert
     const served = await resultPage(runId);
     const kw = served.results.find((r: any) => r.operationId === KW);
     expect(kw?.ruleRunId, JSON.stringify(served.results)).toBeTruthy();
+    expect(Number(kw.rows[0].pValue)).toBeLessThan(ALPHA);
     expect(served.results.filter((r: any) => r.operationId === DUNN)).toEqual([]);
-    expect(kw.preset?.annotations?.pairwise ?? []).toEqual([]);
+    expect(servedAnnotations(kw).pairwise).toEqual([]);
     expect(served.state).toBe('ready');
     expect(served.answer).toHaveLength(1);
     expect(served.answer[0]).toContain('Kruskal–Wallis');
@@ -178,33 +210,35 @@ test.describe.serial('AXI-2411 T2 post-hoc choice — always / only if significa
     expect(records[0].slots.find((s: any) => s.slot === 'posthoc')).toMatchObject({ value: 'never', provenance: 'decided' });
   });
 
-  test('AC59 FR62 NFR10 — AXI-2411.5 if_significant runs Dunn exactly when the omnibus p is below 0.05 @SI-045 @SI-047 @SI-017', async () => {
+  test('AC59 FR62 NFR10 — AXI-2411.5a if_significant on a significant column (igg4_g_l, KW p = 0.006) runs Dunn and draws its brackets @SI-045 @SI-047 @SI-017', async () => {
     test.setTimeout(300_000);
-    // Arrange
-    const compiled = await compileTemplate(api, t, dataset, 'T2', t2Parameters('if_significant'));
-    const dunnPlanNodeId = nodeOf(compiled.body.plan, DUNN).id;
-
     // Act
-    const runId = await launchAndDrain(api, t, wizardBody(t, dataset, 'T2', QUESTION, 'compare_groups', t2Slots('if_significant')));
+    const { served, kw, dunn, output, p } = await launchIfSignificant(OUTCOME);
 
-    // Assert — the branch the run's OWN omnibus p implies
-    const served = await resultPage(runId);
-    const kw = served.results.find((r: any) => r.operationId === KW);
-    const p = Number(kw?.rows?.[0]?.pValue);
-    expect(Number.isFinite(p), JSON.stringify(served.results)).toBe(true);
-    const outputs = recordedOutputs(runId, dunnPlanNodeId);
-    expect(outputs.length, `no recorded Dunn output for ${runId}__${dunnPlanNodeId}`).toBeGreaterThan(0);
-    const output = outputs[outputs.length - 1];
-    const dunn = served.results.find((r: any) => r.operationId === DUNN);
-    if (p < ALPHA) {
-      expect(output.posthocCondition).toMatchObject({ met: true, omnibusPValue: p, alpha: ALPHA, omnibusRuleRunId: kw.ruleRunId });
-      expect(dunn?.rows ?? [], JSON.stringify(served.results)).toHaveLength(6); // k(k-1)/2 over C1–C4
-      return;
-    }
+    // Assert — the met branch, never left to the data to pick
+    expect(p).toBeLessThan(ALPHA);
+    expect(output.posthocCondition).toMatchObject({ met: true, omnibusPValue: p, alpha: ALPHA, omnibusRuleRunId: kw.ruleRunId });
+    expect(dunn?.ruleRunId, JSON.stringify(served.results)).toBeTruthy();
+    expect(dunn.rows).toHaveLength(PAIRS);
+    const pairwise = servedAnnotations(kw).pairwise;
+    expect(pairwise).toHaveLength(PAIRS);
+    expect(pairwise).toEqual(dunn.rows.map((r: any) => ({ groupA: r.groupA, groupB: r.groupB, pValue: r.pValue, adjustedPValue: r.adjustedPValue })));
+    expect(served.state).toBe('ready');
+  });
+
+  test('AC59 FR62 NFR10 — AXI-2411.5b if_significant on a non-significant column (microbiote_igg4_cer_228, KW p = 0.933) withholds Dunn: no rule run, no brackets, page settles ready @SI-045 @SI-047 @SI-017', async () => {
+    test.setTimeout(300_000);
+    // Act
+    const { served, kw, dunn, output, p } = await launchIfSignificant(NOT_SIGNIFICANT);
+
+    // Assert — the withheld branch, never left to the data to pick
+    expect(p).toBeGreaterThanOrEqual(ALPHA);
     expect(output).toMatchObject({ kind: 'posthoc_withheld', ran: false, met: false, omnibusPValue: p, alpha: ALPHA, alphaOrigin: ALPHA_ORIGIN });
-    expect(dunn?.ruleRunId ?? null).toBeNull();
-    expect(kw.preset?.annotations?.pairwise ?? []).toEqual([]);
-    expect(served.state).toBe('ready'); // a withheld step is settled, never "running" forever
+    expect(dunn?.ruleRunId ?? null, JSON.stringify(served.results)).toBeNull();
+    expect(servedAnnotations(kw).pairwise).toEqual([]);
+    expect(served.state).toBe('ready'); // a withheld step is settled, never "running" forever (8ddf22d1)
+    expect(served.answer).toHaveLength(1);
+    expect(served.answer[0]).toContain('Kruskal–Wallis');
     expect(served.answer.join(' ')).not.toContain('Dunn');
   });
 

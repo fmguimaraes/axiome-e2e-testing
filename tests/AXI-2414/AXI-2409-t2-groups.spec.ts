@@ -193,6 +193,9 @@ test.describe.serial('AXI-2409 T2 groups — compare three or more chosen levels
     await choose(page, 'na-choice-compare_groups');
     await choose(page, 'na-choice-T2');
     await choose(page, 'na-read-confirm');
+    // AXI-2411: the question names no post-hoc, so T2 asks "Pairwise follow-up" first — pick "Always"
+    await expect(page.getByTestId('na-step-decide-posthoc')).toBeVisible({ timeout: 30_000 });
+    await choose(page, 'na-choice-0');
     await expect(page.getByTestId('na-step-ready')).toBeVisible();
 
     // Assert — every group, pre-filled from the data, under its served name
