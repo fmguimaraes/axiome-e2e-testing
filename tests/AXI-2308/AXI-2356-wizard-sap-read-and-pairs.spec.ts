@@ -183,7 +183,6 @@ test.describe.serial('AXI-2356 wizard follow-ups — a failed SAP read blocks Ru
     await expect(page.getByTestId('na-ready-row-plan')).toContainText('Not known yet');
     await expect(page.getByTestId('na-ready-analysis')).not.toContainText('Exploratory');
     await expect(page.getByTestId('na-step-ready').getByRole('heading', { level: 1 })).toHaveText('Here is the analysis you have set up.');
-    await expect(page.getByTestId('na-rail-plan')).toContainText('The analysis plan could not be read');
     await shot(page, 'AXI-2356.2-sap-read-error');
 
     const before = o.sap.reads;
@@ -194,9 +193,8 @@ test.describe.serial('AXI-2356 wizard follow-ups — a failed SAP read blocks Ru
     o.sap.set({ kind: 'none' });
     await choose(page, 'na-run-block-retry');
     await expectRunOpen(page);
-    await expect(page.getByTestId('na-ready-analysis')).toContainText('Exploratory — this project has no analysis plan');
+    await expect(page.getByTestId('na-ready-analysis')).toContainText('This project has no analysis plan');
     await expect(page.getByTestId('na-step-ready').getByRole('heading', { level: 1 })).toHaveText('Here is the exploratory analysis you have set up.');
-    await expect(page.getByTestId('na-rail-plan')).toContainText('Exploratory — no analysis plan');
     await expect(page.getByTestId('na-run')).toBeFocused();
     expect(o.launches(), 'nothing was launched while the plan was unread').toBe(0);
     await shot(page, 'AXI-2356.2-after-retry-no-sap');
@@ -223,7 +221,7 @@ test.describe.serial('AXI-2356 wizard follow-ups — a failed SAP read blocks Ru
     await press(page, 'n');
     await expect(page.getByTestId('na-step-ready')).toBeVisible();
     await expectRunOpen(page);
-    await expect(page.getByTestId('na-ready-analysis')).toContainText('Exploratory — you chose not to use the project’s analysis plan');
+    await expect(page.getByTestId('na-ready-analysis')).toContainText('You chose not to use the project’s analysis plan');
     expect(o.launches()).toBe(0);
   });
 
@@ -239,7 +237,7 @@ test.describe.serial('AXI-2356 wizard follow-ups — a failed SAP read blocks Ru
     const reads = o.sap.reads;
     o.sap.set({ kind: 'none' });
     await expectRunOpen(page);
-    await expect(page.getByTestId('na-ready-analysis')).toContainText('Exploratory — this project has no analysis plan');
+    await expect(page.getByTestId('na-ready-analysis')).toContainText('This project has no analysis plan');
     // the pending read was answered, not retried: no new read was needed to open Run
     expect(o.sap.reads).toBe(reads);
   });

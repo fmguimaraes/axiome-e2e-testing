@@ -216,7 +216,6 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     expect(await checkedKeys(page, 'Use a statistical analysis plan')).toEqual(['no']);
     await press(page, 'n');
     await expect(page.getByTestId('na-step-intent')).toBeVisible();
-    await expect(page.getByTestId('na-rail-plan')).toContainText('Exploratory');
     await expect(page.getByTestId('na-back')).toHaveText('← Back to the plan question');
   });
 
@@ -321,7 +320,7 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await expect(page.getByTestId('na-run')).toBeFocused();
     await expect(page.getByTestId('na-step-ready').getByRole('heading', { level: 1 })).toHaveText('Here is the exploratory analysis you have set up.');
     await expect(page.getByTestId('na-ready-analysis')).toContainText('Compare groups');
-    await expect(page.getByTestId('na-ready-analysis')).toContainText('Exploratory — this project has no analysis plan');
+    await expect(page.getByTestId('na-ready-analysis')).toContainText('This project has no analysis plan');
     await expect(page.getByTestId('na-ready-question')).toContainText('from IgG4');
     await expect(page.getByTestId('na-ready-handled')).toContainText('F vs M');
     await expect(page.getByTestId('na-ready-settled')).toBeVisible(); // EC23: nothing had to be asked
@@ -400,7 +399,7 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await expect(page.getByTestId('na-step-intent')).toBeVisible();
     expect(await checkedKeys(page, 'Intent')).toEqual([]);
     await expect(page.getByTestId('na-rail-question')).toContainText('Does age differ across clusters?');
-    await expect(page.getByTestId('na-rail-analysis')).toContainText('—');
+    await expect(page.getByTestId('na-rail-analysis-answer')).toHaveCount(0);
   });
 
   for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {

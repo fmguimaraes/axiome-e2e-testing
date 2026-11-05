@@ -158,7 +158,7 @@ test.describe.serial('AXI-2403 empty question — Enter alone chooses the analys
     await pickCompareGroupsT1(page);
 
     await expect(page.getByTestId('na-rail-question-answer')).toHaveText('none'); // never a blank line
-    await expect(page.getByTestId('na-ready-flow-question')).toContainText('—'); // not an empty box
+    await expect(page.getByTestId('na-ready-lineage-question')).toHaveText('—'); // not an empty label
     await expect(page.getByTestId('na-ready-question')).toHaveCount(0); // no "taken from how you asked" card — nothing was
 
     const addQuestion = page.getByTestId('na-ready-add-question');

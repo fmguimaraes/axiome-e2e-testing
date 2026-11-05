@@ -6,9 +6,8 @@ import { ingestCsvFixture } from './harness/opening-templates';
 import { answered, askQuestion, choose, gotoSettled, seedScope, stubWizardRoutes, type WizardStubs } from './harness/new-analysis';
 
 /**
- * AXI-2375 (epic AXI-2308 — FR47 restyle; owner, 2026-11-01): the Ready step's orientation
- * strip is a real React Flow graph (`ReadyFlowGraph.tsx`), built the way the Discovery
- * Workbench builds its graph, in place of the hand-made flex row of boxes it replaces.
+ * Epic AXI-2308, W5 validation (replaces AXI-2375's React Flow graph): the Ready step's orientation
+ * is a one-line lineage strip (`ReadyLineage.tsx`), plus the data check under "Handled for you".
  *
  * Scenario doc: `axiome-docs/manual-e2e/AXI-2308-Platform-Opening-Human-Guided.md` § AXI-2375.1–.2.
  *
@@ -53,7 +52,7 @@ async function reachReady(page: Page, datasetId: string) {
   await expect(page.getByTestId('na-step-ready')).toBeVisible();
 }
 
-test.describe.serial('AXI-2375 Ready step React Flow graph @SI-066', () => {
+test.describe.serial('Ready step lineage strip @SI-066', () => {
   test.beforeAll(async () => {
     test.setTimeout(300_000);
     api = await adminApi();
@@ -67,29 +66,21 @@ test.describe.serial('AXI-2375 Ready step React Flow graph @SI-066', () => {
     await api?.ctx.dispose();
   });
 
-  test('FR47 — AXI-2375.1 the graph renders the question, dataset, population and template nodes, framed on load', async ({ page }) => {
+  test('FR47 — AXI-2375.1 the lineage reads the question, dataset with rows, population and method', async ({ page }) => {
     await openWizard(page, '/new-analysis', { suggestion: { kind: 'answer', body: { ...answered(QUESTION, 'compare_groups'), datasetIds: [dataset1] } } });
     await reachReady(page, dataset1);
-    const graph = page.getByTestId('na-ready-graph');
-    await expect(graph).toBeVisible();
-    await expect(graph.getByTestId('na-ready-flow-question')).toContainText(QUESTION);
-    await expect(graph.getByTestId('na-ready-flow-population')).toContainText('Population');
-    await expect(graph.getByTestId('na-ready-flow-template')).toContainText('Compare groups');
-    // Framed on load: the canvas's own bounding box is non-empty and no node sits outside it.
-    const box = await graph.boundingBox();
-    expect(box?.width).toBeGreaterThan(0);
-    expect(box?.height).toBeGreaterThan(0);
+    await expect(page.getByTestId('na-ready-lineage-question')).toHaveText(QUESTION);
+    await expect(page.getByTestId('na-ready-lineage-dataset')).toContainText(/\(\d+ rows\)/);
+    await expect(page.getByTestId('na-ready-lineage')).toContainText('Population');
+    await expect(page.getByTestId('na-ready-lineage-method')).toContainText('Mann-Whitney U test');
+    await expect(page.getByTestId('na-ready-row-dataCheck')).toContainText(/n=\d+ .* missing/);
   });
 
-  test('FR47 FR51 — AXI-2375.2 changing the dataset on Ready updates the graph\'s dataset node and re-frames', async ({ page }) => {
+  test('FR47 FR51 — AXI-2375.2 changing the dataset on Ready updates the lineage', async ({ page }) => {
     await openWizard(page, '/new-analysis', { suggestion: { kind: 'answer', body: { ...answered(QUESTION, 'compare_groups'), datasetIds: [dataset1] } } });
     await reachReady(page, dataset1);
-    const other = page.getByTestId(`na-change-dataset-${dataset2}`);
-    await expect(other).toBeVisible();
-    await other.click();
-    await expect(page.getByTestId('na-ready-graph').getByTestId('na-ready-flow-dataset')).toBeVisible();
-    // The design row below the graph is the existing source of truth for the dataset name —
-    // the graph node is asserted to simply be present and re-mounted, not re-reading the name twice.
-    await expect(page.getByTestId('na-ready-row-dataset')).toBeVisible();
+    const before = await page.getByTestId('na-ready-lineage-dataset').textContent();
+    await page.getByTestId(`na-change-dataset-${dataset2}`).click();
+    await expect(page.getByTestId('na-ready-lineage-dataset')).not.toHaveText(before ?? '');
   });
 });
