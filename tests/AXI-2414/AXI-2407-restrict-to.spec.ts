@@ -317,7 +317,7 @@ test.describe.serial('AXI-2407 restrictTo template parameter @SI-045 @SI-017 @SI
 
   test('AC55 FR22 — AXI-2407.9 a question naming a list shows "All rows" on Ready, asks in plain words on Change (no filter table), and Run sends the decided answer @SI-066 @SI-010', async ({ page }) => {
     // Arrange — a real suggestion call id, so the question-read slots are citable (AXI-2327's recipe)
-    const suggested = await api.post('/api/v1/guided-analysis/intent-prefill/suggest', { projectId: t.projectId, question: UI_QUESTION, dataset }, t.headers);
+    const suggested = await api.post('/api/v1/guided-analysis/intent-prefill/suggest', { projectId: t.projectId, question: UI_QUESTION, datasets: [dataset] }, t.headers);
     expect(suggested.body, JSON.stringify(suggested.body)).toMatchObject({ status: 'answered' });
     await seedScope(page, t);
     await stubWizardRoutes(page, { suggestion: { kind: 'answer', body: { ...UI_READ, callId: suggested.body.callId } } });
