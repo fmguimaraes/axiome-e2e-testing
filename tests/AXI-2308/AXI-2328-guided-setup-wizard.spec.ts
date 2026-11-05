@@ -307,6 +307,9 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await expect(page.getByTestId('na-back')).toHaveText('← Previous question');
     expect(await checkedKeys(page, 'Which measurement do you compare?')).toEqual([]);
     await chooseRadio(page, /igg4_g_l/);
+    // AXI-2411: the question names no post-hoc, so T2 asks "Pairwise follow-up" first — pick "Always"
+    await expect(page.getByTestId('na-step-decide-posthoc')).toBeVisible({ timeout: 30_000 });
+    await choose(page, 'na-choice-0');
     await expect(page.getByTestId('na-step-ready')).toBeVisible();
     await expect(page.getByTestId('na-ready-decided')).toContainText('cluster_selon_acr_eular_2019');
     await expect(page.getByTestId('na-ready-decided')).toContainText('igg4_g_l');

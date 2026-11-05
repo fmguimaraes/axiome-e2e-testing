@@ -298,6 +298,9 @@ test.describe.serial('AXI-2356 wizard follow-ups — a failed SAP read blocks Ru
     await expect(page.getByTestId('na-step-decide-outcome')).toBeVisible();
     await expect(page.getByTestId('na-decide-blocks')).toContainText('Kruskal-Wallis');
     await chooseRadio(page, /igg4_g_l/);
+    // AXI-2411: the question names no post-hoc, so T2 asks "Pairwise follow-up" first — pick "Always"
+    await expect(page.getByTestId('na-step-decide-posthoc')).toBeVisible({ timeout: 30_000 });
+    await choose(page, 'na-choice-0');
     await expect(page.getByTestId('na-step-ready')).toBeVisible();
     await expect(page.getByTestId('na-ready-analysis')).toContainText('Kruskal-Wallis');
     await expect(page.getByTestId('na-ready-decided')).toContainText(MANY);
