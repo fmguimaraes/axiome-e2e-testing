@@ -318,7 +318,8 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await openWizard(page, { suggestion: { kind: 'answer', body: { ...SEX_READ, callId } } });
     await reachReadyBySex(page);
     await expect(page.getByTestId('na-run')).toBeFocused();
-    await expect(page.getByTestId('na-step-ready').getByRole('heading', { level: 1 })).toHaveText('Here is the exploratory analysis you have set up.');
+    await expect(page.getByTestId('na-step-ready').getByRole('heading', { level: 1 })).toHaveText('Here is the analysis you have set up.');
+    await expect(page.getByTestId('plan-status-exploratory')).toBeVisible();
     await expect(page.getByTestId('na-ready-analysis')).toContainText('Compare groups');
     await expect(page.getByTestId('na-ready-analysis')).toContainText('This project has no analysis plan');
     await expect(page.getByTestId('na-ready-question')).toContainText('from IgG4');

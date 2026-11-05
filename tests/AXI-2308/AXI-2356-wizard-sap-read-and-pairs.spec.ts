@@ -194,7 +194,8 @@ test.describe.serial('AXI-2356 wizard follow-ups — a failed SAP read blocks Ru
     await choose(page, 'na-run-block-retry');
     await expectRunOpen(page);
     await expect(page.getByTestId('na-ready-analysis')).toContainText('This project has no analysis plan');
-    await expect(page.getByTestId('na-step-ready').getByRole('heading', { level: 1 })).toHaveText('Here is the exploratory analysis you have set up.');
+    await expect(page.getByTestId('na-step-ready').getByRole('heading', { level: 1 })).toHaveText('Here is the analysis you have set up.');
+    await expect(page.getByTestId('plan-status-exploratory')).toBeVisible();
     await expect(page.getByTestId('na-run')).toBeFocused();
     expect(o.launches(), 'nothing was launched while the plan was unread').toBe(0);
     await shot(page, 'AXI-2356.2-after-retry-no-sap');
