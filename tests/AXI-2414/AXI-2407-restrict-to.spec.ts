@@ -324,7 +324,8 @@ test.describe.serial('AXI-2407 restrictTo template parameter @SI-045 @SI-017 @SI
     await gotoSettled(page, `/new-analysis?datasetId=${dataset.datasetId}`);
     await askQuestion(page, UI_QUESTION);
     await choose(page, 'na-choice-compare_groups');
-    await choose(page, `na-choice-T1::${dataset.datasetId}`);
+    // AXI-2359: one card per analysis — the choice key is the bare templateId (datasets are chips on the card)
+    await choose(page, 'na-choice-T1');
     await choose(page, 'na-read-confirm');
     await expect(page.getByTestId('na-step-ready')).toBeVisible();
 
