@@ -135,7 +135,7 @@ async function shot(page: Page, name: string) {
   await page.screenshot({ path: test.info().outputPath(`${name}.png`), fullPage: true });
 }
 
-async function expectRunBlocked(page: Page, block: 'sap-error' | 'sap-loading' | 'sap-unanswered') {
+async function expectRunBlocked(page: Page, block: 'sap-error' | 'sap-loading') {
   await expect(page.getByTestId(`na-run-block-${block}`)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('na-run')).toBeDisabled();
 }
@@ -201,28 +201,22 @@ test.describe.serial('AXI-2356 wizard follow-ups — a failed SAP read blocks Ru
     await shot(page, 'AXI-2356.2-after-retry-no-sap');
   });
 
-  test('AC12 Q11 — AXI-2356.3 a network failure, then a Retry that finds a SAP: the plan question is asked before Run @SI-066 @SI-030', async ({ page }) => {
+  // AXI-2437 (FR56, AC24): the Plan step is gone — a SAP found by Retry never blocks or asks
+  // anything any more; Run opens as soon as the read answers, same as "no SAP", just worded to
+  // say the SAP exists but this run does not use it (never "you chose", since nobody was asked).
+  test('AC12 Q11 — AXI-2356.3 a network failure, then a Retry that finds a SAP: Run opens at once, no plan question @SI-066 @SI-030', async ({ page }) => {
     const o = await openTeam(page, { kind: 'network-error' }, { suggestion: { kind: 'answer', body: SEX_READ } });
-    await expect(page.getByTestId('na-bar-plan')).toHaveCount(0);
+    await expect(page.getByTestId('na-step-plan')).toHaveCount(0);
     await reachReadyBySex(page);
     await expectRunBlocked(page, 'sap-error');
 
     o.sap.set({ kind: 'sap', row: SAP_ROW });
     await choose(page, 'na-run-block-retry');
-    await expectRunBlocked(page, 'sap-unanswered');
-    await expect(page.getByTestId('na-run-block-sap-unanswered')).toContainText('This project has an analysis plan. Choose whether this run uses it.');
-    await expect(page.getByTestId('na-bar-plan')).toBeVisible();
-    await expect(page.getByTestId('na-ready-row-plan')).toContainText('Not chosen yet');
-    await shot(page, 'AXI-2356.3-sap-found-plan-unanswered');
-
-    await choose(page, 'na-run-block-answerPlan');
-    await expect(page.getByTestId('na-step-plan')).toBeVisible();
-    await expect(page.getByTestId('na-step-plan')).toContainText('“IgG4 SAP” (version 1)');
-    await expect(page.getByTestId('na-choice-no')).toHaveAttribute('aria-checked', 'true');
-    await press(page, 'n');
-    await expect(page.getByTestId('na-step-ready')).toBeVisible();
     await expectRunOpen(page);
-    await expect(page.getByTestId('na-ready-analysis')).toContainText('You chose not to use the project’s analysis plan');
+    await expect(page.getByTestId('na-step-plan')).toHaveCount(0);
+    await expect(page.getByTestId('na-ready-row-plan')).toContainText('does not use');
+    await expect(page.getByTestId('na-ready-analysis')).toContainText('This run does not use the project’s analysis plan');
+    await shot(page, 'AXI-2356.3-sap-found-run-open');
     expect(o.launches()).toBe(0);
   });
 

@@ -105,7 +105,9 @@ async function expectRecordOf(runId: string, viewAnalysisId: string, callId: str
   expect(res.status, JSON.stringify(res.body)).toBe(200);
   expect(res.body.records).toHaveLength(1);
   const record = res.body.records[0];
-  expect(record).toMatchObject({ runId, viewAnalysisId, question: SEX_QUESTION, intent: 'compare_groups', intentSource: 'suggested', templateId: 'T1', suggestionCallId: callId, suggestionModel: 'claude-haiku-5-5', sapChoice: null });
+  // AXI-2437 (FR56): the wizard no longer asks the plan question, so every launch now sends
+  // `sapChoice: 'skip'` explicitly — never the absent/`null` field this record carried before.
+  expect(record).toMatchObject({ runId, viewAnalysisId, question: SEX_QUESTION, intent: 'compare_groups', intentSource: 'suggested', templateId: 'T1', suggestionCallId: callId, suggestionModel: 'claude-haiku-5-5', sapChoice: 'skip' });
   const bySlot = Object.fromEntries(record.slots.map((s: any) => [s.slot, s]));
   expect(bySlot.outcome).toMatchObject({ value: 'age', provenance: 'decided' });
   expect(bySlot.groupingColumn).toMatchObject({ value: 'sexe', provenance: 'question', sourceSpan: { text: 'by sex' } });
@@ -208,15 +210,15 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await expect(page.getByRole('alertdialog')).toHaveCount(0);
   });
 
-  test('AC41 — AXI-2328.5 with a project SAP the plan step is asked, No preselected, N answers it exploratory @SI-066', async ({ page }) => {
+  // AXI-2437 (FR56, AC24): the Plan step is gone entirely — even on a project with a SAP, the
+  // question moves straight to Intent, and the back control from Intent names the question, not
+  // a "plan question" that no longer exists.
+  test('AC24 — AXI-2328.5 with a project SAP there is still no plan step; the question moves straight to Intent @SI-066', async ({ page }) => {
     await openWizard(page, { saps: [{ sapVersionId: 'sap-v1', version: 1, title: 'Primary SAP', supersededBy: null }] });
-    await expect(page.getByTestId('na-bar-plan')).toBeVisible();
     await askQuestion(page, SEX_QUESTION);
-    await expect(page.getByTestId('na-step-plan')).toBeVisible();
-    expect(await checkedKeys(page, 'Use a statistical analysis plan')).toEqual(['no']);
-    await press(page, 'n');
     await expect(page.getByTestId('na-step-intent')).toBeVisible();
-    await expect(page.getByTestId('na-back')).toHaveText('← Back to the plan question');
+    await expect(page.getByTestId('na-step-plan')).toHaveCount(0);
+    await expect(page.getByTestId('na-back')).toHaveText('← Back to your question');
   });
 
   test('AC42 — AXI-2328.6 the suggested intent is preselected and labelled; a late suggestion never overrides a pick @SI-066', async ({ page }) => {
