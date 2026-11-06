@@ -150,7 +150,7 @@ test.describe.serial('AXI-2327 result page — answer, charts & navigation, evid
     expect(answer.ok, JSON.stringify(answer)).toBe(true);
     await expect(page).toHaveURL(new RegExp(`/projects/${t.projectId}/runs/${t1RunId}$`), { timeout: 30_000 });
     await expect(page.getByTestId('rp-answer')).toBeVisible({ timeout: 120_000 });
-    await expect(page.getByTestId('rp-eyebrow')).toHaveText('Results · exploratory');
+    await expect(page.getByTestId('rp-analysis-kind')).toHaveText('EXPLORATORY'); // AXI-2380: the tag line replaced the eyebrow
     await expect(page.getByTestId('rp-question')).toHaveText(SEX_QUESTION);
     await expect(page.getByTestId('rp-answer')).toHaveText(new RegExp(`^igg4_g_l: F \\(n = 12\\) vs M \\(n = 12\\); Mann–Whitney U = ${NUM}, p = ${NUM}\\.$`));
     const served = await api.get(apiPath(t1RunId), t.headers);

@@ -105,6 +105,9 @@ function stubResultPage(overrides: Record<string, unknown> = {}) {
     analysisKind: 'exploratory',
     answer: ['igg4_g_l: F (n = 12) vs M (n = 12); Mann-Whitney U = 40.5, p = 0.012.'],
     canStartAnalysis: true,
+    // AXI-2380: the post-AXI-2380 contract always carries these (null = no signed record / no mismatch).
+    signedQuestion: null,
+    questionMismatch: null,
     results: [
       {
         nodeId: 'n1',
@@ -115,6 +118,7 @@ function stubResultPage(overrides: Record<string, unknown> = {}) {
         style: null,
         rows: [{ statistic: 40.5, pValue: 0.012 }],
         summary: null,
+        numbersInWords: null,
         run: { snapshotId: null, workspaceId: world.workspaceId, operandRoles: null, operationParams: null },
         evidence: {
           groupNs: [{ group: 'F', n: 12 }, { group: 'M', n: 12 }],
