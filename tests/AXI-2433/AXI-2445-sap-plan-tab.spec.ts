@@ -1,10 +1,10 @@
 import { expect, request as apiRequest, test, type Page } from '@playwright/test';
 import { apiUrl } from '../../config/env';
-import { PrivateProjectsWorld, uploadCsvDataset, type Actor } from '../AXI-2265/private-projects-fixtures';
+import { PrivateProjectsWorld, type Actor } from '../AXI-2265/private-projects-fixtures';
 import { signInAs, uiActor, type UiActor } from '../AXI-2265/AXI-2269-helpers';
 import { silenceTours } from '../AXI-1904/harness/tours';
 import { gotoSettled } from '../AXI-2308/harness/new-analysis';
-import { SapApiStub, apiCallOf, questionInput, type ApiCall } from './harness/sap-api-stub';
+import { SapApiStub, apiCallOf, pinNewestT1, questionInput, t1Version, uploadArmScoreDataset, type ApiCall } from './harness/sap-api-stub';
 
 /**
  * AXI-2445 (epic AXI-2433 — Structured Statistical Analysis Plan) — the SAP surface: the
@@ -17,12 +17,11 @@ import { SapApiStub, apiCallOf, questionInput, type ApiCall } from './harness/sa
  * Scenarios: `axiome-docs/manual-e2e/AXI-2433-Structured-Statistical-Analysis-Plan.md`
  * § AXI-2445 (AXI-2445.1 … AXI-2445.12).
  *
- * E2E CONTRACT — REAL on the demo gateway: sign-in, fixture workspace, projects, dataset,
- * caller permissions (`GET /workspace-permissions/me`) and every AXI-2438 draft route (start,
- * `GET …/sap-draft`, read, save text / positions, add / remove question, discard). DOUBLED
- * (`harness/sap-api-stub.ts`) until AXI-2439 is deployed: completeness, finalise and
- * `/sap-templates`, plus the version reads a doubled finalise implies. Drop the double then;
- * no assertion depends on it.
+ * E2E CONTRACT — every route REAL on the demo gateway: sign-in, fixture workspace, projects,
+ * dataset, caller permissions (`GET /workspace-permissions/me`), every AXI-2438 draft route and
+ * every AXI-2439 route (completeness, finalise / amend, `/sap-templates`, version reads).
+ * AXI-2447 removed the AXI-2439 doubles; `harness/sap-api-stub.ts` only seeds through the API
+ * and records what the page sent. Finalise waits for the arm/score dataset's profile (CC4).
  *
  * Self-provisioned: a fresh workspace whose platform admin leaves it; a team editor, a team
  * viewer and an Investigator, all throwaway self-registered users. Run with `--no-deps`.
@@ -122,8 +121,9 @@ test.beforeAll(async () => {
   await world.addMember(investigator, { roleId: INVESTIGATOR_ROLE_ID });
   await world.leaveWorkspace();
   await silenceTours(investigator.accessToken);
-  datasetId = await uploadCsvDataset(world, editor);
+  datasetId = await uploadArmScoreDataset(world, editor.api, 'axi2445');
   call = apiCallOf(editor.api);
+  await pinNewestT1(call, (await newWorld('catalogue')).project.id); // seeds pin the registry's newest T1
 });
 
 test.afterAll(async () => {
@@ -205,9 +205,9 @@ test.describe('AXI-2445 SAP surface: Plan tab and entry points @SI-031 @SI-030',
     // Assert
     await expect(page.getByTestId('sap-draft-revision')).toHaveText('revision 1');
     await expect(page.getByTestId('sap-draft-no-questions')).toHaveText('No questions yet.');
-    await expect(page.getByTestId('sap-check-fail-CC1')).toContainText('No question has role primary.');
-    await expect(page.getByTestId('sap-check-fail-CC13')).toContainText('The plan has 0 questions.');
-    await expect(page.getByTestId('sap-check-fail-CC14')).toContainText('The title is blank.');
+    await expect(page.getByTestId('sap-check-fail-CC1')).toContainText('No question has role primary');
+    await expect(page.getByTestId('sap-check-fail-CC13')).toContainText('0 question(s): a SAP version must have between 1 and 50.');
+    await expect(page.getByTestId('sap-check-fail-CC14')).toContainText('Title is blank.');
     await expect(page.getByTestId('sap-completeness-not-checked')).toBeVisible();
     await expect(page.getByTestId('sap-finalise')).toBeDisabled();
     await expect(page.getByTestId('sap-start-draft')).toHaveCount(0);
@@ -302,7 +302,7 @@ test.describe('AXI-2445 SAP surface: Plan tab and entry points @SI-031 @SI-030',
     // Assert — version 1
     await expect(page.getByTestId('sap-final-title')).toHaveText('Plan AXI-2445 finalise');
     await expect(page.getByTestId('sap-final-version')).toHaveText('Version 1');
-    await expect(page.getByTestId('sap-final-hash')).toHaveText('1a2b3c4d5e6f');
+    await expect(page.getByTestId('sap-final-hash')).toHaveText(/^[0-9a-f]{12}$/);
     await expect(page.getByTestId('sap-final-finalised')).toContainText('Finalised');
     await expect(page.getByTestId('sap-final-questions-row-Q1')).toContainText('Does marker 1 differ between arms?');
     await expect(page.getByTestId('sap-final-questions-row-Q1')).toContainText('p ≤ 0.05');
@@ -311,11 +311,12 @@ test.describe('AXI-2445 SAP surface: Plan tab and entry points @SI-031 @SI-030',
 
     // Act — amend: a new title, a reason
     await page.getByTestId('sap-amend').click();
-    await expect(page.getByTestId('sap-draft-revision')).toHaveText('revision 3 · amends version 1');
+    // The server opens the amendment as a NEW draft holding a copy of version 1 (revision 1).
+    await expect(page.getByTestId('sap-draft-revision')).toHaveText('revision 1 · amends version 1');
     await expect(page.getByTestId('sap-draft-title')).toHaveValue('Plan AXI-2445 finalise');
     await page.getByTestId('sap-draft-title').fill('Plan AXI-2445 amended');
     await page.getByTestId('sap-draft-questionText').click();
-    await expect(page.getByTestId('sap-draft-revision')).toHaveText('revision 4 · amends version 1');
+    await expect(page.getByTestId('sap-draft-revision')).toHaveText('revision 2 · amends version 1');
     await page.getByTestId('sap-finalise').click();
     await expect(page.getByTestId('sap-finalise-confirm')).toHaveText('Finalise version 2');
     await expect(page.getByTestId('sap-finalise-confirm')).toBeDisabled();
@@ -331,24 +332,26 @@ test.describe('AXI-2445 SAP surface: Plan tab and entry points @SI-031 @SI-030',
     await expect(page.getByTestId('sap-history-reason-1')).toHaveText('—');
     expect(stub.writes.at(-1)).toEqual({
       method: 'POST', path: `/saps/${seeded.sapId}/draft/finalise`,
-      body: { basedOnRevision: 4, basedOnVersion: 1, amendmentReason: 'Added the secondary endpoint per protocol v3.' },
+      body: { basedOnRevision: 2, basedOnVersion: 1, amendmentReason: 'Added the secondary endpoint per protocol v3.' },
     });
   });
 
-  test('FR63 EC10 AXI-2445.6 a question bound to an older template version is flagged "newer version available" @SI-031', async ({ page }) => {
-    // Arrange — both questions pin 0.2; the registry's newest T1 is 0.3, T2 is still 0.2
-    const { stub } = await finalWorld('ec10', false, [
-      questionInput(1, 'primary'),
-      questionInput(2, 'secondary', { template: { templateId: 'T2', templateVersion: '0.2' } }),
-    ]);
-    stub.newestTemplates = { T1: '0.3', T2: '0.2' };
+  // EC10's positive half ("newer version available" on a question pinned below the registry's
+  // newest) is pinned in unit tests (ProjectSapPlanTab UT-FE-ADMIN-6840); the real-routes contract
+  // forbids doubling the registry, so this scenario checks the live half against whatever T1
+  // version the registry currently serves as newest (read in beforeAll, never hard-coded).
+  test('FR63 EC10 AXI-2445.6 a question pinned to the registry\'s newest version is not flagged "newer version available" @SI-031', async ({ page }) => {
+    // Arrange — the seeds pin the live registry's newest T1
+    const { stub } = await finalWorld('ec10', false, [questionInput(1, 'primary'), questionInput(2, 'secondary')]);
+    const templates = await call('GET', `/projects/${stub.projectId}/sap-templates`);
+    expect(templates.body.find((t: { templateId: string; isNewest: boolean }) => t.templateId === 'T1' && t.isNewest).templateVersion).toBe(t1Version);
 
     // Act
     await openSap(page, editor, stub);
 
     // Assert
-    await expect(page.getByTestId('sap-final-questions-newer-Q1')).toHaveText('newer version available');
     await expect(page.getByTestId('sap-final-questions-row-Q2')).toBeVisible();
+    await expect(page.getByTestId('sap-final-questions-newer-Q1')).toHaveCount(0);
     await expect(page.getByTestId('sap-final-questions-newer-Q2')).toHaveCount(0);
   });
 
@@ -400,7 +403,7 @@ test.describe('AXI-2445 SAP surface: Plan tab and entry points @SI-031 @SI-030',
   });
 
   test('FR66 AC29 AXI-2445.9 Settings → Statistical summarises the plan, edits nothing, and links to the SAP page @SI-031', async ({ page }) => {
-    // Arrange — final version 1 + an open amendment draft (start, copied text, copied question: revision 3)
+    // Arrange — final version 1 + an open amendment draft (the server's copy of version 1: revision 1)
     const { project, stub } = await finalWorld('settings', true);
     await stub.install(page);
     await signIn(page, editor);
@@ -411,7 +414,7 @@ test.describe('AXI-2445 SAP surface: Plan tab and entry points @SI-031 @SI-030',
     // Assert
     const tab = page.getByTestId('project-settings-statistical-tab');
     await expect(page.getByTestId('sap-summary-final')).toContainText('Version 1 · Plan settings · 1 question(s)');
-    await expect(page.getByTestId('sap-summary-draft')).toHaveText('Draft open (revision 3)');
+    await expect(page.getByTestId('sap-summary-draft')).toHaveText('Draft open (revision 1)');
     await expect(tab.locator('input, textarea, select')).toHaveCount(0);
     await expect(tab.getByRole('button')).toHaveCount(0);
     await page.getByTestId('sap-open-page').click();
