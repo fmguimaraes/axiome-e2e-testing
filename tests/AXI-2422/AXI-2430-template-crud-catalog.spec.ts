@@ -119,7 +119,7 @@ test.describe('AXI-2430 — template CRUD, scoped catalog and publish', { tag: [
     // Assert
     for (const reply of replies) {
       expect(reply.status, JSON.stringify(reply.body)).toBe(404);
-      expect(reply.body.code).toBe('TEMPLATE_NOT_FOUND');
+      expect(reply.body.errorCode).toBe('TEMPLATE_NOT_FOUND');
     }
     expect(still.status).toBe(200);
     expect(still.body).toMatchObject({ label: 'E2E AXI-2430 b3', deletedAt: null, versions: [] });
@@ -142,7 +142,7 @@ test.describe('AXI-2430 — template CRUD, scoped catalog and publish', { tag: [
     expect(edited.body.versions[0]).toMatchObject({ guidedOnly: true, automaticEligible: false });
     expect(published.status, JSON.stringify(published.body)).toBe(201);
     expect(refused.status).toBe(409);
-    expect(refused.body.code).toBe('VERSION_NOT_DRAFT');
+    expect(refused.body.errorCode).toBe('VERSION_NOT_DRAFT');
   });
 
   test('FR11 FR40 AC9 AC15 AXI-2430.B5 the author cannot publish; a second person can, and the report is stored', async () => {
@@ -157,7 +157,7 @@ test.describe('AXI-2430 — template CRUD, scoped catalog and publish', { tag: [
     const listed = (await allVisible(asViewer)).find((e) => e.id === template.id);
     // Assert
     expect(byAuthor.status, JSON.stringify(byAuthor.body)).toBe(403);
-    expect(byAuthor.body.code).toBe('APPROVER_IS_AUTHOR');
+    expect(byAuthor.body.errorCode).toBe('APPROVER_IS_AUTHOR');
     expect(afterRefusal.body.versions[0].status).toBe('draft');
     expect(bySecond.status, JSON.stringify(bySecond.body)).toBe(201);
     const version = bySecond.body.versions[0];
@@ -181,7 +181,7 @@ test.describe('AXI-2430 — template CRUD, scoped catalog and publish', { tag: [
     // Assert
     expect(draft.status, JSON.stringify(draft.body)).toBe(201);
     expect(res.status, JSON.stringify(res.body)).toBe(422);
-    expect(res.body.code).toBe('VALIDATOR_NOT_PASS');
+    expect(res.body.errorCode).toBe('VALIDATOR_NOT_PASS');
     expect(Array.isArray(res.body.errors) && res.body.errors.length).toBeTruthy();
     expect(after.body.versions[0]).toMatchObject({ status: 'draft', validatorVerdict: null });
   });
@@ -223,8 +223,8 @@ test.describe('AXI-2430 — template CRUD, scoped catalog and publish', { tag: [
     expect(listed.map((e) => e.id)).not.toContain(template.id);
     expect(detail.status).toBe(200);
     expect(detail.body.deletedAt).toBe(deleted.body.deletedAt);
-    expect([edit.status, edit.body.code]).toEqual([409, 'TEMPLATE_DELETED']);
-    expect([again.status, again.body.code]).toEqual([409, 'TEMPLATE_DELETED']);
+    expect([edit.status, edit.body.errorCode]).toEqual([409, 'TEMPLATE_DELETED']);
+    expect([again.status, again.body.errorCode]).toEqual([409, 'TEMPLATE_DELETED']);
   });
 
   test('FR38 NFR4 AXI-2430.B9 a member without template:write, or any caller writing a system template, is refused 403', async () => {
@@ -273,7 +273,7 @@ test.describe('AXI-2430 — template CRUD, scoped catalog and publish', { tag: [
     // Assert
     expect(edit.status, JSON.stringify(edit.body)).toBe(200);
     expect(byEditor.status, JSON.stringify(byEditor.body)).toBe(403);
-    expect(byEditor.body.code).toBe('APPROVER_IS_AUTHOR');
+    expect(byEditor.body.errorCode).toBe('APPROVER_IS_AUTHOR');
     expect(after.body.versions[0]).toMatchObject({ status: 'draft', publishedBy: null });
   });
 
@@ -287,8 +287,8 @@ test.describe('AXI-2430 — template CRUD, scoped catalog and publish', { tag: [
     const t1After = await asAuthor.get(t1.id);
     // Assert
     expect(copy.derivedFrom).toEqual({ id: t1.id, templateId: 'T1', label: t1.label });
-    expect([sameKey.status, sameKey.body.code]).toEqual([409, 'SHADOW_REFUSED']);
-    expect([sameName.status, sameName.body.code]).toEqual([409, 'SHADOW_REFUSED']);
+    expect([sameKey.status, sameKey.body.errorCode]).toEqual([409, 'SHADOW_REFUSED']);
+    expect([sameName.status, sameName.body.errorCode]).toEqual([409, 'SHADOW_REFUSED']);
     expect(t1After.body).toMatchObject({ scope: 'system', label: t1.label, updatedAt: t1.updatedAt });
   });
 });
