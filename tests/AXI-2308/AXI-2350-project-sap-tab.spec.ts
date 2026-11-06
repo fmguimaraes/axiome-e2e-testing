@@ -22,6 +22,13 @@ import { UiActor, signInAs, uiActor } from '../AXI-2265/AXI-2269-helpers';
 test.use({ storageState: { cookies: [], origins: [] } });
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
+// RETIRED by AXI-2445 (epic AXI-2433 — FR66, AC29): this surface no longer edits the SAP — it
+// shows a summary and links to `/projects/:id/sap` (free-text create/version is answered 410 by
+// AXI-2438). The editor these scenarios drive (`sap-write-first`, `sap-field-*`, `sap-save`) is
+// deleted; the entry point is covered by tests/AXI-2433/AXI-2445-sap-plan-tab.spec.ts
+// (AXI-2445.9 / AXI-2445.10). Kept for history; delete once AXI-2433 closes.
+test.skip(true, 'Retired by AXI-2445: the SAP editor on this surface was replaced by a summary + link (see AXI-2445-sap-plan-tab.spec.ts)');
+
 let world: PrivateProjectsWorld;
 let editor: UiActor;
 let viewer: UiActor;

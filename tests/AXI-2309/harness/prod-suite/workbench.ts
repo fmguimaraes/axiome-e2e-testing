@@ -82,6 +82,9 @@ async function ensureSap(client: ApiClient, projectId: string, operationIds: str
   const rows = await pageAll(client, (p) => `/api/v1/projects/${projectId}/saps?page=${p}&limit=100`, 'list SAPs');
   const hit = rows.filter((r) => r?.title === WORKBENCH_SAP_TITLE && r?.projectId === projectId && typeof r?.sapVersionId === 'string').sort(oldestFirst)[0];
   if (hit) return hit.sapVersionId;
+  // AXI-2438 retired the free-text create (410 SAP_FREE_TEXT_RETIRED): the prod workbench keeps the
+  // SAP it already holds (found above). A project with none needs draft + finalise (AXI-2439), which
+  // this harness cannot do yet — `okBody` below then fails naming the 410.
   const created = okBody(await client.post(`/api/v1/projects/${projectId}/saps`, {
     title: WORKBENCH_SAP_TITLE,
     questionText: 'Does every active system rule run on the prod-suite fixtures, with Paul\'s methods reproducing their expected values?',

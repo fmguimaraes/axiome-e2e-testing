@@ -27,10 +27,17 @@ export async function projectSapVersionId(
 ): Promise<string> {
   const created = await api.post(`/api/v1/projects/${projectId}/saps`, content, headers);
   if (created.status === 201 && typeof created.body?.sapVersionId === 'string') return created.body.sapVersionId;
-  if (created.status === 409 && created.body?.errorCode === 'SAP_ALREADY_EXISTS') {
+  // AXI-2438 retired the free-text create (410 SAP_FREE_TEXT_RETIRED): a reused project keeps its
+  // existing SAP version; a project with none cannot get one until AXI-2439's finalise lands.
+  const retired = created.status === 410 && created.body?.errorCode === 'SAP_FREE_TEXT_RETIRED';
+  if (retired || (created.status === 409 && created.body?.errorCode === 'SAP_ALREADY_EXISTS')) {
     const listed = await api.get(`/api/v1/projects/${projectId}/saps?limit=1`, headers);
     const current = asList(listed.body)[0];
     if (typeof current?.sapVersionId === 'string') return current.sapVersionId;
+    if (retired) {
+      throw new Error(`project ${projectId} has no SAP version and POST …/saps is retired (410, AXI-2438): `
+        + 'a SAP version now needs draft + finalise (AXI-2439)');
+    }
     throw new Error(`project ${projectId} refused a second SAP but lists none (${listed.status}): ${JSON.stringify(listed.body)}`);
   }
   throw new Error(`SAP creation for project ${projectId} failed (${created.status}): ${JSON.stringify(created.body)}`);

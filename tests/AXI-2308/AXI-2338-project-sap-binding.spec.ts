@@ -36,6 +36,11 @@ import type { Api } from '../AXI-1400/harness/api';
 test.use({ storageState: { cookies: [], origins: [] } });
 test.describe.configure({ mode: 'serial', timeout: 300_000 });
 
+// AXI-2445 (rework for AXI-2438): AXI-2338.1/.3/.5/.6/.8/.9 create or re-plan a SAP through the
+// free-text writes, which AXI-2438 retired (POST …/saps and …/versions answer 410 SAP_FREE_TEXT_RETIRED).
+// They are `test.skip` until AXI-2439's finalise gives a way to mint a SAP version; .2/.4/.7 never
+// write a SAP and still run.
+
 const MWU = 'stats.mann_whitney_u';
 const INVESTIGATOR_ROLE_ID = '00000000-0000-0000-0000-000000000105';
 
@@ -206,7 +211,7 @@ test.afterAll(async () => {
 });
 
 test.describe('AXI-2338 — project-bound SAP & run binding + mode record', { tag: ['@SI-065', '@SI-047', '@SI-045', '@SI-010', '@SI-002', '@SI-017'] }, () => {
-  test('AC12 — AXI-2338.1: a project holds exactly one SAP; a second create is 409 SAP_ALREADY_EXISTS; re-plan is a version @SI-065 @SI-010 @SI-002', async () => {
+  test.skip('AC12 — AXI-2338.1: a project holds exactly one SAP; a second create is 409 SAP_ALREADY_EXISTS; re-plan is a version @SI-065 @SI-010 @SI-002', async () => {
     // Arrange
     const project = await newProject('one-sap');
 
@@ -261,7 +266,7 @@ test.describe('AXI-2338 — project-bound SAP & run binding + mode record', { ta
     expect(analysis.detail).toMatchObject({ sapAnalysis: false, sapBinding: 'none', sapVersionId: null });
   });
 
-  test('AC12 — AXI-2338.3: a governed run binds the project\'s CURRENT SAP version; after re-plan the run binds v2, never reusing the v1 step @SI-047 @SI-017 @SI-065', async () => {
+  test.skip('AC12 — AXI-2338.3: a governed run binds the project\'s CURRENT SAP version; after re-plan the run binds v2, never reusing the v1 step @SI-047 @SI-017 @SI-065', async () => {
     // Arrange
     const project = await newProject('governed');
     const datasetId = await linkFixture(project);
@@ -360,7 +365,7 @@ test.describe('AXI-2338 — project-bound SAP & run binding + mode record', { ta
     automaticPlanId = body.plan.planId;
   });
 
-  test('AC12 — AXI-2338.5: an Investigator (sap:write) writes the SAP on his own project only; a plain viewer (no sap:write) cannot @SI-010 @SI-065', async () => {
+  test.skip('AC12 — AXI-2338.5: an Investigator (sap:write) writes the SAP on his own project only; a plain viewer (no sap:write) cannot @SI-010 @SI-065', async () => {
     // Arrange — the Investigator role is AXI-2322's seed; AXI-2338 grants it `sap:write`
     // (owner ruling 2026-10-30: seed row …0105 + step 14 backfill). A stack without the
     // grant is a FAILED precondition, never a skip.
@@ -395,7 +400,7 @@ test.describe('AXI-2338 — project-bound SAP & run binding + mode record', { ta
     expect(byViewer.status()).toBe(403);
   });
 
-  test('AC13 — AXI-2338.6: a Guided run-start records { mode: guided, templateId } — on the run status, the rule-run evidence read and the client report @SI-047 @SI-010 @SI-002 @SI-017', async () => {
+  test.skip('AC13 — AXI-2338.6: a Guided run-start records { mode: guided, templateId } — on the run status, the rule-run evidence read and the client report @SI-047 @SI-010 @SI-002 @SI-017', async () => {
     // Arrange — a project with its SAP; `value2` keeps this computation distinct
     // from §.3's (no kernel dedup onto another analysis' run).
     const project = await newProject('guided-mode');
@@ -463,7 +468,7 @@ test.describe('AXI-2338 — project-bound SAP & run binding + mode record', { ta
     expect(await analysesOf(modeProject)).toBe(before);
   });
 
-  test('AC12 — AXI-2338.8: `sap: "skip"` on a project WITH a SAP runs unbound and records "skipped" — on the status, the analysis, the rule-run evidence read and the client report @SI-047 @SI-065 @SI-017 @SI-002', async () => {
+  test.skip('AC12 — AXI-2338.8: `sap: "skip"` on a project WITH a SAP runs unbound and records "skipped" — on the status, the analysis, the rule-run evidence read and the client report @SI-047 @SI-065 @SI-017 @SI-002', async () => {
     // Arrange — a project with its SAP; `value3` keeps this computation distinct
     // from every other scenario's, so the rule run read is this run's own.
     const project = await newProject('skip');
@@ -488,7 +493,7 @@ test.describe('AXI-2338 — project-bound SAP & run binding + mode record', { ta
     expect(report).toContain('- SAP version: skipped (the run declined the project SAP)');
   });
 
-  test('AC13 — AXI-2338.9: the wizard call — the plan compiled by POST /opening-templates/compile, submitted with { mode: guided, templateId, sap } — runs and records the template; a templateId the compiled plan does not carry is 400 RUN_MODE_MISMATCH @SI-045 @SI-047 @SI-010', async () => {
+  test.skip('AC13 — AXI-2338.9: the wizard call — the plan compiled by POST /opening-templates/compile, submitted with { mode: guided, templateId, sap } — runs and records the template; a templateId the compiled plan does not carry is 400 RUN_MODE_MISMATCH @SI-045 @SI-047 @SI-010', async () => {
     // Arrange — a project with its SAP and the fixture's schema for the compiler
     const project = await newProject('compiled');
     const datasetId = await linkFixture(project);

@@ -24,6 +24,11 @@ import {
 test.use({ storageState: { cookies: [], origins: [] } });
 test.describe.configure({ mode: 'serial' });
 
+// RETIRED by AXI-2438 (noted by AXI-2445): this spec creates its SAP through POST …/saps, which now
+// answers 410 SAP_FREE_TEXT_RETIRED. Re-enable once AXI-2439's finalise can mint a SAP version
+// (draft → questions → finalise) and the setup is moved onto it.
+test.skip(true, 'AXI-2438 retired free-text SAP writes (POST …/saps and …/versions answer 410 SAP_FREE_TEXT_RETIRED); a SAP version now comes from draft + finalise (AXI-2439, not on main yet)');
+
 const TAGS = { tag: ['@SI-065', '@SI-010', '@SI-002', '@SI-017'] };
 const REGISTERED_OP = 'stats.mann_whitney_u';
 const PLAN_TEXT = 'Primary: Mann–Whitney U on CD8⁺ µ%, α = 0.05, two-sided.\n  Secondary: n ≥ 12 per arm — café.  \n';

@@ -198,8 +198,9 @@ test.describe('AXI-2343 relabel pass — last build story @SI-066 @SI-035', () =
     // Assert — the empty state keeps the same facts, worded without "project"
     const plan = page.getByTestId('investigator-statistical-plan');
     await expect(plan).not.toContainText(/\bproject\b/i);
-    await expect(page.getByTestId('sap-empty-state')).toContainText('no statistical analysis plan');
-    await expect(page.getByTestId('sap-empty-state')).toContainText('labelled exploratory');
+    // AXI-2445 (FR66) turned this panel into a summary + link: its empty line is `sap-summary-empty`
+    await expect(page.getByTestId('sap-summary-empty')).toContainText('no statistical analysis plan');
+    await expect(page.getByTestId('sap-summary-empty')).toContainText('labelled exploratory');
   });
 
   test('AC35 NFR9 AXI-2343.4b: a SAP he cannot open reads "not found" without "Project", and the way back stays on his surface @SI-066 @SI-031', async ({ page }) => {
