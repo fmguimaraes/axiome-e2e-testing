@@ -44,9 +44,15 @@ async function openPage(page: Page, runId: string): Promise<void> {
   await expect(page.getByTestId('rp-answer')).toBeVisible({ timeout: 120_000 });
 }
 
+interface PlotAnnotation {
+  text: string;
+  x: unknown;
+}
+
 interface PlotLayout {
   yaxisTitle: string | null;
   annotationTexts: string[];
+  annotations: PlotAnnotation[];
 }
 
 interface PlotTraceStyle {
@@ -63,9 +69,10 @@ async function readPlot(page: Page): Promise<{ layout: PlotLayout; traces: PlotT
   return plot.evaluate((el) => {
     const gd = el as unknown as { data?: Array<Record<string, any>>; layout?: Record<string, any> };
     const layout = gd.layout ?? {};
-    const annotationTexts = (layout.annotations ?? []).map((a: Record<string, any>) => String(a.text));
+    const annotations = (layout.annotations ?? []).map((a: Record<string, any>) => ({ text: String(a.text), x: a.x }));
+    const annotationTexts = annotations.map((a: { text: string }) => a.text);
     return {
-      layout: { yaxisTitle: layout.yaxis?.title?.text ?? null, annotationTexts },
+      layout: { yaxisTitle: layout.yaxis?.title?.text ?? null, annotationTexts, annotations },
       traces: (gd.data ?? []).map((tr) => ({
         name: typeof tr.name === 'string' ? tr.name : null,
         type: String(tr.type),
@@ -111,8 +118,12 @@ test.describe.serial('AXI-2379 result page — chart rework: jitter/box by n, ca
     expect(groups).toHaveLength(2);
     for (const g of groups) expect(g.fillcolor).not.toBe('rgba(0,0,0,0)');
     expect(layout.annotationTexts).toContain('n = 12');
+    // B1 (review bounce): the y-axis title is the measurement's OWN identity (`microbiote_igg4_mag4_27`,
+    // read off `result.rows[].measurement`) — never "value", and never the test/operation's label
+    // (e.g. "Mann-Whitney U test", which `result.label` carries and this story must not show here).
     expect(layout.yaxisTitle).not.toBe('value');
-    expect(layout.yaxisTitle).toBeTruthy();
+    expect(layout.yaxisTitle).not.toMatch(/test/i);
+    expect(layout.yaxisTitle).toBe(MAG4);
   });
 
   test('AXI-2379.2 T1 figure caption states the n<8 rule and the test\'s pValue, rounded — no stat text on the plot itself', async ({ page }) => {
@@ -137,13 +148,21 @@ test.describe.serial('AXI-2379 result page — chart rework: jitter/box by n, ca
     const { layout, traces } = await readPlot(page);
     const clusterNames = ['C1', 'C2', 'C3', 'C4'];
     const groupTraces = traces.filter((tr) => tr.hasBox && clusterNames.includes(tr.name ?? ''));
-    const medianTraces = traces.filter((tr) => tr.type === 'scatter' && clusterNames.includes(tr.name ?? ''));
+    // B5 (review bounce): `buildMedianBarTrace` names the companion trace `` `${group} median` ``
+    // (`distribution.builders.ts`), never the bare group name — matching on the bare name can never
+    // find it.
+    const medianTraces = traces.filter((tr) => tr.type === 'scatter' && clusterNames.some((name) => tr.name === `${name} median`));
 
-    // Assert — no drawn box fill for any under-floor group; its own median marker is present
+    // Assert — no drawn box fill for any under-floor group; its own median marker is present for EVERY cluster
     expect(groupTraces.length).toBeGreaterThan(0);
     for (const g of groupTraces) expect(g.fillcolor).toBe('rgba(0,0,0,0)');
-    expect(medianTraces.length).toBeGreaterThan(0);
-    for (const name of clusterNames) expect(layout.annotationTexts.some((text) => text.startsWith(`n =`) )).toBe(true);
+    expect(medianTraces.map((tr) => tr.name).sort()).toEqual(clusterNames.map((name) => `${name} median`).sort());
+    // B5: a real per-name check — every cluster's OWN "n = k" annotation is pinned under its OWN
+    // group (the annotation's `x` names the group, per `groupLabelAnnotation`), not a loop whose
+    // body never references the name it iterates.
+    for (const name of clusterNames) {
+      expect(layout.annotations.some((a) => a.x === name && /^n = \d+$/.test(a.text))).toBe(true);
+    }
   });
 
   test('AXI-2379.4 T2 figure caption carries the Dunn pairwise reading(s), rounded, never drawn on the plot', async ({ page }) => {
