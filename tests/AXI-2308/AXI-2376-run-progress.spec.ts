@@ -42,10 +42,13 @@ function resultPageBody(state: 'running' | 'ready', overrides: Record<string, un
     analysisKind: 'exploratory',
     answer: state === 'ready' ? ['igg4_g_l: F (n = 12) vs M (n = 12); Mann-Whitney U = 40.5, p = 0.012.'] : [],
     canStartAnalysis: true,
+    // AXI-2380: the post-AXI-2380 contract always carries these (null = no signed record / no mismatch).
+    signedQuestion: null,
+    questionMismatch: null,
     results: state === 'ready'
       ? [{
           nodeId: 'n1', ruleRunId: 'r1', operationId: 'stats.mann_whitney_u', label: 'Mann-Whitney U test',
-          chart: null, style: null, rows: [{ statistic: 40.5, pValue: 0.012 }], summary: null,
+          chart: null, style: null, rows: [{ statistic: 40.5, pValue: 0.012 }], summary: null, numbersInWords: null,
           run: { snapshotId: null, workspaceId: t.workspaceId, operandRoles: null, operationParams: null },
           evidence: {
             groupNs: [{ group: 'F', n: 12 }, { group: 'M', n: 12 }], method: 'Mann-Whitney U test',
