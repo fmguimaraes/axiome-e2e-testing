@@ -19,9 +19,10 @@ import { apiUrl } from '../../config/env';
  * `GET /api/v1/projects/:projectId/saps/:sapId/run-classification-preview`.
  *
  * Scenarios: axiome-docs/manual-e2e/AXI-2455-SAP-And-Template-Library-Follow-ups.md § AXI-2472
- * (AXI-2472.1 ... AXI-2472.3). REAL on the gateway: a fresh project, a salted fixture dataset
- * (and a second one, whose ingestion is "another dataset version" for the unplanned case), a
- * one-question plan finalised on the NEWEST T1 (`pinNewestT1`), a real Run SAP, the real dialog.
+ * (AXI-2472.1 ... AXI-2472.4). REAL on the gateway: a fresh project, a salted fixture dataset,
+ * a one-question plan finalised on the NEWEST T1 (`pinNewestT1`), a real Run SAP, the real dialog.
+ * AC36's "another dataset version" D2 is a RE-INGESTION of the SAP's analysis dataset (the
+ * AXI-2446.3 pattern): a separate dataset would be refused by pre-flight EC8, never classified.
  * Run with `--no-deps` (signs in through the API, no `setup` storageState).
  */
 
@@ -49,20 +50,21 @@ const ok = (res: { status: number; body: any }, what: string, status = 201) => {
   return res.body;
 };
 
-async function waitReady(datasetId: string): Promise<string> {
+/** The newest ingestion of the dataset once it is ready - and, given `after`, a NEWER one than it. */
+async function waitReady(datasetId: string, after?: string): Promise<string> {
   const deadline = Date.now() + PROFILE_WAIT_MS;
   for (;;) {
     const newest = asList(ok(await api.get(`/api/v1/workspaces/${t.workspaceId}/datasets/${datasetId}/ingestions`, t.headers), 'ingestions', 200))
       .sort((a: any, b: any) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
-    if (newest?.status === 'ready') return newest.id;
+    if (newest?.status === 'ready' && newest.id !== after) return newest.id;
     if (newest?.status === 'failed' || Date.now() > deadline) throw new Error(`ingestion of ${datasetId}: ${JSON.stringify(newest)}`);
     await sleep(2_000);
   }
 }
 
 /** The fixture, salted per run so its governed steps COMPUTE in this project. */
-async function ingestSaltedFixture(tag: string): Promise<string> {
-  const nonce = `${Date.now()}${tag}`;
+async function ingestSaltedFixture(): Promise<string> {
+  const nonce = `${Date.now()}`;
   const lines = readFileSync(join(process.cwd(), 'tests', 'AXI-2308', 'fixtures', FIXTURE), 'utf-8').trimEnd().split('\n');
   const csv = `${lines.map((l, i) => `${l},${i === 0 ? 'e2e_salt' : nonce}`).join('\n')}\n`;
   const init = ok(await api.post(`/api/v1/workspaces/${t.workspaceId}/datasets`, {
@@ -132,11 +134,10 @@ test.beforeAll(async () => {
   const tenant = await ensureTenant(api);
   const created = ok(await api.post('/api/v1/projects', { name: `E2E AXI-2472 preview ${Date.now()}`, workspaceId: tenant.workspaceId }, tenant.headers), 'project');
   t = { ...tenant, projectId: created.id };
-  const datasetId = await ingestSaltedFixture('a');
+  const datasetId = await ingestSaltedFixture();
   const anchored = await anchorDataset(api, t.workspaceId, t.projectId, { datasetId });
   if (!anchored) throw new Error('fixture dataset could not be anchored');
   dataset = anchored;
-  d2 = await waitReady(await ingestSaltedFixture('b'));
   await approveCarriersFor(['stats.mann_whitney_u']);
   await silenceTours(await adminToken());
   const bootstrap = await apiRequest.newContext();
@@ -182,8 +183,8 @@ test.describe('AXI-2472 Run SAP classification preview @SI-065 @SI-010 @SI-002 @
     expect(await runCount()).toBe(0);
   });
 
-  test('FR71, AC36, EC33 - AXI-2472.3: after a completed run the dialog shows "Reproduction" naming it; another dataset version previews unplanned; no run is written by a preview @SI-031 @SI-030 @SI-065', async ({ page }) => {
-    test.setTimeout(EVALUATION_WAIT_MS + 120_000);
+  test('FR71, AC36, EC33 - AXI-2472.3: after a completed run on D1 the preview of D1 is a reproduction naming it; another version D2 of the same dataset previews unplanned; no run is written by a preview @SI-031 @SI-030 @SI-065', async ({ page }) => {
+    test.setTimeout(EVALUATION_WAIT_MS + PROFILE_WAIT_MS + 120_000);
     // Arrange - a real completed run on D1
     const started = ok(await api.post(runsPath(), { version: 1, datasetVersionId: d1, clientRequestId: randomUUID() }, t.headers), 'first run');
     firstRunId = started.sapRunId;
@@ -191,22 +192,54 @@ test.describe('AXI-2472 Run SAP classification preview @SI-065 @SI-010 @SI-002 @
     await expect.poll(async () => (await api.get(runsPath(`/${firstRunId}`), t.headers)).body?.status, { timeout: EVALUATION_WAIT_MS, intervals: [3_000, 5_000] }).toBe('completed');
     const before = await runCount();
 
-    // Act - API
+    // Act - preview D1, and the dialog while D1 is still current
     const same = ok(await api.get(previewPath(`?version=1&datasetVersionId=${d1}`), t.headers), 'preview D1', 200);
-    const other = ok(await api.get(previewPath(`?version=1&datasetVersionId=${d2}`), t.headers), 'preview D2', 200);
-
-    // Act - the dialog
     await openAsAdmin(page, `/projects/${t.projectId}/sap?tab=runs&run=new`);
     await expect(page.getByTestId('sap-run-dialog-dataset-version')).toHaveValue(d1);
 
     // Assert
     expect(same).toEqual({ classification: 'reproduction', reproducesSapRunId: firstRunId });
+    await expect(page.getByTestId('sap-run-dialog-classification')).toHaveText('Reproduction');
+    await expect(page.getByTestId('sap-run-dialog-reproduces')).toContainText(firstRunId);
+
+    // Arrange - D2: a newer READY ingestion of the SAP's analysis dataset (D1 is no longer current)
+    const reingest = await api.post(`/api/v1/workspaces/${t.workspaceId}/datasets/${dataset.datasetId}/ingestions`, { organizationId: t.orgId }, t.headers);
+    expect(reingest.status, JSON.stringify(reingest.body)).toBeLessThan(300);
+    d2 = await waitReady(dataset.datasetId, d1);
+
+    // Act - preview D2
+    const other = ok(await api.get(previewPath(`?version=1&datasetVersionId=${d2}`), t.headers), 'preview D2', 200);
+
+    // Assert
+    expect(d2).not.toBe(d1);
     expect(other).toEqual({ classification: 'unplanned', reproducesSapRunId: null });
+    expect(await runCount()).toBe(before);
+  });
+
+  test('FR71, AC36, EC33 - AXI-2472.4: the dialog opens on the current version D2 showing "Unplanned"; picking D1 shows "Reproduction" naming the run; the real start on D2 agrees with the preview @SI-031 @SI-030 @SI-065', async ({ page }) => {
+    test.setTimeout(120_000);
+    // Arrange
+    const before = await runCount();
+    await openAsAdmin(page, `/projects/${t.projectId}/sap?tab=runs&run=new`);
+    const datasetVersion = page.getByTestId('sap-run-dialog-dataset-version');
+
+    // Assert - D2 is current, so it is preselected and previews unplanned
+    await expect(datasetVersion).toHaveValue(d2);
+    await expect(page.getByTestId('sap-run-dialog-classification')).toHaveText('Unplanned');
+    await expect(page.getByTestId('sap-run-dialog-reproduces')).toHaveCount(0);
+
+    // Act - pick the older version D1
+    await datasetVersion.selectOption(d1);
+
+    // Assert - the preview refreshes for D1: a reproduction naming the completed run; nothing written
     await expect(page.getByTestId('sap-run-dialog-classification')).toHaveText('Reproduction');
     await expect(page.getByTestId('sap-run-dialog-reproduces')).toContainText(firstRunId);
     expect(await runCount()).toBe(before);
-    // the real start agrees with the preview it was shown (FR43; EC33 allows a race, this one has none)
+
+    // Act / Assert - the real start on D2 gets the class the dialog previewed for it (FR43; EC33
+    // allows a race, this one has none). LAST: it writes a run on D2.
     const second = ok(await api.post(runsPath(), { version: 1, datasetVersionId: d2, clientRequestId: randomUUID() }, t.headers), 'run on D2');
-    expect(second.classification).toBe(other.classification);
+    expect(second.classification).toBe('unplanned');
+    expect(await runCount()).toBe(before + 1);
   });
 });
