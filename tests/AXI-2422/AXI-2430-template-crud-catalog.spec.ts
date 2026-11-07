@@ -3,6 +3,9 @@ import { Actor, NO_WORKSPACE_HEADER, PrivateProjectsWorld } from '../AXI-2265/pr
 import { composition, withStep } from './harness/composition-api';
 import { allVisible, catalogApi, CatalogApi, uniqueTemplateId } from './harness/catalog-api';
 
+/** The validator version follows its own semver bumps (AXI-2457 moved it to 1.1.0); pin the shape. */
+const SEMVER = /^\d+\.\d+\.\d+$/;
+
 /**
  * AXI-2430 (epic AXI-2422 — Analysis Template Library, story B — FR9-FR14, FR40, NFR4, NFR7,
  * NFR10; AC3, AC4, AC9, AC15; EC11-EC13; SI-069, SI-010, SI-002). Scenario doc:
@@ -161,7 +164,8 @@ test.describe('AXI-2430 — template CRUD, scoped catalog and publish', { tag: [
     expect(afterRefusal.body.versions[0].status).toBe('draft');
     expect(bySecond.status, JSON.stringify(bySecond.body)).toBe(201);
     const version = bySecond.body.versions[0];
-    expect(version).toMatchObject({ status: 'published', publishedBy: approver.userId, validatorVerdict: 'PASS', validatorVersion: '1.1.0', invalid: false });
+    expect(version).toMatchObject({ status: 'published', publishedBy: approver.userId, validatorVerdict: 'PASS', invalid: false });
+    expect(version.validatorVersion).toMatch(SEMVER);
     expect(version.validatorReport.verdict).toBe('PASS');
     expect(version.contentHash).toMatch(/^[0-9a-f]{64}$/);
     expect(version.referencedOperations.map((o: any) => o.operationId)).toEqual(['stats.mann_whitney_u', 'describe.grouped_aggregate']);

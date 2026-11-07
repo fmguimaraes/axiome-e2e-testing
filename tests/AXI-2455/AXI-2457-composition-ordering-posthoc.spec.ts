@@ -9,6 +9,8 @@ import {
 /**
  * AXI-2457 (epic AXI-2455 — TPL FR51–FR53, FR23d; AC22, AC29; EC22–EC24). Scenario doc:
  * `axiome-docs/manual-e2e/AXI-2455-SAP-And-Template-Library-Follow-ups.md` § AXI-2457 (1–5).
+ * The comparison set (scenario 4) is bound with the slot's declared AND observed levels, and kept /
+ * narrowed by T2's recipe rule (EC15).
  *
  * The composition contract gains an ordering edge (`runsAfter`), a post-hoc declaration
  * (`posthocOf` + the template-level `posthoc` setting) and a comparison set. Both routes are
@@ -18,7 +20,16 @@ import {
  */
 
 const RUN_CONDITION = { omnibusPValueBelow: 0.05, origin: 'platform_default_awaiting_confirmation' };
-const OBSERVED = ['C1', 'C2', 'C3', 'C4'];
+const SEMVER = /^\d+\.\d+\.\d+$/;
+const LEVELS = ['C1', 'C2', 'C3', 'C4'];
+const C1_C5 = [...LEVELS, 'C5'];
+const C1_C3 = ['C1', 'C2', 'C3'];
+
+/** The comparison-set slot's level binding: declared levels (declared order), observed levels
+ * (null = no profiled domain) and, optionally, the chosen groups (absent = the default set). */
+function levelBinding(declaredLevels: string[], observedLevels: string[] | null, groups?: string[]): any {
+  return { comparisonSet: { declaredLevels, observedLevels, ...(groups ? { groups } : {}) } };
+}
 
 /** The T2 shape: Kruskal-Wallis omnibus, then Dunn as its post-hoc. A fresh object per call. */
 function t2(): any {
@@ -74,7 +85,10 @@ function unordered(): any {
   return patchStep(base, 'pairwise', ({ runsAfter: _r, posthocOf: _p, ...step }) => step);
 }
 
+/** A compile of `base`; a composition declaring a comparison set gets its REQUIRED level binding
+ * (declared = observed = C1..C4, default set) unless `extra` gives its own. */
 function t2Compile(extra: any = {}, base: any = t2()): any {
+  const levels = base.comparisonSet ? levelBinding(LEVELS, LEVELS) : {};
   return {
     template: null,
     composition: base,
@@ -84,10 +98,13 @@ function t2Compile(extra: any = {}, base: any = t2()): any {
         { slotId: 'outcome', columns: ['igg4'] },
       ],
       parameters: [],
+      ...levels,
       ...extra,
     },
   };
 }
+
+const narrowingTo = (levels: string[]) => ({ slotId: 'groupingColumn', column: 'cluster', levels });
 
 const nodeOf = (plan: any, nodeId: string) => plan.nodes.find((n: any) => n.nodeId === nodeId);
 const dagOf = (report: any) => report.checks.find((c: any) => c.checkId === 'steps_form_dag');
@@ -127,7 +144,7 @@ test.describe(
       // Assert
       expect(res.status, res.text).toBe(200);
       expect(res.body.verdict, res.text).toBe('PASS');
-      expect(res.body.validatorVersion).toBe('1.1.0');
+      expect(res.body.validatorVersion).toMatch(SEMVER);
       expect(res.body.checks.map((c: any) => c.verdict)).toEqual(['PASS', 'PASS', 'PASS', 'PASS', 'PASS']);
     });
 
@@ -209,33 +226,55 @@ test.describe(
       expect(codesOf(body.findings)).toContain('parameter_enum_value');
     });
 
-    test('AXI-2457.4 a strict comparison subset narrows every step reading the slot, in observed order (FR53, AC22)', async () => {
+    // Scenario 4 — the comparison set follows T2's RECIPE rule (EC15): the expected levels below are
+    // what T2's recipe (`comparisonSetFilters`) narrows to on the same declared / observed levels,
+    // the parity the back oracle UT-TMPL-514 proves recipe-plan-to-composition-plan.
+    test('AXI-2457.4 a strict comparison subset narrows every step reading the slot, in DECLARED order (FR53, AC22)', async () => {
+      // Arrange — declared C4..C1, observed C1..C4
+      const reversed = [...LEVELS].reverse();
       // Act
-      const plan = await compiledPlan(t2Compile({ comparisonSet: { groups: ['C3', 'C1', 'C2'], observedLevels: OBSERVED } }));
+      const plan = await compiledPlan(t2Compile(levelBinding(reversed, LEVELS, ['C1', 'C3', 'C2'])));
       // Assert
-      const narrowing = { slotId: 'groupingColumn', column: 'cluster', levels: ['C1', 'C2', 'C3'] };
+      const narrowing = narrowingTo(['C3', 'C2', 'C1']);
       expect(plan.nodes.map((n: any) => n.comparisonSet)).toEqual([narrowing, narrowing]);
     });
 
-    test('AXI-2457.4 the full observed set narrows nothing and keeps the plan identity (FR53, EC24)', async () => {
+    test('AXI-2457.4 the full declared set over a fully-observed column narrows nothing and keeps the plan identity (FR53, EC24)', async () => {
       // Act
-      const full = await compiledPlan(t2Compile({ comparisonSet: { groups: [...OBSERVED].reverse(), observedLevels: OBSERVED } }));
-      const none = await compiledPlan(t2Compile());
+      const full = await compiledPlan(t2Compile(levelBinding(LEVELS, LEVELS, [...LEVELS].reverse())));
+      const byDefault = await compiledPlan(t2Compile());
+      const unprofiled = await compiledPlan(t2Compile(levelBinding(LEVELS, null)));
       // Assert
       expect(full.nodes.some((n: any) => 'comparisonSet' in n)).toBe(false);
-      expect(full.planId).toBe(none.planId);
+      expect(full.planId).toBe(byDefault.planId);
+      expect(unprofiled.planId).toBe(byDefault.planId);
     });
 
-    for (const [name, groups, code] of [
-      ['fewer than two levels', ['C1'], 'comparison_set_too_small'],
-      ['a level not observed', ['C1', 'C9'], 'comparison_set_level_unobserved'],
+    for (const [name, binding, kept] of [
+      ['declared ⊋ observed, default set: declared ∩ observed', levelBinding(C1_C5, LEVELS), LEVELS],
+      ['declared ⊋ observed, explicit observed subset', levelBinding(C1_C5, LEVELS, ['C3', 'C1', 'C2']), C1_C3],
+      ['observed ⊄ declared, default set: the undeclared level is narrowed away', levelBinding(C1_C3, LEVELS), C1_C3],
+    ] as const) {
+      test(`AXI-2457.4 ${name} narrows as T2's recipe does (EC15, FR53)`, async () => {
+        // Act
+        const plan = await compiledPlan(t2Compile(binding));
+        // Assert
+        expect(plan.nodes.map((n: any) => n.comparisonSet)).toEqual([narrowingTo([...kept]), narrowingTo([...kept])]);
+      });
+    }
+
+    for (const [name, extra, code] of [
+      ['fewer than two levels', levelBinding(LEVELS, LEVELS, ['C1']), 'comparison_set_too_small'],
+      ['a level not declared', levelBinding(LEVELS, [...LEVELS, 'C9'], ['C1', 'C9']), 'comparison_set_level_undeclared'],
+      ['a declared level not observed', levelBinding(C1_C5, LEVELS, ['C1', 'C5']), 'comparison_set_level_unobserved'],
+      ['no level binding for a declared comparison set', { comparisonSet: undefined }, 'comparison_set_binding_missing'],
     ] as const) {
       test(`AXI-2457.4 ${name} is refused bindings_invalid / ${code} (EC24, AC29)`, async () => {
         // Act
-        const body = await refusal(t2Compile({ comparisonSet: { groups, observedLevels: OBSERVED } }));
+        const body = await refusal(t2Compile(extra));
         // Assert
         expect(body.code).toBe('bindings_invalid');
-        expect(codesOf(body.findings)).toContain(code);
+        expect(codesOf(body.findings)).toEqual([code]);
       });
     }
 
