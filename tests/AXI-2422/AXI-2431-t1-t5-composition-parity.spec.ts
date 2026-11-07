@@ -31,8 +31,6 @@ import { compositionApiAs, type CompositionApi } from './harness/composition-api
 const FIXTURE = 'opening-templates-paul-header.csv';
 const MAG4 = ['microbiote_igg4_mag4_27', 'microbiote_igg4_mag4_22', 'microbiote_igg4_mag4_13'];
 const CLUSTER = 'cluster_selon_acr_eular_2019';
-/** The four clusters the fixture observes (6 rows each). */
-const CLUSTER_LEVELS = ['C1', 'C2', 'C3', 'C4'];
 const MIGRATED = ['T1', 'T3', 'T4', 'T5'] as const;
 
 let api: Api;
@@ -45,10 +43,9 @@ let compositions: CompositionApi;
 function wizardParams(templateId: string): Record<string, unknown> {
   const byTemplate: Record<string, Record<string, unknown>> = {
     T1: { outcome: MAG4[0], groupingColumn: 'sexe', groups: ['F', 'M'] },
-    // Explicit comparison set: on a shared tenant the cluster column may carry a DECLARED level with
-    // no rows (AXI-2407's `C5-unobserved`); T2's defaulted set takes every declared level and I05
-    // refuses the unobserved one — a back-end defect reported separately, not this story's subject.
-    T2: { outcome: 'igg4_g_l', groupingColumn: CLUSTER, groups: CLUSTER_LEVELS },
+    // No explicit set (AXI-2453): the default is the OBSERVED levels, so a declared-but-unobserved
+    // cluster level on a shared tenant (AXI-2407's `C5-unobserved`) no longer trips I05.
+    T2: { outcome: 'igg4_g_l', groupingColumn: CLUSTER },
     T3: { x: 'igg4_g_l', y: MAG4 },
     T4: { x: MAG4[0], y: ['igg4_g_l'], adjustFor: 'age' },
     T5: { references: MAG4.slice(0, 2), y: [MAG4[2], 'igg4_g_l'] },
