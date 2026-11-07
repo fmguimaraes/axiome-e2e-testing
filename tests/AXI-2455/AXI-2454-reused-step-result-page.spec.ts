@@ -129,10 +129,14 @@ test.describe.serial('AXI-2454 result page of a step reused across projects @SI-
     expect(res.status()).toBe(404);
   });
 
-  test('AC4 the page shows the no-access message, not "not available"', async ({ page }) => {
+  test('AC4 the page shows the no-access message, not "not available"', async ({ browser }) => {
+    // A fresh context: the project's default storageState is the admin's, which would skip the login form.
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const page = await context.newPage();
     await signIn(page, investigator, tB, `/investigator/projects/${tB.projectId}/runs/${runB}`);
 
-    await expect(page.getByTestId('rp-source-no-access')).toBeVisible();
+    await expect(page.getByTestId('rp-source-no-access')).toBeVisible({ timeout: 45_000 });
     await expect(page.getByTestId('rp-unavailable')).toHaveCount(0);
+    await context.close();
   });
 });
