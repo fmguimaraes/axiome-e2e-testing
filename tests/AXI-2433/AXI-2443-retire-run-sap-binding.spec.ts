@@ -32,8 +32,8 @@ import { drainGoverned, ingestCsvFixture } from '../AXI-2308/harness/opening-tem
  *      dataset and a finalised one-question SAP (no sensitivity analysis, so the child's rule run
  *      is never deduped onto a sibling and stays replayable).
  *
- * .4 is the SAP-run child's `sapRun` read; .5 is the replay lineage on a replayable run (see the
- * comment above .5 for why a T1 child cannot be replayed — a pre-existing AXI-2044 gap).
+ * .4 is the SAP-run child's `sapRun` read; .5 / .6 are the replay and its lineage read (.6 was fixme
+ * until AXI-2452 stamped the replay row with the caller's verified workspace).
  * Run: `API_BASE_URL=<gateway serving the AXI-2443 branch> npx playwright test tests/AXI-2433/AXI-2443-*`.
  */
 
@@ -383,14 +383,11 @@ test.describe.serial('AXI-2443 — Retire the per-run SAP binding', TAGS, () => 
     expect(original).toMatchObject({ status: 'SUCCEEDED', sapVersionId: sapRun.sapVersionId, sapRun: reference, replayOfRuleRunId: null });
   });
 
-  // The replay half of AC27 / EC28 runs on a REPLAYABLE run. A T1 child (Mann–Whitney U) cannot be
-  // replayed on any stack: `reExecuteFromRecord` (AXI-2044) never forwards the original `pivot`, and
-  // `valueColumns` is pivot-sourced (`ROLE_SOURCES.valueColumns = pivotValueColumns`), so EVERY
-  // valueColumns run — a plain direct Mann–Whitney run as much as a SAP-run child — is refused 400
-  // "valueColumns is required to execute a grouped comparison run". Pre-existing, outside this story;
-  // the "a SAP child's replay never copies its sapVersionId" half is pinned at unit level
-  // (UT-RULES-2310-002). `stats.correlation` binds only `xColumn` / `yColumn` (roleBinding), so its
-  // replay resolves from the record alone.
+  // The replay half of AC27 / EC28 runs on a direct `stats.correlation` run (xColumn / yColumn only).
+  // Until AXI-2451 (epic AXI-2455) a `valueColumns` run (T1 / Mann–Whitney, direct or SAP-run child)
+  // could not be replayed at all — `reExecuteFromRecord` dropped the recorded `pivot`; that replay is
+  // now AXI-2451.1 (tests/AXI-2455/). The "a SAP child's replay never copies its sapVersionId" half
+  // is pinned at unit level (UT-RULES-2310-002).
   test('AC27, EC28, FR55 — AXI-2443.5: an unbound run is replayed as a NEW run; the original is unchanged', async () => {
     // Arrange — a direct correlation run on the world-A tenant (its canonical, if deduped onto an earlier run)
     const { originalId, original } = await replayableOriginal();
@@ -410,13 +407,10 @@ test.describe.serial('AXI-2443 — Retire the per-run SAP binding', TAGS, () => 
     expect(original.sapVersionId).toBeNull();
   });
 
-  // FIXME (pre-existing, AXI-2044 — not this story): a replay row is written with NO workspaceId
-  // (`reExecuteFromRecord` deliberately does not forward the original's, the AXI-2044 IDOR note), so
-  // the workspace-scoped `GET /rule-runs/:id` answers 404 for it, as it does for every replay on the
-  // demo DB since 2026-10-30. The lineage IS written (rule_runs.replay_of_rule_run_id = the original,
-  // sap_version_id null — verified on the demo DB 2026-11-07) and `mapRuleRun` serves it
-  // (UT-RULES-7060/7061); un-fixme once a replay row carries the verified caller workspace.
-  test.fixme('AC27, EC28, FR55 — AXI-2443.6: the replay reads sapVersionId null, sapRun null and replayOfRuleRunId = the original', async () => {
+  // AXI-2452 (epic AXI-2455) — was `test.fixme`: a replay row now carries the caller's VERIFIED
+  // workspace (the original's data workspace, checked against the caller), so the workspace-scoped
+  // `GET /rule-runs/:id` serves it.
+  test('AC27, EC28, FR55 — AXI-2443.6: the replay reads sapVersionId null, sapRun null and replayOfRuleRunId = the original', async () => {
     const { originalId } = await replayableOriginal();
     const replayed = await api.post(`/api/v1/rule-runs/${originalId}/re-execute`, { projectId: t.projectId }, t.headers);
     expect(replayed.status, JSON.stringify(replayed.body)).toBe(201);
