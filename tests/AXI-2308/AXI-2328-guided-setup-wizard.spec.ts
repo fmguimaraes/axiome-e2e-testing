@@ -105,9 +105,9 @@ async function expectRecordOf(runId: string, viewAnalysisId: string, callId: str
   expect(res.status, JSON.stringify(res.body)).toBe(200);
   expect(res.body.records).toHaveLength(1);
   const record = res.body.records[0];
-  // AXI-2437 (FR56): the wizard no longer asks the plan question, so every launch now sends
-  // `sapChoice: 'skip'` explicitly — never the absent/`null` field this record carried before.
-  expect(record).toMatchObject({ runId, viewAnalysisId, question: SEX_QUESTION, intent: 'compare_groups', intentSource: 'suggested', templateId: 'T1', suggestionCallId: callId, suggestionModel: 'claude-haiku-5-5', sapChoice: 'skip' });
+  // AXI-2443 (FR53, AC24): the wizard sends no SAP choice at all (the AXI-2437 interim `'skip'`
+  // is retired), so the record carries `sapChoice: null` — as AXI-2349 asserts for every launch.
+  expect(record).toMatchObject({ runId, viewAnalysisId, question: SEX_QUESTION, intent: 'compare_groups', intentSource: 'suggested', templateId: 'T1', suggestionCallId: callId, suggestionModel: 'claude-haiku-5-5', sapChoice: null });
   const bySlot = Object.fromEntries(record.slots.map((s: any) => [s.slot, s]));
   expect(bySlot.outcome).toMatchObject({ value: 'age', provenance: 'decided' });
   expect(bySlot.groupingColumn).toMatchObject({ value: 'sexe', provenance: 'question', sourceSpan: { text: 'by sex' } });

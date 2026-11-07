@@ -191,7 +191,7 @@ export function createPassRuleExecutor(opts: PassRuleExecutorOptions = {}): Case
         const workbench = await ensureWorkbench(ctx.client, ctx.workspaceId, ctx.fixtures, [...PAUL_OPERATIONS]);
         const driver = createRunDriver({
           client: ctx.client, workspaceId: ctx.workspaceId, projectId: workbench.projectId,
-          sapVersionId: workbench.sapVersionId, timing: opts.timing, sleep: opts.sleep, now: opts.now,
+          timing: opts.timing, sleep: opts.sleep, now: opts.now,
         });
         return { reference, charts, workbench, driver };
       })();

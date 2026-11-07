@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
 import { adminApi, asList, sleep, type Api } from '../AXI-1400/harness/api';
 import { ensureTenant, ensureAnalysis, carrierRuleId, type Tenant, type Analysis } from '../AXI-1400/harness/seed';
-import { projectSapVersionId } from '../AXI-2308/harness/project-sap';
 
 /**
  * AXI-2316 (epic AXI-2309 — Feature doc §12, owner-approved 2026-10-29; AC9):
@@ -29,8 +28,9 @@ import { projectSapVersionId } from '../AXI-2308/harness/project-sap';
  * `\ufeffid` / `Value.1.1` — so neither new test is latently green.
  * Run with: `API_BASE_URL=<gateway> npx playwright test tests/AXI-2309/AXI-2316-*`.
  *
- * Every STATISTICAL run is bound to a SAP version (AXI-2310, merged on main:
- * `SAP_VERSION_REQUIRED` otherwise) — see `sapVersionFor`.
+ * No run names a SAP version: AXI-2443 (epic AXI-2433) retired the per-run SAP
+ * binding — `POST /rule-runs` with a `sapVersionId` is refused 422
+ * `SAP_BINDING_RETIRED` (the AXI-2310 `SAP_VERSION_REQUIRED` rule is gone).
  *
  * Seeding reuses the AXI-1400 harness (`ensureTenant`/`ensureAnalysis`/
  * `carrierRuleId`) read-only, additive; this story owns only its own fixtures
@@ -127,7 +127,6 @@ async function runAndWait(api: Api, t: Tenant, a: Analysis, datasetId: string, a
     pivot: args.pivot,
     projectId: t.projectId, workspaceId: t.workspaceId, datasetId,
     snapshotId: a.snapshotId, viewAnalysisId: a.analysisId, scope: 'FILTERED',
-    sapVersionId: await sapVersionFor(api, t),
   };
   const submitted = await api.post('/api/v1/rule-runs', body, t.headers);
   // Every caller of this helper expects an ACCEPTED run — a refusal here is
@@ -145,24 +144,6 @@ async function runAndWait(api: Api, t: Tenant, a: Analysis, datasetId: string, a
     await sleep(RUN_POLL_MS);
   }
   throw new Error(`run of ${args.operationId} timed out`);
-}
-
-/**
- * AXI-2310 (merged on main): every STATISTICAL run must be bound to a SAP
- * version of its own project (`SAP_VERSION_REQUIRED` otherwise, EC7). Since
- * AXI-2338 a project holds exactly one SAP, so the reused tenant project's SAP
- * is created on the first run and bound on every later one
- * (`projectSapVersionId`) — a refusal here is never about the missing binding.
- */
-let sapVersionId: Promise<string> | undefined;
-function sapVersionFor(api: Api, t: Tenant): Promise<string> {
-  sapVersionId ??= projectSapVersionId(api, t.projectId, t.headers, {
-    title: `AXI-2316 edge-case engine behaviour ${Date.now()}`,
-    questionText: 'Do the edge-case referents (n=1 arm, all-tied, per-variable missing) compute as Feature §12 specifies?',
-    planText: 'Kruskal-Wallis across every arm; Mann-Whitney U between arms A and B; alpha = 0.05, two-sided.',
-    linkedMethods: [{ operationId: 'stats.kruskal_wallis' }, { operationId: 'stats.mann_whitney_u' }],
-  });
-  return sapVersionId;
 }
 
 function canonicalRunId(run: any): string {
@@ -341,9 +322,8 @@ test.describe('AXI-2316 — edge-case engine behaviour (AC9)', { tag: ['@SI-021'
       pivot: { valueColumns: ['score'] },
       projectId: t.projectId, workspaceId: t.workspaceId, datasetId,
       snapshotId: refusalAnalysis.snapshotId, viewAnalysisId: refusalAnalysis.analysisId, scope: 'FILTERED',
-      // Bound to a valid SAP version, so the refusal under test is the
-      // unresolvable operation — never the (AXI-2310) missing SAP binding.
-      sapVersionId: await sapVersionFor(api, t),
+      // AXI-2443: no sapVersionId — naming one is now refused 422 SAP_BINDING_RETIRED, which
+      // would mask the unresolvable-operation refusal under test.
     };
     const submitted = await api.post('/api/v1/rule-runs', body, t.headers);
     expect(submitted.status, 'an unresolvable operation id must be REFUSED, never accepted/guessed').toBeGreaterThanOrEqual(400);

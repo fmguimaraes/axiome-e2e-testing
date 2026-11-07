@@ -164,7 +164,9 @@ test.describe.serial('AXI-2349 setup wizard — wizard record & run launch @SI-0
     expect(listed.body.records).toEqual([record]);
 
     const status = await drainsGreen(runId);
-    expect(status).toMatchObject({ mode: 'guided', templateId: 'T1', sapBinding: 'none' });
+    // AXI-2443 (FR52, AC24): was `sapBinding: 'none'` — a new ordinary run records no binding at all
+    // and reads null (historical 'none' records still read 'none'; UT-GOVEXEC-6217).
+    expect(status).toMatchObject({ mode: 'guided', templateId: 'T1', sapBinding: null, sapRun: null });
   });
 
   test('AXI-2349.4 AC17 EC19 — with no LLM provider reachable a run with no suggestion completes and records suggestionModel null', async () => {

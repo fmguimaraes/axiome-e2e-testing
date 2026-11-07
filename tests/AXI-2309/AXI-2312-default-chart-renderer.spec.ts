@@ -3,7 +3,6 @@ import { adminApi, type Api } from '../AXI-1400/harness/api';
 import { ensureTenant, ensureAnalysis, carrierRuleId, type Tenant, type Analysis } from '../AXI-1400/harness/seed';
 import {
   canonicalRunId,
-  createSapVersion,
   ingestFixture,
   pollRecommendedCandidate,
   preflightRun,
@@ -38,15 +37,12 @@ let api: Api;
 let t: Tenant;
 let analysis: Analysis;
 let datasetId: string;
-/** AXI-2310: every run submission binds a SAP version (fail-closed default). */
-let sapVersionId: string;
 
 test.beforeAll(async () => {
   api = await adminApi();
   t = await ensureTenant(api);
   datasetId = await ingestFixture(api, t);
   analysis = await ensureAnalysis(api, t, 'AXI-2312 chart style defaults (multi-measurement)', datasetId);
-  sapVersionId = await createSapVersion(api, t, ['stats.mann_whitney_u', 'describe.count']);
 });
 
 test.afterAll(async () => {
@@ -63,7 +59,6 @@ test.describe('AXI-2312 — default-chart renderer & chart-spec defaults (FR12/F
       pivot: { valueColumns: ['value', 'value2'] },
       operationParams: { groupFrom: 'A', groupTo: 'B' },
       carrierRuleId: await carrierRuleId('stats.mann_whitney_u'),
-      sapVersionId,
     });
     const canonicalId = canonicalRunId(run);
     const resultDatasetId = await resolveResultDatasetId(api, t, analysis.analysisId, canonicalId);
@@ -128,7 +123,6 @@ test.describe('AXI-2312 — default-chart renderer & chart-spec defaults (FR12/F
       roleBindings: { groupColumns: 'group' },
       operationParams: {},
       carrierRuleId: await carrierRuleId('describe.count'),
-      sapVersionId,
     });
     const canonicalId = canonicalRunId(run);
     const resultDatasetId = await resolveResultDatasetId(api, t, analysis.analysisId, canonicalId);
@@ -192,6 +186,5 @@ async function overriddenRun(chartStyleOverrides: Record<string, unknown>): Prom
     operationParams: { groupFrom: 'A', groupTo: 'B' },
     chartStyleOverrides,
     carrierRuleId: await carrierRuleId('stats.mann_whitney_u'),
-    sapVersionId,
   };
 }

@@ -3,7 +3,6 @@ import { adminApi, type Api } from '../AXI-1400/harness/api';
 import { ensureTenant, ensureAnalysis, carrierRuleId, type Tenant, type Analysis } from '../AXI-1400/harness/seed';
 import {
   canonicalRunId,
-  createSapVersion,
   ingestFixture,
   pollRecommendedCandidate,
   render,
@@ -33,14 +32,12 @@ let api: Api;
 let t: Tenant;
 let analysis: Analysis;
 let datasetId: string;
-let sapVersionId: string;
 
 test.beforeAll(async () => {
   api = await adminApi();
   t = await ensureTenant(api);
   datasetId = await ingestFixture(api, t);
   analysis = await ensureAnalysis(api, t, 'AXI-2330 chart style sidecar', datasetId);
-  sapVersionId = await createSapVersion(api, t, ['stats.mann_whitney_u']);
 });
 
 test.afterAll(async () => {
@@ -55,7 +52,6 @@ async function mintChart(measurementA: string, measurementB: string): Promise<{ 
     pivot: { valueColumns: [measurementA, measurementB] },
     operationParams: { groupFrom: 'A', groupTo: 'B' },
     carrierRuleId: await carrierRuleId('stats.mann_whitney_u'),
-    sapVersionId,
   });
   const canonicalId = canonicalRunId(run);
   const resultDatasetId = await resolveResultDatasetId(api, t, analysis.analysisId, canonicalId);

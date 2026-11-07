@@ -27,10 +27,11 @@ import { PrivateProjectsWorld, refusalOf, type Actor } from '../AXI-2265/private
 test.use({ storageState: { cookies: [], origins: [] } });
 test.describe.configure({ mode: 'serial', timeout: 240_000 });
 
-// RETIRED by AXI-2438 (noted by AXI-2445): this spec creates its SAP through POST …/saps, which now
+// RETIRED by AXI-2438 (noted by AXI-2445) and AXI-2443 (the per-run SAP binding is gone — a bound
+// report now comes from a Run SAP child): this spec creates its SAP through POST …/saps, which now
 // answers 410 SAP_FREE_TEXT_RETIRED. Re-enable once AXI-2439's finalise can mint a SAP version
 // (draft → questions → finalise) and the setup is moved onto it.
-test.skip(true, 'AXI-2438 retired free-text SAP writes (POST …/saps and …/versions answer 410 SAP_FREE_TEXT_RETIRED); a SAP version now comes from draft + finalise (AXI-2439, not on main yet)');
+test.skip(true, 'AXI-2443 retired the per-run SAP binding (POST /rule-runs with a sapVersionId is 422 SAP_BINDING_RETIRED) and AXI-2438 the free-text SAP writes (410): a SAP-bound report now needs a Run SAP child (POST /projects/:id/saps/:sapId/runs, AXI-2441) — rewrite this spec on a Run SAP child before re-enabling');
 
 const TAGS = { tag: ['@SI-018', '@SI-010', '@SI-002'] };
 const OPERATION = 'stats.mann_whitney_u';
@@ -128,17 +129,6 @@ async function uploadDataset(): Promise<string> {
   return datasetId;
 }
 
-async function sapVersion(title: string): Promise<string> {
-  const sap = await ok(
-    await admin.post(apiUrl(`/api/v1/projects/${projectId}/saps`), {
-      data: { title, questionText: `Is CD8 % different between arm A and arm B? (${TOKEN})`, planText: 'Mann–Whitney U, two-sided, α = 0.05.', linkedMethods: [{ operationId: OPERATION }] },
-      ...ws(),
-    }),
-    'create SAP',
-  );
-  return sap.sapVersionId;
-}
-
 async function runToCompletion(datasetId: string): Promise<string> {
   const analysis = await ok(await admin.post(apiUrl('/api/v1/view-analyses'), { data: { projectId, datasetId, name: `AXI-2313 ${TOKEN}` }, ...ws() }), 'create analysis');
   const snapshot = await ok(await admin.post(apiUrl('/api/v1/view-analyses/snapshots'), { data: { viewAnalysisId: analysis.id, filters: [] }, ...ws() }), 'create snapshot');
@@ -152,7 +142,7 @@ async function runToCompletion(datasetId: string): Promise<string> {
     projectId, workspaceId: world.workspaceId, datasetId, snapshotId: snapshot.id, viewAnalysisId: analysis.id, scope: 'FILTERED',
   };
   const submitted = await ok(
-    await admin.post(apiUrl('/api/v1/rule-runs'), { data: { ...submission, sapVersionId: await sapVersion(`AXI-2313 SAP ${TOKEN}`) }, ...ws() }),
+    await admin.post(apiUrl('/api/v1/rule-runs'), { data: submission, ...ws() }),
     'submit run',
   );
   const id: string = submitted.ruleRunId;
@@ -212,10 +202,10 @@ function sha256(data: Buffer): string {
   return createHash('sha256').update(data).digest('hex');
 }
 
-/** Re-submit the SAME computation bound to a DIFFERENT SAP — the SAP is not dedup identity. */
+/** Re-submit the SAME computation (AXI-2443: no longer bound to a different SAP — the binding is retired). */
 async function dedupedRerun(): Promise<string> {
   const reply = await ok(
-    await admin.post(apiUrl('/api/v1/rule-runs'), { data: { ...submission, sapVersionId: await sapVersion(`AXI-2313 re-run SAP ${TOKEN}`) }, ...ws() }),
+    await admin.post(apiUrl('/api/v1/rule-runs'), { data: submission, ...ws() }),
     'resubmit run',
   );
   expect(reply.status, JSON.stringify(reply)).toBe('DEDUPED');

@@ -12,10 +12,10 @@ import { answered, choose, gotoSettled, seedScope, stubWizardRoutes, type StubLo
  * `chooseSap` are removed entirely, on a project with a SAP exactly as on one without — the SAP
  * surfaces only as read-only context on Ready, never as a question blocking Run.
  *
- * Interim rule (owner-accepted, until AXI-2443 retires the field): because an absent `sap` on a
- * launch still means `bind` on `main` today (`run-sap-binding.ts#parseRunSapChoice`), the wizard
- * now sends `sapChoice: 'skip'` explicitly on every launch, regardless of whether the project has
- * a SAP (`wizardDraft.ts#buildWizardDraft`).
+ * AXI-2443 retired the per-run SAP choice: the interim `sapChoice: 'skip'` this spec once asserted
+ * is gone — the launch body carries NO SAP choice at all (`wizardDraft.ts#buildWizardDraft`), and
+ * the server refuses `bind` 422 `SAP_BINDING_RETIRED` (AXI-2443's own spec).
+ * Requires the AXI-2443 front on the target stack.
  *
  * Scenario doc: `axiome-docs/manual-e2e/AXI-2433-Structured-Statistical-Analysis-Plan.md` § AXI-2437.1–.2.
  *
@@ -107,7 +107,7 @@ test.describe.serial('AXI-2437 remove the wizard SAP Plan step @SI-066 @SI-045',
     await expect(page.getByTestId('na-ready-analysis')).toContainText('This project has no analysis plan');
   });
 
-  test('AC24 FR56 — AXI-2437.2 a run submits with sap: "skip" sent explicitly, SAP present or absent @SI-066 @SI-045', async ({ page }) => {
+  test('AC24 FR56 — AXI-2437.2 a run submits with no SAP choice in the body (AXI-2443), SAP present or absent @SI-066 @SI-045', async ({ page }) => {
     // The launch is real, so the intent is CHOSEN, not suggested: a suggested intent must cite a
     // logged recorded-transport suggestion (AXI-2352, else WIZ_SUGGESTION_UNVERIFIED), and the
     // shared stack carries no recording for this fixture. The suggestion stub offers no intent.
@@ -125,7 +125,9 @@ test.describe.serial('AXI-2437 remove the wizard SAP Plan step @SI-066 @SI-045',
     await choose(page, 'na-run');
     const response = await launched;
     const requestBody = response.request().postDataJSON();
-    expect(requestBody).toMatchObject({ sapChoice: 'skip' });
+    // AXI-2443 (AC24): was `toMatchObject({ sapChoice: 'skip' })` — the field is retired.
+    expect(requestBody).not.toHaveProperty('sapChoice');
+    expect(requestBody).not.toHaveProperty('sap');
 
     const answer = await response.json();
     expect(answer.ok, JSON.stringify(answer)).toBe(true);

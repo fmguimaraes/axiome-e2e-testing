@@ -4,7 +4,8 @@ import type { ResolvedFixture } from './fixtures';
 
 /**
  * AXI-2319 — the test workspace's WORKBENCH the pass-rule runs execute in: one
- * project linking both fixtures, one SAP (AXI-2310 refuses an unbound run), and
+ * project linking both fixtures (no SAP: AXI-2443 retired the per-run SAP binding, and a
+ * run naming a SAP version is refused 422 SAP_BINDING_RETIRED), and
  * one analysis + referent snapshot per (fixture, filters) scope.
  *
  * IDEMPOTENT BY NAME, on purpose. The daily run reuses yesterday's objects
@@ -18,7 +19,6 @@ import type { ResolvedFixture } from './fixtures';
  */
 
 export const WORKBENCH_PROJECT_NAME = 'E2E AXI-2319 prod pass rule';
-export const WORKBENCH_SAP_TITLE = 'E2E AXI-2319 prod pass rule SAP';
 const MAX_PAGES = 50;
 
 export interface Scope {
@@ -30,7 +30,6 @@ export interface Scope {
 
 export interface Workbench {
   projectId: string;
-  sapVersionId: string;
   scope(fixtureKey: string, filters: ProbeFilter[]): Promise<Scope>;
 }
 
@@ -78,23 +77,6 @@ async function ensureLinks(client: ApiClient, projectId: string, fixtures: Resol
   }
 }
 
-async function ensureSap(client: ApiClient, projectId: string, operationIds: string[]): Promise<string> {
-  const rows = await pageAll(client, (p) => `/api/v1/projects/${projectId}/saps?page=${p}&limit=100`, 'list SAPs');
-  const hit = rows.filter((r) => r?.title === WORKBENCH_SAP_TITLE && r?.projectId === projectId && typeof r?.sapVersionId === 'string').sort(oldestFirst)[0];
-  if (hit) return hit.sapVersionId;
-  // AXI-2438 retired the free-text create (410 SAP_FREE_TEXT_RETIRED): the prod workbench keeps the
-  // SAP it already holds (found above). A project with none needs draft + finalise (AXI-2439), which
-  // this harness cannot do yet — `okBody` below then fails naming the 410.
-  const created = okBody(await client.post(`/api/v1/projects/${projectId}/saps`, {
-    title: WORKBENCH_SAP_TITLE,
-    questionText: 'Does every active system rule run on the prod-suite fixtures, with Paul\'s methods reproducing their expected values?',
-    planText: 'FR31 pass rule (AXI-2319): Paul\'s methods against the Microbiote reproduction targets and R; every other active rule run SUCCEEDED with its default chart rendered.',
-    linkedMethods: operationIds.map((operationId) => ({ operationId })),
-  }), 'create SAP');
-  if (typeof created?.sapVersionId !== 'string') throw new Error('create SAP: reply carries no sapVersionId');
-  return created.sapVersionId;
-}
-
 async function ensureAnalysis(client: ApiClient, projectId: string, datasetId: string, name: string): Promise<string> {
   const q = encodeURIComponent(name);
   const rows = await pageAll(client, (p) => `/api/v1/view-analyses?projectId=${projectId}&search=${q}&page=${p}&limit=100`, 'list analyses');
@@ -117,11 +99,11 @@ async function ensureSnapshot(client: ApiClient, analysisId: string, filters: Pr
 
 /** Build (or find) the workbench; scopes are created lazily and memoized for the run. */
 export async function ensureWorkbench(
-  client: ApiClient, workspaceId: string, fixtures: ResolvedFixture[], operationIds: string[],
+  // `_operationIds` is kept for the callers' signature; it only fed the retired workbench SAP (AXI-2443).
+  client: ApiClient, workspaceId: string, fixtures: ResolvedFixture[], _operationIds: string[],
 ): Promise<Workbench> {
   const projectId = await ensureProject(client, workspaceId);
   await ensureLinks(client, projectId, fixtures);
-  const sapVersionId = await ensureSap(client, projectId, operationIds);
   const scopes = new Map<string, Promise<Scope>>();
   const scope = (fixtureKey: string, filters: ProbeFilter[]): Promise<Scope> => {
     const key = scopeName(fixtureKey, filters);
@@ -138,5 +120,5 @@ export async function ensureWorkbench(
     }
     return scopes.get(key)!;
   };
-  return { projectId, sapVersionId, scope };
+  return { projectId, scope };
 }

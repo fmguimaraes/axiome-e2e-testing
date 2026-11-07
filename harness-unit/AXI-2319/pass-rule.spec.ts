@@ -15,7 +15,7 @@ import { chartDeclarationOf, chartFailure, createPassRuleExecutor } from '../../
 import { CATALOGUE_RECIPES, recipeParams } from '../../tests/AXI-2309/harness/prod-suite/recipes';
 import { createRunDriver, refusalDetail, type DriverTiming } from '../../tests/AXI-2309/harness/prod-suite/run-driver';
 import { PAUL_OPERATIONS, type PlannedCase } from '../../tests/AXI-2309/harness/prod-suite/run-plan';
-import { ensureWorkbench, scopeName, WORKBENCH_PROJECT_NAME, WORKBENCH_SAP_TITLE } from '../../tests/AXI-2309/harness/prod-suite/workbench';
+import { ensureWorkbench, scopeName, WORKBENCH_PROJECT_NAME } from '../../tests/AXI-2309/harness/prod-suite/workbench';
 
 /**
  * UT-PRODE2E-6046 .. UT-PRODE2E-6081 (epic AXI-2309 — AXI-2319, FR31/AC12,
@@ -77,7 +77,7 @@ function fakePlatform(o: FakeOptions = {}) {
     ? [{ id: 'proj-old', name: WORKBENCH_PROJECT_NAME, workspaceId: WS, createdAt: '2026-01-01' },
        { id: 'proj-elsewhere', name: WORKBENCH_PROJECT_NAME, workspaceId: 'other-ws', createdAt: '2025-01-01' }]
     : [{ id: 'proj-other-name', name: `${WORKBENCH_PROJECT_NAME} (copy)`, workspaceId: WS, createdAt: '2025-01-01' }];
-  const saps: any[] = o.existing?.sap ? [{ id: 'sap-old', title: WORKBENCH_SAP_TITLE, projectId: 'proj-old', sapVersionId: 'sapv-old', createdAt: '2026-01-01' }] : [];
+  const saps: any[] = o.existing?.sap ? [{ id: 'sap-old', title: 'E2E AXI-2319 prod pass rule SAP', projectId: 'proj-old', sapVersionId: 'sapv-old', createdAt: '2026-01-01' }] : [];
   const analyses: any[] = [];
   const ops = ['describe.count', 'stats.dunn_posthoc', 'stats.mann_whitney_u', 'stats.kruskal_wallis', 'stats.correlation', 'stats.partial_correlation', 'stats.chi_square', 'stratify.explicit_groups']
     .map((operationId) => ({ operationId, defaultChart: (o.defaultChartNullFor ?? []).includes(operationId) ? null : { type: 'box_plot' } }))
@@ -320,7 +320,7 @@ test('UT-PRODE2E-6060: only SUCCEEDED passes the run check; FAILED, refused, tim
 const scope = { analysisId: 'va-1', snapshotId: 'ref-1', datasetId: DS2, filters: [] };
 const req = { ruleId: 'rule-1', runKind: 'STATISTICAL', operationId: 'stats.chi_square', roleBindings: { rowColumn: 'sexe', columnColumn: 'rechutes' }, operationParams: {} };
 const driverOf = (f: ReturnType<typeof fakePlatform>) =>
-  createRunDriver({ client: f.client, workspaceId: WS, projectId: 'proj-1', sapVersionId: 'sapv-1', timing: FAST, ...fakeClock() });
+  createRunDriver({ client: f.client, workspaceId: WS, projectId: 'proj-1', timing: FAST, ...fakeClock() });
 
 test('UT-PRODE2E-6061: a DEDUPED STATISTICAL run is re-executed from its canonical record and the FRESH run is judged', async () => {
   const f = fakePlatform({ dedupOnSubmit: true });
@@ -332,7 +332,9 @@ test('UT-PRODE2E-6061: a DEDUPED STATISTICAL run is re-executed from its canonic
   assert.ok(replay, 're-execute was called');
   assert.deepEqual(replay.data, { projectId: 'proj-1' });
   assert.notEqual(out.runId, out.submittedRunId);
-  assert.ok(replay.url.includes('/rule-runs/run-1/'), 'replays the CANONICAL run, not the deduped row');
+  assert.ok(replay.url.includes('/rule-runs/run-1/'), 'replays the CANONICAL run, not the deduped row');  // AXI-2443: the submit names no SAP version (the direct path refuses one, 422 SAP_BINDING_RETIRED).
+  const submit = f.calls.find((c) => c.method === 'POST' && c.url.endsWith('/api/v1/rule-runs'))!;
+  assert.equal('sapVersionId' in (submit.data as object), false);
 });
 
 test('UT-PRODE2E-6062: a DEDUPED non-STATISTICAL run is NOT fresh evidence — reported deduped, not re-executed, and refused by the freshness verdict; a replay that dedups again never passes', async () => {
@@ -393,11 +395,14 @@ test('UT-PRODE2E-6067: a ready render whose payload is an error or empty is a fa
 
 // ── workbench ───────────────────────────────────────────────────────────
 
-test('UT-PRODE2E-6068: the workbench reuses the project and SAP of the same name in THIS workspace, ignoring look-alikes', async () => {
+// AXI-2443: was "reuses the project AND SAP" — the workbench holds no SAP any more (the per-run
+// binding is retired; a run naming a SAP version is refused 422 SAP_BINDING_RETIRED).
+test('UT-PRODE2E-6068: the workbench reuses the project of the same name in THIS workspace, ignoring look-alikes, and touches no SAP', async () => {
   const f = fakePlatform({ existing: { project: true, sap: true } });
   const wb = await ensureWorkbench(f.client, WS, FIXTURES, [...PAUL_OPERATIONS]);
   assert.equal(wb.projectId, 'proj-old', 'not the same-named project in another workspace');
-  assert.equal(wb.sapVersionId, 'sapv-old');
+  assert.equal('sapVersionId' in wb, false);
+  assert.equal(f.calls.some((c) => c.url.includes('/saps')), false);
   assert.equal(f.calls.some((c) => c.method === 'POST' && c.url.endsWith('/api/v1/projects')), false);
 });
 

@@ -39,7 +39,6 @@ export interface DriverDeps {
   client: ApiClient;
   workspaceId: string;
   projectId: string;
-  sapVersionId: string;
   timing?: DriverTiming;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
@@ -110,7 +109,7 @@ export function createRunDriver(deps: DriverDeps) {
   const timing = deps.timing ?? DEFAULT_TIMING;
   const sleep = deps.sleep ?? realSleep;
   const now = deps.now ?? Date.now;
-  const { client, workspaceId, projectId, sapVersionId } = deps;
+  const { client, workspaceId, projectId } = deps;
 
   /**
    * Poll a run until it is terminal. A 403/404 is terminal too: the run id was
@@ -142,7 +141,8 @@ export function createRunDriver(deps: DriverDeps) {
     const submitted = await client.post('/api/v1/rule-runs', {
       ruleId: req.ruleId, runKind: req.runKind, operationId: req.operationId,
       roleBindings: req.roleBindings, pivot: req.pivot, operationParams: req.operationParams,
-      sapVersionId, projectId, workspaceId, datasetId: scope.datasetId,
+      // AXI-2443: no sapVersionId on the wire — the direct path refuses it (422 SAP_BINDING_RETIRED).
+      projectId, workspaceId, datasetId: scope.datasetId,
       snapshotId: scope.snapshotId, viewAnalysisId: scope.analysisId, scope: 'FILTERED', filters: scope.filters,
     });
     const submittedRunId = typeof submitted.body?.ruleRunId === 'string' ? submitted.body.ruleRunId : null;

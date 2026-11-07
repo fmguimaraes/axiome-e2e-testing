@@ -36,6 +36,10 @@ import type { Api } from '../AXI-1400/harness/api';
 test.use({ storageState: { cookies: [], origins: [] } });
 test.describe.configure({ mode: 'serial', timeout: 300_000 });
 
+// AXI-2443 (epic AXI-2433): the per-run SAP binding this spec pins is RETIRED — `sap: "bind"` is 422
+// SAP_BINDING_RETIRED and a new run records no binding (reads `sapBinding: null`). .2 is adapted to
+// the null read; the skipped .3/.6/.8/.9 describe a retired behaviour and are to be retired with
+// this spec, not revived (AXI-2443's own spec covers the refusals and the SAP-run child).
 // AXI-2445 (rework for AXI-2438): AXI-2338.1/.3/.5/.6/.8/.9 create or re-plan a SAP through the
 // free-text writes, which AXI-2438 retired (POST …/saps and …/versions answer 410 SAP_FREE_TEXT_RETIRED).
 // They are `test.skip` until AXI-2439's finalise gives a way to mint a SAP version; .2/.4/.7 never
@@ -242,7 +246,7 @@ test.describe('AXI-2338 — project-bound SAP & run binding + mode record', { ta
     expect(listedAfter.data[0]).toMatchObject({ id: firstBody.id, version: 2 });
   });
 
-  test('AC12, EC5 — AXI-2338.2: a governed run on a project with NO SAP proceeds unbound and records sapBinding "none" (the SAP is optional) @SI-047 @SI-065', async () => {
+  test('AC12, EC5 — AXI-2338.2: a governed run on a project with NO SAP proceeds unbound and records no binding — reads sapBinding null since AXI-2443 (the SAP is optional) @SI-047 @SI-065', async () => {
     // Arrange
     const project = await newProject('no-sap');
     const datasetId = await linkFixture(project);
@@ -260,10 +264,11 @@ test.describe('AXI-2338 — project-bound SAP & run binding + mode record', { ta
     const statuses = (run.nodes as Array<{ status: string }>).map((n) => n.status);
     expect(statuses, JSON.stringify(run.nodes)).not.toContain('FAILED');
     expect(statuses).not.toContain('BLOCKED');
-    expect(run).toMatchObject({ sapBinding: 'none', sapVersionId: null, sapAnalysis: false });
+    // AXI-2443 (FR52): was `sapBinding: 'none'` — a new run records no binding and reads null.
+    expect(run).toMatchObject({ sapBinding: null, sapVersionId: null, sapAnalysis: false });
     expect(analysis.list, 'the run\'s analysis is listed').toBeTruthy();
-    expect(analysis.list).toMatchObject({ sapAnalysis: false, sapBinding: 'none', sapVersionId: null });
-    expect(analysis.detail).toMatchObject({ sapAnalysis: false, sapBinding: 'none', sapVersionId: null });
+    expect(analysis.list).toMatchObject({ sapAnalysis: false, sapBinding: null, sapVersionId: null });
+    expect(analysis.detail).toMatchObject({ sapAnalysis: false, sapBinding: null, sapVersionId: null });
   });
 
   test.skip('AC12 — AXI-2338.3: a governed run binds the project\'s CURRENT SAP version; after re-plan the run binds v2, never reusing the v1 step @SI-047 @SI-017 @SI-065', async () => {

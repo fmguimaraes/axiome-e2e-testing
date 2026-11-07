@@ -185,7 +185,10 @@ test.describe('AXI-2310 — SAP entity & API', TAGS, () => {
     ]);
   });
 
-  test('AC1, EC7 — AXI-2310.5: a run with no bound SAP version (or another project\'s) is refused; nothing executes', async () => {
+  // AXI-2443 (epic AXI-2433): RETIRED — a run is no longer bound to a SAP version; any sapVersionId on
+  // POST /rule-runs is refused 422 SAP_BINDING_RETIRED and an unbound run proceeds. Covered by
+  // AXI-2443.2 (`tests/AXI-2433/AXI-2443-retire-run-sap-binding.spec.ts`); kept skipped for traceability.
+  test.skip('AC1, EC7 — AXI-2310.5: a run with no bound SAP version (or another project\'s) is refused; nothing executes', async () => {
     // Arrange — B's one SAP was created in §.2 (AXI-2338: one SAP per project)
     const run = (extra: Record<string, unknown>) =>
       editor.api.post(apiUrl('/api/v1/rule-runs'), {
