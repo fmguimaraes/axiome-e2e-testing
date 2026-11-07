@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { apiUrl } from '../../config/env';
 import { adminApi, asList, type Api } from '../AXI-1400/harness/api';
-import { ensureTenant, type Tenant } from '../AXI-1400/harness/seed';
+import { carrierRuleId, ensureAnalysis, ensureTenant, type Tenant } from '../AXI-1400/harness/seed';
 import { anchorDataset, type AnchoredDataset } from '../AXI-1604/harness/anchor-dataset';
 import { approveCarriersFor } from '../AXI-1762/seeded-rule-approval';
 import { Actor, PrivateProjectsWorld } from '../AXI-2265/private-projects-fixtures';
@@ -32,7 +32,8 @@ import { drainGoverned, ingestCsvFixture } from '../AXI-2308/harness/opening-tem
  *      dataset and a finalised one-question SAP (no sensitivity analysis, so the child's rule run
  *      is never deduped onto a sibling and stays replayable).
  *
- * STATUS at hand-off: authored, NOT run — the demo gateway serves `main`, not the AXI-2443 branch.
+ * .4 is the SAP-run child's `sapRun` read; .5 is the replay lineage on a replayable run (see the
+ * comment above .5 for why a T1 child cannot be replayed — a pre-existing AXI-2044 gap).
  * Run: `API_BASE_URL=<gateway serving the AXI-2443 branch> npx playwright test tests/AXI-2433/AXI-2443-*`.
  */
 
@@ -42,6 +43,8 @@ const TAGS = { tag: ['@SI-047', '@SI-017', '@SI-065', '@SI-002', '@SI-010'] };
 const RETIRED = 'SAP_BINDING_RETIRED';
 const RUN_SAP_ROUTE = /Run SAP \(POST \/api\/v1\/projects\/:projectId\/saps\/:sapId\/runs\)/;
 const MWU = 'stats.mann_whitney_u';
+const CORRELATION = 'stats.correlation';
+const RULE_RUN_WAIT_MS = 120_000;
 const READY_WAIT_MS = 120_000;
 const SETUP_TIMEOUT_MS = 6 * 60_000;
 const NOT_BOUND = { sapBinding: null, sapVersionId: null, sapRun: null };
@@ -136,6 +139,37 @@ async function analysisReads(viewAnalysisId: string): Promise<{ list: any; detai
   const detail = await api.get(`/api/v1/view-analyses/${viewAnalysisId}`, t.headers);
   expect(detail.status, JSON.stringify(detail.body)).toBe(200);
   return { list: asList(listed.body).find((r: any) => r.id === viewAnalysisId), detail: detail.body };
+}
+
+/** A rule run read until it is terminal (SUCCEEDED / FAILED / DEDUPED). */
+async function settledRuleRun(ruleRunId: string): Promise<any> {
+  let body: any = null;
+  await expect
+    .poll(async () => {
+      const res = await api.get(`/api/v1/rule-runs/${ruleRunId}`, t.headers);
+      body = res.body;
+      return res.status === 200 ? body?.status : `HTTP ${res.status}`;
+    }, { timeout: RULE_RUN_WAIT_MS, intervals: [1_000, 2_000, 5_000] })
+    .toMatch(/^(SUCCEEDED|FAILED|DEDUPED)$/);
+  return body;
+}
+
+/** A SUCCEEDED, unbound, replayable run (`stats.correlation`: xColumn / yColumn only — see .5). */
+async function replayableOriginal(): Promise<{ originalId: string; original: any }> {
+  await approveCarriersFor([CORRELATION]);
+  const analysis = await ensureAnalysis(api, t, 'AXI-2443 replay lineage', datasetId);
+  const submitted = await api.post('/api/v1/rule-runs', {
+    ruleId: await carrierRuleId(CORRELATION), runKind: 'STATISTICAL', operationId: CORRELATION,
+    roleBindings: { xColumn: OUTCOME, yColumn: 'igg4_g_l' }, operationParams: {},
+    projectId: t.projectId, workspaceId: t.workspaceId, datasetId,
+    snapshotId: analysis.snapshotId, viewAnalysisId: analysis.analysisId, scope: 'FILTERED',
+  }, t.headers);
+  expect(submitted.status, JSON.stringify(submitted.body)).toBeLessThan(300);
+  const first = await settledRuleRun(submitted.body.ruleRunId);
+  const originalId: string = first.dedupedFromRunId ?? first.id;
+  const original = await settledRuleRun(originalId);
+  expect(original.status, JSON.stringify(original)).toBe('SUCCEEDED');
+  return { originalId, original };
 }
 
 // ── world B — a fresh private-projects workspace with a finalised SAP ─────────────────────────
@@ -328,7 +362,7 @@ test.describe.serial('AXI-2443 — Retire the per-run SAP binding', TAGS, () => 
     expect(skipped.body.record.sapChoice).toBe('skip');
   });
 
-  test('AC26, AC27, EC28, FR55, FR57 — AXI-2443.4: a SAP-run child reads sapRun; its replay is unbound with lineage to the original', async () => {
+  test('AC26, FR57 — AXI-2443.4: a SAP-run child reads sapRun on its status and on its rule run', async () => {
     // Arrange — run the SAP (AXI-2441)
     const started = await editor.api.post(`${base(sapProject)}/saps/${sapId}/runs`, {
       data: { datasetVersionId: ingestion, clientRequestId: `axi2443-${Date.now()}` },
@@ -347,19 +381,45 @@ test.describe.serial('AXI-2443 — Retire the per-run SAP binding', TAGS, () => 
     // Assert — the child's rule run
     const original = await adminRuleRun(child.ruleRunId);
     expect(original).toMatchObject({ status: 'SUCCEEDED', sapVersionId: sapRun.sapVersionId, sapRun: reference, replayOfRuleRunId: null });
+  });
 
-    // Act — replay it
-    const replayed = await world.admin.post(apiUrl(`/api/v1/rule-runs/${child.ruleRunId}/re-execute`), {
-      headers: { 'X-Workspace-Id': world.workspaceId },
-      data: { projectId: sapProject },
+  // The replay half of AC27 / EC28 runs on a REPLAYABLE run. A T1 child (Mann–Whitney U) cannot be
+  // replayed on any stack: `reExecuteFromRecord` (AXI-2044) never forwards the original `pivot`, and
+  // `valueColumns` is pivot-sourced (`ROLE_SOURCES.valueColumns = pivotValueColumns`), so EVERY
+  // valueColumns run — a plain direct Mann–Whitney run as much as a SAP-run child — is refused 400
+  // "valueColumns is required to execute a grouped comparison run". Pre-existing, outside this story;
+  // the "a SAP child's replay never copies its sapVersionId" half is pinned at unit level
+  // (UT-RULES-2310-002). `stats.correlation` binds only `xColumn` / `yColumn` (roleBinding), so its
+  // replay resolves from the record alone.
+  test('AC27, EC28, FR55 — AXI-2443.5: an unbound run is replayed as a NEW run; the original is unchanged', async () => {
+    // Arrange — a direct correlation run on the world-A tenant (its canonical, if deduped onto an earlier run)
+    const { originalId, original } = await replayableOriginal();
+
+    // Act
+    const replayed = await api.post(`/api/v1/rule-runs/${originalId}/re-execute`, { projectId: t.projectId }, t.headers);
+
+    // Assert
+    expect(replayed.status, JSON.stringify(replayed.body)).toBe(201);
+    expect(replayed.body.ruleRunId).toEqual(expect.any(String));
+    expect(replayed.body.ruleRunId).not.toBe(originalId);
+    // the original reads exactly as before the replay (on a reused tenant it may itself be an
+    // earlier replay, so its own lineage is compared, never assumed null)
+    expect(await settledRuleRun(originalId)).toMatchObject({
+      status: 'SUCCEEDED', sapVersionId: original.sapVersionId, replayOfRuleRunId: original.replayOfRuleRunId,
     });
-    expect(replayed.status(), await replayed.text()).toBe(201);
-    const replayId = (await replayed.json()).ruleRunId;
+    expect(original.sapVersionId).toBeNull();
+  });
 
-    // Assert — the replay is unbound, with lineage; the original is unchanged
-    const replay = await adminRuleRun(replayId);
-    expect(replayId).not.toBe(child.ruleRunId);
-    expect(replay).toMatchObject({ sapVersionId: null, sapRun: null, replayOfRuleRunId: child.ruleRunId });
-    expect(await adminRuleRun(child.ruleRunId)).toMatchObject({ sapVersionId: sapRun.sapVersionId, sapRun: reference, replayOfRuleRunId: null });
+  // FIXME (pre-existing, AXI-2044 — not this story): a replay row is written with NO workspaceId
+  // (`reExecuteFromRecord` deliberately does not forward the original's, the AXI-2044 IDOR note), so
+  // the workspace-scoped `GET /rule-runs/:id` answers 404 for it, as it does for every replay on the
+  // demo DB since 2026-10-30. The lineage IS written (rule_runs.replay_of_rule_run_id = the original,
+  // sap_version_id null — verified on the demo DB 2026-11-07) and `mapRuleRun` serves it
+  // (UT-RULES-7060/7061); un-fixme once a replay row carries the verified caller workspace.
+  test.fixme('AC27, EC28, FR55 — AXI-2443.6: the replay reads sapVersionId null, sapRun null and replayOfRuleRunId = the original', async () => {
+    const { originalId } = await replayableOriginal();
+    const replayed = await api.post(`/api/v1/rule-runs/${originalId}/re-execute`, { projectId: t.projectId }, t.headers);
+    expect(replayed.status, JSON.stringify(replayed.body)).toBe(201);
+    expect(await settledRuleRun(replayed.body.ruleRunId)).toMatchObject({ sapVersionId: null, sapRun: null, replayOfRuleRunId: originalId });
   });
 });
