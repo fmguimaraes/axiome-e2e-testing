@@ -7,34 +7,37 @@ import {
   neverCreatedProjectId,
   refusalOf,
 } from '../AXI-2265/private-projects-fixtures';
+import { newProject, provisionSap, waitUntil, type SapRunChildWorld } from './harness/sap-run-child';
 
 /**
- * AXI-2310 (epic AXI-2309 Platform Opening: Headless) — the SAP (Statistical
- * Analysis Plan) entity & API: create / read / list / re-plan, the run → SAP
- * binding refusal (EC7), linked-method resolution (EC12) and deny-by-default
- * access (NFR1). API-level by design: this epic builds no client screen.
+ * AXI-2310 (epic AXI-2309 Platform Opening: Headless) — the SAP (Statistical Analysis Plan)
+ * entity & its READ API: read / list / versions and deny-by-default access (NFR1). API-level by design.
  *
  * Scenario doc: axiome-docs/manual-e2e/AXI-2309-Platform-Opening-Headless.md
  * § "AXI-2310 — SAP entity & API" (AXI-2310.1 .. AXI-2310.6).
  *
- * Requires organization-service with `SAP_RUN_BINDING` unset (fail-closed
- * default) — the demo-only `off` hatch turns §.5 red, correctly.
+ * REWRITTEN by AXI-2480 (epic AXI-2455). The free-text SAP writes (`POST …/saps`, `…/versions`)
+ * answer 410 SAP_FREE_TEXT_RETIRED since AXI-2438, so this spec no longer creates a SAP that way: the
+ * SAP version under test is minted by draft + finalise (AXI-2439) with the harness (one primary T1
+ * question, the NEWEST T1 version the catalog lists). Per scenario:
+ *   .1 .2 .3 .6  REWRITTEN on a finalised structured SAP (read back, list, amendment retains the
+ *                prior version, read access deny-by-default);
+ *   .4           RETIRED — the SAP no longer carries `linkedMethods` (a question now pins a template
+ *                version from the registry), so there is no linked-method resolution to report.
+ *                The free-text create is pinned as 410 by AXI-2438.6;
+ *   .5           RETIRED — a run is no longer bound to a SAP version: `sapVersionId` on POST /rule-runs
+ *                is 422 SAP_BINDING_RETIRED (AXI-2443.2) and an unbound run proceeds (AXI-2443.3).
+ * The write-side access matrix (403 without sap:write, smuggled bodies) is AXI-2438.7 / AXI-2439.8.
  */
 
 test.use({ storageState: { cookies: [], origins: [] } });
-test.describe.configure({ mode: 'serial' });
-
-// RETIRED by AXI-2438 (noted by AXI-2445): this spec creates its SAP through POST …/saps, which now
-// answers 410 SAP_FREE_TEXT_RETIRED. Re-enable once AXI-2439's finalise can mint a SAP version
-// (draft → questions → finalise) and the setup is moved onto it.
-test.skip(true, 'AXI-2438 retired free-text SAP writes (POST …/saps and …/versions answer 410 SAP_FREE_TEXT_RETIRED); a SAP version now comes from draft + finalise (AXI-2439, not on main yet)');
+test.describe.configure({ mode: 'serial', timeout: 240_000 });
 
 const TAGS = { tag: ['@SI-065', '@SI-010', '@SI-002', '@SI-017'] };
-const REGISTERED_OP = 'stats.mann_whitney_u';
-const PLAN_TEXT = 'Primary: Mann–Whitney U on CD8⁺ µ%, α = 0.05, two-sided.\n  Secondary: n ≥ 12 per arm — café.  \n';
-const QUESTION = '  Does arm A differ from arm B?\n';
+const QUESTION = 'Does arm A differ from arm B? (AXI-2310)';
 
 let world: PrivateProjectsWorld;
+let w: SapRunChildWorld;
 let editor: Actor;
 let viewer: Actor;
 let stranger: Actor;
@@ -42,34 +45,13 @@ let outsider: Actor;
 let projectA: string;
 let projectB: string;
 let privateProject: string;
-
-function content(overrides: Record<string, unknown> = {}) {
-  return {
-    title: `E2E AXI-2310 SAP ${Date.now()}`,
-    questionText: QUESTION,
-    planText: PLAN_TEXT,
-    linkedMethods: [{ operationId: REGISTERED_OP }],
-    ...overrides,
-  };
-}
+let sapA: any;
+let sapB: any;
 
 const saps = (projectId: string, suffix = '') => apiUrl(`/api/v1/projects/${projectId}/saps${suffix}`);
 
-async function createSap(a: Actor, projectId: string, body = content()) {
-  const res = await a.api.post(saps(projectId), { data: body });
-  expect(res.status(), await res.text()).toBe(201);
-  return res.json();
-}
-
-async function newProject(name: string): Promise<string> {
-  const res = await editor.api.post(apiUrl('/api/v1/projects'), {
-    data: { name: `E2E AXI-2310 ${name} ${Date.now()}`, workspaceId: world.workspaceId },
-  });
-  expect(res.status(), await res.text()).toBe(201);
-  return (await res.json()).id;
-}
-
 test.beforeAll(async () => {
+  test.setTimeout(10 * 60_000);
   world = await PrivateProjectsWorld.create();
   editor = await world.actor('editor');
   viewer = await world.actor('viewer');
@@ -79,9 +61,14 @@ test.beforeAll(async () => {
   await world.addMember(viewer, 'viewer');
   await world.addMember(stranger, 'editor');
   await world.leaveWorkspace();
-  projectA = await newProject('A');
-  projectB = await newProject('B');
-  privateProject = await newProject('private');
+  w = { world, editor };
+  const a = await provisionSap(w, `2310a-${Date.now()}`, 'A', QUESTION);
+  const b = await provisionSap(w, `2310b-${Date.now()}`, 'B', QUESTION);
+  projectA = a.project;
+  projectB = b.project;
+  sapA = a.sap;
+  sapB = b.sap;
+  privateProject = await newProject(w, 'private');
   expect((await access.visibility(editor, privateProject, 'private')).status()).toBe(200);
 });
 
@@ -90,41 +77,36 @@ test.afterAll(async () => {
 });
 
 test.describe('AXI-2310 — SAP entity & API', TAGS, () => {
-  let created: any;
-  let ofB: any;
-
-  test('AC1, AC2 — AXI-2310.1: a SAP is created and read back verbatim with every contract field', async () => {
+  test('AC1, AC2 — AXI-2310.1: a finalised SAP is read back verbatim with every contract field', async () => {
     // Act
-    created = await createSap(editor, projectA);
-    const read = await editor.api.get(saps(projectA, `/${created.id}`));
+    const read = await editor.api.get(saps(projectA, `/${sapA.id}`));
 
     // Assert
-    expect(created).toMatchObject({
+    expect(sapA).toMatchObject({
+      id: expect.any(String),
       projectId: projectA,
       version: 1,
-      questionText: QUESTION,
-      planText: PLAN_TEXT,
-      linkedMethods: [{ operationId: REGISTERED_OP }],
-      authorUserId: editor.userId,
+      status: 'final',
+      contentHashVersion: 2,
+      finalisedByUserId: editor.userId,
       supersededBy: null,
     });
-    expect(created.contentHash).toMatch(/^[0-9a-f]{64}$/);
-    for (const key of ['id', 'sapVersionId', 'title', 'createdAt', 'updatedAt', 'linkedMethodResolution']) {
-      expect(created).toHaveProperty(key);
+    expect(sapA.contentHash).toMatch(/^[0-9a-f]{64}$/);
+    for (const key of ['sapVersionId', 'title', 'plan', 'finalisedAt', 'analysisDatasetId']) {
+      expect(sapA, key).toHaveProperty(key);
     }
+    expect(sapA.plan.questions).toHaveLength(1);
+    expect(sapA.plan.questions[0].text).toBe(QUESTION);
     expect(read.status()).toBe(200);
     const body = await read.json();
-    expect(body.sapVersionId).toBe(created.sapVersionId);
-    expect(body.contentHash).toBe(created.contentHash);
-    expect(body.planText).toBe(PLAN_TEXT);
+    expect(body.sapVersionId).toBe(sapA.sapVersionId);
+    expect(body.contentHash).toBe(sapA.contentHash);
+    expect(body.version).toBe(1);
+    expect(JSON.stringify(body.plan)).toBe(JSON.stringify(sapA.plan));
   });
 
-  // AXI-2338 (Headless §10 delta, §17 D8): a project holds exactly ONE SAP, so
-  // A's list is its one SAP (a second create is AXI-2338.1's 409).
+  // A project holds exactly ONE SAP (AXI-2338), so A's list is its one SAP at its latest version.
   test('AC1 — AXI-2310.2: the list is per project — A\'s one SAP at its latest version, never B\'s', async () => {
-    // Arrange
-    ofB = await createSap(editor, projectB);
-
     // Act
     const res = await editor.api.get(saps(projectA, '?page=1&limit=100'));
 
@@ -132,86 +114,48 @@ test.describe('AXI-2310 — SAP entity & API', TAGS, () => {
     expect(res.status()).toBe(200);
     const body = await res.json();
     const ids = body.data.map((s: { id: string }) => s.id);
-    expect(ids).toEqual([created.id]);
-    expect(ids).not.toContain(ofB.id);
+    expect(ids).toEqual([sapA.id]);
+    expect(ids).not.toContain(sapB.id);
     expect(body.meta).toMatchObject({ total: 1, page: 1, limit: 100 });
   });
 
-  test('AC1 — AXI-2310.3: re-plan creates version 2; version 1 is retained unchanged and points at it; stale re-plan is 409', async () => {
+  test('AC1 — AXI-2310.3: an amendment creates version 2; version 1 is retained unchanged and points at it', async () => {
+    // Arrange — the amendment draft copies version 1 and must pass the completeness check
+    const draft = await (await editor.api.post(saps(projectA, '/draft'))).json();
+    expect(draft).toMatchObject({ sapId: sapA.id, basedOnVersion: 1 });
+    await waitUntil(
+      async () => {
+        const report = await (await editor.api.get(saps(projectA, `/${draft.sapId}/draft/completeness`))).json();
+        return report.results.every((r: { status: string }) => r.status !== 'fail');
+      },
+      120_000,
+      'amendment draft completeness',
+    );
+
     // Act
-    const replan = await editor.api.post(saps(projectA, `/${created.id}/versions`), {
-      data: { ...content({ planText: `${PLAN_TEXT}Amended: Holm correction.` }), basedOnVersion: 1 },
+    const amended = await editor.api.post(saps(projectA, `/${draft.sapId}/draft/finalise`), {
+      data: { basedOnRevision: draft.revision, basedOnVersion: 1, amendmentReason: 'AXI-2310.3 amendment' },
     });
-    const v2 = await replan.json();
-    const v1 = await (await editor.api.get(saps(projectA, `/${created.id}/versions/1`))).json();
-    const all = await (await editor.api.get(saps(projectA, `/${created.id}/versions`))).json();
-    const latest = await (await editor.api.get(saps(projectA, `/${created.id}`))).json();
-    const stale = await editor.api.post(saps(projectA, `/${created.id}/versions`), {
-      data: { ...content(), basedOnVersion: 1 },
-    });
+    const v2 = await amended.json();
+    const v1 = await (await editor.api.get(saps(projectA, `/${sapA.id}/versions/1`))).json();
+    const all = await (await editor.api.get(saps(projectA, `/${sapA.id}/versions`))).json();
+    const latest = await (await editor.api.get(saps(projectA, `/${sapA.id}`))).json();
+    const list = await (await editor.api.get(saps(projectA, '?limit=100'))).json();
 
     // Assert
-    expect(replan.status()).toBe(201);
-    expect(v2).toMatchObject({ id: created.id, version: 2, supersededBy: null });
-    expect(v2.sapVersionId).not.toBe(created.sapVersionId);
-    expect(v2.contentHash).not.toBe(created.contentHash);
-    expect(v1).toMatchObject({
-      sapVersionId: created.sapVersionId,
-      planText: PLAN_TEXT,
-      contentHash: created.contentHash,
-      supersededBy: v2.sapVersionId,
-    });
+    expect(amended.status(), JSON.stringify(v2)).toBe(201);
+    expect(v2).toMatchObject({ id: sapA.id, version: 2, status: 'final', supersededBy: null, amendmentReason: 'AXI-2310.3 amendment' });
+    expect(v2.sapVersionId).not.toBe(sapA.sapVersionId);
+    expect(v1).toMatchObject({ sapVersionId: sapA.sapVersionId, contentHash: sapA.contentHash, supersededBy: v2.sapVersionId });
+    expect(JSON.stringify(v1.plan)).toBe(JSON.stringify(sapA.plan));
     expect(all.map((v: { version: number }) => v.version)).toEqual([1, 2]);
     expect(latest.version).toBe(2);
-    expect(stale.status()).toBe(409);
-    expect((await stale.json()).errorCode).toBe('SAP_VERSION_CONFLICT');
+    expect(list.meta.total).toBe(1);
+    expect(list.data[0]).toMatchObject({ id: sapA.id, version: 2 });
+    // The stale-base finalise (409 SAP_VERSION_CONFLICT) is AXI-2439.5.
   });
 
-  test('AC1, EC12 — AXI-2310.4: an unresolvable linked method is reported in order, never guessed or replaced', async () => {
-    // Arrange
-    const missingRule = { ruleId: neverCreatedProjectId(), ruleVersion: 1 };
-    const refs = [{ operationId: REGISTERED_OP }, { operationId: 'stats.not_a_registered_operation' }, missingRule];
-    const projectC = await newProject('C'); // AXI-2338: one SAP per project — A already holds one
-
-    // Act
-    const sap = await createSap(editor, projectC, content({ linkedMethods: refs }));
-
-    // Assert
-    expect(sap.linkedMethods).toEqual(refs);
-    expect(sap.linkedMethodResolution).toEqual([
-      { index: 0, ref: refs[0], status: 'resolved' },
-      { index: 1, ref: refs[1], status: 'unresolved', reason: 'operation_not_registered' },
-      { index: 2, ref: refs[2], status: 'unresolved', reason: 'rule_version_not_found' },
-    ]);
-  });
-
-  // AXI-2443 (epic AXI-2433): RETIRED — a run is no longer bound to a SAP version; any sapVersionId on
-  // POST /rule-runs is refused 422 SAP_BINDING_RETIRED and an unbound run proceeds. Covered by
-  // AXI-2443.2 (`tests/AXI-2433/AXI-2443-retire-run-sap-binding.spec.ts`); kept skipped for traceability.
-  test.skip('AC1, EC7 — AXI-2310.5: a run with no bound SAP version (or another project\'s) is refused; nothing executes', async () => {
-    // Arrange — B's one SAP was created in §.2 (AXI-2338: one SAP per project)
-    const run = (extra: Record<string, unknown>) =>
-      editor.api.post(apiUrl('/api/v1/rule-runs'), {
-        data: { ruleId: neverCreatedProjectId(), projectId: projectA, workspaceId: world.workspaceId, ...extra },
-      });
-
-    // Act
-    const unbound = await run({});
-    const foreign = await run({ sapVersionId: ofB.sapVersionId });
-    const own = await run({ sapVersionId: created.sapVersionId });
-
-    // Assert
-    expect(unbound.status()).toBe(422);
-    const unboundBody = await unbound.json();
-    expect(unboundBody.errorCode).toBe('SAP_VERSION_REQUIRED');
-    expect(unboundBody).not.toHaveProperty('ruleRunId');
-    expect(foreign.status()).toBe(422);
-    expect((await foreign.json()).errorCode).toBe('SAP_VERSION_NOT_FOUND');
-    const ownBody = await own.json().catch(() => ({}));
-    expect(String(ownBody.errorCode ?? '')).not.toMatch(/^SAP_/);
-  });
-
-  test('AC16 — AXI-2310.6: access is server-side and deny-by-default, tenancy never from the body', async () => {
+  test('AC16 — AXI-2310.6: read access is server-side and deny-by-default, a refusal never says whether the SAP exists', async () => {
     // Arrange
     const anonymous = await apiRequest.newContext({ extraHTTPHeaders: { 'X-Workspace-Id': world.workspaceId } });
     const ghost = neverCreatedProjectId();
@@ -223,17 +167,13 @@ test.describe('AXI-2310 — SAP entity & API', TAGS, () => {
     const strangerCalls = [
       [await stranger.api.get(saps(privateProject)), await stranger.api.get(saps(ghost))],
       [await stranger.api.get(saps(privateProject, `/${ghostSap}`)), await stranger.api.get(saps(ghost, `/${ghostSap}`))],
-      [await stranger.api.post(saps(privateProject), { data: content() }), await stranger.api.post(saps(ghost), { data: content() })],
+      [await stranger.api.get(saps(privateProject, `/${ghostSap}/versions`)), await stranger.api.get(saps(ghost, `/${ghostSap}/versions`))],
     ];
     const outsiderCalls = [await outsider.api.get(saps(projectA)), await outsider.api.get(saps(ghost))];
-    const viewerRead = await viewer.api.get(saps(projectA));
-    const viewerWrite = await viewer.api.post(saps(projectA), { data: content() });
-    const smuggled = await Promise.all(
-      [{ projectId: projectB }, { authorUserId: viewer.userId }, { version: 7 }].map((extra) =>
-        editor.api.post(saps(projectA), { data: { ...content(), ...extra } }),
-      ),
-    );
-    const crossPath = await editor.api.get(saps(projectB, `/${created.id}`));
+    const viewerList = await viewer.api.get(saps(projectA));
+    const viewerRead = await viewer.api.get(saps(projectA, `/${sapA.id}`));
+    const crossPath = await editor.api.get(saps(projectB, `/${sapA.id}`));
+    const crossVersions = await editor.api.get(saps(projectB, `/${sapA.id}/versions`));
     const after = (await (await editor.api.get(saps(projectA, '?limit=100'))).json()).meta.total;
 
     // Assert
@@ -246,10 +186,10 @@ test.describe('AXI-2310 — SAP entity & API', TAGS, () => {
     const [o, on] = [await refusalOf(outsiderCalls[0]), await refusalOf(outsiderCalls[1])];
     expect(o.status).toBe(404);
     expect(o).toEqual(on);
+    expect(viewerList.status()).toBe(200);
     expect(viewerRead.status()).toBe(200);
-    expect(viewerWrite.status()).toBe(403);
-    for (const res of smuggled) expect(res.status()).toBe(400);
     expect(crossPath.status()).toBe(404);
+    expect(crossVersions.status()).toBe(404);
     expect(after).toBe(before);
     await anonymous.dispose();
   });

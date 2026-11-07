@@ -5,41 +5,41 @@ import { apiUrl } from '../../config/env';
 import { sleep } from '../AXI-1400/harness/api';
 import { carrierRuleId } from '../AXI-1400/harness/seed';
 import { PrivateProjectsWorld, refusalOf, type Actor } from '../AXI-2265/private-projects-fixtures';
+import { newProject as newSapProject, provisionSap, runSapChild, type SapRunChildWorld } from './harness/sap-run-child';
 
 /**
  * AXI-2311 (epic AXI-2309 Platform Opening: Headless) — the client report
- * profile: ONE report per run, generated automatically when the run completes
- * (§17 D8), downloaded through
+ * profile: ONE report per run, downloaded through
  * `GET /api/v1/projects/:projectId/rule-runs/:ruleRunId/client-report?format=zip|md|pdf`.
  *
  * Scenario doc: axiome-docs/manual-e2e/AXI-2309-Platform-Opening-Headless.md
- * § "AXI-2311 — Client report profile" (AXI-2311.1 .. AXI-2311.7).
+ * § "AXI-2311 — Client report profile" (AXI-2311.1 .. AXI-2311.8).
+ *
+ * REWRITTEN by AXI-2480 (epic AXI-2455). The per-run SAP binding (AXI-2443) and the free-text SAP
+ * writes (AXI-2438) are gone, so the SAP-bound report is now the report of a RUN SAP CHILD:
+ * .1-.6 run on the governed child of a SAP run (`POST …/saps/:sapId/runs`, AXI-2441) on a SAP
+ * version minted by draft + finalise (AXI-2439), pinning the NEWEST T1 version the catalog lists.
+ * A governed run announces its result with a snapshot, which the completion listener skips by
+ * design, so a child's report is written on its FIRST DOWNLOAD (`generationSource: first_download`).
+ * What can only be seen on a directly submitted run stays on one (an ORDINARY run, FR51):
+ * .8 the report written automatically at completion (§17 D8), .7 a DEDUPED re-run's own report.
  *
  * API-level by design: the download UI is the Guided epic's (AXI-2331).
- * Self-provisioned: a fresh workspace (PrivateProjectsWorld), a fresh project,
- * and a dataset whose content carries a per-run token — so the first run can
- * never DEDUP onto an earlier one and always completes (SUCCEEDED) itself;
- * AXI-2311.7 then deliberately re-submits it to get a DEDUPED run.
+ * Self-provisioned: a fresh workspace (PrivateProjectsWorld), fresh projects, and datasets whose
+ * content carries a per-run token, so no run can DEDUP onto an earlier one by accident;
+ * AXI-2311.7 then deliberately re-submits the ordinary run to get a DEDUPED run.
  *
- * Requires organization-service with `SAP_RUN_BINDING` unset (fail-closed
- * default): the run is bound to a SAP version, which the report echoes.
+ * Needs organization-service with AXI-2441/2443/2444 (SAP runs, binder retirement, SAP-run child
+ * section in the client report) and bio-compute reachable.
  *
- * Requires the answer sentence to be MINTED for an ad-hoc run. The spec PUTs
- * the workspace's statistical minting setting to `all`, but that override does
- * not reach `ResultSentenceService` today (its resolver is an `import type`, so
- * Nest injects nothing into the @Optional() slot — latent AXI-1746 defect,
- * reported by AXI-2311). Until it is fixed, run organization-service with
- * `STATISTICAL_MINTING_MODE=all`.
+ * The ordinary run's answer sentence is MINTED only when statistical minting is on. The spec PUTs
+ * the workspace's setting to `all`, but that override does not reach `ResultSentenceService` today
+ * (latent AXI-1746 defect, ticketed AXI-2344): the scenarios compare sentences with each other
+ * and never require a sentence on the ordinary run.
  */
 
 test.use({ storageState: { cookies: [], origins: [] } });
 test.describe.configure({ mode: 'serial', timeout: 240_000 });
-
-// RETIRED by AXI-2438 (noted by AXI-2445) and AXI-2443 (the per-run SAP binding is gone — a bound
-// report now comes from a Run SAP child): this spec creates its SAP through POST …/saps, which now
-// answers 410 SAP_FREE_TEXT_RETIRED. Re-enable once AXI-2439's finalise can mint a SAP version
-// (draft → questions → finalise) and the setup is moved onto it.
-test.skip(true, 'AXI-2443 retired the per-run SAP binding (POST /rule-runs with a sapVersionId is 422 SAP_BINDING_RETIRED) and AXI-2438 the free-text SAP writes (410): a SAP-bound report now needs a Run SAP child (POST /projects/:id/saps/:sapId/runs, AXI-2441) — rewrite this spec on a Run SAP child before re-enabling');
 
 const TAGS = { tag: ['@SI-016', '@SI-018', '@SI-010', '@SI-002'] };
 const OPERATION = 'stats.mann_whitney_u';
@@ -51,20 +51,28 @@ const POLL_MS = 2_000;
  * race would (correctly) say "on first download" and turn AXI-2311.1 red. */
 const COMPLETION_LISTENER_GRACE_MS = 8_000;
 
+const NOT_A_SAP_RUN = 'This run is not part of a SAP run; its result is exploratory.';
 const NEVER_CREATED_RUN = '00000000-0000-4000-8000-000000000000';
 const TOKEN = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-const QUESTION_TEXT = `Q1: is CD8 % different between arm A and arm B?\n  (run ${TOKEN})`;
-// The `Generated: ` line is a verbatim BODY line: it must be hashed (only the two header lines are not).
-const PLAN_TEXT = 'Mann–Whitney U, two-sided, α = 0.05.\n```\nliteral fence inside the plan\n```\n# not a heading — kept verbatim\nGenerated: by the steering committee';
-const DEDUP_SAP_TITLE = `AXI-2311 re-run SAP ${TOKEN}`;
+// The SAP question text is printed verbatim. Its `Generated: ` line is a BODY line: it must be hashed
+// (only the two header lines are not), and its backtick fence needs a longer fence around it.
+const QUESTION_TEXT = `Q1: is the score different between arm A and arm B? (run ${TOKEN})\n\`\`\`\nliteral fence inside the question\n\`\`\`\n# not a heading — kept verbatim\nGenerated: by the steering committee`;
 
 let world: PrivateProjectsWorld;
 let admin: APIRequestContext;
 let viewer: Actor;
 let outsider: Actor;
+let sapWorld: SapRunChildWorld;
+/** The Run SAP child's project and rule run (.1-.6). */
 let projectId: string;
 let otherProjectId: string;
 let ruleRunId: string;
+let sapRunId: string;
+let subjectPrefix: string;
+/** The ORDINARY (directly submitted) run, its project and its first report (.7, .8). */
+let ordinaryProjectId: string;
+let ordinaryRunId: string;
+let ordinaryMarkdown: string;
 let dedupedRunId: string;
 let submission: Record<string, unknown>;
 
@@ -89,7 +97,7 @@ async function newProject(name: string): Promise<string> {
   return body.id;
 }
 
-/** A dataset unique to this run (its rows carry TOKEN), ingested and linked. */
+/** A dataset unique to this run (its rows carry TOKEN), ingested and linked to the ORDINARY run's project. */
 async function uploadDataset(): Promise<string> {
   const base = `/api/v1/workspaces/${world.workspaceId}/datasets`;
   const filename = `axi2311-${TOKEN}.csv`;
@@ -102,7 +110,7 @@ async function uploadDataset(): Promise<string> {
   if (!put.ok) throw new Error(`AXI-2311 presigned PUT -> ${put.status}`);
   await ok(await admin.patch(apiUrl(`${base}/${datasetId}/finalize`), ws()), 'finalize');
   await waitFor(async () => (await ok(await admin.get(apiUrl(`${base}/${datasetId}`), ws()), 'dataset')).latestIngestion?.status, ['ready'], ['failed'], 'ingestion');
-  await ok(await admin.post(apiUrl(`/api/v1/projects/${projectId}/datasets`), { data: { datasetId }, ...ws() }), 'link dataset');
+  await ok(await admin.post(apiUrl(`/api/v1/projects/${ordinaryProjectId}/datasets`), { data: { datasetId }, ...ws() }), 'link dataset');
   return datasetId;
 }
 
@@ -118,7 +126,7 @@ async function waitFor(read: () => Promise<string | undefined>, done: string[], 
 }
 
 async function analysisWithReferent(datasetId: string): Promise<{ analysisId: string; snapshotId: string }> {
-  const analysis = await ok(await admin.post(apiUrl('/api/v1/view-analyses'), { data: { projectId, datasetId, name: `AXI-2311 ${TOKEN}` }, ...ws() }), 'create analysis');
+  const analysis = await ok(await admin.post(apiUrl('/api/v1/view-analyses'), { data: { projectId: ordinaryProjectId, datasetId, name: `AXI-2311 ${TOKEN}` }, ...ws() }), 'create analysis');
   const snapshot = await ok(await admin.post(apiUrl('/api/v1/view-analyses/snapshots'), { data: { viewAnalysisId: analysis.id, filters: [] }, ...ws() }), 'create snapshot');
   return { analysisId: analysis.id, snapshotId: snapshot.id };
 }
@@ -132,7 +140,7 @@ async function runToCompletion(datasetId: string): Promise<string> {
     roleBindings: { groupColumn: 'arm' },
     pivot: { valueColumns: ['cd8_pct'] },
     operationParams: { groupFrom: 'A', groupTo: 'B' },
-    projectId, workspaceId: world.workspaceId, datasetId, snapshotId, viewAnalysisId: analysisId, scope: 'FILTERED',
+    projectId: ordinaryProjectId, workspaceId: world.workspaceId, datasetId, snapshotId, viewAnalysisId: analysisId, scope: 'FILTERED',
   };
   const submitted = await ok(
     await admin.post(apiUrl('/api/v1/rule-runs'), { data: submission, ...ws() }),
@@ -216,27 +224,40 @@ async function tamperEveryDecisionSentence(text: string): Promise<number> {
   return drafts.length;
 }
 
-/** Re-submit the SAME computation (AXI-2443: no longer bound to a different SAP — the binding is retired). */
+/** Re-submit the SAME computation of the ordinary run (no SAP binding exists any more — AXI-2443). */
 async function dedupedRerun(): Promise<string> {
   const reply = await ok(
     await admin.post(apiUrl('/api/v1/rule-runs'), { data: submission, ...ws() }),
     'resubmit run',
   );
   expect(reply.status, JSON.stringify(reply)).toBe('DEDUPED');
-  expect(reply.dedupedFromRunId).toBe(ruleRunId);
+  expect(reply.dedupedFromRunId).toBe(ordinaryRunId);
   return reply.ruleRunId;
 }
 
 test.beforeAll(async () => {
+  test.setTimeout(10 * 60_000);
   world = await PrivateProjectsWorld.create();
   admin = world.admin;
   viewer = await world.actor('viewer');
   outsider = await world.actor('outsider');
+  const editor = await world.actor('editor');
   await world.addMember(viewer, 'viewer');
-  projectId = await newProject('report');
-  otherProjectId = await newProject('other');
+  await world.addMember(editor, 'editor');
+  sapWorld = { world, editor };
   await mintSentencesForAdHocRuns();
-  ruleRunId = await runToCompletion(await uploadDataset());
+  // The Run SAP child: its project, its first question's settled governed child and that child's rule run.
+  const sap = await provisionSap(sapWorld, TOKEN, 'report', QUESTION_TEXT);
+  projectId = sap.project;
+  subjectPrefix = sap.subjectPrefix;
+  const ran = await runSapChild(sapWorld, sap, 'report');
+  ruleRunId = ran.ruleRunId;
+  sapRunId = ran.sapRun.sapRunId;
+  expect(ruleRunId, JSON.stringify(ran.child.nodes)).toBeTruthy();
+  otherProjectId = await newSapProject(sapWorld, 'other');
+  // The ordinary run (no SAP at all).
+  ordinaryProjectId = await newProject('ordinary');
+  ordinaryRunId = await runToCompletion(await uploadDataset());
   await sleep(COMPLETION_LISTENER_GRACE_MS);
 });
 
@@ -247,33 +268,43 @@ test.afterAll(async () => {
 test.describe('AXI-2311 — client report profile', TAGS, () => {
   let markdown: string;
 
-  test('AC3 — AXI-2311.1: a completed run has its report without any user action, in FR8\'s order, SAP verbatim (@SI-016)', async () => {
+  test('AC3 — AXI-2311.1: a Run SAP child\'s report is complete in FR8\'s order, its SAP-run section quotes the SAP verbatim and points to the SAP-run report (@SI-016)', async () => {
     const res = await admin.get(reportUrl(projectId, ruleRunId, 'md'), ws());
 
     expect(res.status(), await res.text()).toBe(200);
     expect(res.headers()['content-type']).toContain('text/markdown');
     expect(res.headers()['content-disposition']).toBe(`attachment; filename="client-report-${ruleRunId}.md"`);
     markdown = await res.text();
-    // Generated by the completion listener — never by this download.
-    expect(markdown).toMatch(/^Generated: .* — automatically, when the run completed$/m);
-    const headings = ['## Question', '## Statistical Analysis Plan — version 1', '## Answer', '## Figure', '## Results', '## Methods', '## Record'];
+    // A governed child announces its result with a snapshot, which the completion listener skips: this report is
+    // written by its first download (the automatic path is AXI-2311.8, on a directly submitted run).
+    expect(markdown).toMatch(/^Generated: .* — on first download/m);
+    const headings = ['## Question', '## Statistical Analysis Plan — SAP run, version 1', '## Answer', '## Figure', '## Results', '## Methods', '## Record'];
     const at = headings.map((h) => markdown.indexOf(h));
     expect(at.every((i) => i >= 0), JSON.stringify(at)).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
-    // The SAP texts verbatim, each inside a fence longer than any backtick run it holds.
-    expect(markdown).toContain(['```', ...QUESTION_TEXT.split('\n'), '```'].join('\n'));
-    expect(markdown).toContain(['````', ...PLAN_TEXT.split('\n'), '````'].join('\n'));
+    // The SAP section: the run, the question's text verbatim inside a fence longer than any backtick run it holds.
+    expect(markdown).toContain(`This run is part of SAP run ${sapRunId}, which ran version 1 of the project's Statistical Analysis Plan.`);
+    expect(markdown).toContain('Question Q1 (primary), verbatim:');
+    expect(markdown).toContain(['````', ...QUESTION_TEXT.split('\n'), '````'].join('\n'));
+    expect(markdown).toContain('Population: All randomised subjects');
+    expect(markdown).toContain('Treatment comparison: Arm A vs arm B');
+    // The verdict is NOT in the child's report: it points at the SAP-run report (FR50).
+    expect(markdown).toContain(`/api/v1/projects/${projectId}/saps/`);
+    expect(markdown).toContain(`/runs/${sapRunId}/report`);
+    expect(markdown).not.toContain('This run is not part of a SAP run');
     expect(markdown).toContain('- n per test:');
-    expect(markdown).toContain('  - groupFrom: A');
+    expect(markdown).toContain('  - groupFrom:');
     expect(markdown).toContain('- Family size (multiple-testing correction):');
-    expect(markdown).toContain('- Mode: not recorded');
-    // The answer is a real rendered sentence (minting is on for this workspace).
+    expect(markdown).toContain('- Mode: guided (template T1)');
+    // The answer is a real rendered sentence.
     expect(answerOf(markdown)).not.toMatch(/^Not recorded/);
     expect(answerOf(markdown).length).toBeGreaterThan(20);
     expect(markdown).toContain('with the Mann-Whitney U test');
-    expect(markdown).toMatch(/^- SAP version: [0-9a-f-]{36} · version 1 · content hash sha256:[0-9a-f]{64}$/m);
+    expect(markdown).toMatch(
+      new RegExp(`^- SAP run: ${sapRunId} · SAP version [0-9a-f-]{36} · version 1 · content hash sha256:[0-9a-f]{64} · question Q1 \\([0-9a-f-]{36}\\)$`, 'm'),
+    );
     // NFR7: no row of the data in the body.
-    expect(markdown).not.toContain(`,${TOKEN}`);
+    expect(markdown).not.toContain(subjectPrefix);
   });
 
   test('AC4 — AXI-2311.2: every download ships the SAME stored report, and its hash is recomputable from the file (FR10) (@SI-016)', async () => {
@@ -284,7 +315,7 @@ test.describe('AXI-2311 — client report profile', TAGS, () => {
     const hash = recomputeReportHash(text);
     expect(again.headers()['x-report-hash']).toBe(hash);
     expect(text).toContain(`Report SHA-256: sha256:${hash}`);
-    // The verbatim plan line `Generated: by the steering committee` IS hashed:
+    // The verbatim question line `Generated: by the steering committee` IS hashed:
     // editing it changes the hash, and a rule that dropped it would disagree.
     expect(text).toContain('\nGenerated: by the steering committee\n');
     expect(recomputeReportHash(text.replace('Generated: by the steering committee', 'Generated: edited'))).not.toBe(hash);
@@ -300,7 +331,7 @@ test.describe('AXI-2311 — client report profile', TAGS, () => {
     expect(entries.get('report.md')?.toString('utf8')).toBe(markdown);
     expect(entries.has(`data/runs/${ruleRunId}.csv`)).toBe(true);
     const manifest = JSON.parse(entries.get('manifest.json')!.toString('utf8'));
-    expect(manifest).toMatchObject({ profile: 'client_report', ruleRunId, generationSource: 'run_completion', containsSourceData: false });
+    expect(manifest).toMatchObject({ profile: 'client_report', ruleRunId, generationSource: 'first_download', containsSourceData: false });
     expect(manifest.reportSha256).toBe(`sha256:${recomputeReportHash(markdown)}`);
     const listed = manifest.files.map((f: { filename: string }) => f.filename).sort();
     expect(listed).toEqual([...entries.keys()].filter((n) => n !== 'manifest.json').sort());
@@ -323,31 +354,48 @@ test.describe('AXI-2311 — client report profile', TAGS, () => {
     }
   });
 
-  test('AC3, AC4 — AXI-2311.7: a DEDUPED re-run has its OWN report: the reused computation, ITS OWN SAP, and a record naming the reused run (FR7) (@SI-016)', async () => {
+  test('AC3 — AXI-2311.8: an ORDINARY run\'s report is written automatically when the run completes, and its SAP section is the single exploratory sentence (§17 D8, FR7, FR51) (@SI-016)', async () => {
+    const res = await admin.get(reportUrl(ordinaryProjectId, ordinaryRunId, 'md'), ws());
+
+    expect(res.status(), await res.text()).toBe(200);
+    ordinaryMarkdown = await res.text();
+    // Generated by the completion listener — never by this download.
+    expect(ordinaryMarkdown).toMatch(/^Generated: .* — automatically, when the run completed$/m);
+    const section = ordinaryMarkdown.slice(ordinaryMarkdown.indexOf('## Statistical Analysis Plan'));
+    expect(section.split('\n## ')[0].trim()).toBe(['## Statistical Analysis Plan', '', NOT_A_SAP_RUN].join('\n'));
+    expect(ordinaryMarkdown).not.toContain('SAP run, version');
+    expect(ordinaryMarkdown).not.toContain(subjectPrefix);
+    expect(ordinaryMarkdown).not.toContain(`,${TOKEN}`);
+    const zip = readZip(await (await admin.get(reportUrl(ordinaryProjectId, ordinaryRunId), ws())).body());
+    expect(JSON.parse(zip.get('manifest.json')!.toString('utf8'))).toMatchObject({ generationSource: 'run_completion' });
+  });
+
+  test('AC3, AC4 — AXI-2311.7: a DEDUPED re-run has its OWN report: the reused computation and a record naming the reused run, never a client-rewritten sentence (FR7) (@SI-016)', async () => {
     dedupedRunId = await dedupedRerun();
     // B2: a client rewrites the sentence on every Decision BEFORE this report is generated.
     const tampered = `TAMPERED ${TOKEN}`;
     expect(await tamperEveryDecisionSentence(tampered)).toBeGreaterThan(0);
 
-    const res = await admin.get(reportUrl(projectId, dedupedRunId, 'md'), ws());
+    const res = await admin.get(reportUrl(ordinaryProjectId, dedupedRunId, 'md'), ws());
     const text = await res.text();
-    const zip = readZip(await (await admin.get(reportUrl(projectId, dedupedRunId), ws())).body());
+    const zip = readZip(await (await admin.get(reportUrl(ordinaryProjectId, dedupedRunId), ws())).body());
     const manifest = JSON.parse(zip.get('manifest.json')!.toString('utf8'));
 
     expect(res.status(), text).toBe(200);
     expect(text).toContain(`· Run ${dedupedRunId}`);
-    expect(text).toMatch(new RegExp(`^- Reused result: run ${ruleRunId} — this run was deduplicated onto it`, 'm'));
-    expect(text).toContain(['```', DEDUP_SAP_TITLE, '```'].join('\n'));
-    expect(text).not.toContain(`AXI-2311 SAP ${TOKEN}`);
+    expect(text).toMatch(new RegExp(`^- Reused result: run ${ordinaryRunId} — this run was deduplicated onto it`, 'm'));
+    expect(text).toContain(NOT_A_SAP_RUN);
     expect(text).toMatch(/^Generated: .* — on first download/m);
     expect(res.headers()['x-report-hash']).toBe(recomputeReportHash(text));
-    expect(text).not.toBe(markdown);
+    expect(text).not.toBe(ordinaryMarkdown);
     // The answer is re-rendered from the run's records: the same computation's sentence, never the tampered text.
     expect(text).not.toContain(tampered);
-    expect(answerOf(text)).toBe(answerOf(markdown));
-    expect(manifest).toMatchObject({ ruleRunId: dedupedRunId, reusedFromRunId: ruleRunId, generationSource: 'first_download' });
-    expect(zip.has(`data/runs/${ruleRunId}.csv`)).toBe(true);
+    expect(answerOf(text)).toBe(answerOf(ordinaryMarkdown));
+    expect(manifest).toMatchObject({ ruleRunId: dedupedRunId, reusedFromRunId: ordinaryRunId, generationSource: 'first_download' });
+    expect(zip.has(`data/runs/${ordinaryRunId}.csv`)).toBe(true);
     // The canonical run's own report is untouched.
+    expect(await (await admin.get(reportUrl(ordinaryProjectId, ordinaryRunId, 'md'), ws())).text()).toBe(ordinaryMarkdown);
+    // …and so is the Run SAP child's, which a Decision rewrite must not reach either.
     expect(await (await admin.get(reportUrl(projectId, ruleRunId, 'md'), ws())).text()).toBe(markdown);
   });
 
