@@ -3,6 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * AXI-2464 (epic AXI-2455 — TPL FR59, FR40, EC27, AC27; owner ruling 5): the audited seed-approval
@@ -29,7 +30,7 @@ const PG_DB = process.env.E2E_PG_DB ?? 'axiome';
 const OWNER_EMAIL = process.env.E2E_SEED_APPROVAL_OWNER_EMAIL ?? 'admin@axiome.local';
 const SCRIPT =
   process.env.E2E_SEED_APPROVAL_SCRIPT ??
-  path.resolve(__dirname, '../../../axiome-back/scripts/approve_seeded_template_versions.sql');
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../axiome-back/scripts/approve_seeded_template_versions.sql');
 const TARGETS = ['T1', 'T3', 'T4', 'T5'].map((templateId) => ({ templateId, templateVersion: '0.3' }));
 
 /** The rule kernel's canonical JSON (`rule-runs/kernel/canonical-json.ts`), restated as the oracle. */
