@@ -202,7 +202,7 @@ test.describe('AXI-2438 — SAP draft and question-edit API', TAGS, () => {
     draft = afterRemove;
   });
 
-  test('AC32, NFR9 — AXI-2438.4: over-limit content is 400 SAP_CONTENT_INVALID per field; a foreign dataset is refused', async () => {
+  test('AC32, NFR9 — AXI-2438.4: over-limit content is 422 SAP_CONTENT_INVALID per field; a foreign dataset is refused', async () => {
     // Act
     const bad = {
       ...question('x'.repeat(2001)),
@@ -218,14 +218,14 @@ test.describe('AXI-2438 — SAP draft and question-edit API', TAGS, () => {
     const after = await (await editor.api.get(draftOf(project, draft.sapId))).json();
 
     // Assert
-    expect(overLimit.status()).toBe(400);
+    expect(overLimit.status()).toBe(422);
     const body = await overLimit.json();
     expect(body.errorCode).toBe('SAP_CONTENT_INVALID');
     const fields = (body.errors ?? []).map((e: { field: string }) => e.field);
     for (const f of ['question.text', 'question.template.templateId', 'question.parameters.alpha']) {
       expect(fields).toContain(f);
     }
-    expect(foreign.status()).toBe(400);
+    expect(foreign.status()).toBe(422);
     const foreignBody = await foreign.json();
     expect(foreignBody.errorCode).toBe('SAP_CONTENT_INVALID');
     expect(foreignBody.errors.map((e: { field: string }) => e.field)).toContain('analysisDatasetId');

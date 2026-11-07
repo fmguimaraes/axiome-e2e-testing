@@ -245,7 +245,7 @@ test.describe('AXI-2439 — SAP completeness, finalise and amend', TAGS, () => {
     const versions = await editor.api.get(sapPath(project, amend.sapId, '/versions'));
 
     // Assert
-    expect(noReason.status()).toBe(400);
+    expect(noReason.status()).toBe(422);
     const refusal = await noReason.json();
     expect(refusal.errorCode).toBe('SAP_CONTENT_INVALID');
     expect(refusal.errors).toEqual([{ field: 'amendmentReason', message: 'is required to amend a SAP (version 2 onward)' }]);
