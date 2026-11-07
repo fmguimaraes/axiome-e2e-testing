@@ -232,6 +232,22 @@ test.describe('AXI-2438 — SAP draft and question-edit API', TAGS, () => {
     expect(after.revision).toBe(draft.revision);
   });
 
+  test('AC32, NFR9 — AXI-2470.4: an over-limit title on PUT draft reaches organization-service and is 422 SAP_CONTENT_INVALID', async () => {
+    // Act — 201 characters (SAP_LIMITS.TITLE_MAX = 200); the gateway DTO no longer pre-empts it with a codeless 400
+    const overLimit = await editor.api.put(draftOf(project, draft.sapId), {
+      data: { basedOnRevision: draft.revision, title: 'x'.repeat(201) },
+    });
+    const after = await (await editor.api.get(draftOf(project, draft.sapId))).json();
+
+    // Assert
+    expect(overLimit.status(), await overLimit.text()).toBe(422);
+    const body = await overLimit.json();
+    expect(body.errorCode).toBe('SAP_CONTENT_INVALID');
+    expect(body.errors).toEqual([{ field: 'title', message: 'must be at most 200 characters' }]);
+    expect(after.revision).toBe(draft.revision);
+    expect(after.title).toBe(draft.title);
+  });
+
   test('AC30, EC31, EC32, NFR1 — AXI-2438.7: 403 for every draft write without sap:write; 404 for every route without project access', async () => {
     // Arrange
     const qid = draft.plan.questions[0].questionId;

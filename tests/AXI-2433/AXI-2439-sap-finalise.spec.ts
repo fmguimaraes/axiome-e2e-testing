@@ -229,7 +229,7 @@ test.describe('AXI-2439 — SAP completeness, finalise and amend', TAGS, () => {
     expect((await res.json()).errorCode).toBe('SAP_VERSION_CONFLICT');
   });
 
-  test('AC7, FR16 — AXI-2439.6: an amendment copies version 1, needs its reason, and supersedes version 1 with version 2', async () => {
+  test('AC7, FR16, NFR9 — AXI-2439.6, AXI-2470.5: an amendment copies version 1, needs its reason (at most 2,000 characters, else 422), and supersedes version 1 with version 2', async () => {
     // Arrange
     const amend = await startDraft(project);
     expect(amend).toMatchObject({ sapId: v1.id, basedOnVersion: 1, title: 'Primary analysis plan' });
@@ -238,6 +238,9 @@ test.describe('AXI-2439 — SAP completeness, finalise and amend', TAGS, () => {
     // Act
     const noReason = await editor.api.post(sapPath(project, amend.sapId, '/draft/finalise'), {
       data: { basedOnRevision: amend.revision, basedOnVersion: 1 },
+    });
+    const overLimitReason = await editor.api.post(sapPath(project, amend.sapId, '/draft/finalise'), {
+      data: { basedOnRevision: amend.revision, basedOnVersion: 1, amendmentReason: 'x'.repeat(2001) },
     });
     const amended = await editor.api.post(sapPath(project, amend.sapId, '/draft/finalise'), {
       data: { basedOnRevision: amend.revision, basedOnVersion: 1, amendmentReason: 'Clarified the estimand' },
@@ -249,6 +252,11 @@ test.describe('AXI-2439 — SAP completeness, finalise and amend', TAGS, () => {
     const refusal = await noReason.json();
     expect(refusal.errorCode).toBe('SAP_CONTENT_INVALID');
     expect(refusal.errors).toEqual([{ field: 'amendmentReason', message: 'is required to amend a SAP (version 2 onward)' }]);
+    // AXI-2470.5 — the 2,000-character limit is judged by organization-service (422), not the gateway DTO (codeless 400)
+    expect(overLimitReason.status(), await overLimitReason.text()).toBe(422);
+    const overLimitRefusal = await overLimitReason.json();
+    expect(overLimitRefusal.errorCode).toBe('SAP_CONTENT_INVALID');
+    expect(overLimitRefusal.errors).toEqual([{ field: 'amendmentReason', message: 'must be at most 2000 characters' }]);
     expect(amended.status(), await amended.text()).toBe(201);
     expect(await amended.json()).toMatchObject({ version: 2, status: 'final', amendmentReason: 'Clarified the estimand' });
     expect(versions.status()).toBe(200);
