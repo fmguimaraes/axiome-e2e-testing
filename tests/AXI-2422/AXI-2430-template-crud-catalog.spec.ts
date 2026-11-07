@@ -161,7 +161,7 @@ test.describe('AXI-2430 — template CRUD, scoped catalog and publish', { tag: [
     expect(afterRefusal.body.versions[0].status).toBe('draft');
     expect(bySecond.status, JSON.stringify(bySecond.body)).toBe(201);
     const version = bySecond.body.versions[0];
-    expect(version).toMatchObject({ status: 'published', publishedBy: approver.userId, validatorVerdict: 'PASS', validatorVersion: '1.0.0', invalid: false });
+    expect(version).toMatchObject({ status: 'published', publishedBy: approver.userId, validatorVerdict: 'PASS', validatorVersion: '1.1.0', invalid: false });
     expect(version.validatorReport.verdict).toBe('PASS');
     expect(version.contentHash).toMatch(/^[0-9a-f]{64}$/);
     expect(version.referencedOperations.map((o: any) => o.operationId)).toEqual(['stats.mann_whitney_u', 'describe.grouped_aggregate']);

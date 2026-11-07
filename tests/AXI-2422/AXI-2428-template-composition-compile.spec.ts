@@ -50,7 +50,7 @@ test.describe('AXI-2428 — template composition validate + compile', { tag: ['@
     // Assert
     expect(res.status, res.text).toBe(200);
     expect(res.body.verdict).toBe('PASS');
-    expect(res.body.validatorVersion).toBe('1.0.0');
+    expect(res.body.validatorVersion).toBe('1.1.0');
     expect(res.body.nodeLibraryVersion).toBe(PINNED_VERSION);
     expect(res.body.checks.map((c: any) => c.checkId)).toEqual(CHECK_ORDER);
     for (const check of res.body.checks) {
