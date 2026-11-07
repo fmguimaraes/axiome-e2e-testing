@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { apiUrl } from '../../config/env';
+import { apiCallOf, pinNewestT1, t1Version } from './harness/sap-api-stub';
 import {
   Actor,
   PrivateProjectsWorld,
@@ -51,7 +52,7 @@ function t1Question() {
       populationSummary: 'Difference in medians',
       treatmentComparison: 'Arm A vs arm B',
     },
-    template: { templateId: 'T1', templateVersion: '0.2' },
+    template: { templateId: 'T1', templateVersion: t1Version },
     bindings: [
       { slot: 'groupingColumn', column: 'arm', semanticRole: 'grouping_two_levels' },
       { slot: 'outcome', column: 'score', semanticRole: 'continuous' },
@@ -127,6 +128,7 @@ test.beforeAll(async () => {
   await world.addMember(viewer, 'viewer');
   await world.leaveWorkspace();
   project = await newProject('finalise');
+  await pinNewestT1(apiCallOf(editor.api), project); // never a hard-coded T1 version
   otherProject = await newProject('other');
   dataset = await uploadArmScoreDataset();
   const link = await editor.api.post(`${base(project)}/datasets`, { data: { datasetId: dataset } });
@@ -264,7 +266,7 @@ test.describe('AXI-2439 — SAP completeness, finalise and amend', TAGS, () => {
     const ids = new Set(entries.map((e: any) => e.templateId));
     expect([...ids].sort()).toEqual(['T1', 'T2', 'T3', 'T4', 'T5']);
     for (const id of ids) expect(entries.filter((e: any) => e.templateId === id && e.isNewest)).toHaveLength(1);
-    const t1 = entries.find((e: any) => e.templateId === 'T1' && e.templateVersion === '0.2');
+    const t1 = entries.find((e: any) => e.templateId === 'T1' && e.templateVersion === t1Version);
     expect(t1).toMatchObject({ supportsOneSidedAlternative: false, cellAxisSlots: null });
   });
 

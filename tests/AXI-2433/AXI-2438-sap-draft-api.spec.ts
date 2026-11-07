@@ -1,5 +1,6 @@
 import { test, expect, request as apiRequest } from '@playwright/test';
 import { apiUrl } from '../../config/env';
+import { apiCallOf, pinNewestT1, t1Version } from './harness/sap-api-stub';
 import {
   Actor,
   PrivateProjectsWorld,
@@ -49,7 +50,7 @@ function question(text = 'Does arm A differ from arm B?') {
       populationSummary: 'Difference in medians',
       treatmentComparison: 'Arm A vs arm B',
     },
-    template: { templateId: 'T1', templateVersion: '0.2' },
+    template: { templateId: 'T1', templateVersion: t1Version },
     bindings: [{ slot: 'outcome', column: 'value', semanticRole: 'measurement' }],
     parameters: { alpha: 0.05, sidedness: 'two_sided' },
     decisionCriterion: { kind: 'p_at_or_below_alpha' },
@@ -80,6 +81,7 @@ test.beforeAll(async () => {
   await world.addMember(viewer, 'viewer');
   await world.leaveWorkspace();
   project = await newProject('draft');
+  await pinNewestT1(apiCallOf(editor.api), project); // never a hard-coded T1 version
   linkedDataset = await uploadCsvDataset(world, editor);
   foreignDataset = await uploadCsvDataset(world, editor);
   const link = await editor.api.post(`${base(project)}/datasets`, { data: { datasetId: linkedDataset } });

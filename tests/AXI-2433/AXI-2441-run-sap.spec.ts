@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { apiUrl } from '../../config/env';
+import { apiCallOf, pinNewestT1, t1Version } from './harness/sap-api-stub';
 import {
   Actor,
   PrivateProjectsWorld,
@@ -51,7 +52,7 @@ const requestId = (label: string) => `axi2441-${label}-${Date.now()}-${Math.floo
 
 function t1Analysis() {
   return {
-    template: { templateId: 'T1', templateVersion: '0.2' },
+    template: { templateId: 'T1', templateVersion: t1Version },
     bindings: [
       { slot: 'groupingColumn', column: 'arm', semanticRole: 'grouping_two_levels' },
       { slot: 'outcome', column: 'score', semanticRole: 'continuous' },
@@ -172,6 +173,7 @@ test.beforeAll(async () => {
   await world.addMember(viewer, 'viewer');
   await world.leaveWorkspace();
   project = await newProject('run');
+  await pinNewestT1(apiCallOf(editor.api), project); // never a hard-coded T1 version
   otherProject = await newProject('other');
   draftOnlyProject = await newProject('draft-only');
 
