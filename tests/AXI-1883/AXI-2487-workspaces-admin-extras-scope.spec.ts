@@ -33,7 +33,8 @@ import { adminApiContext } from '../AXI-1236/rules-fixtures';
 
 async function json(res: { ok(): boolean; status(): number; text(): Promise<string>; json(): Promise<any> }, what: string) {
   if (!res.ok()) throw new Error(`${what} failed: ${res.status()} ${(await res.text()).slice(0, 300)}`);
-  return res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : undefined;
 }
 
 interface MultiOrgUser { email: string; password: string }
@@ -42,7 +43,7 @@ interface MultiOrgUser { email: string; password: string }
  *  of two disjoint organizations, never platform `userType: admin`. Cleans
  *  up the custom role it creates (the user/orgs/workspaces are left, per the
  *  AXI-1149/AXI-1886 convention — uniquely tagged, no hard-delete endpoint). */
-async function provisionMultiOrgUser(): Promise<MultiOrgUser & { roleId: string }> {
+async function provisionMultiOrgUser(): Promise<MultiOrgUser & { userId: string; roleId: string }> {
   const admin = await adminApiContext();
   try {
     const tag = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
@@ -58,6 +59,7 @@ async function provisionMultiOrgUser(): Promise<MultiOrgUser & { roleId: string 
       }),
       'create role',
     );
+    // POST /users/:id/roles returns 204 No Content — nothing to parse.
     await json(
       await admin.post(apiUrl(`/api/v1/users/${user.id}/roles`), { data: { roleId: role.id } }),
       'assign role',
@@ -76,16 +78,25 @@ async function provisionMultiOrgUser(): Promise<MultiOrgUser & { roleId: string 
         `add member ${n}`,
       );
     }
-    return { email, password, roleId: role.id as string };
+    return { email, password, userId: user.id as string, roleId: role.id as string };
   } finally {
     await admin.dispose();
   }
 }
 
-async function disposeRole(roleId: string): Promise<void> {
+/** Unassigns the role from the user first — RolesService.remove refuses to
+ *  delete a role that's still assigned to anyone — then deletes the role. */
+async function disposeRole(userId: string, roleId: string): Promise<void> {
   const admin = await adminApiContext();
   try {
-    await admin.delete(apiUrl(`/api/v1/roles/${roleId}`)).catch(() => undefined);
+    const unassign = await admin.delete(apiUrl(`/api/v1/users/${userId}/roles/${roleId}`));
+    if (!unassign.ok() && unassign.status() !== 404) {
+      throw new Error(`unassign role failed: ${unassign.status()} ${(await unassign.text()).slice(0, 300)}`);
+    }
+    const remove = await admin.delete(apiUrl(`/api/v1/roles/${roleId}`));
+    if (!remove.ok() && remove.status() !== 404) {
+      throw new Error(`delete role failed: ${remove.status()} ${(await remove.text()).slice(0, 300)}`);
+    }
   } finally {
     await admin.dispose();
   }
@@ -149,7 +160,7 @@ test.describe('AXI-2487 - admin-extras Workspaces entry no longer leaks at base 
       await expectBaseScope(page);
       await expect(page.locator(WORKSPACES_NAV_ITEM)).toHaveCount(0);
     } finally {
-      await disposeRole(who.roleId);
+      await disposeRole(who.userId, who.roleId);
     }
   });
 
@@ -168,7 +179,7 @@ test.describe('AXI-2487 - admin-extras Workspaces entry no longer leaks at base 
 
       await expect(page.locator(WORKSPACES_NAV_ITEM)).toHaveCount(1);
     } finally {
-      await disposeRole(who.roleId);
+      await disposeRole(who.userId, who.roleId);
     }
   });
 });
