@@ -1,6 +1,6 @@
-import { test, expect, request as apiRequest, type APIRequestContext, type Page } from '@playwright/test';
-import { API_BASE_URL } from '../../config/env';
-import { ROLES } from '../../config/roles';
+import { test, expect, request as apiRequest, type Page } from '@playwright/test';
+import { apiUrl } from '../../config/env';
+import { adminApiContext } from '../AXI-1236/rules-fixtures';
 
 /**
  * AXI-2487 — admin-extras "Workspaces" nav entry no longer duplicates orgNav's
@@ -17,68 +17,75 @@ import { ROLES } from '../../config/roles';
  * re-gating it (re-gating to "org selected" would just duplicate `orgNav`'s
  * own entry).
  *
- * Both scenarios need a non-admin, non-single-org identity: a workspace-role
- * `admin` member (grants `workspace:update`, the flag the removed entry was
- * gated on) of TWO organizations — single-org users are auto-selected into
- * `orgNav` on login (`TopMenu.tsx`), which would mask the bug this spec
- * proves fixed. The identity is minted fresh per run through the public API
- * (never a committed credential, NFR3), the same way AXI-1149's tenancy
- * harness and AXI-1886's `registerZeroOrgUser` do it.
+ * `showWorkspacesAdminList` was gated on `canManageWorkspace`
+ * (`useNavItems.ts`), which reads the caller's **user-level** RBAC role
+ * (`useCurrentUserRole()` → `userRoles[0]`) for a `workspace:update`
+ * permission — NOT a workspace-member role. `POST /workspaces/:id/members`
+ * only writes a `workspaceMember` row and grants nothing through that path.
+ * So the identity here is provisioned the way AXI-1902's `World#role`/`actor`
+ * do it: a SYSTEM-scoped role holding `workspace:update`, granted via
+ * `POST /users/:id/roles` as the user's role assignment, PLUS membership in
+ * two disjoint organizations (via `POST /workspaces/:id/members`, so the
+ * orgs are listed) — two-or-more avoids `TopMenu.tsx`'s single-org
+ * auto-select, which would otherwise mask the base-scope state this bug
+ * lived in.
  */
-
-const API = `${API_BASE_URL}/api/v1`;
 
 async function json(res: { ok(): boolean; status(): number; text(): Promise<string>; json(): Promise<any> }, what: string) {
   if (!res.ok()) throw new Error(`${what} failed: ${res.status()} ${(await res.text()).slice(0, 300)}`);
   return res.json();
 }
 
-function requireEnv(name: string): string {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error(`AXI-2487 spec needs env ${name} (see scenario doc §2)`);
-  return value;
-}
-
-const BOOTSTRAP = ROLES.find((r) => r.name === 'admin')!;
-
-async function bootstrapCtx(): Promise<APIRequestContext> {
-  const anon = await apiRequest.newContext();
-  const res = await anon.post(`${API}/auth/login`, { data: { email: BOOTSTRAP.email, password: requireEnv('E2E_TEST_PASSWORD') } });
-  const { accessToken } = await json(res, 'bootstrap login');
-  await anon.dispose();
-  return apiRequest.newContext({ extraHTTPHeaders: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' } });
-}
-
 interface MultiOrgUser { email: string; password: string }
 
-/** Mints a fresh user who is a workspace-role `admin` (workspace:update,
- *  never platform userType=admin) of two disjoint organizations, so neither
- *  org is ever auto-selected on login. */
-async function provisionMultiOrgUser(): Promise<MultiOrgUser> {
-  const admin = await bootstrapCtx();
+/** Mints a fresh user holding a user-level `workspace:update` role, member
+ *  of two disjoint organizations, never platform `userType: admin`. Cleans
+ *  up the custom role it creates (the user/orgs/workspaces are left, per the
+ *  AXI-1149/AXI-1886 convention — uniquely tagged, no hard-delete endpoint). */
+async function provisionMultiOrgUser(): Promise<MultiOrgUser & { roleId: string }> {
+  const admin = await adminApiContext();
   try {
     const tag = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
     const email = `axi2487-${tag}@axiome.local`;
     const password = `Axi2487!${tag}Zz`;
     const user = await json(
-      await admin.post(`${API}/users`, { data: { email, password, firstName: 'AXI2487', lastName: 'MultiOrg' } }),
+      await admin.post(apiUrl('/api/v1/users'), { data: { email, password, firstName: 'AXI2487', lastName: 'MultiOrg' } }),
       'create user',
+    );
+    const role = await json(
+      await admin.post(apiUrl('/api/v1/roles'), {
+        data: { name: `E2E AXI-2487 workspace-update ${tag}`, scope: 'SYSTEM', permissions: ['workspace:update'] },
+      }),
+      'create role',
+    );
+    await json(
+      await admin.post(apiUrl(`/api/v1/users/${user.id}/roles`), { data: { roleId: role.id } }),
+      'assign role',
     );
     for (const n of ['A', 'B']) {
       const org = await json(
-        await admin.post(`${API}/organizations`, { data: { name: `AXI2487 Org ${n} ${tag}`, type: 'biotech' } }),
+        await admin.post(apiUrl('/api/v1/organizations'), { data: { name: `AXI2487 Org ${n} ${tag}`, type: 'biotech' } }),
         `org ${n}`,
       );
       const ws = await json(
-        await admin.post(`${API}/workspaces`, { data: { name: `AXI2487 WS ${n} ${tag}`, type: 'internal', ownerOrganizationId: org.id } }),
+        await admin.post(apiUrl('/api/v1/workspaces'), { data: { name: `AXI2487 WS ${n} ${tag}`, type: 'internal', ownerOrganizationId: org.id } }),
         `ws ${n}`,
       );
       await json(
-        await admin.post(`${API}/workspaces/${ws.id}/members`, { data: { userId: user.id, organizationId: org.id, role: 'admin' } }),
+        await admin.post(apiUrl(`/api/v1/workspaces/${ws.id}/members`), { data: { userId: user.id, organizationId: org.id, role: 'viewer' } }),
         `add member ${n}`,
       );
     }
-    return { email, password };
+    return { email, password, roleId: role.id as string };
+  } finally {
+    await admin.dispose();
+  }
+}
+
+async function disposeRole(roleId: string): Promise<void> {
+  const admin = await adminApiContext();
+  try {
+    await admin.delete(apiUrl(`/api/v1/roles/${roleId}`)).catch(() => undefined);
   } finally {
     await admin.dispose();
   }
@@ -94,13 +101,13 @@ const TOUR_IDS = [
 ];
 async function silenceTours(who: MultiOrgUser): Promise<void> {
   const anon = await apiRequest.newContext();
-  const res = await anon.post(`${API}/auth/login`, { data: { email: who.email, password: who.password } });
-  const { accessToken } = await json(res, 'silence-tours login');
+  const loginRes = await anon.post(apiUrl('/api/v1/auth/login'), { data: { email: who.email, password: who.password } });
+  const { accessToken } = await json(loginRes, 'silence-tours login');
   await anon.dispose();
   const api = await apiRequest.newContext();
   try {
     for (const tourId of TOUR_IDS) {
-      await api.put(`${API}/onboarding-state`, {
+      await api.put(apiUrl('/api/v1/onboarding-state'), {
         data: { tourId, tourVersion: 1, status: 'skipped', stepIndex: 0 },
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -135,25 +142,33 @@ test.describe('AXI-2487 - admin-extras Workspaces entry no longer leaks at base 
 
   test('no "Workspaces" link under YOUR WORK with no organization selected @SI-030', async ({ page }) => {
     const who = await provisionMultiOrgUser();
-    await silenceTours(who);
-    await signIn(page, who);
-    await page.goto('/overview');
-    await expectBaseScope(page);
-    await expect(page.locator(WORKSPACES_NAV_ITEM)).toHaveCount(0);
+    try {
+      await silenceTours(who);
+      await signIn(page, who);
+      await page.goto('/overview');
+      await expectBaseScope(page);
+      await expect(page.locator(WORKSPACES_NAV_ITEM)).toHaveCount(0);
+    } finally {
+      await disposeRole(who.roleId);
+    }
   });
 
   test('exactly one "Workspaces" link once an organization is selected @SI-030', async ({ page }) => {
     const who = await provisionMultiOrgUser();
-    await silenceTours(who);
-    await signIn(page, who);
-    await page.goto('/overview');
-    await expectBaseScope(page);
+    try {
+      await silenceTours(who);
+      await signIn(page, who);
+      await page.goto('/overview');
+      await expectBaseScope(page);
 
-    // Two orgs → the top bar renders a dropdown (shouldUseOrgPickerModal is
-    // false under its 20-org threshold); open it and pick the first org.
-    await page.getByRole('button', { name: /no organization/i }).click();
-    await page.getByRole('button', { name: /^AXI2487 Org/ }).first().click();
+      // Two orgs → the top bar renders a dropdown (shouldUseOrgPickerModal is
+      // false under its 20-org threshold); open it and pick the first org.
+      await page.getByRole('button', { name: /no organization/i }).click();
+      await page.getByRole('button', { name: /^AXI2487 Org/ }).first().click();
 
-    await expect(page.locator(WORKSPACES_NAV_ITEM)).toHaveCount(1);
+      await expect(page.locator(WORKSPACES_NAV_ITEM)).toHaveCount(1);
+    } finally {
+      await disposeRole(who.roleId);
+    }
   });
 });
