@@ -5,6 +5,7 @@ import { apiUrl } from '../../config/env';
 import { sleep } from '../AXI-1400/harness/api';
 import { carrierRuleId } from '../AXI-1400/harness/seed';
 import { PrivateProjectsWorld, refusalOf, type Actor } from '../AXI-2265/private-projects-fixtures';
+import { newProject as newSapProject, provisionSap, runSapChild, type SapRunChildWorld } from './harness/sap-run-child';
 
 /**
  * AXI-2313 (epic AXI-2309 Platform Opening: Headless) — the exports of ONE
@@ -13,25 +14,29 @@ import { PrivateProjectsWorld, refusalOf, type Actor } from '../AXI-2265/private
  * (kind = csv | svg | png | report).
  *
  * Scenario doc: axiome-docs/manual-e2e/AXI-2309-Platform-Opening-Headless.md
- * § "AXI-2313 — Exports API" (AXI-2313.1 .. AXI-2313.8).
+ * § "AXI-2313 — Exports API" (AXI-2313.1 .. AXI-2313.9).
+ *
+ * REWRITTEN by AXI-2480 (epic AXI-2455). The per-run SAP binding (AXI-2443) and the free-text SAP
+ * writes (AXI-2438) are gone, so the SAP-bound run is now the governed child of a RUN SAP
+ * (`POST …/saps/:sapId/runs`, AXI-2441) on a SAP version minted by draft + finalise (AXI-2439),
+ * pinning the NEWEST T1 version. Two runs, each used for what it can show:
+ *  - the Run SAP child (one outcome, ONE result row): the CSV, the report bundle, the secret scan,
+ *    deny-by-default and undeclared-kind scenarios — and AXI-2313.9: a one-row result is below the
+ *    recommended chart's row floor (MIN_CHARTABLE_ROWS, AXI-2312), so its figure exports are a typed
+ *    409 `RUN_EXPORT_NO_FIGURE`, never an empty file;
+ *  - an ORDINARY directly submitted run over TWO measurements (a two-row result, so a chart exists):
+ *    the PNG/SVG figure scenarios and the DEDUPED re-run (AXI-2313.5).
  *
  * API-level by design: the export buttons are the Guided epic's (FR34).
- * Self-provisioned like AXI-2311's spec: a fresh workspace, two fresh projects
- * and a dataset whose rows carry a per-run token, so the first run never
- * DEDUPs onto an earlier one; AXI-2313.5 then re-submits it on purpose.
+ * Self-provisioned: a fresh workspace, fresh projects and datasets whose rows carry a per-run
+ * token, so no first run DEDUPs onto an earlier one; AXI-2313.5 re-submits the ordinary run on purpose.
  *
- * Requires organization-service with `SAP_RUN_BINDING` unset, bio-compute
- * reachable and Chromium for the server-side chart render.
+ * Needs organization-service with AXI-2441/2443 on it, bio-compute reachable and Chromium for the
+ * server-side chart render.
  */
 
 test.use({ storageState: { cookies: [], origins: [] } });
 test.describe.configure({ mode: 'serial', timeout: 240_000 });
-
-// RETIRED by AXI-2438 (noted by AXI-2445) and AXI-2443 (the per-run SAP binding is gone — a bound
-// report now comes from a Run SAP child): this spec creates its SAP through POST …/saps, which now
-// answers 410 SAP_FREE_TEXT_RETIRED. Re-enable once AXI-2439's finalise can mint a SAP version
-// (draft → questions → finalise) and the setup is moved onto it.
-test.skip(true, 'AXI-2443 retired the per-run SAP binding (POST /rule-runs with a sapVersionId is 422 SAP_BINDING_RETIRED) and AXI-2438 the free-text SAP writes (410): a SAP-bound report now needs a Run SAP child (POST /projects/:id/saps/:sapId/runs, AXI-2441) — rewrite this spec on a Run SAP child before re-enabling');
 
 const TAGS = { tag: ['@SI-018', '@SI-010', '@SI-002'] };
 const OPERATION = 'stats.mann_whitney_u';
@@ -65,12 +70,18 @@ const FORBIDDEN = [
 let world: PrivateProjectsWorld;
 let admin: APIRequestContext;
 let outsider: Actor;
-let projectId: string;
+let sapWorld: SapRunChildWorld;
+/** The Run SAP child's project and rule run (.1, .4, .6-.9). */
+let childProjectId: string;
+let childRunId: string;
 let otherProjectId: string;
+/** The ORDINARY two-measurement run (.2, .3, .5). */
+let projectId: string;
 let ruleRunId: string;
 let dedupedRunId: string;
 let submission: Record<string, unknown>;
 let csvBytes: Buffer;
+let ordinaryCsv: Buffer;
 const scanned: Array<{ what: string; text: string }> = [];
 
 const exportUrl = (project: string, run: string, kind: string) =>
@@ -214,11 +225,20 @@ async function dedupedRerun(): Promise<string> {
 }
 
 test.beforeAll(async () => {
+  test.setTimeout(10 * 60_000);
   world = await PrivateProjectsWorld.create();
   admin = world.admin;
   outsider = await world.actor('outsider');
-  projectId = await newProject('exports');
-  otherProjectId = await newProject('other');
+  const editor = await world.actor('editor');
+  await world.addMember(editor, 'editor');
+  sapWorld = { world, editor };
+  const sap = await provisionSap(sapWorld, TOKEN, 'exports');
+  childProjectId = sap.project;
+  const ran = await runSapChild(sapWorld, sap, 'exports');
+  childRunId = ran.ruleRunId;
+  expect(childRunId, JSON.stringify(ran.child.nodes)).toBeTruthy();
+  otherProjectId = await newSapProject(sapWorld, 'other');
+  projectId = await newProject('ordinary');
   ruleRunId = await runToCompletion(await uploadDataset());
   await sleep(COMPLETION_LISTENER_GRACE_MS);
 });
@@ -228,24 +248,24 @@ test.afterAll(async () => {
 });
 
 test.describe('AXI-2313 — exports API', TAGS, () => {
-  test('AC6 — AXI-2313.1: the results CSV is the run\'s result table, byte-stable and byte for byte the report bundle\'s CSV (FR16, FR17) (@SI-018)', async () => {
-    const res = await admin.get(exportUrl(projectId, ruleRunId, 'csv'), ws());
+  test('AC6 — AXI-2313.1: a Run SAP child\'s results CSV is the run\'s result table, byte-stable and byte for byte the report bundle\'s CSV (FR16, FR17) (@SI-018)', async () => {
+    const res = await admin.get(exportUrl(childProjectId, childRunId, 'csv'), ws());
 
     expect(res.status(), await res.text()).toBe(200);
     expect(res.headers()['content-type']).toContain('text/csv');
-    expect(res.headers()['content-disposition']).toBe(`attachment; filename="results-${ruleRunId}.csv"`);
+    expect(res.headers()['content-disposition']).toBe(`attachment; filename="results-${childRunId}.csv"`);
     csvBytes = await res.body();
     expect(res.headers()['x-content-sha256']).toBe(sha256(csvBytes));
-    expect(res.headers()['x-result-run-id']).toBe(ruleRunId);
+    expect(res.headers()['x-result-run-id']).toBe(childRunId);
     expect(res.headers()['x-reused-from-run-id']).toBeUndefined();
     const text = csvBytes.toString('utf8');
     expect(text.split('\n').length).toBeGreaterThan(1);
     scanned.push({ what: 'results CSV', text });
 
-    const again = await (await admin.get(exportUrl(projectId, ruleRunId, 'csv'), ws())).body();
+    const again = await (await admin.get(exportUrl(childProjectId, childRunId, 'csv'), ws())).body();
     expect(again.equals(csvBytes)).toBe(true);
-    const zip = readZip(await (await admin.get(reportUrl(projectId, ruleRunId), ws())).body());
-    expect(zip.get(`data/runs/${ruleRunId}.csv`)?.equals(csvBytes)).toBe(true);
+    const zip = readZip(await (await admin.get(reportUrl(childProjectId, childRunId), ws())).body());
+    expect(zip.get(`data/runs/${childRunId}.csv`)?.equals(csvBytes)).toBe(true);
   });
 
   test('AC6 — AXI-2313.2: the figure PNG is 3750x2500 px and declares 300 dpi in its pHYs chunk; a second export is the same bytes (NFR4, FR17) (@SI-018)', async () => {
@@ -282,13 +302,13 @@ test.describe('AXI-2313 — exports API', TAGS, () => {
     expect(again).toBe(svg);
   });
 
-  test('AC6 — AXI-2313.4: the report export is the client report bundle — the same report.md, hash and manifest as the report route (FR16) (@SI-016 @SI-018)', async () => {
-    const res = await admin.get(exportUrl(projectId, ruleRunId, 'report'), ws());
-    const routed = await admin.get(reportUrl(projectId, ruleRunId), ws());
+  test('AC6 — AXI-2313.4: a Run SAP child\'s report export is the client report bundle — the same report.md, hash and manifest as the report route, with the SAP-run section (FR16) (@SI-016 @SI-018)', async () => {
+    const res = await admin.get(exportUrl(childProjectId, childRunId, 'report'), ws());
+    const routed = await admin.get(reportUrl(childProjectId, childRunId), ws());
 
     expect(res.status(), await res.text()).toBe(200);
     expect(res.headers()['content-type']).toContain('application/zip');
-    expect(res.headers()['content-disposition']).toBe(`attachment; filename="client-report-${ruleRunId}.zip"`);
+    expect(res.headers()['content-disposition']).toBe(`attachment; filename="client-report-${childRunId}.zip"`);
     expect(res.headers()['x-report-hash']).toBe(routed.headers()['x-report-hash']);
     const body = await res.body();
     expect(res.headers()['x-content-sha256']).toBe(sha256(body));
@@ -297,14 +317,17 @@ test.describe('AXI-2313 — exports API', TAGS, () => {
     expect(exported.get('report.md')?.equals(viaRoute.get('report.md')!)).toBe(true);
     const manifest = JSON.parse(exported.get('manifest.json')!.toString('utf8'));
     expect(manifest.reportSha256).toBe(JSON.parse(viaRoute.get('manifest.json')!.toString('utf8')).reportSha256);
-    expect(manifest).toMatchObject({ profile: 'client_report', ruleRunId });
-    expect(exported.has(`data/runs/${ruleRunId}.csv`)).toBe(true);
-    scanned.push({ what: 'report.md', text: exported.get('report.md')!.toString('utf8') });
+    expect(manifest).toMatchObject({ profile: 'client_report', ruleRunId: childRunId });
+    expect(exported.has(`data/runs/${childRunId}.csv`)).toBe(true);
+    const reportMd = exported.get('report.md')!.toString('utf8');
+    expect(reportMd).toContain('## Statistical Analysis Plan — SAP run, version 1');
+    scanned.push({ what: 'report.md', text: reportMd });
     scanned.push({ what: 'manifest.json', text: exported.get('manifest.json')!.toString('utf8') });
   });
 
   test('AC6 — AXI-2313.5: a DEDUPED run exports the reused result — never a 404 — and names the reused run (FR16) (@SI-018)', async () => {
     dedupedRunId = await dedupedRerun();
+    ordinaryCsv = await (await admin.get(exportUrl(projectId, ruleRunId, 'csv'), ws())).body();
 
     const csv = await admin.get(exportUrl(projectId, dedupedRunId, 'csv'), ws());
     const png = await exportOk(dedupedRunId, 'png');
@@ -315,7 +338,7 @@ test.describe('AXI-2313 — exports API', TAGS, () => {
       expect(res.headers()['x-reused-from-run-id']).toBe(ruleRunId);
     }
     expect(csv.headers()['content-disposition']).toBe(`attachment; filename="results-${dedupedRunId}.csv"`);
-    expect((await csv.body()).equals(csvBytes)).toBe(true);
+    expect((await csv.body()).equals(ordinaryCsv)).toBe(true);
     expect(png.headers()['content-disposition']).toBe(`attachment; filename="figure-${dedupedRunId}.png"`);
     const facts = pngFacts(await png.body());
     expect({ width: facts.width, height: facts.height }).toEqual(PNG_PIXELS);
@@ -331,10 +354,10 @@ test.describe('AXI-2313 — exports API', TAGS, () => {
 
   test('NFR1 — AXI-2313.7: the exports are deny-by-default; a refusal never says whether the run exists (@SI-010)', async () => {
     const anonymous = await apiRequest.newContext();
-    const unauthenticated = await anonymous.get(exportUrl(projectId, ruleRunId, 'csv'), ws());
+    const unauthenticated = await anonymous.get(exportUrl(childProjectId, childRunId, 'csv'), ws());
     await anonymous.dispose();
-    const outsiderRead = await outsider.api.get(exportUrl(projectId, ruleRunId, 'csv'));
-    const otherProject = await admin.get(exportUrl(otherProjectId, ruleRunId, 'csv'), ws());
+    const outsiderRead = await outsider.api.get(exportUrl(childProjectId, childRunId, 'csv'));
+    const otherProject = await admin.get(exportUrl(otherProjectId, childRunId, 'csv'), ws());
     const neverCreated = await admin.get(exportUrl(otherProjectId, NEVER_CREATED_RUN, 'csv'), ws());
 
     expect(unauthenticated.status()).toBe(401);
@@ -346,8 +369,19 @@ test.describe('AXI-2313 — exports API', TAGS, () => {
 
   test('FR18 — AXI-2313.8: an undeclared export kind is a 400, never a guessed file (@SI-010 @SI-002)', async () => {
     for (const kind of ['pdf', 'jpeg']) {
-      const res = await admin.get(exportUrl(projectId, ruleRunId, kind), ws());
+      const res = await admin.get(exportUrl(childProjectId, childRunId, kind), ws());
       expect(res.status()).toBe(400);
+      expect(res.headers()['content-disposition']).toBeUndefined();
+    }
+  });
+
+  test('FR16, AC6 — AXI-2313.9: a Run SAP child whose result has ONE row has no recommended chart, so its figure exports are a typed 409 RUN_EXPORT_NO_FIGURE — never an empty file (@SI-018)', async () => {
+    for (const kind of ['png', 'svg']) {
+      const res = await admin.get(exportUrl(childProjectId, childRunId, kind), ws());
+      const body = await res.json();
+
+      expect(res.status(), JSON.stringify(body)).toBe(409);
+      expect(body.errorCode).toBe('RUN_EXPORT_NO_FIGURE');
       expect(res.headers()['content-disposition']).toBeUndefined();
     }
   });
