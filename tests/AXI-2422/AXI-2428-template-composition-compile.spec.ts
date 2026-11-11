@@ -9,6 +9,9 @@ import {
   type CompositionApi,
 } from './harness/composition-api';
 
+/** The validator version follows its own semver bumps (AXI-2457 moved it to 1.1.0); pin the shape. */
+const SEMVER = /^\d+\.\d+\.\d+$/;
+
 /**
  * AXI-2428 (epic AXI-2422 — Analysis Template Library, story C — FR15–FR21, NFR1, NFR3, NFR9;
  * AC2, AC5, AC6, AC7, AC15; EC1–EC6). Scenario doc:
@@ -50,7 +53,7 @@ test.describe('AXI-2428 — template composition validate + compile', { tag: ['@
     // Assert
     expect(res.status, res.text).toBe(200);
     expect(res.body.verdict).toBe('PASS');
-    expect(res.body.validatorVersion).toBe('1.0.0');
+    expect(res.body.validatorVersion).toMatch(SEMVER);
     expect(res.body.nodeLibraryVersion).toBe(PINNED_VERSION);
     expect(res.body.checks.map((c: any) => c.checkId)).toEqual(CHECK_ORDER);
     for (const check of res.body.checks) {
