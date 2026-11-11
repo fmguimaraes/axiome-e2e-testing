@@ -97,16 +97,10 @@ test.describe('AXI-2312 — default-chart renderer & chart-spec defaults (FR12/F
   });
 
   test('AC5 — a non-group-styled chart (bar count) renders successfully with no group-style fields, never blank (§5.1)', async () => {
-    // KNOWN PRE-EXISTING DEFECT (not AXI-2312's, tracked separately; reproduces
-    // on `main`): axiome-back's `RENDER_ENGINE_VERSION` ('1.0.0',
-    // chart-cache.service.ts) and axiome-bio-compute's (`"2.0.0"`,
-    // pipelines/dataview_render.py) diverge, so the cache instance id the
-    // render DISPATCH answers (e.g. `dvi_7e1bb7a4…`) differs from the one the
-    // render CALLBACK caches under (`dvi_3e340ebf…`, observed on the isolated
-    // verification stack) — `GET dataviews/results/:instanceId` can never
-    // reach `ready`, whatever this story does. Marked fixme rather than red or
-    // deleted; un-fixme once the two versions are reconciled.
-    test.fixme(true, 'RENDER_ENGINE_VERSION mismatch (axiome-back 1.0.0 vs axiome-bio-compute 2.0.0): render poll can never resolve — pre-existing defect, tracked as AXI-2337');
+    // AXI-2337 (was fixme'd here): org-service and bio-compute used to hash the
+    // dataview instance id independently (engine 1.0.0 vs 2.0.0), so the
+    // render callback cached under a key the poll never read. org-service now
+    // sends its id in the job params and bio-compute echoes it back.
     // AXI-2312 (review bounce #1, B3): `stats.correlation`'s own chart
     // declaration is `surfaces: ['result']` ONLY — "The gallery has no pair
     // of real columns to plot" (operation-registry.ts) — so it never mints a
@@ -134,6 +128,11 @@ test.describe('AXI-2312 — default-chart renderer & chart-spec defaults (FR12/F
     // bounce #2 advisory: `status !== 'error'` alone also passed for `rendering`).
     const rendered = await renderUntilReady(api, t, recommended.id);
     expect(rendered.payload, 'render reached ready with no payload (FR12: never blank)').toBeTruthy();
+    // A truthy payload alone is latently green: a renderer that cannot resolve
+    // its bindings answers `{ error: 'binding columns not found', data: [] }`
+    // (AXI-2347). Never blank means real data.
+    expect(rendered.payload.error, `render payload carries an error: ${JSON.stringify(rendered.payload)}`).toBeUndefined();
+    expect(Array.isArray(rendered.payload.data) && rendered.payload.data.length, 'render payload has no data rows (FR12: never blank)').toBeGreaterThan(0);
     // FR13/FR15 only act on a chart with a group dimension declared in
     // `GROUP_STYLED_TEMPLATE_IDS` (boxplot_v1/paired_slope_v1/km_survival_v1);
     // `bar_chart_v1` is not one of those, so `withChartStyle` returns the
