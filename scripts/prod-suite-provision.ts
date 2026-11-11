@@ -1,4 +1,4 @@
-import { createApiClient, fetchTransport, loginForToken } from '../tests/AXI-2309/harness/prod-suite/api-client';
+import { connectApiClient } from '../tests/AXI-2309/harness/prod-suite/api-client';
 import { readProdSuiteConfig } from '../tests/AXI-2309/harness/prod-suite/config';
 import { provisionFixtures } from '../tests/AXI-2309/harness/prod-suite/fixtures';
 import { verifyIsolation } from '../tests/AXI-2309/harness/prod-suite/isolation-guard';
@@ -23,11 +23,10 @@ async function main(): Promise<void> {
   const result = readProdSuiteConfig(env);
   if (!result.ok) throw new Error(`missing configuration: ${result.missing.join(', ')}`);
   const cfg = result.config;
-  const token = await loginForToken(cfg.apiBaseUrl, cfg.email, cfg.password);
-  const client = createApiClient(
-    { apiBaseUrl: cfg.apiBaseUrl, token, workspaceId: cfg.workspaceId, forbiddenIds: cfg.forbiddenOrgIds },
-    fetchTransport,
-  );
+  const client = await connectApiClient({
+    apiBaseUrl: cfg.apiBaseUrl, email: cfg.email, password: cfg.password,
+    workspaceId: cfg.workspaceId, forbiddenIds: cfg.forbiddenOrgIds,
+  });
   await verifyIsolation(client, cfg);
   const ids = await provisionFixtures(client, cfg);
   console.log('Store this as the PROD_E2E_FIXTURE_IDS repository variable:');

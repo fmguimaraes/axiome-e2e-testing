@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { API_BASE_URL } from '../../config/env';
-import { createApiClient, fetchTransport, loginForToken } from './harness/prod-suite/api-client';
+import { connectApiClient } from './harness/prod-suite/api-client';
 import { prodSuiteEnabled, readProdSuiteConfig, type ProdSuiteConfig } from './harness/prod-suite/config';
 import { dailyExecutor } from './harness/prod-suite/executor';
 import { PAUL_OPERATIONS } from './harness/prod-suite/run-plan';
@@ -42,13 +42,15 @@ const REPORT_DIR = path.resolve(process.env.PROD_E2E_REPORT_DIR?.trim() || 'prod
 let config: ProdSuiteConfig;
 let report: ProdSuiteReport;
 
-/** Log in as the confined test identity; the client carries the EC9 forbidden-id tripwire. */
+/**
+ * Log in as the confined test identity; the client carries the EC9 forbidden-id
+ * tripwire and (AXI-2357) renews its 15-min token for the whole 60-min budget.
+ */
 async function connect(cfg: ProdSuiteConfig) {
-  const token = await loginForToken(cfg.apiBaseUrl, cfg.email, cfg.password);
-  return createApiClient(
-    { apiBaseUrl: cfg.apiBaseUrl, token, workspaceId: cfg.workspaceId, forbiddenIds: cfg.forbiddenOrgIds },
-    fetchTransport,
-  );
+  return connectApiClient({
+    apiBaseUrl: cfg.apiBaseUrl, email: cfg.email, password: cfg.password,
+    workspaceId: cfg.workspaceId, forbiddenIds: cfg.forbiddenOrgIds,
+  });
 }
 
 test.describe('AXI-2318 — prod E2E daily suite', TAGS, () => {

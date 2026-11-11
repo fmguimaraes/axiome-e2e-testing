@@ -1,6 +1,6 @@
 import { apiUrl, API_BASE_URL } from '../../config/env';
 import { ROLES } from '../../config/roles';
-import { ApiClient, createApiClient, fetchTransport, loginForToken, okBody } from './harness/prod-suite/api-client';
+import { ApiClient, connectApiClient, createApiClient, fetchTransport, loginForToken, okBody } from './harness/prod-suite/api-client';
 import type { ProdSuiteConfig } from './harness/prod-suite/config';
 
 /**
@@ -106,10 +106,9 @@ export class LocalTestOrgWorld {
     okBody(await this.admin.post(`/api/v1/users/${userId}/roles`, { roleId: role.id }), 'assign role');
   }
 
-  /** A client for the confined identity, its EC9 tripwire armed with the decoy id by default. */
+  /** A client for the confined identity, its EC9 tripwire armed with the decoy id by default; renews its token (AXI-2357). */
   async identityClient(forbiddenIds: string[] = [this.forbiddenOrgId]): Promise<ApiClient> {
-    const token = await loginForToken(API_BASE_URL, this.email, this.password);
-    return createApiClient({ apiBaseUrl: API_BASE_URL, token, workspaceId: this.workspaceId, forbiddenIds }, fetchTransport);
+    return connectApiClient({ apiBaseUrl: API_BASE_URL, email: this.email, password: this.password, workspaceId: this.workspaceId, forbiddenIds });
   }
 
   /** The daily-suite configuration this stand-in corresponds to. */

@@ -525,3 +525,33 @@ fake platform — no network, no browser, no Docker.
 | UT-PRODE2E-6079 | a catalogue DESCRIBE case answered from the dedup cache is not-evaluated — never pass, and its cached chart is never judged | Pass |
 | UT-PRODE2E-6080 | a Paul case whose probes came from the dedup cache without re-execution is not-evaluated, never pass; the same probes re-executed fresh pass | Pass |
 | UT-PRODE2E-6081 | a render that ends in error fails with its own message (bounded, no body echo); a breaker-tripped fail says so | Pass |
+
+## AXI-2357/token-refresh.spec.ts
+
+AXI-2357 (epic AXI-2358 — restores FR28–FR30, FR32, FR33; SI-042, SI-041). The prod-suite
+API client (`tests/AXI-2309/harness/prod-suite/api-client.ts`) keeps the confined
+identity's access token valid for the daily suite's 60-min budget although the token
+lives 15 min (user-service `jwt.expiresIn` = `JWT_EXPIRES_IN || '15m'`):
+`createTokenProvider` renews PROACTIVELY at `receivedAt + (exp − iat) − margin` (default
+margin 2 min, capped at half the lifetime), the client retries EXACTLY ONCE after a
+`401 {message: 'Invalid token'}` (any other refusal, and a second 401, surface as-is),
+renewal is single-flight across parallel requests, and a failed re-login rejects naming
+the HTTP status only. `connectApiClient` logs in up front (a bad credential still aborts
+the run as LOGIN_FAILED). A fake clock and a fake gateway enforcing `exp` — no network.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-PRODE2E-6100 | the token lifetime is read as exp − iat; a non-JWT or claim-less token has none | Pass |
+| UT-PRODE2E-6101 | the token is renewed proactively at lifetime − margin, never earlier, with one login | Pass |
+| UT-PRODE2E-6102 | the margin is capped at half a short lifetime, so a short token never means a login per request | Pass |
+| UT-PRODE2E-6103 | a token whose lifetime cannot be read is renewed only reactively | Pass |
+| UT-PRODE2E-6104 | a 401 "Invalid token" is retried exactly once with a freshly logged-in token | Pass |
+| UT-PRODE2E-6105 | a second 401 after the re-login is returned as-is — one login, two sends, never a loop | Pass |
+| UT-PRODE2E-6106 | only the expired-token refusal is retried — another 401, a 403 or a 404 surface untouched | Pass |
+| UT-PRODE2E-6107 | parallel requests refused on the same expired token share ONE re-login, each retried once | Pass |
+| UT-PRODE2E-6108 | parallel requests past the proactive deadline share ONE re-login | Pass |
+| UT-PRODE2E-6109 | a late 401 on a token another request already renewed reuses the new token — no second login | Pass |
+| UT-PRODE2E-6110 | a failed re-login rejects naming the status only (no token, no credential) and is not cached | Pass |
+| UT-PRODE2E-6111 | connecting with a bad credential fails at once (the suite aborts LOGIN_FAILED), before any request | Pass |
+| UT-PRODE2E-6112 | the EC9 tripwire still refuses a forbidden reference before any login or send | Pass |
+| UT-PRODE2E-6113 | a 60-min run against a gateway enforcing the 15-min exp never sees a 401 (bug reproduction; the static-token client goes 401 at 15 min) | Pass |
