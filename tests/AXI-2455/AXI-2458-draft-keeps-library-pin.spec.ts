@@ -23,7 +23,8 @@ const RUN = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 let world: PrivateProjectsWorld;
 let author: UiActor;
 let api: CatalogApi;
-let created: { id: string; versionId: string } | null = null;
+/** Recorded as soon as the header exists, so a refused version write still leaves nothing behind (AXI-2478). */
+let created: { id: string } | null = null;
 
 async function signIn(page: Page): Promise<void> {
   await page.addInitScript((org) => localStorage.setItem('axiome-top-org', org), world.orgId);
@@ -50,11 +51,11 @@ test.describe('draft keeps its node-library pin', { tag: ['@SI-035'] }, () => {
     // Arrange — a workspace template whose draft is pinned to a legacy library version
     const header = await api.create({ templateId: `e2e-axi2458-${RUN}`, label: `E2E AXI-2458 ${RUN}`, scope: 'workspace' });
     expect(header.status, JSON.stringify(header.body)).toBe(201);
+    created = { id: header.body.id };
     const composition = { nodeLibraryVersion: LEGACY_PIN, slots: [], steps: [], outputs: [] };
     const v = await api.createVersion(header.body.id, { templateVersion: '1.0', composition });
     expect(v.status, JSON.stringify(v.body)).toBe(201);
     const versionId = v.body.versions[0].id;
-    created = { id: header.body.id, versionId };
 
     // Act — edit the draft in the compose page (add a slot) and save
     await signIn(page);
