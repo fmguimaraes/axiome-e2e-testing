@@ -78,20 +78,28 @@ test.describe('AXI-1884 - top-menu single-scope collapse', { tag: ['@SI-030'] },
   // The workspace is never auto-selected (FR3 preserves existing behavior — only the
   // organization level auto-selects); a project only resolves once a workspace is
   // active, so both project scenarios select the single workspace label first.
-  test('AC1 - a single project renders as a name label and its dropdown is absent @SI-030', async ({ page }) => {
+  //
+  // AXI-2505 (FR28) amends FR1 for the project level only: unlike org/workspace, a
+  // single project NEVER collapses to a name label — it stays a combobox, so it never
+  // looks pre-selected without the user explicitly choosing it.
+  test('AC1/FR28 - a single project still renders as a combobox, not a name label @SI-030', async ({ page }) => {
     await signIn(page, SINGLE);
     await page.goto('/overview');
     await page.getByTestId('scope-label-workspace').click();
-    await expect(page.getByTestId('scope-label-project')).toHaveCount(1);
-    await expect(page.getByTestId('scope-dropdown-project')).toHaveCount(0);
+    await expect(page.getByTestId('scope-dropdown-project')).toHaveCount(1);
+    await expect(page.getByTestId('scope-label-project')).toHaveCount(0);
+    await expect(page.getByTestId('scope-dropdown-project')).toHaveText(/No Project/);
   });
 
-  test('AC1 - clicking the single project name navigates to the project scope @SI-030', async ({ page }) => {
+  test('AC1/FR28 - opening the project combobox and clicking its one project selects it and navigates to the project scope @SI-030', async ({ page }) => {
     await signIn(page, SINGLE);
     await page.goto('/overview');
     await page.getByTestId('scope-label-workspace').click();
     await page.goto('/datasets');
-    await page.getByTestId('scope-label-project').click();
+    await page.getByTestId('scope-dropdown-project').click();
+    // The opened list's project entries are plain buttons, sibling to the trigger;
+    // exclude the "No Project" clear option, which is also a button in that list.
+    await page.locator('[data-testid="scope-dropdown-project"] + div button:not(:has-text("No Project"))').first().click();
     await expect(page).toHaveURL(/\/overview$/);
   });
 
