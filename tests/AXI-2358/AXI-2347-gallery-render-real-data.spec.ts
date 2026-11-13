@@ -48,7 +48,7 @@ test.afterAll(async () => {
 });
 
 test.describe('AXI-2347 — a ready gallery default-chart render returns real data (FR12)', { tag: ['@SI-017'] }, () => {
-  test('AXI-2347-S1 — recommended describe.count chart (col_ bindings) renders real bars, not "binding columns not found"', async () => {
+  test('FR12 — AXI-2347-S1: recommended describe.count chart (col_ bindings) renders real bars, not "binding columns not found"', async () => {
     const run = await runAndWait(api, t, analysis, datasetId, {
       operationId: 'describe.count',
       runKind: 'DESCRIBE',
