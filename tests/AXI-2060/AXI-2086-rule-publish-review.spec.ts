@@ -133,8 +133,21 @@ async function seedSession(page: Page, accessToken: string, refreshToken: string
   );
 }
 
-async function detail(actor: Actor, id: string): Promise<RuleResponse> {
-  return (await send(actor.api, 'get', `/api/v1/rules/${id}`)) as RuleResponse;
+/**
+ * `GET /rules/:id` as read here: the shared AXI-1765 `RuleResponse.review`
+ * predates the submit-for-review advisory (`canSubmitForReview` /
+ * `submitForReviewBlockedCode`, contracts `rule.patterns.ts`), so it is
+ * widened locally rather than reaching into the AXI-1762 fixture.
+ */
+type RuleDetail = RuleResponse & {
+  review?: NonNullable<RuleResponse['review']> & {
+    canSubmitForReview: boolean;
+    submitForReviewBlockedCode: string | null;
+  };
+};
+
+async function detail(actor: Actor, id: string): Promise<RuleDetail> {
+  return (await send(actor.api, 'get', `/api/v1/rules/${id}`)) as RuleDetail;
 }
 
 /** A complete FEATURE_RULE, SYSTEM scope, authored+submitted by the real platform admin. */

@@ -32,7 +32,7 @@ const WIZARD_RUNS = '/api/v1/guided-analysis/wizard-runs';
 const FIXTURE = 'opening-templates-paul-header.csv';
 const OUTCOME = 'microbiote_igg4_mag4_27';
 
-function paulShapedSchema(datasetId = randomUUID()) {
+function paulShapedSchema(datasetId: string = randomUUID()) {
   return {
     datasetId,
     displayName: 'tableau2.xlsx',
@@ -48,7 +48,7 @@ function paulShapedSchema(datasetId = randomUUID()) {
 }
 
 /** A second, disjoint-vocabulary dataset: same column NAME, different levels — EC29's trap. */
-function secondSchema(datasetId = randomUUID()) {
+function secondSchema(datasetId: string = randomUUID()) {
   return {
     datasetId,
     displayName: 'cohort2.xlsx',

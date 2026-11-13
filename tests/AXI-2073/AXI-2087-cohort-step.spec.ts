@@ -103,7 +103,7 @@ interface CohortView {
   /** `## Population`'s `- Cohort: ` line (the cited branch). */
   population: string;
   /** Appendix A row 4 of the cited branch, by column name. */
-  row: Record<'name' | 'id' | 'actor' | 'hash' | 'status' | 'notRecorded', string>;
+  row: Record<'name' | 'id' | 'details' | 'actor' | 'hash' | 'status' | 'notRecorded', string>;
 }
 
 const ROW_COLUMNS = ['n', 'step', 'name', 'id', 'version', 'details', 'created', 'actor', 'parents', 'hash', 'status', 'notRecorded'] as const;

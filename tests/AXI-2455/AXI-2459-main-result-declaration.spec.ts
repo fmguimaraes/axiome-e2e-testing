@@ -73,8 +73,8 @@ test.describe('AXI-2459 — template versions declare their main result', { tag:
     const recipe = await registry.resolve('T1', '0.2');
     const composed = await registry.resolve('T1', '0.3');
     // Assert
-    expect(recipe.status, recipe.text).toBe(200);
-    expect(composed.status, composed.text).toBe(200);
+    expect(recipe.status, JSON.stringify(recipe.body)).toBe(200);
+    expect(composed.status, JSON.stringify(composed.body)).toBe(200);
     expect(recipe.body).not.toHaveProperty('mainResult');
     expect(composed.body).not.toHaveProperty('mainResult');
   });
