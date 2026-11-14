@@ -9,7 +9,7 @@ import { gotoSettled } from './harness/new-analysis';
  * AXI-2351 (epic AXI-2308 — Platform Opening: Human Guided) — the Investigator writes his
  * project's SAP on his own surface: a "Statistical plan" entry in the investigator navigation
  * renders AXI-2350's SAP panel for his active project (FR16 "Paul pastes it on first visit",
- * AC12, D16). He holds `sap:write` (AXI-2338) by the server's Investigator fallback; the
+ * AC12, D16). He holds the six SAP rights (AXI-2338 `sap:write`, split by AXI-2532) by the server's Investigator fallback; the
  * client mirror must follow it — `GET /roles` is refused to him, so no role record ever
  * reaches the page.
  *

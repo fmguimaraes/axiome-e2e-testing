@@ -17,7 +17,7 @@ import { Actor, PrivateProjectsWorld } from '../AXI-2265/private-projects-fixtur
  *
  * API-level by design: the change is in two server reads; no screen changes.
  *
- * World: the AXI-2265 `PrivateProjectsWorld` (editor = governed_execution:submit + sap:write). The
+ * World: the AXI-2265 `PrivateProjectsWorld` (editor = governed_execution:submit + the six SAP rights, AXI-2532). The
  * platform admin STAYS a member and makes the rule-run reads, the client-report reads and the direct
  * run: the `op:` carrier is a SYSTEM rule a self-registered actor's fresh organization is not
  * entitled to (AXI-1290 run hiding; the AXI-2443 / AXI-2444 specs' reason). The SAP pins the

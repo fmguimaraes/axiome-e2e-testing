@@ -11,7 +11,7 @@ import {
 /**
  * AXI-2439 (epic AXI-2433 Structured SAP) — the completeness report, finalise
  * and amend, and the template catalog: the server judges the STORED draft
- * (CC1–CC14, a client report is never read), finalise is one `sap:write`
+ * (CC1–CC14, a client report is never read), finalise is one `sap:finalise` (was `sap:write`, AXI-2532)
  * holder with no second approver, an amendment needs its reason, a concurrent
  * second finalise is 409, and every route is project-confined. API-level by
  * design: the Plan tab that drives these routes is AXI-2445.
@@ -278,7 +278,7 @@ test.describe('AXI-2439 — SAP completeness, finalise and amend', TAGS, () => {
     expect(t1).toMatchObject({ supportsOneSidedAlternative: false, cellAxisSlots: null });
   });
 
-  test('AC30, NFR1 — AXI-2439.8: 403 without sap:write, 404 without project access or for another project\'s SAP', async () => {
+  test('AC30, NFR1 — AXI-2439.8: 403 without sap:finalise, 404 without project access or for another project\'s SAP', async () => {
     // Arrange
     const reopened = await startDraft(project);
     const finaliseBody = { data: { basedOnRevision: reopened.revision, basedOnVersion: 2, amendmentReason: 'r' } };

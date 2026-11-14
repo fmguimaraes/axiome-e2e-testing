@@ -11,7 +11,7 @@ import { Actor, PrivateProjectsWorld } from '../AXI-2265/private-projects-fixtur
  * Scenario doc: axiome-docs/manual-e2e/AXI-2433-Structured-Statistical-Analysis-Plan.md
  * § "AXI-2444 — SAP reports" (AXI-2444.1 .. AXI-2444.5).
  *
- * World: the AXI-2265 `PrivateProjectsWorld` — editor (governed_execution:submit + sap:write),
+ * World: the AXI-2265 `PrivateProjectsWorld` — editor (governed_execution:submit + the six SAP rights, AXI-2532),
  * viewer (neither), outsider (no project access). The platform admin STAYS a member: it reads
  * the rule-run client report, whose `op:` carrier is a system rule a self-registered actor's
  * fresh organization is not entitled to (the AXI-2338 spec's reason). The SAP pins the NEWEST

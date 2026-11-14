@@ -10,7 +10,7 @@ import { SapApiStub, apiCallOf, pinNewestT1, questionInput, t1Version, uploadArm
  * AXI-2445 (epic AXI-2433 — Structured Statistical Analysis Plan) — the SAP surface: the
  * `/projects/:id/sap` page (Plan + Runs tabs, breadcrumb, no back button), the Plan tab
  * (final version, open draft with its controls and completeness panel, history), the
- * permission split (`sap:write` → write controls; governed-submit → Run SAP) and the two
+ * permission split (since AXI-2532 one SAP right per control; Run SAP = `sap:run` + governed-submit) and the two
  * entry points (Project Settings → Statistical, Investigator → Statistical plan), which
  * summarise and link instead of editing.
  *
@@ -194,7 +194,8 @@ test.describe('AXI-2445 SAP surface: Plan tab and entry points @SI-031 @SI-030',
 
   test('AC1 FR64 AXI-2445.2 Start draft opens a new draft whose completeness shows CC1, CC13 and CC14 failing @SI-031', async ({ page }) => {
     // Arrange
-    expect(await permissionsOf(editor)).toContain('sap:write');
+    // AXI-2532: sap:write is split; Start draft needs sap:read + sap:create.
+    expect(await permissionsOf(editor)).toEqual(expect.arrayContaining(['sap:read', 'sap:create']));
     const { stub } = await newWorld('new-draft');
     await openSap(page, editor, stub);
     await expect(page.getByTestId('sap-empty-state')).toBeVisible();
@@ -355,10 +356,12 @@ test.describe('AXI-2445 SAP surface: Plan tab and entry points @SI-031 @SI-030',
     await expect(page.getByTestId('sap-final-questions-newer-Q2')).toHaveCount(0);
   });
 
-  test('AC30 EC32 AXI-2445.7 without sap:write the Plan tab is read only: no write or run control @SI-031', async ({ page }) => {
+  test('AC30 EC32 AXI-2445.7 with sap:read and no SAP write right the Plan tab is read only: no write or run control @SI-031', async ({ page }) => {
     // Arrange
     const perms = await permissionsOf(viewer);
-    expect(perms).not.toContain('sap:write');
+    // AXI-2532: the viewer reads the SAP (sap:read) and holds no SAP write right.
+    expect(perms).toContain('sap:read');
+    for (const right of ['sap:create', 'sap:update', 'sap:delete', 'sap:finalise', 'sap:run']) expect(perms).not.toContain(right);
     expect(perms).not.toContain('governed_execution:submit');
     const { stub } = await finalWorld('viewer', true, [questionInput(1, 'primary'), questionInput(2, 'secondary')]);
     const open = await call('GET', `/projects/${stub.projectId}/sap-draft`);
@@ -368,7 +371,7 @@ test.describe('AXI-2445 SAP surface: Plan tab and entry points @SI-031 @SI-030',
     await openSap(page, viewer, stub);
 
     // Assert
-    await expect(page.getByTestId('sap-read-only-note')).toContainText('sap:write');
+    await expect(page.getByTestId('sap-read-only-note')).toContainText('sap:update');
     await expect(page.getByTestId('sap-final-title')).toHaveText('Plan viewer');
     await expect(page.getByTestId('sap-draft-title-text')).toHaveText('Draft title the viewer reads');
     await expect(page.getByTestId('sap-draft-questions-row-Q2')).toBeVisible();

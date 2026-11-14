@@ -13,7 +13,7 @@ import { Actor, PrivateProjectsWorld } from '../AXI-2265/private-projects-fixtur
  * § "AXI-2442 — SAP-run evaluation and run reads" (AXI-2442.1 .. AXI-2442.5).
  *
  * World: the AXI-2265 `PrivateProjectsWorld` (platform admin admin@cro-one.com) — editor
- * (governed_execution:submit + sap:write), viewer (neither), outsider (no project access).
+ * (governed_execution:submit + the six SAP rights, AXI-2532), viewer (sap:read only), outsider (no project access).
  * The SAP pins the NEWEST T1 version the project's `/sap-templates` lists — never a
  * hard-coded version. AXI-2442.3–.5 need AXI-2442 on the target backend.
  */

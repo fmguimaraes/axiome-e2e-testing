@@ -19,7 +19,7 @@ import {
  * § "AXI-2441 — Run SAP: pre-flight, SAP run and child runs" (AXI-2441.1 .. AXI-2441.7).
  *
  * World: the AXI-2265 `PrivateProjectsWorld` (provisioned by the platform admin
- * admin@cro-one.com) — editor (governed_execution:submit + sap:write), viewer
+ * admin@cro-one.com) — editor (governed_execution:submit + the six SAP rights, AXI-2532), viewer
  * (neither), outsider (no project access). Requires AXI-2441 on the target
  * backend; the setup waits (bounded) for each uploaded dataset's ingestion to be
  * ready and profiled, because pre-flight reads the MEASURED columns.

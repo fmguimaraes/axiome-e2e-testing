@@ -20,7 +20,7 @@ import type { Api } from '../AXI-1400/harness/api';
  * RUN SAP (AXI-2441); the DERIVED `sapAnalysis` flag and the SAP-write permission (FR16, FR17,
  * AC12, EC5) remain; every planned run records its entry mode, validated against the
  * AXI-2339 opening-template registry (FR19, AC13); Headless §10 delta / §17 D8
- * (typed second-create refusal, `sap:write` SAP write). API-level by design: the
+ * (typed second-create refusal, SAP write — `sap:write`, split into six rights by AXI-2532). API-level by design: the
  * screens that paste the SAP and pick a mode are AXI-2328/AXI-2341.
  *
  * Scenario doc: axiome-docs/manual-e2e/AXI-2308-Platform-Opening-Human-Guided.md
@@ -43,7 +43,7 @@ test.describe.configure({ mode: 'serial', timeout: 300_000 });
 //   .3 REWRITTEN on a Run SAP (a SAP run pins the CURRENT final version; after an amendment the next SAP run
 //                  pins version 2 while run 1 stays on version 1);
 //   .4 kept;
-//   .5 REWRITTEN on the SAP DRAFT API (the Investigator's sap:write on his own project only);
+//   .5 REWRITTEN on the SAP DRAFT API (the Investigator's sap:create — was sap:write — on his own project only);
 //   .6 REWRITTEN without a SAP (the Guided mode record is independent of any SAP);
 //   .7 kept;
 //   .8 RETIRED  -> AXI-2443.3 (an ordinary run, with no choice or with "skip", records no binding: null/null/null);
@@ -315,15 +315,19 @@ test.describe('AXI-2338 — project-bound SAP & run binding + mode record', { ta
     automaticPlanId = body.plan.planId;
   });
 
-  test('AC12 — AXI-2338.5: an Investigator (sap:write) opens a SAP draft on his own project only; a plain viewer (no sap:write) cannot @SI-010 @SI-065', async () => {
-    // Arrange — the Investigator role is AXI-2322's seed; AXI-2338 grants it `sap:write`
+  test('AC12 — AXI-2338.5: an Investigator (sap:create, was sap:write) opens a SAP draft on his own project only; a plain viewer (sap:read only) cannot @SI-010 @SI-065', async () => {
+    // Arrange — the Investigator role is AXI-2322's seed; AXI-2338 granted it `sap:write`, AXI-2532 split that into the six SAP rights
     // (owner ruling 2026-10-30: seed row …0105 + step 14 backfill). A stack without the
     // grant is a FAILED precondition, never a skip. Since AXI-2438 the SAP is written through
     // the DRAFT (a free-text create answers 410), so the write probe is the draft start.
     const role = await world.admin.get(apiUrl(`/api/v1/roles/${INVESTIGATOR_ROLE_ID}`));
     expect(role.status(), await role.text()).toBe(200);
     const permissions: string[] = (await role.json())?.permissions ?? [];
-    expect(permissions, 'the seeded Investigator role holds sap:write').toContain('sap:write');
+    // AXI-2532: sap:write is split into six rights; the Investigator holds all six, sap:write none.
+    expect(permissions, 'the seeded Investigator role holds the SAP rights').toEqual(
+      expect.arrayContaining(['sap:read', 'sap:create', 'sap:update', 'sap:delete', 'sap:finalise', 'sap:run']),
+    );
+    expect(permissions).not.toContain('sap:write');
     const investigator = await world.actor('investigator');
     await world.addMember(investigator, { roleId: INVESTIGATOR_ROLE_ID });
     const own = await newProject('investigator-own');

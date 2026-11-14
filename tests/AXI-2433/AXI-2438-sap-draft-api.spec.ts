@@ -248,7 +248,7 @@ test.describe('AXI-2438 — SAP draft and question-edit API', TAGS, () => {
     expect(after.title).toBe(draft.title);
   });
 
-  test('AC30, EC31, EC32, NFR1 — AXI-2438.7: 403 for every draft write without sap:write; 404 for every route without project access', async () => {
+  test('AC30, EC31, EC32, NFR1 — AXI-2438.7: 403 for every draft write without its SAP right (sap:create/update/delete, AXI-2532); 404 for every route without project access', async () => {
     // Arrange
     const qid = draft.plan.questions[0].questionId;
     const rev = `?basedOnRevision=${draft.revision}`;
@@ -286,7 +286,7 @@ test.describe('AXI-2438 — SAP draft and question-edit API', TAGS, () => {
     expect(ghostRefusal.status).toBe(404);
     for (const res of outsiderReads) expect(res.status()).toBe(404);
     expect(await refusalOf(outsiderReads[0])).toEqual(ghostRefusal);
-    // ProjectAccessGuard (class) runs before SapWriteGuard (method): no project access is 404, never 403.
+    // ProjectAccessGuard (class) runs before WorkspacePermissionGuard's per-route SAP right (method, AXI-2532): no project access is 404, never 403.
     for (const res of outsiderWrites) expect(res.status()).toBe(404);
     expect(smuggled.status()).toBe(400);
     expect(noToken.status()).toBe(401);

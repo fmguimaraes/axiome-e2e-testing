@@ -28,7 +28,7 @@ import { newProject, openAmendmentDraft, primaryQuestion, provisionSap, type Sap
  *                finalise, and is never replaced by the newest T1 version;
  *   .5           RETIRED — a run is no longer bound to a SAP version: `sapVersionId` on POST /rule-runs
  *                is 422 SAP_BINDING_RETIRED (AXI-2443.2) and an unbound run proceeds (AXI-2443.3).
- * The write-side access matrix (403 without sap:write, smuggled bodies) is AXI-2438.7 / AXI-2439.8.
+ * The write-side access matrix (403 without the SAP write right — sap:create/sap:update since AXI-2532, smuggled bodies) is AXI-2438.7 / AXI-2439.8.
  */
 
 test.use({ storageState: { cookies: [], origins: [] } });
