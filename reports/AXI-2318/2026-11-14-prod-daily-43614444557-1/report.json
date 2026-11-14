@@ -1,0 +1,375 @@
+{
+  "schemaVersion": 1,
+  "suite": "axiome-prod-e2e-daily",
+  "story": "AXI-2318",
+  "status": "completed",
+  "run": {
+    "runId": "43614444557-1",
+    "trigger": "workflow_dispatch",
+    "gitSha": "f45c38db67182a0a93d7d3375a6fc5416434e548",
+    "targetLabel": "production",
+    "startedAt": "2026-11-14T16:13:59.683Z",
+    "finishedAt": "2026-11-14T16:14:02.533Z"
+  },
+  "abort": null,
+  "testOrg": {
+    "organizationId": "188ceb99-0cf8-4086-9f47-24b062a99d7c",
+    "workspaceId": "2268e749-a597-4c98-b073-b836765fa331"
+  },
+  "fixtures": [
+    {
+      "key": "tableau1",
+      "datasetId": "491b44dc-14b6-40b0-a4b0-19b735528be9",
+      "rawFileHash": "sha256:bc98a928ef3bce6a44b8bb2a180e16fb24f20bb72710697dd1ef3169e3f64b36"
+    },
+    {
+      "key": "tableau2",
+      "datasetId": "36fce514-f6a5-460f-b9c6-62b5ef125e8c",
+      "rawFileHash": "sha256:42fede8a595e05f09589910d5ba91f1602d4a5762c4f834de075d472743e3cbc"
+    }
+  ],
+  "plan": {
+    "paulOperations": [
+      "stats.dunn_posthoc",
+      "stats.mann_whitney_u",
+      "stats.kruskal_wallis",
+      "stats.correlation",
+      "stats.partial_correlation"
+    ],
+    "missingPaulOperations": [
+      "stats.dunn_posthoc",
+      "stats.mann_whitney_u",
+      "stats.kruskal_wallis",
+      "stats.correlation",
+      "stats.partial_correlation"
+    ],
+    "caseCount": 26
+  },
+  "summary": {
+    "total": 26,
+    "byOutcome": {
+      "pass": 0,
+      "fail": 0,
+      "error": 0,
+      "not-evaluated": 26
+    },
+    "byPhase": {
+      "paul-methods": 0,
+      "catalogue": 26
+    }
+  },
+  "cases": [
+    {
+      "order": 1,
+      "phase": "catalogue",
+      "ruleId": "13ae86b6-5387-43e1-b8c1-7f371cf8e008",
+      "code": "IMM-ACT-01",
+      "operationId": null,
+      "runKind": "INTERPRET",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe: INTERPRET rules carry no kernel operation the suite can run on the prod fixtures",
+      "facts": {}
+    },
+    {
+      "order": 2,
+      "phase": "catalogue",
+      "ruleId": "e06eb0ea-a1a2-42d1-8a73-e87101ceb169",
+      "code": "IMM-CMP-01",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 3,
+      "phase": "catalogue",
+      "ruleId": "8aecd7b1-05d9-4437-b159-f8b2228fdf6c",
+      "code": "IMM-CMP-02",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 4,
+      "phase": "catalogue",
+      "ruleId": "66bf7695-3ba1-44c9-a5d7-f835bb3bd730",
+      "code": "IMM-CMP-03",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 5,
+      "phase": "catalogue",
+      "ruleId": "ebfcb07b-d7de-47a9-b56f-933346c8324b",
+      "code": "IMM-CMP-04",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 6,
+      "phase": "catalogue",
+      "ruleId": "c88edff8-9ed8-4cf5-8550-31e495e0ab6b",
+      "code": "IMM-CMP-05",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 7,
+      "phase": "catalogue",
+      "ruleId": "df97e62f-4642-4628-80b8-12ab314c3353",
+      "code": "IMM-CMP-06",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 8,
+      "phase": "catalogue",
+      "ruleId": "2b3163aa-463b-4050-b41a-2a60e46465ef",
+      "code": "IMM-CMP-07",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 9,
+      "phase": "catalogue",
+      "ruleId": "aba1a8fa-2b3c-422c-b086-ba8b300599ad",
+      "code": "IMM-CMP-08",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 10,
+      "phase": "catalogue",
+      "ruleId": "b87087bd-d301-4e3e-955b-532bb3182489",
+      "code": "IMM-CMP-09",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 11,
+      "phase": "catalogue",
+      "ruleId": "ffc36df9-ab36-4b0e-8253-753853d6f815",
+      "code": "IMM-CMP-10",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 12,
+      "phase": "catalogue",
+      "ruleId": "81c84208-7de4-411e-89ad-7514779bd1ec",
+      "code": "IMM-CMP-11",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 13,
+      "phase": "catalogue",
+      "ruleId": "9fab9c8b-2888-437d-85c8-49ac0ffcdd81",
+      "code": "IMM-CMP-12",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 14,
+      "phase": "catalogue",
+      "ruleId": "36076a01-72ca-48cd-9c83-7576f00432b4",
+      "code": "IMM-CMP-13",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 15,
+      "phase": "catalogue",
+      "ruleId": "8eae6816-550b-4c0a-847b-c5dabd1b4d80",
+      "code": "IMM-CMP-14",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 16,
+      "phase": "catalogue",
+      "ruleId": "68f66f3f-27f5-4d40-8cc2-99715fe925c4",
+      "code": "IMM-COMP-01",
+      "operationId": null,
+      "runKind": null,
+      "runnable": false,
+      "outcome": "not-evaluated",
+      "reason": "rule is not runnable on the platform (runnable=false)",
+      "facts": {}
+    },
+    {
+      "order": 17,
+      "phase": "catalogue",
+      "ruleId": "51cc2738-6e95-496b-8891-c272cd1628f2",
+      "code": "IMM-KNOW-01",
+      "operationId": null,
+      "runKind": "INTERPRET",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe: INTERPRET rules carry no kernel operation the suite can run on the prod fixtures",
+      "facts": {}
+    },
+    {
+      "order": 18,
+      "phase": "catalogue",
+      "ruleId": "4e70aee2-223a-4b3c-86f6-5b2764b20dde",
+      "code": "IMM-KNOW-02",
+      "operationId": null,
+      "runKind": "INTERPRET",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe: INTERPRET rules carry no kernel operation the suite can run on the prod fixtures",
+      "facts": {}
+    },
+    {
+      "order": 19,
+      "phase": "catalogue",
+      "ruleId": "72ef094b-9263-4c6a-84c0-57c1d53fc399",
+      "code": "IMM-QC-01",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 20,
+      "phase": "catalogue",
+      "ruleId": "bda3096c-480a-4b28-889f-66d2ff1adc68",
+      "code": "IMM-QC-02",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 21,
+      "phase": "catalogue",
+      "ruleId": "2b142e6c-84a3-4153-b57c-c4080fcbf040",
+      "code": "IMM-QC-03",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 22,
+      "phase": "catalogue",
+      "ruleId": "7a5ad3a3-81a1-4e9f-bc61-28763259632b",
+      "code": "IMM-RESP-01",
+      "operationId": null,
+      "runKind": "INTERPRET",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe: INTERPRET rules carry no kernel operation the suite can run on the prod fixtures",
+      "facts": {}
+    },
+    {
+      "order": 23,
+      "phase": "catalogue",
+      "ruleId": "8b840ae0-9c8b-4ae5-ba91-d266a4f73ab9",
+      "code": "IMM-SAFE-01",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 24,
+      "phase": "catalogue",
+      "ruleId": "bef1a1dc-bd43-4f77-b538-181a4da0040a",
+      "code": "IMM-SAFE-02",
+      "operationId": "qc.rule_gate",
+      "runKind": "QC",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe for qc.rule_gate on the prod-suite fixtures (Paul's two tables cannot feed it) — follow-up: add a fixture",
+      "facts": {}
+    },
+    {
+      "order": 25,
+      "phase": "catalogue",
+      "ruleId": "b016b16a-0732-477e-b9c4-6ac6fa760364",
+      "code": "IMM-SUP-01",
+      "operationId": null,
+      "runKind": "INTERPRET",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe: INTERPRET rules carry no kernel operation the suite can run on the prod fixtures",
+      "facts": {}
+    },
+    {
+      "order": 26,
+      "phase": "catalogue",
+      "ruleId": "f3407a4d-bf36-4352-91e7-71adcc8331c1",
+      "code": "IMM-TEX-01",
+      "operationId": null,
+      "runKind": "INTERPRET",
+      "runnable": true,
+      "outcome": "not-evaluated",
+      "reason": "no recipe: INTERPRET rules carry no kernel operation the suite can run on the prod fixtures",
+      "facts": {}
+    }
+  ]
+}
