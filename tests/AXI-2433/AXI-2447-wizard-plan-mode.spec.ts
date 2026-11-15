@@ -198,8 +198,10 @@ test.describe('AXI-2447 wizard plan mode: add and edit SAP questions @SI-066 @SI
     expect(launched).toEqual([]);
   });
 
-  test('FR68 AXI-2447.2 the Estimand step pre-fills variable, comparison and summary — editable, marked until edited @SI-066', async ({ page }) => {
-    // Arrange
+  test('FR68 FR92 FR93 AXI-2447.2/AXI-2558.1 the Estimand step pre-fills all five chip-based fields, each tagged with its source @SI-066', async ({ page }) => {
+    // Arrange — AXI-2558 rebuilt this step onto structured, chip-based controls (full detail:
+    // `AXI-2558-estimand-step.spec.ts`); this scenario keeps FR68's own guarantee (pre-filled,
+    // marked until edited) against the new UI.
     const { projectId, stub } = await newProject('estimand');
     await stub.seedDraft(call, []);
     await signIn(page);
@@ -209,34 +211,33 @@ test.describe('AXI-2447 wizard plan mode: add and edit SAP questions @SI-066 @SI
     // Act
     await next(page, 'role', 'estimand');
 
-    // Assert — the three pre-filled fields, each marked; the two with no source are empty
-    await expect(page.getByTestId('na-plan-estimand-variable')).toHaveValue('score');
-    await expect(page.getByTestId('na-plan-estimand-treatmentComparison')).toHaveValue('arm: A vs B');
-    await expect(page.getByTestId('na-plan-estimand-populationSummary')).toHaveValue(t1Subtitle);
-    for (const field of ['variable', 'treatmentComparison', 'populationSummary']) {
-      await expect(page.getByTestId(`na-plan-prefilled-${field}`), field).toHaveText('pre-filled');
-    }
-    await expect(page.getByTestId('na-plan-estimand-population')).toHaveValue('');
-    await expect(page.getByTestId('na-plan-prefilled-population')).toHaveCount(0);
+    // Assert — all five fields pre-filled, each tagged with its own source (FR92/FR93)
+    await expect(page.getByTestId('na-plan-population-text')).toContainText('All patients in the dataset');
+    await expect(page.getByTestId('na-plan-prefilled-population')).toHaveText('from your data');
+    await expect(page.getByTestId('na-plan-estimand-variable').getByRole('button', { name: 'score' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('na-plan-prefilled-variable')).toHaveText('from the analysis');
+    await expect(page.getByTestId('na-plan-estimand-treatmentComparison').getByRole('button', { name: 'arm' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('na-plan-prefilled-treatmentComparison')).toHaveText('from the analysis');
+    await expect(page.getByTestId('na-plan-prefilled-intercurrentEvents')).toHaveText('default');
+    await expect(page.getByTestId('na-plan-estimand-populationSummary')).toContainText(t1Subtitle);
+    await expect(page.getByTestId('na-plan-prefilled-populationSummary')).toHaveText('from the analysis');
 
-    // Act — edit one: its mark goes, the others stay
-    await page.getByTestId('na-plan-estimand-variable').fill('Score at week 12');
-    await page.getByTestId('na-plan-estimand-population').fill('All randomised subjects');
+    // Act — deselecting the only Variable chip is an edit: its mark goes, the others stay
+    await page.getByTestId('na-plan-estimand-variable').getByRole('button', { name: 'score' }).click();
     await expect(page.getByTestId('na-plan-prefilled-variable')).toHaveCount(0);
     await expect(page.getByTestId('na-plan-prefilled-treatmentComparison')).toBeVisible();
     await toReady(page, 'estimand');
     await choose(page, 'na-plan-save');
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap(\\?highlight=[^&]*)?$`));
 
-    // Assert — stored: the edit, the untouched pre-fills, the typed population
+    // Assert — stored: the edit, the untouched pre-fills (FR93 — still the same five flat strings)
     const stored = (await draftOf(projectId)).plan.questions[0].estimand;
-    expect(stored).toEqual({
-      population: 'All randomised subjects',
-      variable: 'Score at week 12',
+    expect(stored).toMatchObject({
+      variable: '',
       treatmentComparison: 'arm: A vs B',
-      intercurrentEvents: '',
       populationSummary: t1Subtitle,
     });
+    expect(stored.population).toContain('All patients in the dataset');
   });
 
   test('AC3 FR11 AXI-2447.3 once the draft holds a question, a second question is offered only that dataset @SI-066', async ({ page }) => {
@@ -357,8 +358,14 @@ test.describe('AXI-2447 wizard plan mode: add and edit SAP questions @SI-066 @SI
     await choose(page, 'na-back');
     await choose(page, 'na-back');
     await expect(page.getByTestId('na-step-estimand')).toBeVisible();
-    await expect(page.getByTestId('na-plan-estimand-variable')).toHaveValue('marker 2');
-    await page.getByTestId('na-plan-estimand-population').fill('Per-protocol set');
+    // AXI-2558 ASSUMPTION (reported to the lead, §8.11): the seeded `variable` ("marker 2") is
+    // free text from before this story's chip-based rebuild — it does not match a real column, so
+    // untouched it stays exactly as stored (no chip shows "selected" for it; nothing here forces a
+    // reconstruction). Restrict Population through the new structured control instead of free
+    // text (no longer offered) — the previously stored custom population text, if any, is only
+    // ever replaced once the author actually picks a restriction.
+    await page.getByTestId('na-plan-estimand-population').getByRole('button', { name: 'arm' }).click();
+    await page.getByTestId('na-plan-estimand-population').getByRole('button', { name: 'A' }).click();
     await choose(page, 'na-back');
     await expect(page.getByTestId('na-step-role')).toBeVisible();
     await page.getByTestId('na-plan-role-key_secondary').click();
@@ -369,7 +376,8 @@ test.describe('AXI-2447 wizard plan mode: add and edit SAP questions @SI-066 @SI
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap(\\?highlight=[^&]*)?$`));
     const after = (await draftOf(projectId)).plan.questions.find((q: { questionId: string }) => q.questionId === target.questionId);
     expect(after).toMatchObject({ position: 2, role: 'key_secondary', text: 'Does marker 2 differ between arms?' });
-    expect(after.estimand).toMatchObject({ population: 'Per-protocol set', variable: 'marker 2' });
+    expect(after.estimand.population).toContain('restricted to arm: A');
+    expect(after.estimand.variable).toBe('marker 2'); // untouched — stays exactly as stored (FR93)
     expect(after.template).toEqual(target.template); // an edit never silently re-pins
     expect(stub.pageWrites.map((w) => `${w.method} ${w.path}`)).toEqual([`PUT /saps/${seeded.sapId}/draft/questions/${target.questionId}`]);
   });
