@@ -245,7 +245,7 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await expect(page.getByTestId('na-step-template')).toBeVisible();
     expect(await choiceKeys(page, 'Analysis')).toEqual(['T1', 'T2', 'T4', 'T3'].map(pk));
     expect(await checkedKeys(page, 'Analysis')).toEqual([pk('T1')]);
-    await expect(page.getByTestId(`na-choice-${pk('T1')}`)).toContainText('Compare groups');
+    await expect(page.getByTestId(`na-choice-${pk('T1')}`)).toContainText('Compare two groups');
     await expect(page.getByTestId(`na-choice-${pk('T1')}`)).toContainText('Mann-Whitney U test');
     await expect(page.getByTestId(`na-choice-${pk('T1')}`)).toContainText('suggested');
     await expect(page.getByTestId('na-back')).toHaveText('← Back to intent');
@@ -298,7 +298,7 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     const grouping = page.getByTestId('na-step-decide-groupingColumn');
     await expect(grouping).toBeVisible();
     await expect(grouping.getByRole('heading', { level: 1 })).toHaveText('Which column splits your subjects into groups?');
-    await expect(page.getByTestId('na-decide-blocks')).toHaveText("Blocking · Compare groups (Kruskal-Wallis test, then Dunn's pairwise test (Holm)) cannot run without it");
+    await expect(page.getByTestId('na-decide-blocks')).toHaveText("Blocking · Compare several groups (Kruskal-Wallis test, then Dunn's pairwise test (Holm)) cannot run without it");
     await expect(page.getByTestId('na-decide-contradiction')).toHaveCount(0);
     expect(await checkedKeys(page, 'Which column splits your subjects into groups?')).toEqual([]);
     await chooseRadio(page, /cluster_selon_acr_eular_2019/);
@@ -325,7 +325,7 @@ test.describe.serial('AXI-2328 guided setup wizard — the New analysis page @SI
     await expect(page.getByTestId('na-run')).toBeFocused();
     await expect(page.getByTestId('na-step-ready').getByRole('heading', { level: 1 })).toHaveText('Here is the analysis you have set up.');
     await expect(page.getByTestId('plan-status-exploratory')).toBeVisible();
-    await expect(page.getByTestId('na-ready-analysis')).toContainText('Compare groups');
+    await expect(page.getByTestId('na-ready-analysis')).toContainText('Compare two groups');
     await expect(page.getByTestId('na-ready-analysis')).toContainText('This project has no analysis plan');
     await expect(page.getByTestId('na-ready-question')).toContainText('from IgG4');
     await expect(page.getByTestId('na-ready-handled')).toContainText('F vs M');

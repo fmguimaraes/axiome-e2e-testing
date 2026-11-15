@@ -285,7 +285,7 @@ test.describe.serial('AXI-2356 wizard follow-ups — a failed SAP read blocks Ru
     await reachPairs(page, MANY);
     const n = (await o.grouping()).find((g) => g.column === MANY)!.levels.length;
     const offer = page.getByTestId('na-many-groups');
-    await expect(offer).toContainText(`“${MANY}” has ${n} groups. To compare all of them at once, use Compare groups (Kruskal-Wallis test, then Dunn's pairwise test (Holm)).`);
+    await expect(offer).toContainText(`“${MANY}” has ${n} groups. To compare all of them at once, use Compare several groups (Kruskal-Wallis test, then Dunn's pairwise test (Holm)).`);
     await expect(page.getByTestId('na-many-groups-switch')).toHaveText(`Compare all ${n} groups instead`);
     await shot(page, 'AXI-2356.6-many-groups-offer');
     await choose(page, 'na-many-groups-switch');

@@ -29,7 +29,7 @@ import { wizardBody } from '../AXI-2308/harness/result-page';
 
 const FIXTURE = 'opening-templates-paul-header.csv';
 const WIZARD_RUNS = '/api/v1/guided-analysis/wizard-runs';
-const TITLE = 'Guided: Compare groups (no question)';
+const TITLE = 'Guided: Compare two groups (no question)';
 const TYPED_QUESTION = 'Does igg4 differ by sex?';
 const T1_SLOTS = [
   { slot: 'groupingColumn', value: 'sexe' },

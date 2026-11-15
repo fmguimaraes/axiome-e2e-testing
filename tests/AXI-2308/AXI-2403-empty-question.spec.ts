@@ -163,7 +163,7 @@ test.describe.serial('AXI-2403 empty question — Enter alone chooses the analys
 
     const addQuestion = page.getByTestId('na-ready-add-question');
     await expect(addQuestion).toHaveText('No question — add the question this answers');
-    await expect(page.getByTestId('na-ready-analysis')).toContainText('Compare groups'); // sanity: the confirmed pick, before we jump away
+    await expect(page.getByTestId('na-ready-analysis')).toContainText('Compare two groups'); // sanity: the confirmed pick, before we jump away
 
     await choose(page, 'na-ready-add-question');
     await expect(page.getByTestId('na-step-question')).toBeVisible();
