@@ -45,6 +45,11 @@ const AXI_2410_SPEC = /AXI-2414\/AXI-2410-column-level-display-labels\.spec\.ts$
 // storageState dependency.
 const AXI_2422_REGISTRY_SPEC = /AXI-2422\/AXI-242[34]-[^/]+\.spec\.ts$/;
 
+// AXI-2549 (epic AXI-2540) — same AXI-1831 shape again: own admin login over the
+// API (plus `PrivateProjectsWorld`'s own self-registered actors for §5.3), no
+// `page`/browser `context`, no `setup` storageState dependency.
+const AXI_2549_SPEC = /AXI-2540\/AXI-2549-ingestion-watchdog-retry\.spec\.ts$/;
+
 // AXI-2318 — the prod E2E daily suite and its infra verification spec: API-only
 // (the harness's own fetch client, never a `page`), no `setup` storageState
 // dependency, and NO trace/video/screenshot — a trace records the test user's
@@ -123,7 +128,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -171,6 +176,11 @@ export default defineConfig({
     {
       name: 'axi-2422-registry-api',
       testMatch: AXI_2422_REGISTRY_SPEC,
+    },
+    // AXI-2549 (epic AXI-2540) — API-only ingestion watchdog/retry spec (see AXI_2549_SPEC above).
+    {
+      name: 'axi-2549-api',
+      testMatch: AXI_2549_SPEC,
     },
   ],
 });
