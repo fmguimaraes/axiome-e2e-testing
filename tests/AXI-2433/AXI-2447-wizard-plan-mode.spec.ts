@@ -173,7 +173,7 @@ test.describe('AXI-2447 wizard plan mode: add and edit SAP questions @SI-066 @SI
     await choose(page, 'na-plan-save');
 
     // Assert — back on the plan; the question is stored as authored
-    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap$`));
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap(\\?highlight=[^&]*)?$`));
     const draft = await draftOf(projectId);
     expect(draft.plan.analysisDatasetId).toBe(datasetD);
     expect(draft.plan.questions).toHaveLength(1);
@@ -222,7 +222,7 @@ test.describe('AXI-2447 wizard plan mode: add and edit SAP questions @SI-066 @SI
     await expect(page.getByTestId('na-plan-prefilled-treatmentComparison')).toBeVisible();
     await toReady(page, 'estimand');
     await choose(page, 'na-plan-save');
-    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap$`));
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap(\\?highlight=[^&]*)?$`));
 
     // Assert — stored: the edit, the untouched pre-fills, the typed population
     const stored = (await draftOf(projectId)).plan.questions[0].estimand;
@@ -266,7 +266,7 @@ test.describe('AXI-2447 wizard plan mode: add and edit SAP questions @SI-066 @SI
     await page.getByTestId('na-plan-role-secondary').click();
     await toReady(page, 'role');
     await choose(page, 'na-plan-save');
-    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap$`));
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap(\\?highlight=[^&]*)?$`));
     const draft = await draftOf(projectId);
     expect(draft.plan.questions.map((q: { role: string; position: number }) => [q.role, q.position])).toEqual([['primary', 1], ['secondary', 2]]);
     expect(draft.plan.analysisDatasetId).toBe(datasetD);
@@ -308,7 +308,7 @@ test.describe('AXI-2447 wizard plan mode: add and edit SAP questions @SI-066 @SI
     await choose(page, 'na-plan-save');
 
     // Assert
-    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap$`));
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap(\\?highlight=[^&]*)?$`));
     const q = (await draftOf(projectId)).plan.questions[0];
     expect(q.parameters).toEqual({ alpha: 0.025, sidedness: 'two_sided' });
     expect(q.decisionCriterion).toEqual({ kind: 'p_at_or_below_alpha', direction: 'positive' });
@@ -356,7 +356,7 @@ test.describe('AXI-2447 wizard plan mode: add and edit SAP questions @SI-066 @SI
     await choose(page, 'na-plan-save');
 
     // Assert — the same question, edited in place
-    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap$`));
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap(\\?highlight=[^&]*)?$`));
     const after = (await draftOf(projectId)).plan.questions.find((q: { questionId: string }) => q.questionId === target.questionId);
     expect(after).toMatchObject({ position: 2, role: 'key_secondary', text: 'Does marker 2 differ between arms?' });
     expect(after.estimand).toMatchObject({ population: 'Per-protocol set', variable: 'marker 2' });
