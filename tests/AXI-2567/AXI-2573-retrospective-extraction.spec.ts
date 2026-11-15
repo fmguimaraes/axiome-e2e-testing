@@ -191,6 +191,7 @@ test.beforeAll(async () => {
   await world.addMember(viewer, 'viewer');
   dataset = await uploadDataset();
   ingestion = await readyIngestion(dataset);
+  t1Version = await pinNewestT1(await newProject('pin-t1'));
 });
 
 test.afterAll(async () => {
@@ -201,7 +202,6 @@ test.describe('AXI-2573 — Retrospective extraction and v1 → v2 conversion', 
   test('FR42, FR12 — AXI-2573.1: extraction fills a v2 draft from the dataset version; finalise freezes it after_data with its identity binding', async () => {
     // Arrange — an empty declared v2 draft
     const project = await newProject('extract');
-    t1Version = await pinNewestT1(project);
     const draft = await titled(project, await startDraft(project, 2), { studyPopulation: 'Adults' });
     // Act — extract two columns
     const res = await extract(editor, project, draft);
