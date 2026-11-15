@@ -264,7 +264,7 @@ test.describe('AXI-2572 — Question review', TAGS, () => {
     // Assert
     expect(unknownQuestion.status(), await unknownQuestion.text()).toBe(422);
     expect(await unknownQuestion.text()).toContain('SAP_CONTENT_INVALID');
-    expect(await unknownQuestion.text()).toContain('not-a-plan-question');
+    expect(await unknownQuestion.text()).toContain("must be a question of the run's plan");
     expect(foreignCitation.status(), await foreignCitation.text()).toBe(422);
     expect(await foreignCitation.text()).toContain(foreignDecision);
     expect(viewerWrite.status(), await viewerWrite.text()).toBe(403);
@@ -275,7 +275,10 @@ test.describe('AXI-2572 — Question review', TAGS, () => {
   });
 
   test('FR39, EC9 — AXI-2572.3: "Create amendment" from a follow-up starts the draft once, then reuses it; a superseded or answered review is refused', async () => {
-    // Arrange — the follow-up is superseded by `answered`; record a fresh follow-up as the head
+    // Arrange — `answered` is still the head here (not a follow-up): refuse it before superseding it
+    const notFollowUp = await editor.api.post(amendmentPath(answered.reviewId));
+
+    // Arrange — now supersede `answered` with a fresh follow-up as the new head
     const fresh = await editor.api.post(reviewsPath(), { data: { questionId, outcome: 'follow_up' } });
     expect(fresh.status(), await fresh.text()).toBe(201);
     const head = await fresh.json();
@@ -284,7 +287,6 @@ test.describe('AXI-2572 — Question review', TAGS, () => {
     const firstCall = await editor.api.post(amendmentPath(head.reviewId));
     const secondCall = await editor.api.post(amendmentPath(head.reviewId));
     const superseded = await editor.api.post(amendmentPath(followUp.reviewId));
-    const notFollowUp = await editor.api.post(amendmentPath(answered.reviewId));
     const viewerCall = await viewer.api.post(amendmentPath(head.reviewId));
 
     // Assert — started, then reused; the stub is proposed, role not defaulted for a v1 plan
