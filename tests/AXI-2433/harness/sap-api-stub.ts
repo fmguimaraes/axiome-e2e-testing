@@ -65,7 +65,7 @@ export function questionInput(n: number, role: StubQuestionInput['role'] = 'prim
   };
 }
 
-/** `subject_id,arm,score` — 12 rows, `arm` A/B, `score` numeric: what T1's guards bind. */
+/** `subject_id,arm,score` — 12 rows (subject ids carry the label so two uploads in one workspace are not duplicate content, AXI-2538), `arm` A/B, `score` numeric: what T1's guards bind. */
 export async function uploadArmScoreDataset(world: PrivateProjectsWorld, api: APIRequestContext, label = 'sap'): Promise<string> {
   const datasets = apiUrl(`/api/v1/workspaces/${world.workspaceId}/datasets`);
   const init = await api.post(datasets, {
@@ -73,7 +73,7 @@ export async function uploadArmScoreDataset(world: PrivateProjectsWorld, api: AP
   });
   expect(init.status(), await init.text()).toBeLessThan(300);
   const { dataset, presignedUrl } = await init.json();
-  const rows = Array.from({ length: 12 }, (_, i) => `S${i + 1},${i % 2 === 0 ? 'A' : 'B'},${(i * 1.7 + 3).toFixed(1)}`);
+  const rows = Array.from({ length: 12 }, (_, i) => `${label}-S${i + 1},${i % 2 === 0 ? 'A' : 'B'},${(i * 1.7 + 3).toFixed(1)}`);
   const put = await fetch(presignedUrl, { method: 'PUT', headers: { 'content-type': 'text/csv' }, body: `subject_id,arm,score\n${rows.join('\n')}\n` });
   expect(put.ok, `presigned PUT -> ${put.status}`).toBe(true);
   const finalize = await api.patch(`${datasets}/${dataset.id}/finalize`);

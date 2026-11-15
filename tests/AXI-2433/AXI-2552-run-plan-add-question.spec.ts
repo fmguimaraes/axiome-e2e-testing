@@ -1,6 +1,6 @@
 import { expect, request as apiRequest, test, type Page } from '@playwright/test';
 import { apiUrl } from '../../config/env';
-import { PrivateProjectsWorld, type Actor } from '../AXI-2265/private-projects-fixtures';
+import { PrivateProjectsWorld, access, type Actor } from '../AXI-2265/private-projects-fixtures';
 import { silenceTours } from '../AXI-1904/harness/tours';
 import { askQuestion, choose, gotoSettled } from '../AXI-2308/harness/new-analysis';
 import { apiCallOf, pinNewestT1, questionInput, uploadArmScoreDataset, type ApiCall, SapApiStub } from './harness/sap-api-stub';
@@ -93,6 +93,7 @@ interface Person extends Actor {
 
 let world: PrivateProjectsWorld;
 let investigator: Person;
+let projectOwner: Actor; // the Investigator role cannot create projects (gateway investigator-deny), so a team editor does
 let datasetId: string;
 let call: ApiCall;
 
@@ -122,10 +123,12 @@ async function person(label: string, workspaceId: string): Promise<Person> {
 /** A fresh project, linked to the shared arm/score dataset, with its own SAP write-observer. */
 async function newProject(label: string): Promise<Fixture> {
   const name = `E2E AXI-2552 ${label} ${Date.now()}`;
-  const res = await investigator.api.post(apiUrl('/api/v1/projects'), { data: { name, workspaceId: world.workspaceId } });
+  const res = await projectOwner.api.post(apiUrl('/api/v1/projects'), { data: { name, workspaceId: world.workspaceId } });
   expect(res.status(), await res.text()).toBe(201);
   const id = (await res.json()).id;
-  const link = await investigator.api.post(apiUrl(`/api/v1/projects/${id}/datasets`), { data: { datasetId } });
+  const grant = await access.grant(projectOwner, id, investigator.userId);
+  expect(grant.status(), await grant.text()).toBeLessThan(300);
+  const link = await projectOwner.api.post(apiUrl(`/api/v1/projects/${id}/datasets`), { data: { datasetId } });
   expect(link.status(), await link.text()).toBeLessThan(300);
   return { project: { id, name }, stub: new SapApiStub(id, investigator.userId, datasetId) };
 }
@@ -155,7 +158,7 @@ async function openInvestigatorSap(page: Page, stub: SapApiStub, projectId: stri
   await page.locator('button[type="submit"]').click();
   await expect(page).toHaveURL(/\/investigator$/, { timeout: 30_000 });
   await gotoSettled(page, `/investigator/projects/${projectId}/sap`);
-  await expect(page.getByTestId('project-sap-page')).toBeVisible();
+  await expect(page.getByTestId('project-sap-page')).toBeVisible({ timeout: 30_000 });
 }
 
 test.beforeAll(async () => {
@@ -165,6 +168,8 @@ test.beforeAll(async () => {
   // right (ruling 8, AXI-2532's UT-COMMON-8531) — adding by roleId grants write/finalise too, so
   // this one caller can both author the plan and be gated by the Investigator-surface check.
   await world.addMember(investigator, { roleId: INVESTIGATOR_ROLE_ID });
+  projectOwner = await world.actor('owner');
+  await world.addMember(projectOwner, 'editor');
   await world.leaveWorkspace();
   await silenceTours(investigator.accessToken);
   datasetId = await uploadArmScoreDataset(world, investigator.api, 'axi2552');
@@ -246,10 +251,12 @@ test.describe('AXI-2552 Investigator Plan tab: Run plan / Add question header @S
     await expect(page).toHaveURL(/\/sap\?tab=runs&run=new$/);
     await page.getByTestId('sap-run-dialog-confirm').click();
 
-    // Assert
+    // Assert — confirming starts the run and lands on its detail page (the run row is then in Runs)
+    await expect(page).toHaveURL(/\/sap\/runs\/[0-9a-f-]{36}$/, { timeout: 30_000 });
+    await expect(page.getByText(/Version 1 · Plan run/)).toBeVisible();
+    await gotoSettled(page, `/investigator/projects/${project.id}/sap?tab=runs`);
     await expect(page.getByTestId('sap-runs-count')).toContainText(/1 SAP run/, { timeout: 30_000 });
-    const row = page.getByTestId('sap-run-row').first();
-    await expect(row.getByTestId('sap-run-version')).toHaveText('Version 1');
+    await expect(page.getByTestId('sap-run-row').first().getByTestId('sap-run-version')).toHaveText('Version 1');
   });
 
   test('AXI-2552.5 Add question on a finalised plan starts v2 as a draft; v1 stays readable', async ({ page }) => {
@@ -271,7 +278,7 @@ test.describe('AXI-2552 Investigator Plan tab: Run plan / Add question header @S
     expect(draft.basedOnVersion).toBe(1);
     // v1 is still readable, unmodified, through the version list.
     const versionsRes = await investigator.api.get(apiUrl(`/api/v1/projects/${project.id}/saps`));
-    const versions = (await versionsRes.json()) as Array<{ version: number; title: string }>;
+    const versions = ((await versionsRes.json()) as { data: Array<{ version: number; title: string }> }).data; // PaginatedResult, latest version of each SAP
     expect(versions.find((v) => v.version === 1)?.title).toBe('Plan v1');
   });
 

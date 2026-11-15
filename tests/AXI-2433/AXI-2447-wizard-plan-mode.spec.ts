@@ -43,6 +43,7 @@ let datasetD: string;
 let datasetE: string;
 let t1Subtitle: string;
 let t1WizardVersion: string;
+let t1OneSided: boolean; // the newest T1 on this registry may carry a one-sided alternative (AXI-2468)
 
 interface Fixture {
   projectId: string;
@@ -141,6 +142,9 @@ test.beforeAll(async () => {
   const body = await catalog.json();
   const t1 = (body.templates ?? body).find((t: { templateId: string }) => t.templateId === 'T1');
   t1Subtitle = t1.methodSubtitle;
+  const sapTemplates = await call('GET', `/projects/${warm.projectId}/sap-templates`);
+  t1OneSided = (sapTemplates.body as Array<{ templateId: string; isNewest: boolean; supportsOneSidedAlternative: boolean }>)
+    .some((t) => t.templateId === 'T1' && t.isNewest && t.supportsOneSidedAlternative);
   t1WizardVersion = t1.version; // a new question pins the version whose guards the wizard ran
 });
 
@@ -283,9 +287,15 @@ test.describe('AXI-2447 wizard plan mode: add and edit SAP questions @SI-066 @SI
 
     // Act — parameters & decision
     await expect(page.getByTestId('na-plan-sidedness-two_sided')).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByTestId('na-plan-sidedness-greater')).toBeDisabled();
-    await expect(page.getByTestId('na-plan-sidedness-less')).toBeDisabled();
-    await expect(page.getByTestId('na-plan-one-sided-unavailable')).toBeVisible();
+    // Gated on the pinned template's `supportsOneSidedAlternative`: disabled + note when absent, offered when present.
+    if (t1OneSided) {
+      await expect(page.getByTestId('na-plan-sidedness-greater')).toBeEnabled();
+      await expect(page.getByTestId('na-plan-one-sided-unavailable')).toHaveCount(0);
+    } else {
+      await expect(page.getByTestId('na-plan-sidedness-greater')).toBeDisabled();
+      await expect(page.getByTestId('na-plan-sidedness-less')).toBeDisabled();
+      await expect(page.getByTestId('na-plan-one-sided-unavailable')).toBeVisible();
+    }
     await page.getByTestId('na-plan-alpha').fill('0.025');
     await page.getByTestId('na-plan-direction').selectOption('positive');
     await next(page, 'parameters', 'sensitivity');
