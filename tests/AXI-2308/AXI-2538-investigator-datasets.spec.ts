@@ -88,6 +88,25 @@ function uploadInput(page: Page) {
   return page.locator('[data-testid^="upload-input"]').first();
 }
 
+/**
+ * AXI-2548 hardening: react-dropzone's single `useFilePicker` hook instance
+ * backs BOTH the empty-state drop zone's input and the header's input —
+ * which input is actually mounted flips the moment the first upload's row
+ * appears (`hasRows` goes true, `EmptyDropZone` unmounts, the header input
+ * mounts in its place). A SECOND `setInputFiles()` fired back-to-back with
+ * the first — before the page has settled from `uploading` back to idle —
+ * flaked: `uploadInput(page)` can resolve to the (about to unmount) empty-state
+ * node, or the call can race the remount, either way sometimes silently
+ * dropping the second file. Waiting for the header's "Upload data" button to
+ * be enabled again (i.e. `state.uploading === null`, the SAME idle signal the
+ * production code itself uses to re-enable it) before firing the next
+ * `setInputFiles()` call removes the race without inventing a second upload
+ * code path in the page itself.
+ */
+async function waitForUploadIdle(page: Page): Promise<void> {
+  await expect(page.getByTestId('upload-data-button')).toBeEnabled({ timeout: READY_MS });
+}
+
 test.beforeAll(async () => {
   world = await PrivateProjectsWorld.create();
   investigator = await person('investigator', world.workspaceId);
@@ -154,6 +173,7 @@ test.describe('AXI-2538 Investigator Datasets — layout + duplicate guard @SI-0
 
     // Act — the SAME bytes, a different file name (content hash is what the server checks)
     const dupName = `${unique('dup-again')}.csv`;
+    await waitForUploadIdle(page); // AXI-2548: let the first upload's picker remount settle first
     await uploadInput(page).setInputFiles({ name: dupName, mimeType: CSV_TYPE, buffer: Buffer.from(csv) });
 
     // Assert — refused, cites the original, no second row ever appears. The
@@ -183,6 +203,7 @@ test.describe('AXI-2538 Investigator Datasets — layout + duplicate guard @SI-0
     const firstId = (await firstRow.getAttribute('data-testid'))!.replace('upload-row-', '');
     await expect(page.getByTestId(`upload-status-${firstId}`)).toHaveText('Ready', { timeout: READY_MS });
 
+    await waitForUploadIdle(page); // AXI-2548: let the first upload's picker remount settle first
     await uploadInput(page).setInputFiles({ name, mimeType: CSV_TYPE, buffer: Buffer.from(second) });
 
     // Assert — both rows are present, told apart by date (the server never overwrites)
