@@ -84,7 +84,7 @@ test.afterAll(async () => {
   await world?.dispose();
 });
 
-test.describe('AXI-2570 question flow: stub, awaiting plan, plan written @SI-030 @SI-066 @SI-065 @SI-071', () => {
+test.describe('AXI-2570 question flow: stub, awaiting plan, plan written @SI-030 @SI-066 @SI-065 @SI-071 @SI-031 @SI-010', () => {
   test('AXI-2570.1 FR28 FR27 ask a question walks Question → Ready only and stores a stub (text + role)', async ({ page }) => {
     await openSap(page);
     await page.getByTestId('sap-ask-question').click();
