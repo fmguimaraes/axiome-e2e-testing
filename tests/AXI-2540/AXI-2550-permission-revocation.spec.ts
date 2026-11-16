@@ -79,7 +79,7 @@ test.describe('AXI-2550 — permission resolver fallback + cache invalidation', 
     }).toPass({ timeout: 5_000 });
   });
 
-  test('a role that still holds the permission keeps working (no over-revocation)', async () => {
+  test('AC50/FR84 — a role that still holds the permission keeps working (no over-revocation)', async () => {
     const stillGrantedRoleId = await world.workspaceRole('AXI-2550-control', [PERMISSION]);
     const controlMember = await world.actor('control-member');
     await world.addMember(controlMember, { roleId: stillGrantedRoleId });
