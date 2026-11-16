@@ -33,22 +33,22 @@ test.describe('AXI-2344 (back)', () => {
     test.skip(missing.length > 0, `sibling checkout(s) not found: ${missing.join(', ')}`);
   });
 
-  test('MO2344.1 the Nest container injects the real resolver into ResultSentenceService (no erased type, never undefined) @SI-017 @SI-045', () => {
+  test('FR122 — MO2344.1: the Nest container injects the real resolver into ResultSentenceService (no erased type, never undefined) @SI-017 @SI-045', () => {
     const r = jest('UT-RULES-7400');
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });
 
-  test('MO2344.2 PUT mode=all mints a human-started run; PUT mode=off blocks a governed run; setting wins over env @SI-017 @SI-045', () => {
+  test('FR122 — MO2344.2: PUT mode=all mints a human-started run; PUT mode=off blocks a governed run; setting wins over env @SI-017 @SI-045', () => {
     const r = jest('UT-RULES-740[123]');
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });
 
-  test('MO2344.3 the override is confined to its own workspace @SI-017 @SI-045', () => {
+  test('FR122 — MO2344.3: the override is confined to its own workspace @SI-017 @SI-045', () => {
     const r = jest('UT-RULES-7404');
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });
 
-  test('MO2344.4 PUT mode=null reverts on the next completion; the client-report render honours the override @SI-017 @SI-045', () => {
+  test('FR122 — MO2344.4: PUT mode=null reverts on the next completion; the client-report render honours the override @SI-017 @SI-045', () => {
     const r = jest('UT-RULES-740[56]');
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
   });
