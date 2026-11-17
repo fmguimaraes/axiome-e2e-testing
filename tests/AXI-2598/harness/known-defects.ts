@@ -30,15 +30,14 @@ export const KNOWN_DEFECTS: Readonly<Record<string, KnownDefect>> = {
   // AXI-2615 (D4) and AXI-2616 (D5) fixed `sap-run-child-results.reader.ts` / `sap-run.view.ts` /
   // `sap-run-view.assembler.ts` / `sap-run-evaluation.ts` — both S8 entries removed, not carried
   // forward as `expected-fail`: `stepVerdict` turns their continued absence into a passing S8.
-  'chart-without-preset': {
-    step: 'S9',
-    note: 'S9: plan result charts carry no recorded chart preset, so no chart can be saved as evidence or restyled (AXI-2617; first fix merged c3bb2406 but no preset is recorded live)',
-  },
+  // AXI-2617 (back c3bb2406) records chart presets at plan-child launch; proven live 2026-11-17 once the
+  // stale :3004 org-service orphan was cleared — `chart-without-preset` removed.
   // AXI-2613 fixed the 404 (org_entitlement hiding basis, back 9025f855): 30/36 downloads now valid.
-  // The remaining SVG/PNG figure exports fail for want of a recorded chart (same root as chart-without-preset, AXI-2617).
+  // The remaining SVG/PNG figure exports read the result dataset's RECOMMENDED chart spec, which the
+  // materializer withholds for plan children ("required slot unbound" / "row floor") — separate from presets.
   'download-409-no-recommended-chart-is-recorded-for-the': {
     step: 'S10',
-    note: 'S10: SVG/PNG figure exports of non-heatmap plan results answer 409 "No recommended chart is recorded" (AXI-2617)',
+    note: 'S10: SVG/PNG figure exports of non-heatmap plan results answer 409 "No recommended chart is recorded" (recommended chart withheld by the materializer; not the preset)',
   },
 };
 
