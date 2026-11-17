@@ -6,7 +6,9 @@ import { gotoSettled } from '../AXI-2308/harness/new-analysis';
 
 /**
  * AXI-2602 (epic AXI-2598 — Investigator Handover): the Study page's state 3 upload (FR13/AC4)
- * and the Run dialog's one-decision path (FR14/AC5).
+ * and the Run dialog's one-decision path (FR14/AC5). AXI-2622 (bug fix on this same FR14/AC5
+ * path) also asserts here: one click on "Run plan vN" from the Plan tab opens the dialog
+ * directly — no separate Runs-tab click.
  *
  * Scenarios: `axiome-docs/manual-e2e/AXI-2598-Investigator-Handover.md` § 6 (6.1, 6.2). §6.3
  * (BLOCK mapping, AC6) is manual — owed after AXI-2612 — and §6.4 (failed-run state, AC7/EC9) is
@@ -144,14 +146,14 @@ async function buildAndFinaliseDeclaredPlan(page: Page, projectId: string, title
   // as the sidebar pill) reads THIS page's own just-refreshed `useProjectSap` snapshot, so it is
   // enabled the moment the plan exists — no reload/remount needed, unlike the sidebar's own
   // long-lived instance (AXI-2555's `investigator-add-question`, fetched once per session).
+  // Pre-existing drift noted while running AXI-2622: for a DECLARED (v2) plan `addQuestionEntry`
+  // resolves to `modal` (AXI-2589), not the retired wizard this block used to drive — fixed here
+  // to match the modal (`AddQuestionModal.tsx`) so the shared arrange helper runs against main.
   await page.getByTestId('sap-plan-add-question').click();
-  await expect(page.getByTestId('sap-question-mode')).toBeVisible({ timeout: 15_000 });
-  await page.getByTestId('sap-question-mode-text').fill('Does arm change the score?');
-  await page.getByTestId('sap-question-mode-next').click();
-  await expect(page.getByTestId('sap-question-mode-readback')).toBeVisible({ timeout: 15_000 });
-  await page.getByTestId('sap-question-mode-role').selectOption('primary');
-  await page.getByTestId('sap-question-mode-add').click();
-  await expect(page).toHaveURL(new RegExp(`/investigator/projects/${projectId}/sap`), { timeout: 15_000 });
+  await expect(page.getByTestId('sap-add-question-modal')).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('sap-add-question-text').fill('Does arm change the score?');
+  await page.getByTestId('sap-add-question-submit').click();
+  await expect(page.getByTestId('sap-add-question-modal')).toHaveCount(0, { timeout: 15_000 });
 
   // The wizard only stores a stub ("awaiting plan") — its row opens the full spec/estimand form.
   await page.locator('[data-testid^="sap-plan-questions-row-"]').first().click();
@@ -243,12 +245,13 @@ test.describe('AXI-2602 Study page: upload when locked, one-decision run @SI-066
     // control into the PageHeader (`sap-run`) — the Runs tab's own `sap-runs-run` button is
     // hidden there (`hideRunButton`) to avoid a duplicate control.
     await gotoSettled(page, `/investigator/projects/${projectId}/sap`);
+    await expect(page.getByTestId('sap-tab-plan')).toHaveAttribute('aria-selected', 'true');
     const runButton = page.getByTestId('sap-run');
     await expect(runButton).toBeEnabled({ timeout: 30_000 });
+    // AXI-2622 (bug fix): one click on "Run plan vN" from the Plan tab both moves to the Runs
+    // tab AND opens the dialog — no separate tab click. `sap-run` used to set only `?run=new`,
+    // which mounted nothing since the dialog lives inside the Runs-tab subtree.
     await runButton.click();
-    // `sap-run` only sets `?run=new` — the dialog itself mounts inside the Runs tab's content,
-    // so this surface needs the explicit tab switch too (the query param alone does not move it).
-    await page.getByTestId('sap-tab-runs').click();
     await expect(page.getByTestId('sap-run-dialog')).toBeVisible();
     await expect(page.getByTestId('sap-run-dialog-binding-step')).toBeVisible({ timeout: 30_000 });
 
