@@ -23,10 +23,6 @@ export interface KnownDefect {
 
 export const KNOWN_DEFECTS: Readonly<Record<string, KnownDefect>> = {
   // Found by the AXI-2601 discovery runs of 2026-11-17 (front 79fd08c3/c677865b, back 0d015f28, compute 603ef0a).
-  'cc7-exploratory-position-gap': {
-    step: 'S4',
-    note: 'S4: an exploratory question placed first (feature §10 order) leaves the confirmatory positions 2..n — CC7 fails and finalise answers 422; the suite renumbers (confirmatory first) to go on',
-  },
   'duplicate-of-foreign-dataset': {
     step: 'S5',
     note: 'S5: the same data file cannot be uploaded to a second study of the same workspace, and no "use the existing upload" path is offered (workspace-scoped duplicate check, AXI-2538)',
