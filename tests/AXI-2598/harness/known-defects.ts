@@ -27,10 +27,6 @@ export const KNOWN_DEFECTS: Readonly<Record<string, KnownDefect>> = {
     step: 'S5',
     note: 'S5: the same data file cannot be uploaded to a second study of the same workspace, and no "use the existing upload" path is offered (workspace-scoped duplicate check, AXI-2538)',
   },
-  'numeric-coded-grouping-not-bindable': {
-    step: 'S6',
-    note: 'S6: a grouping field coded 0/1 (atteinte_pancreatique) measures as continuous; only a dataset semantic declaration (governs_analysis_parameters, not an Investigator right) fixes it — the suite declares it with the provisioning identity to go on',
-  },
   // AXI-2615 (D4) and AXI-2616 (D5) fixed `sap-run-child-results.reader.ts` / `sap-run.view.ts` /
   // `sap-run-view.assembler.ts` / `sap-run-evaluation.ts` — both S8 entries removed, not carried
   // forward as `expected-fail`: `stepVerdict` turns their continued absence into a passing S8.
