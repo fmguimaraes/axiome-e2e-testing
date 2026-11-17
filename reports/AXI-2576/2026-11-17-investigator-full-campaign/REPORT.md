@@ -17,7 +17,7 @@ and SAP management.
 
 ## Confirmed defects
 
-### 1. T3 ("Correlation") template cannot be run by the compiled analysis engine for a single x/y pair
+### 1. [AXI-2594] T3 ("Correlation") template cannot be run by the compiled analysis engine for a single x/y pair
 
 `Correlation` (T3@0.4) is a **Published** built-in template whose validator reports
 **PASS** on every check, including `main_result_declared` — its recipe declares a
@@ -43,7 +43,7 @@ capability on this surface — confirmed out of scope per
 **Impact:** any SAP whose only applicable template for a continuous-x/continuous-y
 primary question is T3 can never reach a run, state 6, or state 7 (Results) at all.
 
-### 2. State-4 "Data check" block miscategorizes a template/compiler defect as a data problem
+### 2. [AXI-2595] State-4 "Data check" block miscategorizes a template/compiler defect as a data problem
 
 The same T3 blocker above surfaces to the investigator as **"Data · blocking issue"**
 with the remedy **"Upload a corrected file"** / **"Upload corrected file"** button.
@@ -52,7 +52,7 @@ mapping for the question (`x`, `y` both bound to real, valid continuous columns)
 correct. The investigator is given a false, unfollowable remedy for what is actually
 a template/engine defect, not a data defect.
 
-### 3. Completeness panel can show "N of N checks met" while a real server check silently fails and blocks Finalise
+### 3. [AXI-2596] Completeness panel can show "N of N checks met" while a real server check silently fails and blocks Finalise
 
 (Confirmed earlier in this campaign via source read + reproduction.) `canFinalise()`
 evaluates every row of the raw completeness report, but the visible "Completeness
@@ -64,7 +64,7 @@ levels") failed server-side and blocked Finalise, while the panel still showed
 were verified in source; not re-verified again this stretch beyond reproducing the
 same panel behavior while building the Q2/exploratory question.
 
-### 4. `GET /api/v1/sap-management/saps` and `/sap-management/runs` return 404
+### 4. [AXI-2597] `GET /api/v1/sap-management/saps` and `/sap-management/runs` return 404
 
 The "SAP management → Plans" page (`/investigator/sap-management`) renders
 **"No SAPs are visible to you yet"** for the Microbiome project even though that
