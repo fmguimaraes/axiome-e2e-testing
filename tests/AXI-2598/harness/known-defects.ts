@@ -31,14 +31,9 @@ export const KNOWN_DEFECTS: Readonly<Record<string, KnownDefect>> = {
     step: 'S6',
     note: 'S6: a grouping field coded 0/1 (atteinte_pancreatique) measures as continuous; only a dataset semantic declaration (governs_analysis_parameters, not an Investigator right) fixes it — the suite declares it with the provisioning identity to go on',
   },
-  'child-status-running-after-settle': {
-    step: 'S8',
-    note: 'S8: every plan child run stays "running" (interpretation step AWAITING_APPROVAL) after the plan run completed with its verdicts',
-  },
-  'verdict-failed-to-run-Q1-heatmap': {
-    step: 'S8',
-    note: 'S8: the T5@0.3 heatmap question is reported "failed to run" although its child computed the full matrix (one main row expected, 42 cells produced)',
-  },
+  // AXI-2615 (D4) and AXI-2616 (D5) fixed `sap-run-child-results.reader.ts` / `sap-run.view.ts` /
+  // `sap-run-view.assembler.ts` / `sap-run-evaluation.ts` — both S8 entries removed, not carried
+  // forward as `expected-fail`: `stepVerdict` turns their continued absence into a passing S8.
   'chart-without-preset': {
     step: 'S9',
     note: 'S9: plan result charts carry no recorded chart preset, so no chart can be saved as evidence or restyled',
