@@ -1,0 +1,714 @@
+{
+  "schemaVersion": 1,
+  "suite": "axiome-handover",
+  "story": "AXI-2601",
+  "finishedAt": "2026-11-17T13:22:28.769Z",
+  "identities": [
+    "investigator investigator@axiomebio.com (workspace role Investigator) — every client-path step",
+    "provisioner admin@cro-one.com — project creation only"
+  ],
+  "notes": [
+    "isolation guard not run: no forbidden-org list configured (local target — FR8 applies to prod)",
+    "provisioning identity: admin@cro-one.com (project creation only)",
+    "investigator identity: investigator@axiomebio.com; 14 pre-existing project(s) on the request tripwire"
+  ],
+  "steps": [
+    {
+      "id": "S0",
+      "title": "Environment and service commits",
+      "status": "pass",
+      "elapsedMs": 0,
+      "facts": [
+        "target local demo stack; mode rehearsal; commits front c229b569, back 9025f855, compute 603ef0a",
+        "counts as evidence: yes — commits recorded and equal to main"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S1",
+      "title": "Preset against the data file",
+      "status": "pass",
+      "elapsedMs": 1,
+      "facts": [
+        "23 rows × 21 columns; 15 spec fields; 4 questions",
+        "blank cells: score_histo=2, eosinophils=3, plasmablasts_cd19_cd38_cd27_mm3=2, tfh_cxcr5_pd1_cd4=1 (EC4)"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S2",
+      "title": "Sign-in, surface and rights",
+      "status": "pass",
+      "elapsedMs": 38,
+      "facts": [
+        "GET surface -> 200 {\"surface\":\"investigator\"}",
+        "investigator membership roleId 00000000-0000-0000-0000-000000000105",
+        "investigator POST /projects -> 403 (expected refusal: project creation is outside the Investigator role, AXI-2322)"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S3",
+      "title": "Leftovers of an earlier run",
+      "status": "pass",
+      "elapsedMs": 284,
+      "facts": [
+        "9 dataset(s) in the workspace; 8 leftover(s) of this suite",
+        "leftover d4f494f2-6933-4e9b-8fdf-ee9b8b436fef: NOT deleted (409)",
+        "leftover d9b146fd-49bd-48f3-857e-c3c1d5562933: NOT deleted (409)",
+        "leftover b5ecbf40-4e73-472d-88df-c09f55c5ded7: NOT deleted (409)",
+        "leftover 98371980-ff35-47bc-9543-7c48b7bcd94c: NOT deleted (409)",
+        "leftover 87c79dfb-fcd3-41f4-9604-66a8df070c05: NOT deleted (409)",
+        "leftover 8f784005-4e9b-454f-9983-48cd2d77f347: NOT deleted (409)",
+        "leftover 5c7b3fe8-7915-4fbb-b04c-f500d1a28500: NOT deleted (409)",
+        "leftover 6db29de3-1df5-4d2f-ae37-05f9200abd7d: NOT deleted (409)"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S4",
+      "title": "Provision the preset study",
+      "status": "pass",
+      "elapsedMs": 426,
+      "facts": [
+        "project 6a09bcb7-ee3d-44b7-bcef-c6629e5d837a created by the provisioning identity",
+        "PUT study/protocol -> 200",
+        "Q1-heatmap: T5@0.3 resolves (newest 0.4)",
+        "Q2-pancreas: T1@0.4 resolves (newest 0.4)",
+        "Q3-clusters: T2@0.3 resolves (newest 0.3)",
+        "Q4-partial: T4@0.4 resolves (newest 0.4)",
+        "draft 5b0032b8-5c4f-469a-b0dd-d9fd8e321255 on SAP dc97fcbf-1242-41fd-b0f0-bde35e9c96ef, plan schemaVersion 2, specificationSource declared",
+        "15 spec field(s) stored with fieldIds",
+        "4/4 question(s) added in preset order",
+        "completeness: no failing check",
+        "data bindings before finalise: 0",
+        "finalised: version 1, status final, plan.schemaVersion 2, planTiming before_data, analysisDatasetId null"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S5",
+      "title": "Upload, ingestion, link",
+      "status": "known-defect",
+      "elapsedMs": 2209,
+      "facts": [
+        "exact preset file refused as duplicate of 6b91f9dc-30a2-4ab6-9b96-bfbf22373587 (NOT this suite's: \"final_tableau2_synthetic.csv\")",
+        "fallback: uploading the same table with one trailing per-run column (axi2601_rehearsal_run) — every preset column and value unchanged",
+        "dataset 2a8fe4e0-5700-4b76-aedc-0e9b6c23d141 available (2743 bytes)",
+        "ingestion 124f40c1-8552-44c9-805f-fcb2f7091944 ready in 2.0 s; rows 23, columns 22",
+        "POST projects/:p/datasets -> 201"
+      ],
+      "defectIds": [
+        "D1"
+      ]
+    },
+    {
+      "id": "S6",
+      "title": "Mapping proposal and confirmation",
+      "status": "pass",
+      "elapsedMs": 111,
+      "facts": [
+        "proposal: 15/15 field(s) proposed by exact name; conformance pass; 0 BLOCK, 0 WARN; 22 column(s) in the dataset version",
+        "binding fdfb7609-c222-4593-a048-1e4a64654179: conformance pass, confirmed by the investigator"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S7",
+      "title": "Pre-flight and classification",
+      "status": "pass",
+      "elapsedMs": 67,
+      "facts": [
+        "preflight -> 200 ok=true",
+        "classification preview -> 200 planned_final_look"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S8",
+      "title": "Start and poll the run",
+      "status": "pass",
+      "elapsedMs": 10597,
+      "facts": [
+        "SAP run f95a9a10-d838-410f-a6fe-c5df256f364c started, classification planned_final_look, 4 question(s)",
+        "run status completed; engineVersion 1.3.0",
+        "Q1-heatmap: child GR-c262ee60 completed, verdict not_tested, p —, n —, method \"Spearman correlation matrix, Benjamini-Hochberg across all cells\"",
+        "Q2-pancreas: child GR-bc7fb032 completed, verdict not_met, p 0.3705118456507039, n [9, 14], method \"Mann-Whitney U test\"",
+        "Q3-clusters: child GR-d49f3236 completed, verdict not_tested, p 0.1815048344896971, n 23, method \"Kruskal-Wallis test, then Dunn's pairwise test (Holm)\"",
+        "Q4-partial: child GR-4eddaec4 completed, verdict not_tested, p 0.5126480774194776, n 23, method \"Partial Spearman correlation\""
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S9",
+      "title": "Result pages and chart evidence",
+      "status": "known-defect",
+      "elapsedMs": 277,
+      "facts": [
+        "Q1-heatmap: 1 result(s); analysisKind pre-specified; plan marker yes; answer \"microbiote_igg4_cer_228 vs igg4_g_l (n = 23): Spearman ρ = 0.592, p = 0.00293, BH-adjusted p = 0.0154 (family of 42 reference × variable cells). microbiote_igg4\"; charts stats.correlation_matrix→heatmap_annotated (expected default heatmap_annotated)",
+        "Q1-heatmap stats.correlation_matrix: chart has no recorded preset — chart evidence cannot be requested",
+        "Q2-pancreas: 1 result(s); analysisKind pre-specified; plan marker yes; answer \"microbiote_igg4_ent_059: 0 (n = 9) vs 1 (n = 14); Mann–Whitney U = 77.5, p = 0.371.\"; charts stats.mann_whitney_u→box_plot (expected default strip_plot)",
+        "Q2-pancreas stats.mann_whitney_u: chart has no recorded preset — chart evidence cannot be requested",
+        "Q3-clusters: 2 result(s); analysisKind pre-specified; plan marker yes; answer \"microbiote_igg4_ent_059 across 4 groups (n = 23): Kruskal–Wallis H = 4.87, p = 0.182; Dunn pairwise, Holm-adjusted: C1 vs C2: p_adj = 1; C1 vs C3: p_adj = 0.631\"; charts stats.kruskal_wallis→box_plot, stats.dunn_posthoc→box_plot (expected default strip_plot)",
+        "Q3-clusters stats.kruskal_wallis: chart has no recorded preset — chart evidence cannot be requested",
+        "Q3-clusters stats.dunn_posthoc: chart has no recorded preset — chart evidence cannot be requested",
+        "Q4-partial: 1 result(s); analysisKind pre-specified; plan marker yes; answer \"microbiote_igg4_ent_059 vs igg4_rd_ri, adjusted for igg4_g_l (n = 23): partial Spearman ρ = 0.147, p = 0.513.\"; charts stats.partial_correlation→scatter (expected default scatter)",
+        "Q4-partial stats.partial_correlation: chart has no recorded preset — chart evidence cannot be requested"
+      ],
+      "defectIds": [
+        "D2"
+      ]
+    },
+    {
+      "id": "S10",
+      "title": "Reports and figures",
+      "status": "fail",
+      "elapsedMs": 55962,
+      "facts": [
+        "30/36 download(s) valid",
+        "ok: Q1-heatmap export csv (5415 bytes, CSV, 42 data line(s))",
+        "ok: Q1-heatmap export svg (35797 bytes, SVG)",
+        "ok: Q1-heatmap export png (442476 bytes, PNG, 300 dpi)",
+        "ok: Q1-heatmap export report (zip) (312546 bytes, ZIP)",
+        "ok: Q1-heatmap client report md (3157 bytes, Markdown text)",
+        "ok: Q1-heatmap client report pdf (190786 bytes, PDF)",
+        "ok: Q1-heatmap client report zip (312546 bytes, ZIP)",
+        "ok: Q2-pancreas export csv (240 bytes, CSV, 1 data line(s))",
+        "ok: Q2-pancreas export report (zip) (40481 bytes, ZIP)",
+        "ok: Q2-pancreas client report md (4024 bytes, Markdown text)",
+        "ok: Q2-pancreas client report pdf (45880 bytes, PDF)",
+        "ok: Q2-pancreas client report zip (40481 bytes, ZIP)",
+        "ok: Q3-clusters export csv (332 bytes, CSV, 1 data line(s))",
+        "ok: Q3-clusters export report (zip) (38546 bytes, ZIP)",
+        "ok: Q3-clusters client report md (3145 bytes, Markdown text)",
+        "ok: Q3-clusters client report pdf (43864 bytes, PDF)",
+        "ok: Q3-clusters client report zip (38546 bytes, ZIP)",
+        "ok: Q3-clusters export csv (710 bytes, CSV, 6 data line(s))",
+        "ok: Q3-clusters export svg (5430 bytes, SVG)",
+        "ok: Q3-clusters export png (227345 bytes, PNG, 300 dpi)",
+        "ok: Q3-clusters export report (zip) (111489 bytes, ZIP)",
+        "ok: Q3-clusters client report md (3255 bytes, Markdown text)",
+        "ok: Q3-clusters client report pdf (88349 bytes, PDF)",
+        "ok: Q3-clusters client report zip (111489 bytes, ZIP)",
+        "ok: Q4-partial export csv (114 bytes, CSV, 1 data line(s))",
+        "ok: Q4-partial export report (zip) (36474 bytes, ZIP)",
+        "ok: Q4-partial client report md (3254 bytes, Markdown text)",
+        "ok: Q4-partial client report pdf (42073 bytes, PDF)",
+        "ok: Q4-partial client report zip (36474 bytes, ZIP)",
+        "ok: run run report md (10660 bytes, Markdown text)",
+        "NEW defect(s), not in known-defects.ts for S10: download-409-no-recommended-chart-is-recorded-for-the"
+      ],
+      "defectIds": [
+        "D3"
+      ]
+    },
+    {
+      "id": "S12",
+      "title": "Clean up (after an interrupted chain)",
+      "status": "pass",
+      "elapsedMs": 36,
+      "facts": [
+        "DELETE dataset -> 409 DATASET_DELETE_REFUSED_CITED (kept per D13)",
+        "EC1 re-upload check: not applicable (the cited dataset is kept by design; each run uploads a per-run variant)"
+      ],
+      "defectIds": []
+    }
+  ],
+  "defects": [
+    {
+      "id": "D1",
+      "step": "S5",
+      "code": "duplicate-of-foreign-dataset",
+      "title": "The data file cannot be uploaded to a new study: the workspace already holds the same bytes in another study",
+      "endpoint": "PATCH /api/v1/workspaces/:ws/datasets/:id/finalize",
+      "request": "`POST /api/v1/workspaces/:ws/datasets` body keys {organizationId, originalFilename, contentType} → presigned PUT (exact preset bytes) → `PATCH …/finalize`",
+      "observed": "HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"This file is already uploaded (final_tableau2_synthetic.csv, 11/3/2026).\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/6e1f1ddf-05f9-4d8e-9600-d74907f09e90/finalize\",\"timestamp\":\"2026-11-17T13:21:19.485Z\",\"details\":{\"existingDatasetId\":\"6b91f9dc-30a2-4ab6-9b96-bfbf22373587\",\"existingName\":\"final_tableau2_synthetic.csv\",\"existingUploadedAt\":\"2026-11-03T18:53:54.969Z\"},\"errorCode\":\"DUPLICATE_DATA…",
+      "expected": "the investigator can bring the same file into a second study of his workspace (or is offered to link the existing upload) — the Study page upload of FR13 has no such path",
+      "suspectedLocation": "axiome-back apps/organization-service/src/datasets/datasets.service.ts finalizeUpload → findDuplicateByContentHash (AXI-2538, workspace-scoped); axiome-front src/lib/investigatorUploads/uploads.ts uploadFile",
+      "severity": "minor"
+    },
+    {
+      "id": "D2",
+      "step": "S9",
+      "code": "chart-without-preset",
+      "title": "Plan result charts carry no recorded chart preset: they cannot be saved as evidence and offer no variant",
+      "endpoint": "GET /api/v1/projects/:p/runs/:runId/result-page (results[].preset) → POST …/result-page/chart-evidence {presetId, variantKey}",
+      "request": "`GET …/result-page`",
+      "observed": "results[].preset null for Q1-heatmap stats.correlation_matrix (heatmap_annotated), Q2-pancreas stats.mann_whitney_u (box_plot), Q3-clusters stats.kruskal_wallis (box_plot), Q3-clusters stats.dunn_posthoc (box_plot), Q4-partial stats.partial_correlation (scatter); chart evidence needs a presetId, so no chart could be saved",
+      "expected": "each plan result chart is a recorded preset (presetId + offered variants) so the Investigator can restyle it and save it as evidence (feature §7.1 step 8, FR23)",
+      "suspectedLocation": "axiome-back SAP child runs are compiled through the opening templates without minting a chart preset (sap/runs → governed execution); result-page/result-page-chart.ts reads preset only when one was recorded",
+      "severity": "major"
+    },
+    {
+      "id": "D3",
+      "step": "S10",
+      "code": "download-409-no-recommended-chart-is-recorded-for-the",
+      "title": "2 download kinds refused or invalid: HTTP 409 \"No recommended chart is recorded for the result of rule run 7ca95a7b-fcea-4657-8fbd-b36b75f9bd5c; there is no figure to export.\"",
+      "endpoint": "GET /api/v1/projects/:p/rule-runs/:ruleRunId/exports/{csv,svg,png,report} and …/client-report?format={md,pdf,zip}",
+      "request": "as the investigator, ruleRunId = the result page's results[].ruleRunId (as the front's ResultExportButtons does); kinds: export svg, export png; questions: Q2-pancreas, Q3-clusters, Q4-partial",
+      "observed": "6 download(s): HTTP 409 \"No recommended chart is recorded for the result of rule run 7ca95a7b-fcea-4657-8fbd-b36b75f9bd5c; there is no figure to export.\"",
+      "expected": "HTTP 200, a non-empty file of the declared type (PNG at 300 dpi) — FR5, FR24, FR25",
+      "suspectedLocation": "axiome-back run-export / client-report services (pdf-render.service.ts for PDF/PNG)",
+      "severity": "blocker"
+    }
+  ],
+  "residue": [
+    {
+      "kind": "dataset (leftover of an earlier run)",
+      "id": "d4f494f2-6933-4e9b-8fdf-ee9b8b436fef",
+      "removed": false,
+      "note": "delete refused: HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"Cannot delete dataset: cited by 1 evidence item(s)\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/d4f494f2-6933-4e9b-8fdf-ee9b8b436fef\",\"timestamp\":\"2026-11-17T13:21:18.764Z\",\"errorCode\":\"DATASET_DELETE_REFUSED_CITED\",\"errors\":[{\"field\":\"evidence\",\"code\":\"DATASET_CITED_BY_EVIDENCE\",\"message\":\"evidence 8426893e-91fe-47a2-b0fa-44ede97c9e2e cites this dataset via view analysis \\\"SAP: MAG4 Tableau 2…"
+    },
+    {
+      "kind": "dataset (leftover of an earlier run)",
+      "id": "d9b146fd-49bd-48f3-857e-c3c1d5562933",
+      "removed": false,
+      "note": "delete refused: HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"Cannot delete dataset: cited by 1 evidence item(s)\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/d9b146fd-49bd-48f3-857e-c3c1d5562933\",\"timestamp\":\"2026-11-17T13:21:18.795Z\",\"errorCode\":\"DATASET_DELETE_REFUSED_CITED\",\"errors\":[{\"field\":\"evidence\",\"code\":\"DATASET_CITED_BY_EVIDENCE\",\"message\":\"evidence b9386253-c516-4910-a87a-174b1dd8bc3d cites this dataset via view analysis \\\"SAP: MAG4 Tableau 2…"
+    },
+    {
+      "kind": "dataset (leftover of an earlier run)",
+      "id": "b5ecbf40-4e73-472d-88df-c09f55c5ded7",
+      "removed": false,
+      "note": "delete refused: HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"Cannot delete dataset: cited by 1 evidence item(s)\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/b5ecbf40-4e73-472d-88df-c09f55c5ded7\",\"timestamp\":\"2026-11-17T13:21:18.821Z\",\"errorCode\":\"DATASET_DELETE_REFUSED_CITED\",\"errors\":[{\"field\":\"evidence\",\"code\":\"DATASET_CITED_BY_EVIDENCE\",\"message\":\"evidence 383a674c-06cb-48c5-a742-4563627331cb cites this dataset via view analysis \\\"SAP: MAG4 Tableau 2…"
+    },
+    {
+      "kind": "dataset (leftover of an earlier run)",
+      "id": "98371980-ff35-47bc-9543-7c48b7bcd94c",
+      "removed": false,
+      "note": "delete refused: HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"Cannot delete dataset: cited by 1 evidence item(s)\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/98371980-ff35-47bc-9543-7c48b7bcd94c\",\"timestamp\":\"2026-11-17T13:21:18.851Z\",\"errorCode\":\"DATASET_DELETE_REFUSED_CITED\",\"errors\":[{\"field\":\"evidence\",\"code\":\"DATASET_CITED_BY_EVIDENCE\",\"message\":\"evidence 0c1c68af-133f-48f5-a495-874ca34087ae cites this dataset via view analysis \\\"SAP: MAG4 Tableau 2…"
+    },
+    {
+      "kind": "dataset (leftover of an earlier run)",
+      "id": "87c79dfb-fcd3-41f4-9604-66a8df070c05",
+      "removed": false,
+      "note": "delete refused: HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"Cannot delete dataset: cited by 1 evidence item(s)\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/87c79dfb-fcd3-41f4-9604-66a8df070c05\",\"timestamp\":\"2026-11-17T13:21:18.881Z\",\"errorCode\":\"DATASET_DELETE_REFUSED_CITED\",\"errors\":[{\"field\":\"evidence\",\"code\":\"DATASET_CITED_BY_EVIDENCE\",\"message\":\"evidence 24f2ac99-f935-4383-ba7c-391684cfe1c3 cites this dataset via view analysis \\\"SAP: MAG4 Tableau 2…"
+    },
+    {
+      "kind": "dataset (leftover of an earlier run)",
+      "id": "8f784005-4e9b-454f-9983-48cd2d77f347",
+      "removed": false,
+      "note": "delete refused: HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"Cannot delete dataset: cited by 1 evidence item(s)\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/8f784005-4e9b-454f-9983-48cd2d77f347\",\"timestamp\":\"2026-11-17T13:21:18.918Z\",\"errorCode\":\"DATASET_DELETE_REFUSED_CITED\",\"errors\":[{\"field\":\"evidence\",\"code\":\"DATASET_CITED_BY_EVIDENCE\",\"message\":\"evidence a4e81712-73ee-4d8b-80c4-e4c7dba70505 cites this dataset via view analysis \\\"SAP: MAG4 Tableau 2…"
+    },
+    {
+      "kind": "dataset (leftover of an earlier run)",
+      "id": "5c7b3fe8-7915-4fbb-b04c-f500d1a28500",
+      "removed": false,
+      "note": "delete refused: HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"Cannot delete dataset: cited by 1 evidence item(s)\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/5c7b3fe8-7915-4fbb-b04c-f500d1a28500\",\"timestamp\":\"2026-11-17T13:21:18.946Z\",\"errorCode\":\"DATASET_DELETE_REFUSED_CITED\",\"errors\":[{\"field\":\"evidence\",\"code\":\"DATASET_CITED_BY_EVIDENCE\",\"message\":\"evidence 76a2f761-1770-4276-8685-1c9d190b917b cites this dataset via view analysis \\\"SAP: MAG4 Tableau 2…"
+    },
+    {
+      "kind": "dataset (leftover of an earlier run)",
+      "id": "6db29de3-1df5-4d2f-ae37-05f9200abd7d",
+      "removed": false,
+      "note": "delete refused: HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"Cannot delete dataset: cited by 1 evidence item(s)\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/6db29de3-1df5-4d2f-ae37-05f9200abd7d\",\"timestamp\":\"2026-11-17T13:21:18.977Z\",\"errorCode\":\"DATASET_DELETE_REFUSED_CITED\",\"errors\":[{\"field\":\"evidence\",\"code\":\"DATASET_CITED_BY_EVIDENCE\",\"message\":\"evidence 96404bcc-9ca9-49ab-a8a0-69c433e793ba cites this dataset via view analysis \\\"SAP: MAG4 Tableau 2…"
+    },
+    {
+      "kind": "project",
+      "id": "6a09bcb7-ee3d-44b7-bcef-c6629e5d837a",
+      "removed": false,
+      "note": "\"E2E AXI-2601 handover rehearsal 20261117T132117-jy9f\" — kept as the run's evidence (results, review, sign-off)"
+    },
+    {
+      "kind": "dataset",
+      "id": "2a8fe4e0-5700-4b76-aedc-0e9b6c23d141",
+      "removed": false,
+      "note": "kept: cited by the run's evidence (citation integrity, AXI-2314; FR6 as amended, D13)"
+    },
+    {
+      "kind": "SAP run",
+      "id": "f95a9a10-d838-410f-a6fe-c5df256f364c",
+      "removed": false,
+      "note": "kept with the project (append-only record)"
+    }
+  ],
+  "downloads": [
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "export csv",
+      "file": "downloads/Q1-heatmap-rr1-results-542ae224-a4fa-40a6-b04b-0e5f2a2a153f.csv",
+      "status": 200,
+      "contentType": "text/csv; charset=utf-8",
+      "bytes": 5415,
+      "valid": true,
+      "note": "CSV, 42 data line(s)"
+    },
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "export svg",
+      "file": "downloads/Q1-heatmap-rr1-figure-542ae224-a4fa-40a6-b04b-0e5f2a2a153f.svg",
+      "status": 200,
+      "contentType": "image/svg+xml",
+      "bytes": 35797,
+      "valid": true,
+      "note": "SVG"
+    },
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "export png",
+      "file": "downloads/Q1-heatmap-rr1-figure-542ae224-a4fa-40a6-b04b-0e5f2a2a153f.png",
+      "status": 200,
+      "contentType": "image/png",
+      "bytes": 442476,
+      "valid": true,
+      "note": "PNG, 300 dpi"
+    },
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "export report (zip)",
+      "file": "downloads/Q1-heatmap-rr1-client-report-542ae224-a4fa-40a6-b04b-0e5f2a2a153f.zip",
+      "status": 200,
+      "contentType": "application/zip",
+      "bytes": 312546,
+      "valid": true,
+      "note": "ZIP"
+    },
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "client report md",
+      "file": "downloads/Q1-heatmap-rr1-client-report-542ae224-a4fa-40a6-b04b-0e5f2a2a153f.md",
+      "status": 200,
+      "contentType": "text/markdown; charset=utf-8",
+      "bytes": 3157,
+      "valid": true,
+      "note": "Markdown text"
+    },
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "client report pdf",
+      "file": "downloads/Q1-heatmap-rr1-client-report-542ae224-a4fa-40a6-b04b-0e5f2a2a153f.pdf",
+      "status": 200,
+      "contentType": "application/pdf",
+      "bytes": 190786,
+      "valid": true,
+      "note": "PDF"
+    },
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "client report zip",
+      "file": "downloads/Q1-heatmap-rr1-client-report-542ae224-a4fa-40a6-b04b-0e5f2a2a153f.zip",
+      "status": 200,
+      "contentType": "application/zip",
+      "bytes": 312546,
+      "valid": true,
+      "note": "ZIP"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "export csv",
+      "file": "downloads/Q2-pancreas-rr1-results-c8a380a1-dc08-4bbc-b26d-96d3568326b6.csv",
+      "status": 200,
+      "contentType": "text/csv; charset=utf-8",
+      "bytes": 240,
+      "valid": true,
+      "note": "CSV, 1 data line(s)"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "export svg",
+      "file": null,
+      "status": 409,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 400,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":409,\"message\":\"No recommended chart is recorded for the result of rule run c8a380a1-dc08-4bbc-b26d-96d3568326b6; there is no figure to export.\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/6a09bcb7-ee…"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "export png",
+      "file": null,
+      "status": 409,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 400,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":409,\"message\":\"No recommended chart is recorded for the result of rule run c8a380a1-dc08-4bbc-b26d-96d3568326b6; there is no figure to export.\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/6a09bcb7-ee…"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "export report (zip)",
+      "file": "downloads/Q2-pancreas-rr1-client-report-c8a380a1-dc08-4bbc-b26d-96d3568326b6.zip",
+      "status": 200,
+      "contentType": "application/zip",
+      "bytes": 40481,
+      "valid": true,
+      "note": "ZIP"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "client report md",
+      "file": "downloads/Q2-pancreas-rr1-client-report-c8a380a1-dc08-4bbc-b26d-96d3568326b6.md",
+      "status": 200,
+      "contentType": "text/markdown; charset=utf-8",
+      "bytes": 4024,
+      "valid": true,
+      "note": "Markdown text"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "client report pdf",
+      "file": "downloads/Q2-pancreas-rr1-client-report-c8a380a1-dc08-4bbc-b26d-96d3568326b6.pdf",
+      "status": 200,
+      "contentType": "application/pdf",
+      "bytes": 45880,
+      "valid": true,
+      "note": "PDF"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "client report zip",
+      "file": "downloads/Q2-pancreas-rr1-client-report-c8a380a1-dc08-4bbc-b26d-96d3568326b6.zip",
+      "status": 200,
+      "contentType": "application/zip",
+      "bytes": 40481,
+      "valid": true,
+      "note": "ZIP"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export csv",
+      "file": "downloads/Q3-clusters-rr1-results-4f690b3f-2479-45f6-b0f8-2aa31b2b806f.csv",
+      "status": 200,
+      "contentType": "text/csv; charset=utf-8",
+      "bytes": 332,
+      "valid": true,
+      "note": "CSV, 1 data line(s)"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export svg",
+      "file": null,
+      "status": 409,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 400,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":409,\"message\":\"No recommended chart is recorded for the result of rule run 4f690b3f-2479-45f6-b0f8-2aa31b2b806f; there is no figure to export.\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/6a09bcb7-ee…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export png",
+      "file": null,
+      "status": 409,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 400,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":409,\"message\":\"No recommended chart is recorded for the result of rule run 4f690b3f-2479-45f6-b0f8-2aa31b2b806f; there is no figure to export.\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/6a09bcb7-ee…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export report (zip)",
+      "file": "downloads/Q3-clusters-rr1-client-report-4f690b3f-2479-45f6-b0f8-2aa31b2b806f.zip",
+      "status": 200,
+      "contentType": "application/zip",
+      "bytes": 38546,
+      "valid": true,
+      "note": "ZIP"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "client report md",
+      "file": "downloads/Q3-clusters-rr1-client-report-4f690b3f-2479-45f6-b0f8-2aa31b2b806f.md",
+      "status": 200,
+      "contentType": "text/markdown; charset=utf-8",
+      "bytes": 3145,
+      "valid": true,
+      "note": "Markdown text"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "client report pdf",
+      "file": "downloads/Q3-clusters-rr1-client-report-4f690b3f-2479-45f6-b0f8-2aa31b2b806f.pdf",
+      "status": 200,
+      "contentType": "application/pdf",
+      "bytes": 43864,
+      "valid": true,
+      "note": "PDF"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "client report zip",
+      "file": "downloads/Q3-clusters-rr1-client-report-4f690b3f-2479-45f6-b0f8-2aa31b2b806f.zip",
+      "status": 200,
+      "contentType": "application/zip",
+      "bytes": 38546,
+      "valid": true,
+      "note": "ZIP"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export csv",
+      "file": "downloads/Q3-clusters-rr2-results-eba74752-7dcd-4fef-9bcb-ae20fe1f1055.csv",
+      "status": 200,
+      "contentType": "text/csv; charset=utf-8",
+      "bytes": 710,
+      "valid": true,
+      "note": "CSV, 6 data line(s)"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export svg",
+      "file": "downloads/Q3-clusters-rr2-figure-eba74752-7dcd-4fef-9bcb-ae20fe1f1055.svg",
+      "status": 200,
+      "contentType": "image/svg+xml",
+      "bytes": 5430,
+      "valid": true,
+      "note": "SVG"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export png",
+      "file": "downloads/Q3-clusters-rr2-figure-eba74752-7dcd-4fef-9bcb-ae20fe1f1055.png",
+      "status": 200,
+      "contentType": "image/png",
+      "bytes": 227345,
+      "valid": true,
+      "note": "PNG, 300 dpi"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export report (zip)",
+      "file": "downloads/Q3-clusters-rr2-client-report-eba74752-7dcd-4fef-9bcb-ae20fe1f1055.zip",
+      "status": 200,
+      "contentType": "application/zip",
+      "bytes": 111489,
+      "valid": true,
+      "note": "ZIP"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "client report md",
+      "file": "downloads/Q3-clusters-rr2-client-report-eba74752-7dcd-4fef-9bcb-ae20fe1f1055.md",
+      "status": 200,
+      "contentType": "text/markdown; charset=utf-8",
+      "bytes": 3255,
+      "valid": true,
+      "note": "Markdown text"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "client report pdf",
+      "file": "downloads/Q3-clusters-rr2-client-report-eba74752-7dcd-4fef-9bcb-ae20fe1f1055.pdf",
+      "status": 200,
+      "contentType": "application/pdf",
+      "bytes": 88349,
+      "valid": true,
+      "note": "PDF"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "client report zip",
+      "file": "downloads/Q3-clusters-rr2-client-report-eba74752-7dcd-4fef-9bcb-ae20fe1f1055.zip",
+      "status": 200,
+      "contentType": "application/zip",
+      "bytes": 111489,
+      "valid": true,
+      "note": "ZIP"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "export csv",
+      "file": "downloads/Q4-partial-rr1-results-7ca95a7b-fcea-4657-8fbd-b36b75f9bd5c.csv",
+      "status": 200,
+      "contentType": "text/csv; charset=utf-8",
+      "bytes": 114,
+      "valid": true,
+      "note": "CSV, 1 data line(s)"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "export svg",
+      "file": null,
+      "status": 409,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 400,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":409,\"message\":\"No recommended chart is recorded for the result of rule run 7ca95a7b-fcea-4657-8fbd-b36b75f9bd5c; there is no figure to export.\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/6a09bcb7-ee…"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "export png",
+      "file": null,
+      "status": 409,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 400,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":409,\"message\":\"No recommended chart is recorded for the result of rule run 7ca95a7b-fcea-4657-8fbd-b36b75f9bd5c; there is no figure to export.\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/6a09bcb7-ee…"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "export report (zip)",
+      "file": "downloads/Q4-partial-rr1-client-report-7ca95a7b-fcea-4657-8fbd-b36b75f9bd5c.zip",
+      "status": 200,
+      "contentType": "application/zip",
+      "bytes": 36474,
+      "valid": true,
+      "note": "ZIP"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "client report md",
+      "file": "downloads/Q4-partial-rr1-client-report-7ca95a7b-fcea-4657-8fbd-b36b75f9bd5c.md",
+      "status": 200,
+      "contentType": "text/markdown; charset=utf-8",
+      "bytes": 3254,
+      "valid": true,
+      "note": "Markdown text"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "client report pdf",
+      "file": "downloads/Q4-partial-rr1-client-report-7ca95a7b-fcea-4657-8fbd-b36b75f9bd5c.pdf",
+      "status": 200,
+      "contentType": "application/pdf",
+      "bytes": 42073,
+      "valid": true,
+      "note": "PDF"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "client report zip",
+      "file": "downloads/Q4-partial-rr1-client-report-7ca95a7b-fcea-4657-8fbd-b36b75f9bd5c.zip",
+      "status": 200,
+      "contentType": "application/zip",
+      "bytes": 36474,
+      "valid": true,
+      "note": "ZIP"
+    },
+    {
+      "questionKey": "run",
+      "kind": "run report md",
+      "file": "downloads/run-run-sap-run-report-f95a9a10-d838-410f-a6fe-c5df256f364c.md",
+      "status": 200,
+      "contentType": "text/markdown; charset=utf-8",
+      "bytes": 10660,
+      "valid": true,
+      "note": "Markdown text"
+    }
+  ],
+  "timings": {
+    "upload (initiate → finalize)": 154,
+    "ingestion (finalize → ready)": 2024,
+    "run (Start run → plan run settled)": 10596,
+    "time to first result (Start run → first question verdict)": 6397
+  },
+  "mode": "rehearsal",
+  "runToken": "20261117T132117-jy9f",
+  "startedAt": "2026-11-17T13:21:17.870Z",
+  "target": {
+    "label": "local demo stack",
+    "baseUrl": "http://localhost:5174",
+    "apiBaseUrl": "http://localhost:3001",
+    "workspaceId": "1eebb49b-a1f6-4e69-b880-20d0e7d1f739"
+  },
+  "commits": {
+    "front": "c229b569",
+    "back": "9025f855",
+    "compute": "603ef0a"
+  },
+  "evidence": {
+    "counts": true,
+    "reason": "commits recorded and equal to main"
+  },
+  "preset": {
+    "presetId": "mag4-tableau2-handover",
+    "presetVersion": "1",
+    "dataFileSha256": "42fede8a595e05f09589910d5ba91f1602d4a5762c4f834de075d472743e3cbc"
+  }
+}

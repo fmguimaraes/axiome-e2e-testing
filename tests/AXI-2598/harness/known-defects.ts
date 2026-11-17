@@ -32,11 +32,13 @@ export const KNOWN_DEFECTS: Readonly<Record<string, KnownDefect>> = {
   // forward as `expected-fail`: `stepVerdict` turns their continued absence into a passing S8.
   'chart-without-preset': {
     step: 'S9',
-    note: 'S9: plan result charts carry no recorded chart preset, so no chart can be saved as evidence or restyled',
+    note: 'S9: plan result charts carry no recorded chart preset, so no chart can be saved as evidence or restyled (AXI-2617; first fix merged c3bb2406 but no preset is recorded live)',
   },
-  'download-404-rule-run-not-found': {
+  // AXI-2613 fixed the 404 (org_entitlement hiding basis, back 9025f855): 30/36 downloads now valid.
+  // The remaining SVG/PNG figure exports fail for want of a recorded chart (same root as chart-without-preset, AXI-2617).
+  'download-409-no-recommended-chart-is-recorded-for-the': {
     step: 'S10',
-    note: 'S10: every export (csv/svg/png/report) and client report (md/pdf/zip) of a plan result answers 404 "Rule run not found"; only the run report downloads',
+    note: 'S10: SVG/PNG figure exports of non-heatmap plan results answer 409 "No recommended chart is recorded" (AXI-2617)',
   },
 };
 
