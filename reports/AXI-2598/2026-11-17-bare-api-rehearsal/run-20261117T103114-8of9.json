@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "suite": "axiome-handover",
+  "story": "AXI-2601",
+  "finishedAt": "2026-11-17T10:31:17.720Z",
+  "identities": [
+    "investigator investigator@axiomebio.com (workspace role Investigator) — every client-path step"
+  ],
+  "notes": [
+    "isolation guard not run: no forbidden-org list configured (local target — FR8 applies to prod)",
+    "provisioning identity: NOT CONFIGURED (HANDOVER_PROVISIONER_EMAIL / _PASSWORD) — project creation is blocked",
+    "investigator identity: investigator@axiomebio.com; 2 pre-existing project(s) on the request tripwire"
+  ],
+  "steps": [
+    {
+      "id": "S0",
+      "title": "Environment and service commits",
+      "status": "pass",
+      "elapsedMs": 0,
+      "facts": [
+        "target local demo stack; mode rehearsal; commits front 18d229be, back 0d015f28, compute 603ef0a",
+        "counts as evidence: yes — commits recorded and equal to main"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S1",
+      "title": "Preset against the data file",
+      "status": "pass",
+      "elapsedMs": 2,
+      "facts": [
+        "23 rows × 21 columns; 15 spec fields; 4 questions",
+        "blank cells: score_histo=2, eosinophils=3, plasmablasts_cd19_cd38_cd27_mm3=2, tfh_cxcr5_pd1_cd4=1 (EC4)"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S2",
+      "title": "Sign-in, surface and rights",
+      "status": "pass",
+      "elapsedMs": 29,
+      "facts": [
+        "GET surface -> 200 {\"surface\":\"investigator\"}",
+        "investigator membership roleId 00000000-0000-0000-0000-000000000105",
+        "investigator POST /projects -> 403 (expected refusal: project creation is outside the Investigator role, AXI-2322)"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S3",
+      "title": "Leftovers of an earlier run",
+      "status": "pass",
+      "elapsedMs": 20,
+      "facts": [
+        "1 dataset(s) in the workspace; 0 leftover(s) of this suite"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S4",
+      "title": "Provision the preset study",
+      "status": "blocked",
+      "elapsedMs": 0,
+      "facts": [
+        "no provisioning identity configured (HANDOVER_PROVISIONER_EMAIL / _PASSWORD); an Investigator cannot create a project"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S5",
+      "title": "Upload, ingestion, link",
+      "status": "known-defect",
+      "elapsedMs": 2192,
+      "facts": [
+        "exact preset file refused as duplicate of 6b91f9dc-30a2-4ab6-9b96-bfbf22373587 (NOT this suite's: \"final_tableau2_synthetic.csv\")",
+        "fallback: uploading the same table with one trailing per-run column (axi2601_rehearsal_run) — every preset column and value unchanged",
+        "dataset 5649ec01-8502-46eb-8a09-cc9a9be33629 available (2743 bytes)",
+        "ingestion 43505e8e-353b-49cf-94c1-606232bbfca8 ready in 2.0 s; rows 23, columns 22",
+        "link to study: skipped (no project)"
+      ],
+      "defectIds": [
+        "D1"
+      ]
+    },
+    {
+      "id": "S6",
+      "title": "Mapping proposal and confirmation",
+      "status": "blocked",
+      "elapsedMs": 0,
+      "facts": [
+        "blocked: project — no provisioning identity configured (HANDOVER_PROVISIONER_EMAIL / _PASSWORD); an Investigator cannot create a project"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S7",
+      "title": "Pre-flight and classification",
+      "status": "blocked",
+      "elapsedMs": 0,
+      "facts": [
+        "blocked: project — no provisioning identity configured (HANDOVER_PROVISIONER_EMAIL / _PASSWORD); an Investigator cannot create a project"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S8",
+      "title": "Start and poll the run",
+      "status": "blocked",
+      "elapsedMs": 0,
+      "facts": [
+        "blocked: project — no provisioning identity configured (HANDOVER_PROVISIONER_EMAIL / _PASSWORD); an Investigator cannot create a project"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S9",
+      "title": "Result pages and chart evidence",
+      "status": "blocked",
+      "elapsedMs": 0,
+      "facts": [
+        "blocked: project — no provisioning identity configured (HANDOVER_PROVISIONER_EMAIL / _PASSWORD); an Investigator cannot create a project"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S10",
+      "title": "Reports and figures",
+      "status": "blocked",
+      "elapsedMs": 0,
+      "facts": [
+        "blocked: project — no provisioning identity configured (HANDOVER_PROVISIONER_EMAIL / _PASSWORD); an Investigator cannot create a project"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S11",
+      "title": "Review and sign-off",
+      "status": "blocked",
+      "elapsedMs": 0,
+      "facts": [
+        "blocked: project — no provisioning identity configured (HANDOVER_PROVISIONER_EMAIL / _PASSWORD); an Investigator cannot create a project"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S12",
+      "title": "Clean up",
+      "status": "pass",
+      "elapsedMs": 208,
+      "facts": [
+        "DELETE dataset -> 204",
+        "re-upload of the same bytes after delete -> 200"
+      ],
+      "defectIds": []
+    }
+  ],
+  "defects": [
+    {
+      "id": "D1",
+      "step": "S5",
+      "code": "duplicate-of-foreign-dataset",
+      "title": "The data file cannot be uploaded to a new study: the workspace already holds the same bytes in another study",
+      "endpoint": "PATCH /api/v1/workspaces/:ws/datasets/:id/finalize",
+      "request": "`POST /api/v1/workspaces/:ws/datasets` body keys {organizationId, originalFilename, contentType} → presigned PUT (exact preset bytes) → `PATCH …/finalize`",
+      "observed": "HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"This file is already uploaded (final_tableau2_synthetic.csv, 11/3/2026).\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/574ccb94-ad4d-4e4e-9365-bb7e6d251fa0/finalize\",\"timestamp\":\"2026-11-17T10:31:15.309Z\",\"details\":{\"existingDatasetId\":\"6b91f9dc-30a2-4ab6-9b96-bfbf22373587\",\"existingName\":\"final_tableau2_synthetic.csv\",\"existingUploadedAt\":\"2026-11-03T18:53:54.969Z\"},\"errorCode\":\"DUPLICATE_DATA…",
+      "expected": "the investigator can bring the same file into a second study of his workspace (or is offered to link the existing upload) — the Study page upload of FR13 has no such path",
+      "suspectedLocation": "axiome-back apps/organization-service/src/datasets/datasets.service.ts finalizeUpload → findDuplicateByContentHash (AXI-2538, workspace-scoped); axiome-front src/lib/investigatorUploads/uploads.ts uploadFile",
+      "severity": "minor"
+    }
+  ],
+  "residue": [
+    {
+      "kind": "dataset",
+      "id": "5649ec01-8502-46eb-8a09-cc9a9be33629",
+      "removed": true,
+      "note": "deleted by the investigator (dataset:delete_own)"
+    },
+    {
+      "kind": "dataset (EC1 re-upload probe)",
+      "id": "44bea66d-632d-43ab-92a8-5993b7498f88",
+      "removed": true,
+      "note": "deleted"
+    }
+  ],
+  "downloads": [],
+  "timings": {
+    "upload (initiate → finalize)": 163,
+    "ingestion (finalize → ready)": 2029
+  },
+  "mode": "rehearsal",
+  "runToken": "20261117T103114-8of9",
+  "startedAt": "2026-11-17T10:31:14.736Z",
+  "target": {
+    "label": "local demo stack",
+    "baseUrl": "http://localhost:5174",
+    "apiBaseUrl": "http://localhost:3001",
+    "workspaceId": "1eebb49b-a1f6-4e69-b880-20d0e7d1f739"
+  },
+  "commits": {
+    "front": "18d229be",
+    "back": "0d015f28",
+    "compute": "603ef0a"
+  },
+  "evidence": {
+    "counts": true,
+    "reason": "commits recorded and equal to main"
+  },
+  "preset": {
+    "presetId": "mag4-tableau2-handover",
+    "presetVersion": "1",
+    "dataFileSha256": "42fede8a595e05f09589910d5ba91f1602d4a5762c4f834de075d472743e3cbc"
+  }
+}

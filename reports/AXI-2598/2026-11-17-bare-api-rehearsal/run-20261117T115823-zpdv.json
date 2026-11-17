@@ -1,0 +1,737 @@
+{
+  "schemaVersion": 1,
+  "suite": "axiome-handover",
+  "story": "AXI-2601",
+  "finishedAt": "2026-11-17T11:58:43.481Z",
+  "identities": [
+    "investigator investigator@axiomebio.com (workspace role Investigator) — every client-path step",
+    "provisioner admin@cro-one.com — project creation only"
+  ],
+  "notes": [
+    "isolation guard not run: no forbidden-org list configured (local target — FR8 applies to prod)",
+    "provisioning identity: admin@cro-one.com (project creation only)",
+    "investigator identity: investigator@axiomebio.com; 6 pre-existing project(s) on the request tripwire"
+  ],
+  "steps": [
+    {
+      "id": "S0",
+      "title": "Environment and service commits",
+      "status": "pass",
+      "elapsedMs": 0,
+      "facts": [
+        "target local demo stack; mode rehearsal; commits front c677865b, back 0d015f28, compute 603ef0a",
+        "counts as evidence: yes — commits recorded and equal to main"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S1",
+      "title": "Preset against the data file",
+      "status": "pass",
+      "elapsedMs": 3,
+      "facts": [
+        "23 rows × 21 columns; 15 spec fields; 4 questions",
+        "blank cells: score_histo=2, eosinophils=3, plasmablasts_cd19_cd38_cd27_mm3=2, tfh_cxcr5_pd1_cd4=1 (EC4)"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S2",
+      "title": "Sign-in, surface and rights",
+      "status": "pass",
+      "elapsedMs": 66,
+      "facts": [
+        "GET surface -> 200 {\"surface\":\"investigator\"}",
+        "investigator membership roleId 00000000-0000-0000-0000-000000000105",
+        "investigator POST /projects -> 403 (expected refusal: project creation is outside the Investigator role, AXI-2322)"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S3",
+      "title": "Leftovers of an earlier run",
+      "status": "pass",
+      "elapsedMs": 208,
+      "facts": [
+        "3 dataset(s) in the workspace; 2 leftover(s) of this suite",
+        "leftover 5c7b3fe8-7915-4fbb-b04c-f500d1a28500: NOT deleted (409)",
+        "leftover 6db29de3-1df5-4d2f-ae37-05f9200abd7d: NOT deleted (409)"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S4",
+      "title": "Provision the preset study",
+      "status": "known-defect",
+      "elapsedMs": 741,
+      "facts": [
+        "project 57e9083e-a341-41fd-a09f-c26a75fbbbe9 created by the provisioning identity",
+        "PUT study/protocol -> 200",
+        "Q1-heatmap: T5@0.3 resolves (newest 0.4)",
+        "Q2-pancreas: T1@0.4 resolves (newest 0.4)",
+        "Q3-clusters: T2@0.3 resolves (newest 0.3)",
+        "Q4-partial: T4@0.4 resolves (newest 0.4)",
+        "draft 0a0eb0d4-71bf-40be-b242-431e36b3d82a on SAP c963329e-3d58-4a63-b363-5564719bcb2f, plan schemaVersion 2, specificationSource declared",
+        "15 spec field(s) stored with fieldIds",
+        "4/4 question(s) added in preset order",
+        "workaround: renumbered positions Q2-pancreas, Q3-clusters, Q4-partial, Q1-heatmap -> 200",
+        "completeness: no failing check",
+        "data bindings before finalise: 0",
+        "finalised: version 1, status final, plan.schemaVersion 2, planTiming before_data, analysisDatasetId null"
+      ],
+      "defectIds": [
+        "D1"
+      ]
+    },
+    {
+      "id": "S5",
+      "title": "Upload, ingestion, link",
+      "status": "known-defect",
+      "elapsedMs": 2360,
+      "facts": [
+        "exact preset file refused as duplicate of 6b91f9dc-30a2-4ab6-9b96-bfbf22373587 (NOT this suite's: \"final_tableau2_synthetic.csv\")",
+        "fallback: uploading the same table with one trailing per-run column (axi2601_rehearsal_run) — every preset column and value unchanged",
+        "dataset 8f784005-4e9b-454f-9983-48cd2d77f347 available (2743 bytes)",
+        "ingestion 905fc8ec-5792-44ba-8d04-96c1fdca69f7 ready in 2.0 s; rows 23, columns 22",
+        "POST projects/:p/datasets -> 201"
+      ],
+      "defectIds": [
+        "D2"
+      ]
+    },
+    {
+      "id": "S6",
+      "title": "Mapping proposal and confirmation",
+      "status": "known-defect",
+      "elapsedMs": 693,
+      "facts": [
+        "proposal: 15/15 field(s) proposed by exact name; conformance fail; 3 BLOCK, 0 WARN; 22 column(s) in the dataset version",
+        "workaround: provisioning identity declared atteinte_pancreatique as group on this run's dataset -> 200",
+        "proposal after the declaration: conformance pass; 0 BLOCK",
+        "binding 1bcf9b3e-b765-4f51-b1ac-43a89c00464b: conformance pass, confirmed by the investigator"
+      ],
+      "defectIds": [
+        "D3"
+      ]
+    },
+    {
+      "id": "S7",
+      "title": "Pre-flight and classification",
+      "status": "pass",
+      "elapsedMs": 75,
+      "facts": [
+        "preflight -> 200 ok=true",
+        "classification preview -> 200 planned_final_look"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S8",
+      "title": "Start and poll the run",
+      "status": "known-defect",
+      "elapsedMs": 12643,
+      "facts": [
+        "SAP run 09bd9078-c194-4b11-8eb7-b170147452b1 started, classification planned_final_look, 4 question(s)",
+        "run status completed; engineVersion 1.3.0",
+        "Q2-pancreas: child GR-bb37a171 running, verdict not_met, p 0.3705118456507039, n [9, 14], method \"Mann-Whitney U test\"",
+        "Q3-clusters: child GR-226d4ed0 running, verdict not_tested, p 0.1815048344896971, n 23, method \"Kruskal-Wallis test, then Dunn's pairwise test (Holm)\"",
+        "Q4-partial: child GR-771af7cf running, verdict not_tested, p 0.5126480774194776, n 23, method \"Partial Spearman correlation\"",
+        "Q1-heatmap: child GR-39b359f8 running, verdict failed_to_run, p —, n —, method \"Spearman correlation matrix, Benjamini-Hochberg across all cells\"",
+        "question order on the run: Q2-pancreas, Q3-clusters, Q4-partial, Q1-heatmap (preset order differs — FR21)"
+      ],
+      "defectIds": [
+        "D4",
+        "D5"
+      ]
+    },
+    {
+      "id": "S9",
+      "title": "Result pages and chart evidence",
+      "status": "known-defect",
+      "elapsedMs": 350,
+      "facts": [
+        "Q1-heatmap: 1 result(s); analysisKind pre-specified; plan marker yes; answer \"microbiote_igg4_cer_228 vs igg4_g_l (n = 23): Spearman ρ = 0.592, p = 0.00293, BH-adjusted p = 0.0154 (family of 42 reference × variable cells). microbiote_igg4\"; charts stats.correlation_matrix→heatmap_annotated (expected default heatmap_annotated)",
+        "Q1-heatmap stats.correlation_matrix: chart has no recorded preset — chart evidence cannot be requested",
+        "Q2-pancreas: 1 result(s); analysisKind pre-specified; plan marker yes; answer \"microbiote_igg4_ent_059: 0 (n = 9) vs 1 (n = 14); Mann–Whitney U = 77.5, p = 0.371.\"; charts stats.mann_whitney_u→box_plot (expected default strip_plot)",
+        "Q2-pancreas stats.mann_whitney_u: chart has no recorded preset — chart evidence cannot be requested",
+        "Q3-clusters: 2 result(s); analysisKind pre-specified; plan marker yes; answer \"microbiote_igg4_ent_059 across 4 groups (n = 23): Kruskal–Wallis H = 4.87, p = 0.182; Dunn pairwise, Holm-adjusted: C1 vs C2: p_adj = 1; C1 vs C3: p_adj = 0.631\"; charts stats.kruskal_wallis→box_plot, stats.dunn_posthoc→box_plot (expected default strip_plot)",
+        "Q3-clusters stats.kruskal_wallis: chart has no recorded preset — chart evidence cannot be requested",
+        "Q3-clusters stats.dunn_posthoc: chart has no recorded preset — chart evidence cannot be requested",
+        "Q4-partial: 1 result(s); analysisKind pre-specified; plan marker yes; answer \"microbiote_igg4_ent_059 vs igg4_rd_ri, adjusted for igg4_g_l (n = 23): partial Spearman ρ = 0.147, p = 0.513.\"; charts stats.partial_correlation→scatter (expected default scatter)",
+        "Q4-partial stats.partial_correlation: chart has no recorded preset — chart evidence cannot be requested"
+      ],
+      "defectIds": [
+        "D6"
+      ]
+    },
+    {
+      "id": "S10",
+      "title": "Reports and figures",
+      "status": "known-defect",
+      "elapsedMs": 961,
+      "facts": [
+        "1/36 download(s) valid",
+        "ok: run run report md (10636 bytes, Markdown text)"
+      ],
+      "defectIds": [
+        "D7"
+      ]
+    },
+    {
+      "id": "S11",
+      "title": "Review and sign-off",
+      "status": "pass",
+      "elapsedMs": 167,
+      "facts": [
+        "4/4 question review(s) recorded",
+        "sign-off -> 201",
+        "signed by the investigator at 2026-11-17T11:58:43.304Z; contentHash 99423c2ed544…"
+      ],
+      "defectIds": []
+    },
+    {
+      "id": "S12",
+      "title": "Clean up",
+      "status": "known-defect",
+      "elapsedMs": 53,
+      "facts": [
+        "DELETE dataset -> 409",
+        "EC1 re-upload check: blocked (the dataset is still there, so the same bytes WILL be refused as a duplicate on the next run)"
+      ],
+      "defectIds": [
+        "D8"
+      ]
+    }
+  ],
+  "defects": [
+    {
+      "id": "D1",
+      "step": "S4",
+      "code": "cc7-exploratory-position-gap",
+      "title": "An exploratory question placed first makes the plan unfinalisable (CC7 counts its position)",
+      "endpoint": "GET /api/v1/projects/:p/saps/:sapId/draft/completeness",
+      "request": "`GET …/draft/completeness`",
+      "observed": "CC7 fail: Confirmatory positions 2, 3, 4 have a gap; positions must be consecutive starting at 1. (positions are assigned in add order: Q1 exploratory = 1, Q2 primary = 2, Q3/Q4 secondary = 3, 4); finalise answers 422 SAP_INCOMPLETE",
+      "expected": "exploratory positions order display only (CC7 header, FR10 of AXI-2433): confirmatory positions are ranked among confirmatory questions, so the feature §10 order (heatmap first) finalises",
+      "suspectedLocation": "axiome-back apps/organization-service/src/sap-decision/completeness/checks/cc7-position-ordering.ts evaluateCc7 (gap check on raw positions); sap/drafts/sap-draft-plan.ts nextQuestionPosition",
+      "severity": "major"
+    },
+    {
+      "id": "D2",
+      "step": "S5",
+      "code": "duplicate-of-foreign-dataset",
+      "title": "The data file cannot be uploaded to a new study: the workspace already holds the same bytes in another study",
+      "endpoint": "PATCH /api/v1/workspaces/:ws/datasets/:id/finalize",
+      "request": "`POST /api/v1/workspaces/:ws/datasets` body keys {organizationId, originalFilename, contentType} → presigned PUT (exact preset bytes) → `PATCH …/finalize`",
+      "observed": "HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"This file is already uploaded (final_tableau2_synthetic.csv, 11/3/2026).\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/38948368-af92-4364-aed7-4ee834c8d89c/finalize\",\"timestamp\":\"2026-11-17T11:58:26.045Z\",\"details\":{\"existingDatasetId\":\"6b91f9dc-30a2-4ab6-9b96-bfbf22373587\",\"existingName\":\"final_tableau2_synthetic.csv\",\"existingUploadedAt\":\"2026-11-03T18:53:54.969Z\"},\"errorCode\":\"DUPLICATE_DATA…",
+      "expected": "the investigator can bring the same file into a second study of his workspace (or is offered to link the existing upload) — the Study page upload of FR13 has no such path",
+      "suspectedLocation": "axiome-back apps/organization-service/src/datasets/datasets.service.ts finalizeUpload → findDuplicateByContentHash (AXI-2538, workspace-scoped); axiome-front src/lib/investigatorUploads/uploads.ts uploadFile",
+      "severity": "minor"
+    },
+    {
+      "id": "D3",
+      "step": "S6",
+      "code": "numeric-coded-grouping-not-bindable",
+      "title": "A declared grouping field coded 0/1 in the file cannot be mapped: the column measures as continuous",
+      "endpoint": "GET …/versions/:v/data-binding-proposal (conformance)",
+      "request": "`GET …/data-binding-proposal?datasetVersionId`",
+      "observed": "preflight: Bound column \"atteinte_pancreatique\" for slot \"groupingColumn\" has a semantic role the slot does not accept. | role_mismatch: Field \"atteinte_pancreatique\" is declared grouping_two_levels but column \"atteinte_pancreatique\" measures as continuous. | level_not_measured: Declared level(s) \"0\", \"1\" of field \"atteinte_pancreatique\" are not measured in column \"atteinte_pancreatique\".",
+      "expected": "the plan declares atteinte_pancreatique as a grouping field with levels equal to the file values (FR12): conformance passes, or the Investigator is offered a way to confirm the role. Today only a dataset semantic declaration (PUT /discovery/datasets/:id/semantic-declaration, governs_analysis_parameters) can make the column a group, and the Investigator does not hold that right",
+      "suspectedLocation": "axiome-back sap/bindings/sap-binding-measured.ts measuredColumnsOf → guided-analysis/templates/opening/opening-template.columns.ts columnRolesOf/hasCategoricalLevels (numeric levels never categorical); sap-decision/conformance/binding-conformance.ts roleFindings/levelFindings",
+      "severity": "blocker"
+    },
+    {
+      "id": "D4",
+      "step": "S8",
+      "code": "child-status-running-after-settle",
+      "title": "Every plan child run stays \"running\" after the plan run completed",
+      "endpoint": "GET /api/v1/projects/:p/saps/:sapId/runs/:sapRunId (+ GET /governed-execution/status)",
+      "request": "`GET …/runs/:sapRunId`",
+      "observed": "run status completed; Q2-pancreas child GR-bb37a171 childRunStatus running, verdict not_met; Q3-clusters child GR-226d4ed0 childRunStatus running, verdict not_tested; Q4-partial child GR-771af7cf childRunStatus running, verdict not_tested; Q1-heatmap child GR-39b359f8 childRunStatus running, verdict failed_to_run; governed status RUNNING with the last node \"<run>__interpretation\" AWAITING_APPROVAL",
+      "expected": "FR5: \"the run completes with every child run succeeded\" — the child shows completed once its computation settled (the SAP evaluation already treats it as terminal: isChildRunTerminal)",
+      "suspectedLocation": "axiome-back sap/runs/sap-run-child-results.reader.ts (computationSettled → terminal, but the view still reports governed_runs.status); the SAP child compiled plan ends in an interpretation step awaiting approval",
+      "severity": "major"
+    },
+    {
+      "id": "D5",
+      "step": "S8",
+      "code": "verdict-failed-to-run-Q1-heatmap",
+      "title": "Question Q1-heatmap: verdict \"failed to run\" although its child computed a result",
+      "endpoint": "GET …/runs/:sapRunId",
+      "request": "`GET …/runs/:sapRunId`",
+      "observed": "verdict failed_to_run, guardReason null, method \"Spearman correlation matrix, Benjamini-Hochberg across all cells\"; the child's result page is ready with the full matrix (see S9)",
+      "expected": "an exploratory question with a computed result is reported as computed (not tested / descriptive), never as \"failed to run\" (FR5)",
+      "suspectedLocation": "axiome-back sap/runs/sap-run-child-results.reader.ts main-result extraction (MAIN_ROWS_READ = 2: exactly ONE main row expected; T5@0.3 yields one row per reference × variable cell)",
+      "severity": "major"
+    },
+    {
+      "id": "D6",
+      "step": "S9",
+      "code": "chart-without-preset",
+      "title": "Plan result charts carry no recorded chart preset: they cannot be saved as evidence and offer no variant",
+      "endpoint": "GET /api/v1/projects/:p/runs/:runId/result-page (results[].preset) → POST …/result-page/chart-evidence {presetId, variantKey}",
+      "request": "`GET …/result-page`",
+      "observed": "results[].preset null for Q1-heatmap stats.correlation_matrix (heatmap_annotated), Q2-pancreas stats.mann_whitney_u (box_plot), Q3-clusters stats.kruskal_wallis (box_plot), Q3-clusters stats.dunn_posthoc (box_plot), Q4-partial stats.partial_correlation (scatter); chart evidence needs a presetId, so no chart could be saved",
+      "expected": "each plan result chart is a recorded preset (presetId + offered variants) so the Investigator can restyle it and save it as evidence (feature §7.1 step 8, FR23)",
+      "suspectedLocation": "axiome-back SAP child runs are compiled through the opening templates without minting a chart preset (sap/runs → governed execution); result-page/result-page-chart.ts reads preset only when one was recorded",
+      "severity": "major"
+    },
+    {
+      "id": "D7",
+      "step": "S10",
+      "code": "download-404-rule-run-not-found",
+      "title": "7 download kinds refused or invalid: HTTP 404 \"Rule run not found\"",
+      "endpoint": "GET /api/v1/projects/:p/rule-runs/:ruleRunId/exports/{csv,svg,png,report} and …/client-report?format={md,pdf,zip}",
+      "request": "as the investigator, ruleRunId = the result page's results[].ruleRunId (as the front's ResultExportButtons does); kinds: export csv, export svg, export png, export report (zip), client report md, client report pdf, client report zip; questions: Q1-heatmap, Q2-pancreas, Q3-clusters, Q4-partial",
+      "observed": "35 download(s): HTTP 404 \"Rule run not found\"",
+      "expected": "HTTP 200, a non-empty file of the declared type (PNG at 300 dpi) — FR5, FR24, FR25",
+      "suspectedLocation": "axiome-back exports/run-exports/run-export.service.ts and provenance/audit-report/client-report/client-report.service.ts use placedRun() (route project only, client-report-anchor.reader.ts read() → placementOf(snapshotId)); the result page reads the same run through placedRunOrReusedSource() — the plan children's rule runs are not \"placed\" in the study project",
+      "severity": "blocker"
+    },
+    {
+      "id": "D8",
+      "step": "S12",
+      "code": "dataset-delete-refused",
+      "title": "The rehearsal cannot delete the dataset it uploaded",
+      "endpoint": "DELETE /api/v1/workspaces/:ws/datasets/:id",
+      "request": "`DELETE /api/v1/workspaces/:ws/datasets/:id`",
+      "observed": "HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"Cannot delete dataset: cited by 1 evidence item(s)\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/8f784005-4e9b-454f-9983-48cd2d77f347\",\"timestamp\":\"2026-11-17T11:58:43.418Z\",\"errorCode\":\"DATASET_DELETE_REFUSED_CITED\",\"errors\":[{\"field\":\"evidence\",\"code\":\"DATASET_CITED_BY_EVIDENCE\",\"message\":\"evidence a4e81712-73ee-4d8b-80c4-e4c7dba70505 cites this dataset via view analysis \\\"SAP: MAG4 Tableau 2…",
+      "expected": "2xx — FR6 requires the rehearsal to leave no dataset behind (or the product to offer a way to)",
+      "suspectedLocation": "axiome-back apps/organization-service/src/datasets/datasets.service.ts delete → findDatasetDeleteCitations / dataset-delete-refusal.ts (AXI-2314)",
+      "severity": "major"
+    }
+  ],
+  "residue": [
+    {
+      "kind": "dataset (leftover of an earlier run)",
+      "id": "5c7b3fe8-7915-4fbb-b04c-f500d1a28500",
+      "removed": false,
+      "note": "delete refused: HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"Cannot delete dataset: cited by 1 evidence item(s)\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/5c7b3fe8-7915-4fbb-b04c-f500d1a28500\",\"timestamp\":\"2026-11-17T11:58:25.043Z\",\"errorCode\":\"DATASET_DELETE_REFUSED_CITED\",\"errors\":[{\"field\":\"evidence\",\"code\":\"DATASET_CITED_BY_EVIDENCE\",\"message\":\"evidence 76a2f761-1770-4276-8685-1c9d190b917b cites this dataset via view analysis \\\"SAP: MAG4 Tableau 2…"
+    },
+    {
+      "kind": "dataset (leftover of an earlier run)",
+      "id": "6db29de3-1df5-4d2f-ae37-05f9200abd7d",
+      "removed": false,
+      "note": "delete refused: HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"Cannot delete dataset: cited by 1 evidence item(s)\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/6db29de3-1df5-4d2f-ae37-05f9200abd7d\",\"timestamp\":\"2026-11-17T11:58:25.124Z\",\"errorCode\":\"DATASET_DELETE_REFUSED_CITED\",\"errors\":[{\"field\":\"evidence\",\"code\":\"DATASET_CITED_BY_EVIDENCE\",\"message\":\"evidence 96404bcc-9ca9-49ab-a8a0-69c433e793ba cites this dataset via view analysis \\\"SAP: MAG4 Tableau 2…"
+    },
+    {
+      "kind": "project",
+      "id": "57e9083e-a341-41fd-a09f-c26a75fbbbe9",
+      "removed": false,
+      "note": "\"E2E AXI-2601 handover rehearsal 20261117T115823-zpdv\" — kept as the run's evidence (results, review, sign-off)"
+    },
+    {
+      "kind": "dataset",
+      "id": "8f784005-4e9b-454f-9983-48cd2d77f347",
+      "removed": false,
+      "note": "delete refused: HTTP 409 {\"success\":false,\"statusCode\":409,\"message\":\"Cannot delete dataset: cited by 1 evidence item(s)\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/workspaces/1eebb49b-a1f6-4e69-b880-20d0e7d1f739/datasets/8f784005-4e9b-454f-9983-48cd2d77f347\",\"timestamp\":\"2026-11-17T11:58:43.418Z\",\"errorCode\":\"DATASET_DELETE_REFUSED_CITED\",\"errors\":[{\"field\":\"evidence\",\"code\":\"DATASET_CITED_BY_EVIDENCE\",\"message\":\"evidence a4e81712-73ee-4d8b-80c4-e4c7dba70505 cites this dataset via view analysis \\\"SAP: MAG4 Tableau 2…"
+    },
+    {
+      "kind": "SAP run",
+      "id": "09bd9078-c194-4b11-8eb7-b170147452b1",
+      "removed": false,
+      "note": "kept with the project (append-only record)"
+    }
+  ],
+  "downloads": [
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "export csv",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/65ca4dc5-1a88-4454-9baa-552e6950596f/exports/csv\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "export svg",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/65ca4dc5-1a88-4454-9baa-552e6950596f/exports/svg\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "export png",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/65ca4dc5-1a88-4454-9baa-552e6950596f/exports/png\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "export report (zip)",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 259,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/65ca4dc5-1a88-4454-9baa-552e6950596f/exports/report\",\"timestamp\":\"2026-11…"
+    },
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "client report md",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 268,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/65ca4dc5-1a88-4454-9baa-552e6950596f/client-report?format=md\",\"timestamp\"…"
+    },
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "client report pdf",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 269,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/65ca4dc5-1a88-4454-9baa-552e6950596f/client-report?format=pdf\",\"timestamp…"
+    },
+    {
+      "questionKey": "Q1-heatmap",
+      "kind": "client report zip",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 269,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/65ca4dc5-1a88-4454-9baa-552e6950596f/client-report?format=zip\",\"timestamp…"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "export csv",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/d890e64f-5124-4139-936b-d141a37c48ef/exports/csv\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "export svg",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/d890e64f-5124-4139-936b-d141a37c48ef/exports/svg\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "export png",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/d890e64f-5124-4139-936b-d141a37c48ef/exports/png\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "export report (zip)",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 259,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/d890e64f-5124-4139-936b-d141a37c48ef/exports/report\",\"timestamp\":\"2026-11…"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "client report md",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 268,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/d890e64f-5124-4139-936b-d141a37c48ef/client-report?format=md\",\"timestamp\"…"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "client report pdf",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 269,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/d890e64f-5124-4139-936b-d141a37c48ef/client-report?format=pdf\",\"timestamp…"
+    },
+    {
+      "questionKey": "Q2-pancreas",
+      "kind": "client report zip",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 269,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/d890e64f-5124-4139-936b-d141a37c48ef/client-report?format=zip\",\"timestamp…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export csv",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/25ce483a-eac3-40b0-8452-704185678e82/exports/csv\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export svg",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/25ce483a-eac3-40b0-8452-704185678e82/exports/svg\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export png",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/25ce483a-eac3-40b0-8452-704185678e82/exports/png\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export report (zip)",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 259,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/25ce483a-eac3-40b0-8452-704185678e82/exports/report\",\"timestamp\":\"2026-11…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "client report md",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 268,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/25ce483a-eac3-40b0-8452-704185678e82/client-report?format=md\",\"timestamp\"…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "client report pdf",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 269,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/25ce483a-eac3-40b0-8452-704185678e82/client-report?format=pdf\",\"timestamp…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "client report zip",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 269,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/25ce483a-eac3-40b0-8452-704185678e82/client-report?format=zip\",\"timestamp…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export csv",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/16d6e710-1fa9-4e41-94f0-9b5aacb6ef7e/exports/csv\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export svg",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/16d6e710-1fa9-4e41-94f0-9b5aacb6ef7e/exports/svg\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export png",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/16d6e710-1fa9-4e41-94f0-9b5aacb6ef7e/exports/png\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "export report (zip)",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 259,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/16d6e710-1fa9-4e41-94f0-9b5aacb6ef7e/exports/report\",\"timestamp\":\"2026-11…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "client report md",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 268,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/16d6e710-1fa9-4e41-94f0-9b5aacb6ef7e/client-report?format=md\",\"timestamp\"…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "client report pdf",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 269,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/16d6e710-1fa9-4e41-94f0-9b5aacb6ef7e/client-report?format=pdf\",\"timestamp…"
+    },
+    {
+      "questionKey": "Q3-clusters",
+      "kind": "client report zip",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 269,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/16d6e710-1fa9-4e41-94f0-9b5aacb6ef7e/client-report?format=zip\",\"timestamp…"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "export csv",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/f9af96ad-b0f4-4c30-822d-c4c2deba660c/exports/csv\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "export svg",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/f9af96ad-b0f4-4c30-822d-c4c2deba660c/exports/svg\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "export png",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 256,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/f9af96ad-b0f4-4c30-822d-c4c2deba660c/exports/png\",\"timestamp\":\"2026-11-17…"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "export report (zip)",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 259,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/f9af96ad-b0f4-4c30-822d-c4c2deba660c/exports/report\",\"timestamp\":\"2026-11…"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "client report md",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 268,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/f9af96ad-b0f4-4c30-822d-c4c2deba660c/client-report?format=md\",\"timestamp\"…"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "client report pdf",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 269,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/f9af96ad-b0f4-4c30-822d-c4c2deba660c/client-report?format=pdf\",\"timestamp…"
+    },
+    {
+      "questionKey": "Q4-partial",
+      "kind": "client report zip",
+      "file": null,
+      "status": 404,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 269,
+      "valid": false,
+      "note": "{\"success\":false,\"statusCode\":404,\"message\":\"Rule run not found\",\"error\":\"InternalServerError\",\"path\":\"/api/v1/projects/57e9083e-a341-41fd-a09f-c26a75fbbbe9/rule-runs/f9af96ad-b0f4-4c30-822d-c4c2deba660c/client-report?format=zip\",\"timestamp…"
+    },
+    {
+      "questionKey": "run",
+      "kind": "run report md",
+      "file": "downloads/run-run-sap-run-report-09bd9078-c194-4b11-8eb7-b170147452b1.md",
+      "status": 200,
+      "contentType": "text/markdown; charset=utf-8",
+      "bytes": 10636,
+      "valid": true,
+      "note": "Markdown text"
+    },
+    {
+      "questionKey": "run",
+      "kind": "signed report md",
+      "file": "downloads/run-signed-sap-run-report-09bd9078-c194-4b11-8eb7-b170147452b1-signed.md",
+      "status": 200,
+      "contentType": "text/markdown; charset=utf-8",
+      "bytes": 10636,
+      "valid": true,
+      "note": "Markdown text"
+    }
+  ],
+  "timings": {
+    "upload (initiate → finalize)": 264,
+    "ingestion (finalize → ready)": 2045,
+    "run (Start run → plan run settled)": 12640,
+    "time to first result (Start run → first question verdict)": 12640
+  },
+  "mode": "rehearsal",
+  "runToken": "20261117T115823-zpdv",
+  "startedAt": "2026-11-17T11:58:23.722Z",
+  "target": {
+    "label": "local demo stack",
+    "baseUrl": "http://localhost:5174",
+    "apiBaseUrl": "http://localhost:3001",
+    "workspaceId": "1eebb49b-a1f6-4e69-b880-20d0e7d1f739"
+  },
+  "commits": {
+    "front": "c677865b",
+    "back": "0d015f28",
+    "compute": "603ef0a"
+  },
+  "evidence": {
+    "counts": true,
+    "reason": "commits recorded and equal to main"
+  },
+  "preset": {
+    "presetId": "mag4-tableau2-handover",
+    "presetVersion": "1",
+    "dataFileSha256": "42fede8a595e05f09589910d5ba91f1602d4a5762c4f834de075d472743e3cbc"
+  }
+}

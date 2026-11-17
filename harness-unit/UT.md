@@ -555,3 +555,43 @@ the run as LOGIN_FAILED). A fake clock and a fake gateway enforcing `exp` — no
 | UT-PRODE2E-6111 | connecting with a bad credential fails at once (the suite aborts LOGIN_FAILED), before any request | Pass |
 | UT-PRODE2E-6112 | the EC9 tripwire still refuses a forbidden reference before any login or send | Pass |
 | UT-PRODE2E-6113 | a 60-min run against a gateway enforcing the 15-min exp never sees a 401 (bug reproduction; the static-token client goes 401 at 15 min) | Pass |
+
+## AXI-2601/handover.spec.ts
+
+AXI-2601 (epic AXI-2598 — SI-042, SI-044). Pure coverage of the investigator handover suite
+harness (`tests/AXI-2598/harness/`): the preset check against the data file (FR12, EC6, EC7),
+env-only configuration and the evidence verdict (FR2, FR31, EC20), the bounded poll, the
+file-type checks (FR5, FR25), the known-defect registry and the secret-refusing report (FR7, NFR4).
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-HANDOVER-2601-1 | the committed preset matches the committed data file with no problem | Pass |
+| UT-HANDOVER-2601-2 | a field whose name differs by case is refused, naming the near column (EC2) | Pass |
+| UT-HANDOVER-2601-3 | a grouping level not equal to the file values is refused (FR12) | Pass |
+| UT-HANDOVER-2601-4 | T5 or T3 pinned at 0.4 is refused whatever the role (EC6) | Pass |
+| UT-HANDOVER-2601-5 | a multi-cell correlation at 0.3 that is not exploratory is refused (EC7) | Pass |
+| UT-HANDOVER-2601-6 | a binding to an undeclared field, a duplicate key and a wrong sha are all refused at once | Pass |
+| UT-HANDOVER-2601-7 | csvFacts reads quoted cells, CRLF and per-column blanks | Pass |
+| UT-HANDOVER-2601-8 | the data file blanks are the ones the report states (EC4) | Pass |
+| UT-HANDOVER-2601-9 | cellCount multiplies the many-slots; the heatmap question is 7 × 6 | Pass |
+| UT-HANDOVER-2601-10 | questionBody binds by server fieldId and refuses an unknown name | Pass |
+| UT-HANDOVER-2601-11 | the salted fallback keeps every preset column and value and changes the hash | Pass |
+| UT-HANDOVER-2601-12 | every missing variable is named at once, a credential never echoed | Pass |
+| UT-HANDOVER-2601-13 | the investigator role defaults its email; the provisioner is null unless both halves are set | Pass |
+| UT-HANDOVER-2601-14 | parseCommits needs all three services as short or full shas | Pass |
+| UT-HANDOVER-2601-15 | a run counts as evidence only with commits recorded AND stated equal to main (FR31, EC20) | Pass |
+| UT-HANDOVER-2601-16 | pollUntil returns the settled value with elapsed time and observation count | Pass |
+| UT-HANDOVER-2601-17 | pollUntil stops at the deadline with the last observation | Pass |
+| UT-HANDOVER-2601-18 | pollUntil fails fast on a fatal observation | Pass |
+| UT-HANDOVER-2601-19 | pngDpi reads pHYs; a PNG is valid only at 300 dpi (FR25) | Pass |
+| UT-HANDOVER-2601-20 | checkFile trusts bytes, not the content type: PDF, ZIP, SVG, CSV, MD, empty | Pass |
+| UT-HANDOVER-2601-21 | a step is an expected failure only when every defect is registered | Pass |
+| UT-HANDOVER-2601-22 | defects get run-local ids and land on their step; a step is reused by id | Pass |
+| UT-HANDOVER-2601-23 | the report is written as run-<token>.json + REPORT-<token>.md under the dated slug | Pass |
+| UT-HANDOVER-2601-24 | a report carrying a bearer token is refused, nothing written (NFR4, AC20) | Pass |
+| UT-HANDOVER-2601-25 | step verdict: every registered defect of the step still observed → expected failure; nothing registered/observed → pass | Pass |
+| UT-HANDOVER-2601-26 | step verdict: a registered defect no longer observed is red (fixed — remove the entry), even when another registered one of the step remains | Pass |
+| UT-HANDOVER-2601-27 | step verdict: an unregistered code (or one registered for another step) is red; continue mode expects every observed code | Pass |
+| UT-HANDOVER-2601-28 | step verdict: a wildcard entry counts as present while any code of its family is observed | Pass |
+| UT-HANDOVER-2601-29 | the shipped known-defect registry pins every entry to a step S0..S12 | Pass |
+| UT-HANDOVER-2601-30 | FR8 fail closed: `isLocalTarget`; a non-local target with no forbidden-org list is refused before any request | Pass |

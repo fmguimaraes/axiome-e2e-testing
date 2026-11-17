@@ -1,0 +1,315 @@
+{
+  "$comment": "AXI-2601 (epic AXI-2598, feature §10) — the MAG4 handover preset. The ONE source of every preset value (FR10). Field names equal the data file columns character for character, grouping levels equal the file values (FR12, checked before provisioning). T5 is pinned at 0.3 and exploratory: 0.4 is refused at pre-flight in any role until AXI-2526 (EC6), and a >1-cell correlation at 0.3 must be exploratory (CC9, EC7). Question order = plan order = Study page order: heatmap first (FR21). Reference column for Q2-Q4 and question roles: owner to confirm (OQ-2).",
+  "presetId": "mag4-tableau2-handover",
+  "presetVersion": "1",
+  "dataFile": {
+    "path": "fixtures/handover/final_tableau2_synthetic.csv",
+    "sha256": "42fede8a595e05f09589910d5ba91f1602d4a5762c4f834de075d472743e3cbc",
+    "rows": 23,
+    "columns": 21
+  },
+  "protocol": {
+    "title": "MAG4 — IgG4 anti-microbiota references in IgG4-related disease",
+    "objective": "Describe how IgG4 antibodies against microbiota references relate to clinical and biological features of IgG4-related disease: correlation with clinical variables, pancreato-biliary involvement, ACR/EULAR 2019 clusters, and the responder index independent of serum IgG4.",
+    "studyPopulation": "Patients with IgG4-related disease in the MAG4 cohort (synthetic data until the PADS is signed).",
+    "text": "Synthetic rehearsal protocol for the MAG4 handover session. Data file: Tableau 2 (final_tableau2_synthetic.csv). Research use only."
+  },
+  "plan": {
+    "title": "MAG4 Tableau 2 — statistical analysis plan",
+    "studyPopulation": "Patients with IgG4-related disease in the MAG4 cohort (synthetic data until the PADS is signed)."
+  },
+  "dataSpecification": {
+    "fields": [
+      {
+        "name": "microbiote_igg4_cer_228",
+        "label": "IgG4 anti-microbiota reference CER-228",
+        "semanticRole": "continuous",
+        "required": true
+      },
+      {
+        "name": "microbiote_igg4_mag4_27",
+        "label": "IgG4 anti-microbiota reference MAG4-27",
+        "semanticRole": "continuous",
+        "required": true
+      },
+      {
+        "name": "microbiote_igg4_mag4_22",
+        "label": "IgG4 anti-microbiota reference MAG4-22",
+        "semanticRole": "continuous",
+        "required": true
+      },
+      {
+        "name": "microbiote_igg4_mag4_13",
+        "label": "IgG4 anti-microbiota reference MAG4-13",
+        "semanticRole": "continuous",
+        "required": true
+      },
+      {
+        "name": "microbiote_igg4_cer_215_et_234",
+        "label": "IgG4 anti-microbiota reference CER-215 and 234",
+        "semanticRole": "continuous",
+        "required": true
+      },
+      {
+        "name": "microbiote_igg4_cer_229",
+        "label": "IgG4 anti-microbiota reference CER-229",
+        "semanticRole": "continuous",
+        "required": true
+      },
+      {
+        "name": "microbiote_igg4_ent_059",
+        "label": "IgG4 anti-microbiota reference ENT-059",
+        "semanticRole": "continuous",
+        "required": true
+      },
+      {
+        "name": "igg4_g_l",
+        "label": "Serum IgG4",
+        "semanticRole": "continuous",
+        "required": true
+      },
+      {
+        "name": "igg4_rd_ri",
+        "label": "IgG4-RD responder index",
+        "semanticRole": "continuous",
+        "required": true
+      },
+      {
+        "name": "igg4_hpf",
+        "label": "IgG4+ plasma cells per high-power field",
+        "semanticRole": "continuous",
+        "required": true
+      },
+      {
+        "name": "eosinophils",
+        "label": "Eosinophils",
+        "semanticRole": "continuous",
+        "required": true
+      },
+      {
+        "name": "plasmablasts_cd19_cd38_cd27_mm3",
+        "label": "Plasmablasts (CD19+ CD38+ CD27+)",
+        "semanticRole": "continuous",
+        "required": true
+      },
+      {
+        "name": "tfh_cxcr5_pd1_cd4",
+        "label": "Tfh cells (CXCR5+ PD1+ CD4+)",
+        "semanticRole": "continuous",
+        "required": true
+      },
+      {
+        "name": "atteinte_pancreatique",
+        "label": "Pancreato-biliary involvement",
+        "semanticRole": "grouping_two_levels",
+        "levels": [
+          "0",
+          "1"
+        ],
+        "controlLevels": [
+          "0"
+        ],
+        "required": true,
+        "description": "0 = no pancreato-biliary involvement, 1 = involvement"
+      },
+      {
+        "name": "cluster_selon_acr_eular_2019",
+        "label": "ACR/EULAR 2019 cluster",
+        "semanticRole": "grouping_three_plus_levels",
+        "levels": [
+          "C1",
+          "C2",
+          "C3",
+          "C4"
+        ],
+        "required": true
+      }
+    ]
+  },
+  "questions": [
+    {
+      "key": "Q1-heatmap",
+      "text": "How does each IgG4 anti-microbiota reference correlate with the clinical and biological variables?",
+      "role": "exploratory",
+      "template": {
+        "templateId": "T5",
+        "templateVersion": "0.3"
+      },
+      "estimand": {
+        "population": "Patients with IgG4-related disease in the MAG4 cohort",
+        "variable": "IgG4 anti-microbiota references and clinical variables",
+        "intercurrentEvents": "None anticipated (cross-sectional measurement)",
+        "populationSummary": "Spearman correlation coefficient per reference-variable pair, Benjamini-Hochberg adjusted",
+        "treatmentComparison": "Not a group comparison: correlation across patients"
+      },
+      "bindings": [
+        {
+          "slot": "references",
+          "field": "microbiote_igg4_cer_228"
+        },
+        {
+          "slot": "references",
+          "field": "microbiote_igg4_mag4_27"
+        },
+        {
+          "slot": "references",
+          "field": "microbiote_igg4_mag4_22"
+        },
+        {
+          "slot": "references",
+          "field": "microbiote_igg4_mag4_13"
+        },
+        {
+          "slot": "references",
+          "field": "microbiote_igg4_cer_215_et_234"
+        },
+        {
+          "slot": "references",
+          "field": "microbiote_igg4_cer_229"
+        },
+        {
+          "slot": "references",
+          "field": "microbiote_igg4_ent_059"
+        },
+        {
+          "slot": "y",
+          "field": "igg4_g_l"
+        },
+        {
+          "slot": "y",
+          "field": "igg4_rd_ri"
+        },
+        {
+          "slot": "y",
+          "field": "igg4_hpf"
+        },
+        {
+          "slot": "y",
+          "field": "eosinophils"
+        },
+        {
+          "slot": "y",
+          "field": "plasmablasts_cd19_cd38_cd27_mm3"
+        },
+        {
+          "slot": "y",
+          "field": "tfh_cxcr5_pd1_cd4"
+        }
+      ],
+      "parameters": {
+        "alpha": 0.05,
+        "sidedness": "two_sided"
+      },
+      "decisionCriterion": {
+        "kind": "p_at_or_below_alpha"
+      },
+      "expectedChart": "heatmap_annotated"
+    },
+    {
+      "key": "Q2-pancreas",
+      "text": "Does the IgG4 anti-microbiota reference ENT-059 differ with pancreato-biliary involvement?",
+      "role": "primary",
+      "template": {
+        "templateId": "T1",
+        "templateVersion": "0.4"
+      },
+      "estimand": {
+        "population": "Patients with IgG4-related disease in the MAG4 cohort",
+        "variable": "IgG4 anti-microbiota reference ENT-059",
+        "intercurrentEvents": "None anticipated (cross-sectional measurement)",
+        "populationSummary": "Difference in distributions (Mann-Whitney)",
+        "treatmentComparison": "Pancreato-biliary involvement (1) vs none (0)"
+      },
+      "bindings": [
+        {
+          "slot": "groupingColumn",
+          "field": "atteinte_pancreatique"
+        },
+        {
+          "slot": "outcome",
+          "field": "microbiote_igg4_ent_059"
+        }
+      ],
+      "parameters": {
+        "alpha": 0.05,
+        "sidedness": "two_sided"
+      },
+      "decisionCriterion": {
+        "kind": "p_at_or_below_alpha"
+      },
+      "expectedChart": "strip_plot"
+    },
+    {
+      "key": "Q3-clusters",
+      "text": "Does the IgG4 anti-microbiota reference ENT-059 differ between ACR/EULAR 2019 clusters?",
+      "role": "secondary",
+      "template": {
+        "templateId": "T2",
+        "templateVersion": "0.3"
+      },
+      "estimand": {
+        "population": "Patients with IgG4-related disease in the MAG4 cohort",
+        "variable": "IgG4 anti-microbiota reference ENT-059",
+        "intercurrentEvents": "None anticipated (cross-sectional measurement)",
+        "populationSummary": "Difference in distributions across clusters (Kruskal-Wallis, Dunn post-hoc)",
+        "treatmentComparison": "Clusters C1, C2, C3, C4"
+      },
+      "bindings": [
+        {
+          "slot": "groupingColumn",
+          "field": "cluster_selon_acr_eular_2019"
+        },
+        {
+          "slot": "outcome",
+          "field": "microbiote_igg4_ent_059"
+        }
+      ],
+      "parameters": {
+        "alpha": 0.05,
+        "sidedness": "two_sided"
+      },
+      "decisionCriterion": {
+        "kind": "p_at_or_below_alpha"
+      },
+      "expectedChart": "strip_plot"
+    },
+    {
+      "key": "Q4-partial",
+      "text": "Is the IgG4 anti-microbiota reference ENT-059 associated with the IgG4-RD responder index independently of serum IgG4?",
+      "role": "secondary",
+      "template": {
+        "templateId": "T4",
+        "templateVersion": "0.4"
+      },
+      "estimand": {
+        "population": "Patients with IgG4-related disease in the MAG4 cohort",
+        "variable": "IgG4 anti-microbiota reference ENT-059 and IgG4-RD responder index",
+        "intercurrentEvents": "None anticipated (cross-sectional measurement)",
+        "populationSummary": "Partial Spearman correlation adjusted for serum IgG4",
+        "treatmentComparison": "Not a group comparison: association adjusted for serum IgG4"
+      },
+      "bindings": [
+        {
+          "slot": "x",
+          "field": "microbiote_igg4_ent_059"
+        },
+        {
+          "slot": "y",
+          "field": "igg4_rd_ri"
+        },
+        {
+          "slot": "adjustFor",
+          "field": "igg4_g_l"
+        }
+      ],
+      "parameters": {
+        "alpha": 0.05,
+        "sidedness": "two_sided"
+      },
+      "decisionCriterion": {
+        "kind": "p_at_or_below_alpha"
+      },
+      "expectedChart": "scatter"
+    }
+  ]
+}

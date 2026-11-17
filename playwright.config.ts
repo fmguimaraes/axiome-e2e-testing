@@ -58,6 +58,12 @@ const AXI_2549_SPEC = /AXI-2540\/AXI-2549-ingestion-watchdog-retry\.spec\.ts$/;
 // AXI-2319 — its pass-rule stand-in verification spec runs in the same project.
 const PROD_SUITE_SPEC = /AXI-2309\/(AXI-2318-prod-(daily-suite|suite-infra)|AXI-2319-prod-pass-rule)\.spec\.ts$/;
 
+// AXI-2601 (epic AXI-2598) — the investigator handover suite: API-only (its own fetch
+// client, signs in as the `investigator` role of config/roles.ts), no `setup` storageState
+// dependency, and NO trace/video/screenshot (FR7, NFR4 — a trace would record the bearer token).
+// Run via `--project=handover-api` (tests/AXI-2598/harness/run-local.sh).
+const HANDOVER_SPEC = /AXI-2598\/AXI-2601-[^/]+\.spec\.ts$/;
+
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
  *
@@ -128,7 +134,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -181,6 +187,12 @@ export default defineConfig({
     {
       name: 'axi-2549-api',
       testMatch: AXI_2549_SPEC,
+    },
+    // AXI-2601 (epic AXI-2598) — handover suite, rehearsal mode (see HANDOVER_SPEC above).
+    {
+      name: 'handover-api',
+      testMatch: HANDOVER_SPEC,
+      use: { trace: 'off', video: 'off', screenshot: 'off' },
     },
   ],
 });

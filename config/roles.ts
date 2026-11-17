@@ -54,3 +54,27 @@ export const ROLES: Role[] = [
     selfRegister: true,
   },
 ];
+
+/**
+ * AXI-2601 (epic AXI-2598 — FR4) — the `investigator` auth role: an identity holding the
+ * workspace Investigator role (`00000000-0000-0000-0000-000000000105`), used by the handover
+ * suite for every client-path step. Kept OUT of `ROLES` on purpose: the setup project would
+ * otherwise require an investigator credential for every spec. No password is committed — it
+ * comes from `E2E_INVESTIGATOR_PASSWORD` only (NFR4/NFR6).
+ */
+export interface InvestigatorRole {
+  name: 'investigator';
+  email: string;
+  password: string;
+  /** The workspace role the identity must hold where the suite runs. */
+  workspaceRoleId: '00000000-0000-0000-0000-000000000105';
+}
+
+export function investigatorRole(env: Record<string, string | undefined> = process.env): InvestigatorRole {
+  return {
+    name: 'investigator',
+    email: env.E2E_INVESTIGATOR_EMAIL?.trim() || 'investigator@axiomebio.com',
+    password: env.E2E_INVESTIGATOR_PASSWORD?.trim() ?? '',
+    workspaceRoleId: '00000000-0000-0000-0000-000000000105',
+  };
+}
