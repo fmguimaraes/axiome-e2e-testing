@@ -6,10 +6,11 @@ import { gotoSettled } from '../AXI-2308/harness/new-analysis';
 import { QuestionFlowStub } from './harness/question-flow-stub';
 
 /**
- * AXI-2570 (epic AXI-2567 — Plan Before Data): the question-flow split — the wizard's question
- * mode stores a question STUB; the stub reads "Awaiting plan"; the plan editor writes its plan.
+ * AXI-2570 (epic AXI-2567 — Plan Before Data): a question STUB reads "Awaiting analysis" on the
+ * investigator plan page, and the plan editor writes its plan in place. AXI-2589 removed the
+ * wizard's question mode (old scenarios 2.1 / 2.3 / 2.5); the stub is seeded in the double.
  *
- * Scenarios: `axiome-docs/manual-e2e/AXI-2567-Plan-Before-Data.md` § AXI-2570 (2.1 … 2.5).
+ * Scenarios: `axiome-docs/manual-e2e/AXI-2567-Plan-Before-Data.md` § AXI-2570 (2.2, 2.4).
  *
  * E2E CONTRACT — sign-in, workspace, project, membership and the INVESTIGATOR role's
  * permissions are REAL (demo gateway). The SAP routes are an in-memory DOUBLE
@@ -49,6 +50,7 @@ async function person(label: string, workspaceId: string): Promise<Person> {
 
 async function openSap(page: Page): Promise<void> {
   await stub.install(page);
+  await stub.grantQuestionRights(page);
   await page.addInitScript(([org, ws, p]) => {
     localStorage.setItem('axiome-top-org', org);
     localStorage.setItem('axiome-active-workspace', ws);
@@ -77,6 +79,9 @@ test.beforeAll(async () => {
   const grant = await access.grant(projectOwner, projectId, investigator.userId);
   expect(grant.status(), await grant.text()).toBeLessThan(300);
   stub = new QuestionFlowStub(projectId, investigator.userId);
+  // AXI-2589: the full-page question flow (old 2570.1/.3/.5) is gone — the stub is seeded; adding
+  // one through the modal is AXI-2589-question-modal.spec.ts.
+  stub.seed([{ questionId: '77777777-7777-4777-8777-000000000001', text: QUESTION, role: 'secondary' }]);
 });
 
 test.afterAll(async () => {
@@ -85,53 +90,17 @@ test.afterAll(async () => {
 });
 
 test.describe('AXI-2570 question flow: stub, awaiting plan, plan written @SI-030 @SI-066 @SI-065 @SI-071 @SI-031 @SI-010', () => {
-  test('AXI-2570.1 FR28 FR27 ask a question walks Question → Ready only and stores a stub (text + role)', async ({ page }) => {
+  test('AXI-2570.2 FR29 FR11 the stub reads "Awaiting analysis" on the plan page; finalise is disabled', async ({ page }) => {
     await openSap(page);
-    await page.getByTestId('sap-ask-question').click();
-    await expect(page).toHaveURL(/\/sap\/questions\/new\?mode=question$/);
-    const flow = page.getByTestId('sap-question-mode');
-    await expect(flow).toHaveAttribute('data-step', 'question');
-    await expect(page.getByTestId('sap-question-mode-steps').locator('li')).toHaveText(['1. Question', '2. Ready']);
-    await expect(page.getByTestId('na-page')).toHaveCount(0);
-    await page.getByTestId('sap-question-mode-text').fill(QUESTION);
-    await page.getByTestId('sap-question-mode-next').click();
-    await expect(flow).toHaveAttribute('data-step', 'ready');
-    await expect(page.getByTestId('sap-question-mode-readback')).toHaveText(QUESTION);
-    await expect(page.getByTestId('sap-question-mode-role').locator('option')).toHaveText(['Primary', 'Secondary', 'Exploratory']);
-    await expect(page.getByTestId('sap-question-mode-role')).toHaveValue('primary');
-    await page.getByTestId('sap-question-mode-role').selectOption('secondary');
-    await page.getByTestId('sap-question-mode-add').click();
-    await expect(page).toHaveURL(new RegExp(`/investigator/projects/${projectId}/sap\\?highlight=`));
-    expect(stub.writesTo('POST', '/draft/question-stubs').map((w) => w.body)).toEqual([
-      { basedOnRevision: 1, question: { text: QUESTION, role: 'secondary' } },
-    ]);
-    expect(stub.writesTo('POST', '/draft/questions')).toHaveLength(0);
-  });
-
-  test('AXI-2570.2 FR29 FR11 the stub reads "Awaiting plan" with a Write plan link; finalise is disabled', async ({ page }) => {
-    await openSap(page);
-    const row = page.getByTestId('sap-draft-spec-questions-Q1');
-    await expect(row).toHaveAttribute('data-state', 'stub');
-    await expect(page.getByTestId('sap-draft-spec-questions-Q1-state')).toHaveText('Awaiting plan');
-    await expect(row).toContainText('no statistical plan yet');
-    await expect(page.getByTestId('sap-draft-spec-questions-Q1-plan')).toBeVisible();
-    await expect(page.getByTestId('sap-finalise')).toBeDisabled();
-  });
-
-  test('AXI-2570.3 FR27 a blank question cannot be added; no stub request is sent', async ({ page }) => {
-    await openSap(page);
-    const before = stub.writesTo('POST', '/draft/question-stubs').length;
-    await page.getByTestId('sap-ask-question').click();
-    await page.getByTestId('sap-question-mode-next').click();
-    await expect(page.getByTestId('sap-question-mode-issues')).toContainText('The question needs its text.');
-    await expect(page.getByTestId('sap-question-mode-add')).toBeDisabled();
-    expect(stub.writesTo('POST', '/draft/question-stubs')).toHaveLength(before);
+    await expect(page.getByTestId('sap-plan-questions-row-Q1')).toContainText(QUESTION);
+    await expect(page.getByTestId('sap-plan-questions-status-Q1')).toHaveText('Awaiting analysis');
+    await expect(page.getByTestId('sap-finalise-open')).toBeDisabled();
   });
 
   test('AXI-2570.4 FR28 FR29 Write plan opens the stub read-only and saves its plan in place (same id) → Complete', async ({ page }) => {
     await openSap(page);
     const stubId = stub.questions[0].questionId;
-    await page.getByTestId('sap-draft-spec-questions-Q1-plan').click();
+    await page.getByTestId('sap-plan-questions-row-Q1').click();
     await expect(page).toHaveURL(new RegExp(`/sap/questions/${stubId}$`));
     const form = page.getByTestId('sap-spec-question-form');
     await expect(form).toHaveAttribute('data-stub', 'true');
@@ -153,19 +122,6 @@ test.describe('AXI-2570 question flow: stub, awaiting plan, plan written @SI-030
     expect(put[0].body.question).toMatchObject({ text: QUESTION, role: 'secondary', template: { templateId: 'T1' } });
     expect(put[0].body.question.bindings.map((b: { slot: string }) => b.slot)).toEqual(['groupingColumn', 'outcome']);
     expect(stub.writesTo('POST', '/draft/questions')).toHaveLength(0);
-    await expect(page.getByTestId('sap-draft-spec-questions-Q1-state')).toHaveText('Complete');
-    await expect(page.getByTestId('sap-draft-spec-questions-Q1-plan')).toHaveCount(0);
-  });
-
-  test('AXI-2570.5 FR28 "Add question" still opens the AXI-2569 declared question form (ordinary flow untouched)', async ({ page }) => {
-    await openSap(page);
-    await page.getByTestId('sap-add-question').click();
-    await expect(page).toHaveURL(/\/sap\/questions\/new$/);
-    const form = page.getByTestId('sap-spec-question-form');
-    await expect(form).toBeVisible();
-    await expect(form).not.toHaveAttribute('data-stub', 'true');
-    await expect(page.getByTestId('sap-spec-q-text')).toBeEditable();
-    await expect(page.getByTestId('sap-spec-q-save')).toHaveText('Add to plan');
-    await expect(page.getByTestId('sap-question-mode')).toHaveCount(0);
+    await expect(page.getByTestId('sap-plan-questions-status-Q1')).toHaveText('Complete');
   });
 });

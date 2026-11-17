@@ -11,6 +11,10 @@ import type { Page, Route } from '@playwright/test';
  * - the completeness read carries `questionStates` — a FIXTURE of the server rule: a stub is
  *   `stub` and fails CC2/CC3/CC6 on its own question; a planned question is `complete`.
  *
+ * AXI-2589: the template catalogue serves `methodName`; the protocol read
+ * (`GET /projects/:id/study/protocol`) is answered too — saved by default, `protocolSaved = false`
+ * for the "no protocol yet" scenarios; `seed()` pre-loads questions (a primary, a stub, …).
+ *
  * Sign-in, the workspace, the project and the caller's permissions stay REAL (demo gateway).
  * Why a double: no running stack serves the AXI-2570 branch (see the spec header).
  */
@@ -22,7 +26,7 @@ export const POPULATION = 'Adults with rheumatoid arthritis, 18-75 years';
 export interface StubWrite { method: string; path: string; body: any }
 
 const T1 = {
-  templateId: 'T1', templateVersion: '1.0.0', isNewest: true, wholeMatrixMainResultVersion: null,
+  templateId: 'T1', templateVersion: '1.0.0', isNewest: true, methodName: 'Mann-Whitney U test', wholeMatrixMainResultVersion: null,
   mainResult: { pValueField: 'p_value', effectField: null }, parameterSchema: [], supportsOneSidedAlternative: false,
   cellAxisSlots: null, declaredOutputs: {},
   slots: [
@@ -39,6 +43,8 @@ const json = (route: Route, status: number, body: unknown) =>
 
 export class QuestionFlowStub {
   readonly writes: StubWrite[] = [];
+  /** AXI-2589: whether the protocol read answers a saved title + objective. */
+  protocolSaved = true;
   private readonly sapId = 'sap-e2e-2570';
   private seq = 0;
   private readonly draft: any;
@@ -66,8 +72,36 @@ export class QuestionFlowStub {
     return this.writes.filter((w) => w.method === method && w.path.endsWith(suffix));
   }
 
+  /** AXI-2589: pre-load questions (a planned one carries its plan fields; a stub only text + role). */
+  seed(questions: any[]): void {
+    this.draft.plan.questions = questions.map((q, i) => ({ position: i + 1, ...q }));
+    this.bump();
+  }
+
   async install(page: Page): Promise<void> {
     await page.route((url) => url.pathname.includes(`/projects/${this.projectId}/sap`), (route) => this.handle(route));
+    await page.route((url) => url.pathname.endsWith(`/projects/${this.projectId}/study/protocol`), (route) => this.protocol(route));
+  }
+
+  /**
+   * AXI-2589: the AXI-2588 question rights (`sap:question_create/update/delete`) are not served by
+   * any running stack yet — add them to the caller's REAL `GET /workspace-permissions/me` answer.
+   */
+  async grantQuestionRights(page: Page): Promise<void> {
+    await page.route((url) => url.pathname.endsWith('/workspace-permissions/me'), async (route) => {
+      const real = await route.fetch();
+      const body = await real.json();
+      const permissions = [...new Set([...(body.permissions ?? []), 'sap:question_create', 'sap:question_update', 'sap:question_delete'])];
+      return json(route, real.status(), { ...body, permissions });
+    });
+  }
+
+  private protocol(route: Route): Promise<void> {
+    if (route.request().method() !== 'GET') return route.continue();
+    const record = this.protocolSaved
+      ? { id: 'protocol-e2e', projectId: this.projectId, title: 'CRP study', objective: 'Does CRP fall?', studyPopulation: POPULATION, text: '', savedByUserId: 'u', savedAt: new Date().toISOString() }
+      : null;
+    return json(route, 200, { record, prefill: null, lock: { locked: false, version: null, finalisedAt: null } });
   }
 
   private async handle(route: Route): Promise<void> {
