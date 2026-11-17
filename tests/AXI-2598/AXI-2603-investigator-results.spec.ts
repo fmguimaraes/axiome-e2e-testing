@@ -224,20 +224,16 @@ test.describe.serial('AXI-2603 investigator results: strip default, style, downl
     await expect(page.getByTestId('rp-ruo-notice')).toHaveText('For Research Use Only. Not for use in diagnostic procedures.');
   });
 
-  test('AC12 FR24 EC10 — 7.4 the client report downloads in Markdown and in PDF; a PDF not produced says so and offers the Markdown @SI-066 @SI-018', async ({ browser }) => {
-    // Arrange
+  test('AC12 FR24 FR25 EC10 D20 — 7.4 one download menu offers the report PDF, the figure and the table; a PDF not produced says so and offers the Markdown @SI-066 @SI-018', async ({ browser }) => {
+    // Arrange (AXI-2626: the three former report buttons collapse into one "Download" menu)
     const page = await openInvestigatorPage(browser);
 
-    // Act — Markdown
-    const served = page.waitForResponse((r) => r.url().includes('/client-report?format=md'), { timeout: 90_000 });
-    const download = page.waitForEvent('download', { timeout: 90_000 });
-    await page.getByTestId('rp-export-md').click();
-    const mdResponse = await served;
-
-    // Assert — the server served the report, then the browser saved it
-    expect(mdResponse.status(), `client-report md answered ${mdResponse.status()}: ${await mdResponse.text().catch(() => '')}`).toBe(200);
-    const md = await download;
-    expect(md.suggestedFilename()).toMatch(/\.md$/);
+    // Act — open the menu: exactly PDF, SVG, PNG, never a stand-alone Markdown button
+    await page.getByTestId('rp-export-menu').click();
+    await expect(page.getByTestId('rp-export-pdf')).toBeVisible();
+    await expect(page.getByTestId('rp-export-svg')).toBeVisible();
+    await expect(page.getByTestId('rp-export-png')).toBeVisible();
+    await expect(page.getByTestId('rp-export-md')).toHaveCount(0);
 
     // Act — PDF: either a .pdf download, or the plain-words notice with the Markdown offered
     const pdf = page.waitForEvent('download', { timeout: 60_000 }).then((d) => ({ kind: 'file' as const, d })).catch(() => null);
@@ -254,5 +250,15 @@ test.describe.serial('AXI-2603 investigator results: strip default, style, downl
       const [fallback] = await Promise.all([page.waitForEvent('download'), page.getByTestId('rp-export-pdf-fallback-md').click()]);
       expect(fallback.suggestedFilename()).toMatch(/\.md$/);
     }
+
+    // Act — reopen the menu and export the figure as SVG, then PNG
+    await page.getByTestId('rp-export-menu').click();
+    const svgDownload = page.waitForEvent('download', { timeout: 60_000 });
+    await page.getByTestId('rp-export-svg').click();
+    expect((await svgDownload).suggestedFilename()).toMatch(/\.svg$/);
+    await page.getByTestId('rp-export-menu').click();
+    const pngDownload = page.waitForEvent('download', { timeout: 60_000 });
+    await page.getByTestId('rp-export-png').click();
+    expect((await pngDownload).suggestedFilename()).toMatch(/\.png$/);
   });
 });
