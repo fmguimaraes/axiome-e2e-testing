@@ -62,7 +62,15 @@ const PROD_SUITE_SPEC = /AXI-2309\/(AXI-2318-prod-(daily-suite|suite-infra)|AXI-
 // client, signs in as the `investigator` role of config/roles.ts), no `setup` storageState
 // dependency, and NO trace/video/screenshot (FR7, NFR4 — a trace would record the bearer token).
 // Run via `--project=handover-api` (tests/AXI-2598/harness/run-local.sh).
-const HANDOVER_SPEC = /AXI-2598\/AXI-2601-[^/]+\.spec\.ts$/;
+// AXI-2612 widened this from an AXI-2601-only pattern: any spec built on the SAME
+// `harness/rehearsal.ts` + `harness/world.ts` harness (own fetch client, investigator sign-in,
+// no `setup` storageState, no trace) needs this project too, or it falls into `chromium` with
+// `setup` as a dependency and `trace: 'retain-on-failure'` — the exact NFR4 violation this spec
+// exists to prevent. NOT every tests/AXI-2598/* spec qualifies: AXI-2595/AXI-2596/AXI-2613-* use
+// their own, unrelated harnesses and are correctly left on `chromium`. Keep this pattern in sync
+// with which specs actually `import ... from './harness/rehearsal'` (or `./harness/world`), not
+// with the epic folder alone.
+const HANDOVER_SPEC = /AXI-2598\/AXI-26(01|12)-[^/]+\.spec\.ts$/;
 
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
