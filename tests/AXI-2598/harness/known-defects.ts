@@ -33,11 +33,12 @@ export const KNOWN_DEFECTS: Readonly<Record<string, KnownDefect>> = {
   // AXI-2617 (back c3bb2406) records chart presets at plan-child launch; proven live 2026-11-17 once the
   // stale :3004 org-service orphan was cleared — `chart-without-preset` removed.
   // AXI-2613 fixed the 404 (org_entitlement hiding basis, back 9025f855): 30/36 downloads now valid.
-  // The remaining SVG/PNG figure exports read the result dataset's RECOMMENDED chart spec, which the
-  // materializer withholds for plan children ("required slot unbound" / "row floor") — separate from presets.
+  // AXI-2621 (back 3c4715d4) makes page-composed comparison exports draw the result page's own figure:
+  // proven live 2026-11-17 (run w54a), 34/36 valid, Q2/Q3 SVG+PNG now 200. Only Q4-partial (T4, a single
+  // partial Spearman pair, D22) still answers 409: no faithful figure is decided for it (owner question).
   'download-409-no-recommended-chart-is-recorded-for-the': {
     step: 'S10',
-    note: 'S10: SVG/PNG figure exports of non-heatmap plan results answer 409 "No recommended chart is recorded" (recommended chart withheld by the materializer; not the preset)',
+    note: 'S10: Q4-partial (T4) SVG/PNG figure exports answer 409 "No recommended chart is recorded": no faithful partial-correlation figure decided yet (D22, owner question)',
   },
 };
 
