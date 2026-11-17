@@ -42,10 +42,6 @@ export const KNOWN_DEFECTS: Readonly<Record<string, KnownDefect>> = {
     step: 'S10',
     note: 'S10: every export (csv/svg/png/report) and client report (md/pdf/zip) of a plan result answers 404 "Rule run not found"; only the run report downloads',
   },
-  'dataset-delete-refused': {
-    step: 'S12',
-    note: 'S12: after a full run the uploaded dataset cannot be deleted (409 DATASET_DELETE_REFUSED_CITED — the plan run\'s evidence cites it), so FR6 "no residue" cannot hold',
-  },
 };
 
 /** Codes may end with `*` to match a family (e.g. `no-chart-*` for every question). */

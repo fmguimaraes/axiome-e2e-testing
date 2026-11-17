@@ -953,8 +953,21 @@ export async function cleanup(r: Rehearsal, step: StepRecord): Promise<void> {
   }
   const del = await inv.delete(`${ws(r)}/datasets/${r.datasetId}`);
   const removed = del.status >= 200 && del.status < 300;
-  r.ledger.residue({ kind: 'dataset', id: r.datasetId, removed, note: removed ? 'deleted by the investigator (dataset:delete_own)' : `delete refused: ${got(del)}` });
-  step.facts.push(`DELETE dataset -> ${del.status}`);
+  // FR6 as amended (D13, 2026-11-17): a dataset cited by a completed run is KEPT (citation
+  // integrity, AXI-2314). That exact refusal is recorded residue, not a defect; every other
+  // refusal still is one. Each run uploads a per-run variant, so the kept file never blocks the next.
+  const keptByCitation = del.status === 409 && del.body?.errorCode === 'DATASET_DELETE_REFUSED_CITED';
+  r.ledger.residue({
+    kind: 'dataset', id: r.datasetId, removed,
+    note: removed ? 'deleted by the investigator (dataset:delete_own)'
+      : keptByCitation ? 'kept: cited by the run\'s evidence (citation integrity, AXI-2314; FR6 as amended, D13)'
+        : `delete refused: ${got(del)}`,
+  });
+  step.facts.push(`DELETE dataset -> ${del.status}${keptByCitation ? ' DATASET_DELETE_REFUSED_CITED (kept per D13)' : ''}`);
+  if (keptByCitation) {
+    step.facts.push('EC1 re-upload check: not applicable (the cited dataset is kept by design; each run uploads a per-run variant)');
+    return;
+  }
   if (!removed) {
     r.ledger.defect(step, {
       code: 'dataset-delete-refused', title: 'The rehearsal cannot delete the dataset it uploaded', endpoint: 'DELETE /api/v1/workspaces/:ws/datasets/:id',
