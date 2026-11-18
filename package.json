@@ -35,7 +35,8 @@
     "capture:unit": "tsx --test $(find capture -name '*.spec.ts')",
     "harness:unit": "tsx --test $(find harness-unit -name '*.spec.ts')",
     "capture:no-backdoor": "tsx staging/checks/noBackdoor.ts capture",
-    "capture": "tsx capture/runCapture.ts"
+    "capture": "tsx capture/runCapture.ts",
+    "reproduce:mag4": "tsx tests/AXI-2630/reproduction/run.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
