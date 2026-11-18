@@ -1,0 +1,163 @@
+{
+  "$comment": "AXI-2648 (epic AXI-2630, feature BACKLOG-Investigator-On-Shared-Principles §8.14/§20 — FR58, FR59, FR60, AC37, AC38). ONE study, TWO data files (T1_LONG, T2), FOUR v2 field-bound questions, launched through QuestionLaunchService (never SapRun). No prepared file: a question's data is resolved per question (DD14) to whichever linked file carries its bound fields. Image 1 compiles to ONE Dunn run over exactly 3 strata (L11/AXI-2643, FR59, AC37): template T2 with parameters.stratifyBy.strata pinned to the 3 §20 panels, never every level of `reference` and never a per-stratum fan-out. Values and chart elements are asserted by harness/section-20.ts against feature §20; never invented here. REVIEW ROUND 2 FIX (2026-11-18): there is no fixture `profilePin` any more — CC18 (cc18-spec-canonical-field.ts:29) requires the field's pin to equal the project's LIVE configVersion byte-for-byte, which depends on a registry hash this fixture cannot predict; `specificationBody` now takes the live value as an argument at provisioning time. T2's 7 coating-reference columns and its 2 cell-count columns each shared ONE platform canonicalField, which question-data.resolver.ts#outcomeOf (:98-106) would see as `matched_twice` for every one of them within T2 (one dataset); each now declares canonicalFieldSource `extension` with its own distinct local key, to be added via AXI-2638's POST semantic-profiles/projects/:projectId/extensions before the live configVersion is read (L3). No field is `required` any more: question-data.resolver.ts#neededFieldsOf (:89-96) adds every required field to EVERY question regardless of file, and no single field in this two-file preset is needed by every question. canonicalField ids and their source column aliases were read from axiome-back/apps/organization-service/src/semantic-profiles/config/registries/{canonical_fields,aliases}.{immunology,immune_mediated,microbiota_coating}.v1.json on 2026-11-18.",
+  "presetId": "mag4-new-model-handover",
+  "presetVersion": "1",
+  "profile": { "profileId": "immune_mediated_microbiota", "version": "1.0.0" },
+  "study": {
+    "title": "MAG4 — IgG4 anti-microbiota references in IgG4-related disease",
+    "objective": "Describe how IgG4 antibodies against microbiota references relate to clinical and biological features of IgG4-related disease: stratified group comparison by reference, cluster and pancreato-biliary group comparisons, and the reference × clinical-variable correlation heatmap.",
+    "studyPopulation": "Patients with IgG4-related disease in the MAG4 cohort (synthetic data until the PADS is signed)."
+  },
+  "plan": {
+    "title": "MAG4 — statistical analysis plan (new model)",
+    "specificationSource": "declared",
+    "studyPopulation": "Patients with IgG4-related disease in the MAG4 cohort (synthetic data until the PADS is signed)."
+  },
+  "files": [
+    {
+      "key": "T1_LONG",
+      "label": "Tableau 1 (long)",
+      "path": "fixtures/handover/final_tableau1_long_synthetic.csv",
+      "sha256": "bc98a928ef3bce6a44b8bb2a180e16fb24f20bb72710697dd1ef3169e3f64b36",
+      "rows": 462,
+      "columns": 5
+    },
+    {
+      "key": "T2",
+      "label": "Tableau 2",
+      "path": "fixtures/handover/final_tableau2_synthetic.csv",
+      "sha256": "42fede8a595e05f09589910d5ba91f1602d4a5762c4f834de075d472743e3cbc",
+      "rows": 23,
+      "columns": 21
+    }
+  ],
+  "dataSpecification": {
+    "fields": [
+      { "name": "group", "label": "Group", "semanticRole": "grouping_three_plus_levels", "levels": ["AL", "HD", "IL", "IgG4-RD", "SD"], "required": false, "file": "T1_LONG", "canonicalField": "disease_group", "canonicalFieldSource": "platform" },
+      { "name": "reference", "label": "Microbiota reference", "semanticRole": "grouping_three_plus_levels", "levels": ["CER 215 et 234", "CER 228", "CER 229", "ENT 059", "MAG4 13", "MAG4 22", "MAG4 27"], "required": false, "file": "T1_LONG", "canonicalField": "reference_microbiota", "canonicalFieldSource": "platform" },
+      { "name": "pct", "label": "IgG4 anti-microbiota reference (long-format value)", "semanticRole": "continuous", "required": false, "file": "T1_LONG", "canonicalField": "coating_pct", "canonicalFieldSource": "platform" },
+
+      { "name": "atteinte_pancreatique", "label": "Pancreato-biliary involvement", "semanticRole": "grouping_two_levels", "levels": ["0", "1"], "controlLevels": ["0"], "required": false, "description": "0 = Absent, 1 = Present", "file": "T2", "canonicalField": "organ_involvement", "canonicalFieldSource": "platform" },
+      { "name": "cluster_selon_acr_eular_2019", "label": "ACR/EULAR 2019 cluster", "semanticRole": "grouping_three_plus_levels", "levels": ["C1", "C2", "C3", "C4"], "required": false, "file": "T2", "canonicalField": "phenotype_cluster", "canonicalFieldSource": "platform" },
+      { "name": "microbiote_igg4_ent_059", "label": "IgG4 anti-microbiota reference ENT-059", "semanticRole": "continuous", "required": false, "file": "T2", "canonicalField": "igg4_coating_ent_059", "canonicalFieldSource": "extension" },
+      { "name": "microbiote_igg4_cer_228", "label": "IgG4 anti-microbiota reference CER-228", "semanticRole": "continuous", "required": false, "file": "T2", "canonicalField": "igg4_coating_cer_228", "canonicalFieldSource": "extension" },
+      { "name": "microbiote_igg4_mag4_27", "label": "IgG4 anti-microbiota reference MAG4-27", "semanticRole": "continuous", "required": false, "file": "T2", "canonicalField": "igg4_coating_mag4_27", "canonicalFieldSource": "extension" },
+      { "name": "microbiote_igg4_mag4_22", "label": "IgG4 anti-microbiota reference MAG4-22", "semanticRole": "continuous", "required": false, "file": "T2", "canonicalField": "igg4_coating_mag4_22", "canonicalFieldSource": "extension" },
+      { "name": "microbiote_igg4_mag4_13", "label": "IgG4 anti-microbiota reference MAG4-13", "semanticRole": "continuous", "required": false, "file": "T2", "canonicalField": "igg4_coating_mag4_13", "canonicalFieldSource": "extension" },
+      { "name": "microbiote_igg4_cer_215_et_234", "label": "IgG4 anti-microbiota reference CER-215 and 234", "semanticRole": "continuous", "required": false, "file": "T2", "canonicalField": "igg4_coating_cer_215_et_234", "canonicalFieldSource": "extension" },
+      { "name": "microbiote_igg4_cer_229", "label": "IgG4 anti-microbiota reference CER-229", "semanticRole": "continuous", "required": false, "file": "T2", "canonicalField": "igg4_coating_cer_229", "canonicalFieldSource": "extension" },
+      { "name": "igg4_g_l", "label": "Serum IgG4", "semanticRole": "continuous", "required": false, "file": "T2", "canonicalField": "serum_immunoglobulin", "canonicalFieldSource": "platform" },
+      { "name": "igg4_rd_ri", "label": "IgG4-RD responder index", "semanticRole": "continuous", "required": false, "file": "T2", "canonicalField": "disease_activity_index", "canonicalFieldSource": "platform" },
+      { "name": "igg4_hpf", "label": "IgG4+ plasma cells per high-power field", "semanticRole": "continuous", "required": false, "file": "T2", "canonicalField": "tissue_cell_density", "canonicalFieldSource": "platform" },
+      { "name": "eosinophils", "label": "Eosinophils", "semanticRole": "continuous", "required": false, "file": "T2", "canonicalField": "cell_count_eosinophils", "canonicalFieldSource": "extension" },
+      { "name": "plasmablasts_cd19_cd38_cd27_mm3", "label": "Plasmablasts (CD19+ CD38+ CD27+)", "semanticRole": "continuous", "required": false, "file": "T2", "canonicalField": "cell_count_plasmablasts", "canonicalFieldSource": "extension" },
+      { "name": "tfh_cxcr5_pd1_cd4", "label": "Tfh cells (CXCR5+ PD1+ CD4+)", "semanticRole": "continuous", "required": false, "file": "T2", "canonicalField": "cell_frequency_pct", "canonicalFieldSource": "platform" }
+    ]
+  },
+  "questions": [
+    {
+      "key": "image-1",
+      "image": 1,
+      "text": "Does the IgG4 anti-microbiota reference level differ between HD, IgG4-RD and SD, per reference?",
+      "role": "primary",
+      "dataFile": "T1_LONG",
+      "template": { "templateId": "T2", "templateVersion": "0.2" },
+      "estimand": {
+        "population": "Patients with IgG4-related disease in the MAG4 cohort, groups HD, IgG4-RD, SD",
+        "variable": "IgG4 anti-microbiota reference value (long-format), per reference",
+        "intercurrentEvents": "None anticipated (cross-sectional measurement)",
+        "populationSummary": "Kruskal-Wallis omnibus then Dunn's pairwise post-hoc, Holm-adjusted, computed once per reference stratum",
+        "treatmentComparison": "HD vs IgG4-RD, SD vs IgG4-RD, within each reference stratum"
+      },
+      "bindings": [
+        { "slot": "groupingColumn", "field": "group" },
+        { "slot": "outcome", "field": "pct" }
+      ],
+      "parameters": {
+        "alpha": 0.05,
+        "sidedness": "two_sided",
+        "groups": ["HD", "IgG4-RD", "SD"],
+        "stratifyBy": { "column": "reference", "strata": ["ENT 059", "CER 229", "CER 215 et 234"] }
+      },
+      "decisionCriterion": { "kind": "p_at_or_below_alpha" },
+      "expectedChart": "stratified_posthoc_v1"
+    },
+    {
+      "key": "image-2",
+      "image": 2,
+      "text": "Does the ENT-059 reference level differ across the four ACR/EULAR 2019 clusters?",
+      "role": "secondary",
+      "dataFile": "T2",
+      "template": { "templateId": "T2", "templateVersion": "0.2" },
+      "estimand": {
+        "population": "Patients with IgG4-related disease in the MAG4 cohort",
+        "variable": "IgG4 anti-microbiota reference ENT-059",
+        "intercurrentEvents": "None anticipated (cross-sectional measurement)",
+        "populationSummary": "Kruskal-Wallis omnibus across the four clusters",
+        "treatmentComparison": "Cluster 1 vs Cluster 2 vs Cluster 3 vs Cluster 4"
+      },
+      "bindings": [
+        { "slot": "groupingColumn", "field": "cluster_selon_acr_eular_2019" },
+        { "slot": "outcome", "field": "microbiote_igg4_ent_059" }
+      ],
+      "parameters": { "alpha": 0.05, "sidedness": "two_sided" },
+      "decisionCriterion": { "kind": "p_at_or_below_alpha" },
+      "expectedChart": "group_comparison_v1"
+    },
+    {
+      "key": "image-3",
+      "image": 3,
+      "text": "Does the ENT-059 reference level differ between patients with and without pancreato-biliary involvement?",
+      "role": "secondary",
+      "dataFile": "T2",
+      "template": { "templateId": "T1", "templateVersion": "0.2" },
+      "estimand": {
+        "population": "Patients with IgG4-related disease in the MAG4 cohort",
+        "variable": "IgG4 anti-microbiota reference ENT-059",
+        "intercurrentEvents": "None anticipated (cross-sectional measurement)",
+        "populationSummary": "Mann-Whitney U, Absent vs Present",
+        "treatmentComparison": "Pancreato-biliary involvement Absent vs Present"
+      },
+      "bindings": [
+        { "slot": "groupingColumn", "field": "atteinte_pancreatique" },
+        { "slot": "outcome", "field": "microbiote_igg4_ent_059" }
+      ],
+      "parameters": { "alpha": 0.05, "sidedness": "two_sided" },
+      "decisionCriterion": { "kind": "p_at_or_below_alpha" },
+      "expectedChart": "group_comparison_v1"
+    },
+    {
+      "key": "image-4",
+      "image": 4,
+      "text": "How does each IgG4 anti-microbiota reference correlate with the clinical and biological variables?",
+      "role": "exploratory",
+      "dataFile": "T2",
+      "template": { "templateId": "T5", "templateVersion": "0.2" },
+      "estimand": {
+        "population": "Patients with IgG4-related disease in the MAG4 cohort",
+        "variable": "IgG4 anti-microbiota references and clinical variables",
+        "intercurrentEvents": "None anticipated (cross-sectional measurement)",
+        "populationSummary": "Spearman correlation coefficient per reference-variable pair, Benjamini-Hochberg adjusted across all cells",
+        "treatmentComparison": "Not a group comparison: correlation across patients"
+      },
+      "bindings": [
+        { "slot": "references", "field": "microbiote_igg4_cer_228" },
+        { "slot": "references", "field": "microbiote_igg4_mag4_27" },
+        { "slot": "references", "field": "microbiote_igg4_mag4_22" },
+        { "slot": "references", "field": "microbiote_igg4_mag4_13" },
+        { "slot": "references", "field": "microbiote_igg4_cer_215_et_234" },
+        { "slot": "references", "field": "microbiote_igg4_cer_229" },
+        { "slot": "references", "field": "microbiote_igg4_ent_059" },
+        { "slot": "y", "field": "igg4_g_l" },
+        { "slot": "y", "field": "igg4_rd_ri" },
+        { "slot": "y", "field": "igg4_hpf" },
+        { "slot": "y", "field": "eosinophils" },
+        { "slot": "y", "field": "plasmablasts_cd19_cd38_cd27_mm3" },
+        { "slot": "y", "field": "tfh_cxcr5_pd1_cd4" }
+      ],
+      "parameters": { "alpha": 0.05, "sidedness": "two_sided" },
+      "decisionCriterion": { "kind": "p_at_or_below_alpha" },
+      "expectedChart": "heatmap_annotated_v1"
+    }
+  ]
+}

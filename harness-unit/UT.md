@@ -595,3 +595,69 @@ file-type checks (FR5, FR25), the known-defect registry and the secret-refusing 
 | UT-HANDOVER-2601-28 | step verdict: a wildcard entry counts as present while any code of its family is observed | Pass |
 | UT-HANDOVER-2601-29 | the shipped known-defect registry pins every entry to a step S0..S12 | Pass |
 | UT-HANDOVER-2601-30 | FR8 fail closed: `isLocalTarget`; a non-local target with no forbidden-org list is refused before any request | Pass |
+
+## AXI-2648/new-model-preset.spec.ts, section-20.spec.ts
+
+AXI-2648 (epic AXI-2630 — feature BACKLOG-Investigator-On-Shared-Principles §8.14/§20, FR58,
+FR59, FR60, AC37, AC38; SI-042). Pure coverage of the handover preset re-expressed on the new
+model (`tests/AXI-2630/harness/new-model-preset.ts`, `section-20.ts`): the plan shape (one
+study, two files T1_LONG/T2, four questions — FR58), the image-1 single stratified Dunn run
+over exactly 3 §20 strata (FR59, L11, AC37), the CC18/CC19 canonicalField obligation on every
+declared field, the per-file canonical-field duplicate gate and the required-field cross-file
+cohesion gate (review round 2 — mirrors `question-data.resolver.ts#outcomeOf`/`neededFieldsOf`),
+the preset-to-both-data-files match, the v2 provisioning bodies gated on a live `configVersion`
+(FR5), and the §20 value/element assertion AXI-2647 calls against each launched question's
+result (FR60, AC38). No network; preset data is never run against the live stack (this story's
+constraint — AXI-2647 runs it).
+
+**Review round 1 bounce fix (2026-11-18):** IDs 016-025 are owned by `section-20.spec.ts`;
+the new canonicalField/profilePin tests added to `new-model-preset.spec.ts` continue at 026
+rather than colliding with them.
+
+**Review round 2 bounce fix (2026-11-18):** the round-1 fix was internally consistent but not
+launchable on the real `question-data.resolver.ts`/CC18 path. `PresetField` no longer carries a
+static `profilePin` (it is a live fact, gated by `specificationBody`'s `assertLiveConfigVersion`);
+9 of T2's columns moved to `canonicalFieldSource: 'extension'` with distinct local keys (they
+shared a platform canonical field with a sibling, which `outcomeOf` would see as `matched_twice`);
+and every field is now `required: false` (a cross-file `required` field broke `neededFieldsOf`
+for every question). Tests 026-037 replace the old profilePin-era 026-030.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-PRESET-2648-001 | the committed preset is one study, two files and four questions | Pass |
+| UT-PRESET-2648-002 | a third file is refused as not matching FR58 (exactly two) | Pass |
+| UT-PRESET-2648-003 | a missing T1_LONG file is named explicitly | Pass |
+| UT-PRESET-2648-004 | a fifth question is refused as not matching FR58 (exactly four) | Pass |
+| UT-PRESET-2648-005 | the four questions cover images 1 to 4 exactly once | Pass |
+| UT-PRESET-2648-006 | the image-1 question is a single stratified Dunn run over exactly 3 strata on T1_LONG | Pass |
+| UT-PRESET-2648-007 | the image-1 strata spell the §20 reference names byte for byte against the T1_LONG CSV | Pass |
+| UT-PRESET-2648-008 | a stratifyBy with no explicit strata subset fails the gate (would draw 7 panels, §20 wants 3) | Pass |
+| UT-PRESET-2648-009 | dropping stratifyBy entirely turns image 1 into a plain (non-stratified) run | Pass |
+| UT-PRESET-2648-010 | image 1 restricts the comparison to exactly HD, IgG4-RD, SD | Pass |
+| UT-PRESET-2648-011 | narrowing image-1 groups to two levels is no longer the HD/IgG4-RD/SD restriction | Pass |
+| UT-PRESET-2648-012 | the committed preset matches both committed data files with no problem | Pass |
+| UT-PRESET-2648-013 | a field whose levels differ from the file values is refused | Pass |
+| UT-PRESET-2648-014 | a field declared against the wrong file is refused as not a column of it | Pass |
+| UT-PRESET-2648-015 | a question binding an undeclared field is refused | Pass |
+| UT-PRESET-2648-016 | image 1 reproducing every §20 reference value and element passes with no problem | Pass |
+| UT-PRESET-2648-017 | image 1 with a wrong ENT-059 adjusted p is refused by name | Pass |
+| UT-PRESET-2648-018 | image 1 missing a reference entirely is refused by name | Pass |
+| UT-PRESET-2648-019 | image 1 with the wrong panel count is refused on the element | Pass |
+| UT-PRESET-2648-020 | image 2 reproducing H, p and every element passes with no problem | Pass |
+| UT-PRESET-2648-021 | image 2 with a wrong H statistic is refused | Pass |
+| UT-PRESET-2648-022 | image 3 reproducing U, p, n and every element passes with no problem | Pass |
+| UT-PRESET-2648-023 | image 3 with a mismatched group order is refused on the element | Pass |
+| UT-PRESET-2648-024 | image 4 reproducing the cell counts and elements passes with no problem | Pass |
+| UT-PRESET-2648-025 | image 4 with the wrong significant-cell count is refused | Pass |
+| UT-PRESET-2648-026 | a field with no canonicalField is refused, mirroring CC19 | Pass |
+| UT-PRESET-2648-027 | a platform field naming an unknown canonical field is refused, mirroring CC18 | Pass |
+| UT-PRESET-2648-028 | two fields in the SAME file sharing one canonical field are refused, mirroring outcomeOf matched_twice | Pass |
+| UT-PRESET-2648-029 | the SAME platform canonical field repeated across DIFFERENT files is not a duplicate | Pass |
+| UT-PRESET-2648-030 | the committed preset declares a distinct canonical field per field within each file | Pass |
+| UT-PRESET-2648-031 | marking a field required across two files is refused, mirroring neededFieldsOf | Pass |
+| UT-PRESET-2648-032 | no field in the committed preset is required (every question would otherwise span two files) | Pass |
+| UT-PRESET-2648-033 | extensionFieldsOf lists exactly the 9 T2 columns that share a platform canonical field with a sibling | Pass |
+| UT-PRESET-2648-034 | provisioningPlan reads the live configVersion AFTER adding the extension (L3) | Pass |
+| UT-PRESET-2648-035 | specificationBody refuses a configVersion with no +sha256 suffix, and namespaces extension fields when it is well-formed | Pass |
+| UT-PRESET-2648-036 | questionBody resolves field names to server ids and throws on an unknown one | Pass |
+| UT-PRESET-2648-037 | csvFacts/sha256Hex are reused, not re-implemented, from the AXI-2598 harness | Pass |
