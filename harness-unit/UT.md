@@ -661,3 +661,17 @@ for every question). Tests 026-037 replace the old profilePin-era 026-030.
 | UT-PRESET-2648-035 | specificationBody refuses a configVersion with no +sha256 suffix, and namespaces extension fields when it is well-formed | Pass |
 | UT-PRESET-2648-036 | questionBody resolves field names to server ids and throws on an unknown one | Pass |
 | UT-PRESET-2648-037 | csvFacts/sha256Hex are reused, not re-implemented, from the AXI-2598 harness | Pass |
+
+## AXI-2665/declared-field-aliases.spec.ts
+
+AXI-2665 (epic AXI-2630, FR76, AC57). Covers `tests/AXI-2630/harness/declared-field-aliases.ts`,
+the semantic declaration body that states which file column carries each extension field.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-PRESET-2665-001 | the wide file declares one alias for each of the nine extension fields | Pass |
+| UT-PRESET-2665-002 | every declared column is a column of the reference file, spelled exactly | Pass |
+| UT-PRESET-2665-003 | every term is the namespaced field the plan binds | Pass |
+| UT-PRESET-2665-004 | the long file carries no extension field, so it declares nothing | Pass |
+| UT-PRESET-2665-005 | a dataset with no declaration gets a minimal admissible body | Pass |
+| UT-PRESET-2665-006 | an existing declaration keeps its members and another project's aliases | Pass |
