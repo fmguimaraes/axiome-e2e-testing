@@ -1,4 +1,4 @@
-import { expect, test, request as apiRequest, type APIRequestContext } from '@playwright/test';
+import { expect, test, request as apiRequest, type APIRequestContext, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { apiUrl } from '../../config/env';
@@ -45,7 +45,11 @@ import { apiUrl } from '../../config/env';
  */
 
 const WS = process.env.HANDOVER_WORKSPACE_ID ?? '';
-const ORG = process.env.AXI_2647_ORG_ID ?? '927d8eec-6c47-452f-bec6-593f4c0622c8';
+// AXI_2647_ORG_ID must be the WORKSPACE's own `ownerOrganizationId` — the browser flow
+// (`signInBrowser`'s `axiome-top-org`) cannot resolve a workspace whose org disagrees with the
+// selected org, which silently rendered "No Workspace" with every binding select empty (an
+// unmatched-org symptom indistinguishable in the DOM from "data not loaded yet").
+const ORG = process.env.AXI_2647_ORG_ID ?? 'e2f053a6-7d65-4dd1-81e1-f40b5d3709a3';
 const ADMIN_EMAIL = process.env.E2E_TEST_EMAIL ?? 'admin@cro-one.com';
 const ADMIN_PASSWORD = process.env.E2E_TEST_PASSWORD ?? 'admin';
 const INV_EMAIL = process.env.E2E_INVESTIGATOR_EMAIL ?? '';
@@ -59,19 +63,36 @@ test.describe.configure({ mode: 'serial', timeout: 300_000 });
 interface Session {
   api: APIRequestContext;
   userId: string;
+  accessToken: string;
+  refreshToken: string;
 }
 
 async function login(anon: APIRequestContext, email: string, password: string): Promise<Session> {
   const res = await anon.post(apiUrl('/api/v1/auth/login'), { data: { email, password } });
   expect(res.ok(), `login ${email}: ${await res.text()}`).toBeTruthy();
-  const { accessToken } = await res.json();
+  const { accessToken, refreshToken } = await res.json();
   const api = await apiRequest.newContext({ extraHTTPHeaders: { Authorization: `Bearer ${accessToken}`, 'X-Workspace-Id': WS } });
   const me = await (await api.get(apiUrl('/api/v1/auth/me'))).json();
-  return { api, userId: me.id };
+  return { api, userId: me.id, accessToken, refreshToken };
+}
+
+/** Same localStorage-seeding pattern AXI-2060's specs use (AXI-2302/AXI-2292) to sign a real
+ * browser page in as a session already authenticated over the API, with no UI login step. */
+async function signInBrowser(page: Page, session: Session): Promise<void> {
+  await page.addInitScript(
+    ([access, refresh, org, ws]) => {
+      localStorage.setItem('access_token', access);
+      localStorage.setItem('refresh_token', refresh);
+      localStorage.setItem('axiome-top-org', org);
+      localStorage.setItem('axiome-active-workspace', ws);
+    },
+    [session.accessToken, session.refreshToken, ORG, WS] as const,
+  );
 }
 
 let admin: Session;
 let investigator: Session;
+let approver: Session;
 let projectId: string;
 let sapId: string;
 let sapVersionId: string;
@@ -79,18 +100,46 @@ let fieldIds: { group: string; reference: string; pct: string };
 let questionId: string;
 let datasetId: string;
 let launchedViewAnalysisId: string;
+let launchedRunId: string;
+
+const EDITOR_WORKSPACE_ROLE_ID = '00000000-0000-0000-0000-000000000102';
+
+/** SELF_APPROVAL_NOT_PERMITTED (back CLAUDE.md "AXI-2258") means the evidence creator can
+ * never also approve it, and the Investigator role is below `editor` (too low to approve at
+ * all) — so AC1 needs a SECOND editor-tier identity, provisioned once, synthetic-local only
+ * (NFR3/NFR7 — never a committed credential), per `docs/REST-API-Guide.md` §1.2/§2. */
+async function ensureApprover(anon: APIRequestContext): Promise<Session> {
+  const email = `axi2647-approver-${Date.now()}@axiomebio.local`;
+  const password = 'Axi2647Approver!1';
+  // The new member's org must be a collaborator of the WORKSPACE's own `ownerOrganizationId`
+  // — never AXI_2647_ORG_ID (a different, unrelated org constant used elsewhere in this spec).
+  const workspace = await (await admin.api.get(apiUrl(`/api/v1/workspaces/${WS}`))).json();
+  const workspaceOrgId = workspace.ownerOrganizationId;
+  const create = await admin.api.post(apiUrl('/api/v1/users'), {
+    data: { email, password, firstName: 'AXI-2647', lastName: 'Approver', organizationId: workspaceOrgId },
+  });
+  expect(create.status(), await create.text()).toBe(201);
+  const userId = (await create.json()).id;
+  const addMember = await admin.api.post(apiUrl(`/api/v1/workspaces/${WS}/members`), {
+    data: { userId, organizationId: workspaceOrgId, roleId: EDITOR_WORKSPACE_ROLE_ID },
+  });
+  expect(addMember.status(), await addMember.text()).toBe(201);
+  return login(anon, email, password);
+}
 
 test.beforeAll(async () => {
   test.skip(!WS || !INV_EMAIL || !INV_PASSWORD, 'HANDOVER_WORKSPACE_ID / E2E_INVESTIGATOR_EMAIL / _PASSWORD not configured');
   const anon = await apiRequest.newContext();
   admin = await login(anon, ADMIN_EMAIL, ADMIN_PASSWORD);
   investigator = await login(anon, INV_EMAIL, INV_PASSWORD);
+  approver = await ensureApprover(anon);
   await anon.dispose();
 });
 
 test.afterAll(async () => {
   await admin?.api.dispose();
   await investigator?.api.dispose();
+  await approver?.api.dispose();
 });
 
 async function createProject(label: string): Promise<string> {
@@ -249,6 +298,7 @@ test.describe('AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065', () => {
     const launchBody = await launch.json();
     expect(launchBody.launched).toHaveLength(1);
     const viewAnalysisId = launchBody.launched[0].viewAnalysisId;
+    launchedRunId = launchBody.launched[0].runId;
 
     // AC35 / NFR8 — first result inside the ADR-002 rehearsal's 1-minute budget.
     let verdict: any = null;
@@ -287,12 +337,92 @@ test.describe('AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065', () => {
     launchedViewAnalysisId = viewAnalysisId;
   });
 
-  test('AXI-2647.2 AC2/AC25/AC29 — the launched analysis is a same-shape explorer analysis with a chart evidence @SI-042', async () => {
+  let ac1ExplorerAnalysisId: string | null = null;
+  let ac1EvidenceTitle = 'AC1 explorer evidence';
+
+  test('AXI-2647.1b AC1 — a finished, validated explorer analysis (never through a plan) displays on the Investigator with its evidence and no plan-run object @SI-065', async () => {
+    // Given an analysis made in the EXPLORER (never through a plan)... — `POST /view-analyses`
+    // directly, editor rank, no `sapId`/`sapVersionId` anywhere in the call.
+    const create = await admin.api.post(apiUrl('/api/v1/view-analyses'), {
+      data: { projectId, datasetId, name: `AXI-2647 AC1 explorer analysis ${Date.now()}` },
+    });
+    expect(create.status(), await create.text()).toBe(201);
+    const explorerAnalysisId = (await create.json()).id;
+
+    // ...that is finished (an evidence exists) and validated (the evidence is approved). A bare
+    // `kind: 'note'` evidence with no chartEntries/citationContext is a genuine FR6 refusal
+    // ("must cite at least one chart entry or one row/population/sample") — discovered live and
+    // worth noting, but not what AC1 is testing — so this cites a real chart over a real
+    // snapshot of the explorer analysis, same shape as any other evidence on the platform.
+    const snapshot = await admin.api.post(apiUrl('/api/v1/view-analyses/snapshots'), {
+      data: { viewAnalysisId: explorerAnalysisId, filters: [] },
+    });
+    expect(snapshot.status(), await snapshot.text()).toBe(201);
+    const explorerSnapshotId = (await snapshot.json()).id;
+
+    const spec = await admin.api.post(apiUrl(`/api/v1/workspaces/${WS}/datasets/${datasetId}/candidates`), {
+      data: {
+        templateId: 'strip_v1',
+        templateVersion: '1.0.0',
+        title: `AXI-2647 AC1 chart ${Date.now()}`,
+        bindings: { y: { column_id: 'col_pct' }, group: { column_id: 'col_group' } },
+        params: {},
+        filters: [],
+        viewAnalysisId: explorerAnalysisId,
+      },
+    });
+    expect(spec.status(), await spec.text()).toBe(201);
+    const chartSpecId = (await spec.json()).id;
+
+    const evidence = await admin.api.post(apiUrl('/api/v1/view-analyses/evidences'), {
+      data: {
+        viewAnalysisId: explorerAnalysisId,
+        kind: 'chart',
+        title: 'AC1 explorer evidence',
+        chartEntries: [{ chartArtifactId: chartSpecId, snapshotId: explorerSnapshotId, datasetVersionId: datasetId }],
+      },
+    });
+    expect(evidence.status(), await evidence.text()).toBe(201);
+    const evidenceId = (await evidence.json()).id;
+    // SELF_APPROVAL_NOT_PERMITTED: the admin identity created it, so a DIFFERENT, editor-tier
+    // actor approves it (the Investigator role is below `editor` and 403s "Insufficient
+    // workspace role" on this route) — same self-approval doctrine as decision drafts (see
+    // back CLAUDE.md "AXI-2258").
+    const approve = await approver.api.patch(apiUrl(`/api/v1/view-analyses/evidences/${evidenceId}/status`), {
+      data: { status: 'approved' },
+    });
+    expect(approve.status(), await approve.text()).toBe(200);
+
+    // when the Investigator opens that project...
+    const direct = await (await investigator.api.get(apiUrl(`/api/v1/view-analyses/${explorerAnalysisId}`))).json();
+    // then the analysis displays in the question/result page with its evidence...
+    expect(direct.id).toBe(explorerAnalysisId);
+    const explorerEvidences = await (
+      await investigator.api.get(apiUrl(`/api/v1/view-analyses/${explorerAnalysisId}/evidences`))
+    ).json();
+    expect((explorerEvidences.data ?? explorerEvidences).some((e: any) => e.id === evidenceId)).toBeTruthy();
+    // ...and no plan-run object or other Investigator-only data exists for it.
+    expect(direct.sapRunId).toBeNull();
+    const links = await (await investigator.api.get(apiUrl(`/api/v1/projects/${projectId}/saps/${sapId}/question-analyses`))).json();
+    expect(links.links.some((l: any) => l.viewAnalysisId === explorerAnalysisId)).toBeFalsy();
+
+    // Same read path as any other analysis (AC2's doctrine, checked from the other direction):
+    // the explorer analysis is listed through the SAME project listing the launched question is.
+    // `evidenceCount` is a FIND_ALL-only list decoration (absent from the single-GET response).
+    const list = await (await investigator.api.get(apiUrl(`/api/v1/view-analyses?projectId=${projectId}`))).json();
+    const rows: any[] = list.data ?? list;
+    const listed = rows.find((r) => r.id === explorerAnalysisId);
+    expect(listed, JSON.stringify(rows)).toBeTruthy();
+    expect(listed.evidenceCount).toBeGreaterThan(0);
+
+    ac1ExplorerAnalysisId = explorerAnalysisId;
+  });
+
+  test('AXI-2647.2 AC2/AC25/AC29 — the launched analysis is a same-shape explorer analysis; its chart evidence is the declared shape @SI-042', async () => {
     const viewAnalysisId = launchedViewAnalysisId;
     const list = await (await investigator.api.get(apiUrl(`/api/v1/view-analyses?projectId=${projectId}`))).json();
     const rows: any[] = list.data ?? list;
     const guided = rows.find((r) => r.id === viewAnalysisId);
-    const autoDefault = rows.find((r) => r.origin === 'auto_default');
 
     // AC2 — same shape as any other analysis (name, evidence count, published state), via the
     // SAME listing read path the explorer and the Investigator both use.
@@ -300,40 +430,142 @@ test.describe('AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065', () => {
     expect(guided.sapRunId).toBeNull();
     expect(guided.evidenceCount).toBeGreaterThan(0);
 
-    // AC1 (DD20 half 2, approximated without a browser-driven wizard analysis in this story's
-    // budget) — a NON-plan analysis (the dataset-link auto_default one) is visible through the
-    // exact same read path, with no plan-run object either; the two are interchangeable views.
-    expect(autoDefault, 'no non-plan analysis found on the project').toBeTruthy();
-    expect(autoDefault.sapRunId).toBeNull();
-
     const evidences = await (await investigator.api.get(apiUrl(`/api/v1/view-analyses/${viewAnalysisId}/evidences`))).json();
     const chartEvidence = (evidences.data ?? evidences).find((e: any) => e.kind === 'chart');
     expect(chartEvidence, 'no chart evidence on the launched analysis (AC25/AC29 — a template chart action, FR11)').toBeTruthy();
+
+    // AC25/AC29 shape, not just existence: read the chart's own dataview spec (never the DOM —
+    // faster and exact) and assert its template family. My plan's T2 question is a 3-group
+    // (HD/IgG4-RD/SD) Kruskal-Wallis+Dunn comparison, so its recommended chart is a
+    // points-over-box family with a significance badge; boxplot/strip/jitter/badge all name the
+    // same rendered shape in this codebase's template catalogue (`templates/seed-templates`).
+    const chartArtifactId = chartEvidence.currentVersion?.charts?.[0]?.dataviewSpecId
+      ?? chartEvidence.currentVersion?.charts?.[0]?.chartArtifactId;
+    expect(chartArtifactId, JSON.stringify(chartEvidence)).toBeTruthy();
+    const specRes = await investigator.api.get(apiUrl(`/api/v1/workspaces/${WS}/datasets/${datasetId}/candidates/${chartArtifactId}`));
+    if (specRes.ok()) {
+      const spec = await specRes.json();
+      expect(String(spec.templateId ?? ''), JSON.stringify(spec)).toMatch(/box|strip|jitter|dunn|kruskal/i);
+    } else {
+      // The chart artifact id is a frozen citation render, not a live spec id — named, not
+      // silently accepted: the existence check above still holds for AC25/AC29's floor.
+      (test.info() as any).annotations.push({ type: 'AC25-AC29-shape-check-skipped', description: `candidates lookup ${specRes.status()} for ${chartArtifactId}` });
+    }
   });
 
   // AC3 (DD20 half 3) — a custom chart over the launched question's snapshot, from the result
   // page's "Add a chart" entry (`CustomChartEntry`, editor rank only, L13), saved as evidence,
-  // visible in the explorer, published on sign. AXI-2645 (the entry) is merged to main
-  // (front caf0cfa7) as of the coordinator's note, but this story's remaining budget did not
-  // reach a browser-driven run of the full editor → save → sign → explorer round trip. Recorded
-  // honestly as NOT executed rather than weakened into a false pass.
-  test.fixme(
-    'AXI-2647.3 AC3 — custom chart over the question snapshot, saved as evidence, visible in the explorer, published on sign',
-    async () => {
-      // Deep link (per the coordinator): /projects/:projectId/view-analyses/:viewAnalysisId?addChart=1&sapId=&questionId=&returnTo=
-      // 1. open the result page as an editor-rank identity, follow CustomChartEntry (addChart=1)
-      // 2. build + save a chart in the editor -> expect one `sap_custom_chart_saved` emission
-      // 3. GET the explorer evidences list for the SAME viewAnalysisId -> the new chart evidence
-      // 4. POST sign (SignQuestionControl / view_analysis:publish) -> GET published version
-      //    carries the custom chart's evidence alongside the recommended one (FR28)
-    },
-  );
+  // visible in the explorer, and published on sign. Real headless browser flow, driving the
+  // w5val front on :5174. Identity: `admin@cro-one.com` (the workspace's built-in "admin" role,
+  // which carries VIEW_ANALYSIS_CREATE and VIEW_ANALYSIS_PUBLISH — the Investigator does not
+  // hold CHART creation/publish rights on this page, L13, so this is the editor-rank path the
+  // feature defines, not the Investigator's own login).
+  test('AXI-2647.3 AC3 — custom chart over the question snapshot, saved as evidence, visible in the explorer, published on sign @SI-042', async ({ page }) => {
+    const chartTitle = `AXI-2647 AC3 chart ${Date.now()}`;
+    await signInBrowser(page, admin);
+
+    // The column-profiling pass (`ColumnShapeService`) the editor's binding selects read from
+    // is a SEPARATE async readiness signal from ingestion-ready / semantic-normalize readiness
+    // (both already polled above) — without it the editor renders every "Select column..."
+    // permanently empty with no error. Poll it ready before opening the editor at all.
+    let profiled = false;
+    for (let i = 0; i < 40 && !profiled; i++) {
+      const profiles = await (await admin.api.get(apiUrl(`/api/v1/workspaces/${WS}/datasets/${datasetId}/profiles`))).json();
+      profiled = (Array.isArray(profiles) ? profiles : profiles.data ?? []).some((p: any) => p.status === 'ready');
+      if (!profiled) await new Promise((r) => setTimeout(r, 1500));
+    }
+    expect(profiled, 'dataset column-profiling never reached ready').toBeTruthy();
+
+    // 1. The result page's "Add a chart" entry (CustomChartEntry) — reached the same way the
+    // Study page deep-links a signed-in caller to a question's result.
+    await page.goto(`/projects/${projectId}/runs/${launchedRunId}?sapId=${sapId}&questionId=${questionId}`);
+    const addChart = page.getByTestId('rp-add-custom-chart');
+    await expect(addChart).toBeVisible({ timeout: 30_000 });
+    await addChart.click();
+
+    // 2. Lands on the analysis workspace's Editor sub-tab (?addChart=1) — build a chart over the
+    // SAME snapshot and save it through the editor's own Save button.
+    const template = page.locator('xpath=//label[normalize-space()="Template"]/following-sibling::div[1]//select');
+    await expect(template).toBeVisible({ timeout: 30_000 });
+    await template.selectOption({ label: 'Strip / Jitter Plot' });
+    const slot = (label: string) => page.locator(`xpath=//label[normalize-space()="${label}"]/following-sibling::div[1]//select`);
+    await expect(slot('Y')).toBeVisible({ timeout: 15_000 });
+    // The option label is the semantic/display name, not the raw column name — select by the
+    // raw `col_<column>` VALUE instead (same `column_id` convention `candidatesApi` itself uses).
+    await slot('Y').selectOption({ value: 'col_pct' });
+    await slot('Group').selectOption({ value: 'col_group' });
+    await page.getByPlaceholder('Chart title (optional)').fill(chartTitle);
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByText('Visualization created successfully')).toBeVisible({ timeout: 20_000 });
+
+    // 3. Switch to the gallery (Explore), find the new chart's card, "Add to evidence" -> "Create
+    // New" -> save-as-evidence (sap_custom_chart_saved fires here, front-side, per the coordinator).
+    await page.getByRole('tab', { name: 'Explore' }).click();
+    const card = page.locator('div', { hasText: chartTitle }).last();
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await card.getByTitle('More actions').click();
+    await page.getByRole('menuitem', { name: 'Add to evidence' }).click();
+    await page.getByText('Create New', { exact: true }).click();
+    const evidenceTitle = `${chartTitle} evidence`;
+    await page.getByPlaceholder('Evidence title').fill(evidenceTitle);
+    await page.getByTestId('create-evidence-submit').click();
+    await expect(page.getByTestId('create-evidence-submit')).not.toBeVisible({ timeout: 20_000 });
+
+    // 4. The new evidence is visible through the SAME API read path the explorer uses (AC1/AC2's
+    // doctrine: one view, not a second Investigator-only store).
+    let evidenceId: string | null = null;
+    await expect.poll(async () => {
+      const evidences = await (await admin.api.get(apiUrl(`/api/v1/view-analyses/${launchedViewAnalysisId}/evidences?limit=50`))).json();
+      const rows = evidences.data ?? evidences;
+      const found = rows.find((e: any) => e.currentVersion?.title === evidenceTitle);
+      evidenceId = found?.id ?? null;
+      return !!found;
+    }, { timeout: 20_000, message: 'custom chart evidence never appeared in the explorer read path' }).toBeTruthy();
+
+    // 5. Sign (publish) — SignQuestionControl, gated on view_analysis:publish.
+    await page.goto(`/projects/${projectId}/runs/${launchedRunId}?sapId=${sapId}&questionId=${questionId}`);
+    const signButton = page.getByTestId('rp-sign-button');
+    await expect(signButton).toBeVisible({ timeout: 30_000 });
+    await signButton.click();
+    await expect(page.getByTestId('rp-signed-note')).toBeVisible({ timeout: 30_000 });
+
+    // The published version carries the custom chart's evidence alongside the recommended one
+    // (FR28) — `evidenceVersionIds` names a VERSION per evidence, not the evidence id itself, so
+    // the check is "at least 2 cited" (the template chart + this custom one), not an id match.
+    const published = await (
+      await admin.api.get(apiUrl(`/api/v1/view-analyses/${launchedViewAnalysisId}/published-versions`))
+    ).json();
+    const rows = published.data ?? published;
+    const latest = rows[0];
+    expect(evidenceId, 'the custom chart evidence was never found').not.toBeNull();
+    expect(latest?.evidenceVersionIds?.length ?? 0, JSON.stringify(latest)).toBeGreaterThanOrEqual(2);
+  });
 
   test.fixme(
     'AXI-2647.4 AC26 — a stratified Dunn run (3 strata) has 3 panels, shared axis, brackets vs reference only',
     async () => {
-      // Needs the full AXI-2648 nine-field MAG4 preset (image 1), which needs the project
-      // extension pack — blocked by the registry_id defect recorded in this file's header.
+      // AXI-2652 (the registry_id namespacing fix this file's header used to record as a
+      // known defect) is confirmed merged/live on this stack (back main d82af71c), so the
+      // ORIGINAL blocker this test.fixme named is gone. It remains fixme because building the
+      // full AXI-2648 nine-field MAG4 preset is substantial new authoring not yet done, and —
+      // discovered 2026-11-18 — every analysis this stack consolidates right now hits the
+      // CandidatesService.replaceAutoGeneratedSpecs race (candidates.service.ts:981, a
+      // `Unique constraint failed on (dataview_spec_id)` on a concurrent delete-then-insert
+      // transaction; confirmed firing live, 0/150 view_analyses created in the last 24h have
+      // latest_consolidated_node_id set) — a backend defect outside this story's ownership
+      // that would make any newly-built AC26 flow unreliable to green today regardless of this
+      // test's own authoring state. Report as blocking, not retried into a false green.
     },
   );
+
+  // Browser spot-check (coordinator ask 2026-11-18, re: the confirmed consolidation race): an
+  // API 200 on an analysis is not proof the page itself renders the evidence. Placed LAST (not
+  // inside AC1/AC2/AC3's serial block) so a finding here never cascades to skip the core ACs —
+  // this suite is `test.describe.configure({ mode: 'serial' })`.
+  test('AXI-2647.5 spot-check — the AC1 explorer analysis renders in the Investigator browser UI, not just over the API', async ({ page }) => {
+    test.skip(!ac1ExplorerAnalysisId, 'AC1 did not reach a provisioned analysis to check');
+    await signInBrowser(page, investigator);
+    await page.goto(`/projects/${projectId}/view-analyses/${ac1ExplorerAnalysisId}`);
+    await expect(page.getByText(ac1EvidenceTitle)).toBeVisible({ timeout: 30_000 });
+  });
 });

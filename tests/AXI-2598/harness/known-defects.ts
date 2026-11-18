@@ -40,14 +40,11 @@ export const KNOWN_DEFECTS: Readonly<Record<string, KnownDefect>> = {
     step: 'S10',
     note: 'S10: Q4-partial (T4) SVG/PNG figure exports answer 409 "No recommended chart is recorded": no faithful partial-correlation figure decided yet (D22, owner question)',
   },
-  // Found by AXI-2647's ADR-002 acceptance pass (2026-11-18, w5val back d21a235e, front caf0cfa7
-  // after the AXI-2645 merge). Both block the AXI-2648 nine-field MAG4 preset's project-extension
-  // fields and AXI-2638's own spec's custom-role setup; this story's acceptance spec works around
-  // both by using platform-only fields and the built-in "admin" workspace role.
-  'extension-registry-id-not-namespaced': {
-    step: 'S6',
-    note: 'POST /api/v1/semantic-profiles/projects/:id/extensions refuses extension-registry-id-not-namespaced for a registry_id that matches validateExtensionPackShape\'s OWN regex byte-for-byte (verified running the exact compiled org-service function against the same payload inside the running container, which returns true) — something between the gateway DTO and the message-controller handler alters or re-validates the payload before addProfileExtension runs; root cause not isolated',
-  },
+  // `extension-registry-id-not-namespaced` (found by AXI-2647's 2026-11-18 ADR-002 acceptance
+  // pass) was the gateway's global ValidationPipe (`enableImplicitConversion`) coercing every
+  // element of `AddProfileExtensionDto.packs: unknown[]` to `[]` — root-caused by the lead,
+  // fixed by AXI-2652 (`@Transform` keeping the raw packs; back main `d82af71c`, live on w5val
+  // 2026-11-18). REMOVED here, not carried forward — its continued absence is a passing S6.
   'no-system-admin-seeded-on-stack': {
     step: 'S2',
     note: 'POST /api/v1/roles (custom workspace role creation) 403s "Only System Admins can create roles" for every identity on w5val, including the demo admin@cro-one.com, whose /auth/me reports system role "USER" — no seeded user anywhere on the stack holds system role ADMIN',
