@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { excerpt, type HandoverClient } from '../../AXI-2598/harness/http';
 import { pollUntil, PollTimeoutError } from '../../AXI-2598/harness/poll';
+import { declarationWithFieldAliases, declaredFieldAliases } from '../harness/declared-field-aliases';
 import {
   csvFacts, extensionFieldsOf, presetProblems, questionBody, sha256Hex, specificationBody,
   type CsvFacts, type FileKey, type NewModelPreset, type PresetFile, type PresetQuestion,
@@ -245,12 +246,47 @@ async function addDataFile(p: Procedure, file: PresetFile): Promise<string> {
   return datasetId;
 }
 
+const declarationPath = (datasetId: string) => `/api/v1/discovery/datasets/${datasetId}/semantic-declaration`;
+
+/** Only the provisioning identity may declare: without that right the run cannot continue. */
+function stopWhenForbidden(res: Res, step: string): void {
+  if (res.status !== 403) return;
+  const needed = 'the provisioning identity needs governs_analysis_parameters and no Investigator membership';
+  throw new StopRun(EXIT_BLOCKED, `${step}: refused with HTTP 403, ${needed}: ${excerpt(res.body, 300)}`);
+}
+
+/**
+ * AXI-2665 (FR76, AC57): names the column of each extension field the file carries. The PUT replaces
+ * the whole declaration and a reference file can serve several projects, so the current one is read
+ * first and every other member and term is kept.
+ */
+export async function declareFileFields(p: Procedure, file: PresetFile, datasetId: string): Promise<void> {
+  const aliases = declaredFieldAliases(p.preset, p.projectId, file.key);
+  if (aliases.length === 0) return;
+  const step = `7 declaration ${file.key}`;
+  const read = await p.actors.provisioner.get(declarationPath(datasetId));
+  stopWhenForbidden(read, step);
+  const current = expectStatus(read, step, [200])?.declaration ?? null;
+  const declaration = declarationWithFieldAliases(current, aliases);
+  const sent = await p.actors.provisioner.put(declarationPath(datasetId), { declaration });
+  stopWhenForbidden(sent, step);
+  const record = expectStatus(sent, step, [200])?.record;
+  const held = new Set<string>((record?.declaration?.aliases ?? []).map((a: any) => `${a.term}=${a.column}`));
+  for (const a of aliases) expectValue(step, `alias ${a.term} held`, true, held.has(`${a.term}=${a.column}`));
+  p.trace.record(step, { datasetId, revision: record?.revision, aliases });
+}
+
 const unresolved = (body: any): any[] => (body?.questions ?? []).filter((q: any) => q?.resolution?.kind !== 'resolved');
 
 async function readQuestionData(p: Procedure): Promise<Res> {
   const url = `/api/v1/semantic-profiles/projects/${p.projectId}/normalize`;
   expectStatus(await p.actors.provisioner.post(url), '7 normalize', [200, 201]);
   return p.actors.investigator.get(`${versionPath(p)}/question-data`);
+}
+
+/** After the declaration every field is declared or exact, so a question without data is a difference. */
+export function questionDataStop(body: unknown): StopRun {
+  return new StopRun(EXIT_MISMATCH, `7 question data: questions without data: ${excerpt(unresolved(body), 700)}`);
 }
 
 /** Every question must resolve to one dataset; if one cannot, the run stops and names it. */
@@ -265,14 +301,15 @@ async function waitForQuestionData(p: Procedure): Promise<void> {
   } catch (error) {
     if (!(error instanceof PollTimeoutError)) throw error;
     const last = error.last as Res | undefined;
-    throw new StopRun(EXIT_BLOCKED, `7 question data: questions without data: ${excerpt(unresolved(last?.body), 700)}`);
+    throw questionDataStop(last?.body);
   }
 }
 
-/** Step 7: the two reference files, unchanged, then per-question data readiness. */
+/** Step 7: the two reference files, unchanged, their declared fields, then per-question data readiness. */
 export async function addData(p: Procedure): Promise<void> {
   const datasetIds: Record<string, string> = {};
   for (const file of p.preset.files) datasetIds[file.key] = await addDataFile(p, file);
+  for (const file of p.preset.files) await declareFileFields(p, file, datasetIds[file.key]);
   await waitForQuestionData(p);
   p.trace.record('7 data', { datasetIds });
 }
