@@ -696,3 +696,16 @@ recomputation of the 42 cells from the two reference files, used by these tests 
 | UT-REPRO-2663-024 | The variables step stops as blocked by AXI-2587 when its route is not served | Pass |
 | UT-REPRO-2663-025 | Question planning stops as blocked by AXI-2590 when no workflow is served | Pass |
 | UT-REPRO-2663-026 | The golden table holds 42 cells, 15 stars and one residual | Pass |
+
+## AXI-2667/preset-chart-display.spec.ts
+
+AXI-2667 (epic AXI-2630, FR77, AC58): the preset's chart declarations name levels the data files hold.
+
+| ID | Description | Status |
+|---|---|---|
+| UT-PRESET-2667-001 | Image 1 declares median bars, no box and brackets against IgG4-RD only | Pass |
+| UT-PRESET-2667-002 | Image 1 orders exactly the groups and the panels the question compares | Pass |
+| UT-PRESET-2667-003 | Image 1 axis limits contain every drawn value | Pass |
+| UT-PRESET-2667-004 | Image 2 declares a log axis and labels every cluster of the file, in order | Pass |
+| UT-PRESET-2667-005 | Image 3 declares a log axis and labels the raw levels 0 and 1 | Pass |
+| UT-PRESET-2667-006 | Image 4 declares no chart display | Pass |

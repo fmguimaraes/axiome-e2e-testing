@@ -77,7 +77,8 @@
         "alpha": 0.05,
         "sidedness": "two_sided",
         "groups": ["HD", "IgG4-RD", "SD"],
-        "stratifyBy": { "column": "reference", "strata": ["ENT 059", "CER 229", "CER 215 et 234"] }
+        "stratifyBy": { "column": "reference", "strata": ["ENT 059", "CER 229", "CER 215 et 234"] },
+        "chartDisplay": {"show_box": false, "show_median": true, "y_range": [-0.06, 1.48], "group_order": ["HD", "IgG4-RD", "SD"], "facet_order": ["ENT 059", "CER 229", "CER 215 et 234"], "facet_labels": {"ENT 059": "ENT059", "CER 229": "CER229", "CER 215 et 234": "CER215 + CER234"}, "pairwise": {"reference_group": "IgG4-RD"}}
       },
       "decisionCriterion": { "kind": "p_at_or_below_alpha" },
       "expectedChart": "stratified_posthoc_v1"
@@ -100,7 +101,7 @@
         { "slot": "groupingColumn", "field": "cluster_selon_acr_eular_2019" },
         { "slot": "outcome", "field": "microbiote_igg4_ent_059" }
       ],
-      "parameters": { "alpha": 0.05, "sidedness": "two_sided" },
+      "parameters": { "alpha": 0.05, "sidedness": "two_sided", "chartDisplay": {"log_y": true, "group_order": ["C1", "C2", "C3", "C4"], "group_labels": {"C1": "Cluster 1", "C2": "Cluster 2", "C3": "Cluster 3", "C4": "Cluster 4"}} },
       "decisionCriterion": { "kind": "p_at_or_below_alpha" },
       "expectedChart": "group_comparison_v1"
     },
@@ -122,7 +123,7 @@
         { "slot": "groupingColumn", "field": "atteinte_pancreatique" },
         { "slot": "outcome", "field": "microbiote_igg4_ent_059" }
       ],
-      "parameters": { "alpha": 0.05, "sidedness": "two_sided" },
+      "parameters": { "alpha": 0.05, "sidedness": "two_sided", "chartDisplay": {"log_y": true, "group_order": ["0", "1"], "group_labels": {"0": "Absent", "1": "Present"}} },
       "decisionCriterion": { "kind": "p_at_or_below_alpha" },
       "expectedChart": "group_comparison_v1"
     },
