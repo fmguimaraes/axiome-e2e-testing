@@ -94,12 +94,19 @@ test.describe('AXI-2596 completeness count reflects every server check @SI-031',
     await page.getByTestId('protocol-save').click();
     await expect(page.getByTestId('protocol-unsaved')).toHaveCount(0, { timeout: 15_000 });
 
-    // Create a declared (v2) plan.
+    // AXI-2657 (owner rulings 2026-11-18): the protocol leads straight to the questions — the
+    // first question starts the plan (no separate "Create plan" step any more); the plan's
+    // timing (and so its data specification) follows the questions.
     await gotoSettled(page, `/investigator/projects/${projectId}/sap`);
     await expect(page.getByTestId('project-sap-page')).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId('sap-header-create-plan').click();
-    await page.getByTestId('sap-create-timing-declared').check();
-    await page.getByTestId('sap-create-plan-submit').click();
+    await page.getByTestId('sap-plan-add-primary-question').click();
+    await expect(page.getByTestId('sap-add-question-modal')).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId('sap-add-question-text').fill('Does sexe affect the outcome?');
+    await page.getByTestId('sap-add-question-submit').click();
+    await expect(page.getByTestId('sap-add-question-modal')).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByTestId('sap-plan-questions-row-Q1')).toBeVisible({ timeout: 15_000 });
+
+    await page.getByTestId('sap-plan-timing-declared').check();
     await expect(page.getByTestId('sap-spec-editor')).toBeVisible({ timeout: 15_000 });
 
     // A grouping field with NO declared levels — the real CC15 trigger.
