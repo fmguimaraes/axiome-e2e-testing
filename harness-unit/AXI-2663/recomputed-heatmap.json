@@ -1,0 +1,296 @@
+[
+ {
+  "reference": "CER228",
+  "variable": "sIgG4",
+  "rho": 0.591897233201581,
+  "qWithinReference": 0.011149097627387704,
+  "qAcrossAllCells": 0.015368651709479202
+ },
+ {
+  "reference": "CER228",
+  "variable": "IgG4-RD RI",
+  "rho": 0.5800395256916997,
+  "qWithinReference": 0.011149097627387704,
+  "qAcrossAllCells": 0.017343040753714206
+ },
+ {
+  "reference": "CER228",
+  "variable": "IgG4+/HPF",
+  "rho": 0.5266798418972332,
+  "qWithinReference": 0.019647656746707893,
+  "qAcrossAllCells": 0.03438339930673882
+ },
+ {
+  "reference": "CER228",
+  "variable": "Eosinophils",
+  "rho": 0.22556390977443608,
+  "qWithinReference": 0.4067651270050402,
+  "qAcrossAllCells": 0.3746520906625371
+ },
+ {
+  "reference": "CER228",
+  "variable": "Plasmablasts",
+  "rho": 0.17272727272727273,
+  "qWithinReference": 0.45402436101288696,
+  "qAcrossAllCells": 0.46863500390504786
+ },
+ {
+  "reference": "CER228",
+  "variable": "TFH",
+  "rho": 0.3348390739695088,
+  "qWithinReference": 0.19155512519654366,
+  "qAcrossAllCells": 0.1985189111442221
+ },
+ {
+  "reference": "MAG4-27",
+  "variable": "sIgG4",
+  "rho": 0.3231225296442688,
+  "qWithinReference": 0.2652129044997335,
+  "qAcrossAllCells": 0.1985189111442221
+ },
+ {
+  "reference": "MAG4-27",
+  "variable": "IgG4-RD RI",
+  "rho": 0.42094861660079047,
+  "qWithinReference": 0.13641361440841068,
+  "qAcrossAllCells": 0.09548953008588748
+ },
+ {
+  "reference": "MAG4-27",
+  "variable": "IgG4+/HPF",
+  "rho": 0.6630434782608696,
+  "qWithinReference": 0.003386088770880055,
+  "qAcrossAllCells": 0.0059256553490400965
+ },
+ {
+  "reference": "MAG4-27",
+  "variable": "Eosinophils",
+  "rho": 0.20902255639097742,
+  "qWithinReference": 0.4517668075045666,
+  "qAcrossAllCells": 0.4054317503246111
+ },
+ {
+  "reference": "MAG4-27",
+  "variable": "Plasmablasts",
+  "rho": 0.17142857142857143,
+  "qWithinReference": 0.4574770276215944,
+  "qAcrossAllCells": 0.46863500390504786
+ },
+ {
+  "reference": "MAG4-27",
+  "variable": "TFH",
+  "rho": 0.2399774138904574,
+  "qWithinReference": 0.42308660864421455,
+  "qAcrossAllCells": 0.32906736227883354
+ },
+ {
+  "reference": "MAG4-22",
+  "variable": "sIgG4",
+  "rho": 0.6847826086956521,
+  "qWithinReference": 0.001874952285592131,
+  "qAcrossAllCells": 0.004374888666381639
+ },
+ {
+  "reference": "MAG4-22",
+  "variable": "IgG4-RD RI",
+  "rho": 0.4871541501976285,
+  "qWithinReference": 0.05517440741510762,
+  "qAcrossAllCells": 0.05149611358743378
+ },
+ {
+  "reference": "MAG4-22",
+  "variable": "IgG4+/HPF",
+  "rho": 0.24604743083003952,
+  "qWithinReference": 0.30931069086821966,
+  "qAcrossAllCells": 0.3246757682714828
+ },
+ {
+  "reference": "MAG4-22",
+  "variable": "Eosinophils",
+  "rho": 0.35488721804511275,
+  "qWithinReference": 0.2493762551202775,
+  "qAcrossAllCells": 0.1985189111442221
+ },
+ {
+  "reference": "MAG4-22",
+  "variable": "Plasmablasts",
+  "rho": 0.2311688311688312,
+  "qWithinReference": 0.3133473331324289,
+  "qAcrossAllCells": 0.3556915673395139
+ },
+ {
+  "reference": "MAG4-22",
+  "variable": "TFH",
+  "rho": 0.27724449463579903,
+  "qWithinReference": 0.30931069086821966,
+  "qAcrossAllCells": 0.27773879900371934
+ },
+ {
+  "reference": "MAG4-13",
+  "variable": "sIgG4",
+  "rho": 0.3636363636363636,
+  "qWithinReference": 0.13211173396211154,
+  "qAcrossAllCells": 0.15413035628913013
+ },
+ {
+  "reference": "MAG4-13",
+  "variable": "IgG4-RD RI",
+  "rho": 0.38241106719367585,
+  "qWithinReference": 0.13211173396211154,
+  "qAcrossAllCells": 0.13692787472807955
+ },
+ {
+  "reference": "MAG4-13",
+  "variable": "IgG4+/HPF",
+  "rho": 0.46739130434782605,
+  "qWithinReference": 0.13211173396211154,
+  "qAcrossAllCells": 0.060598447992829575
+ },
+ {
+  "reference": "MAG4-13",
+  "variable": "Eosinophils",
+  "rho": 0.29473684210526313,
+  "qWithinReference": 0.24856250502258445,
+  "qAcrossAllCells": 0.27773879900371934
+ },
+ {
+  "reference": "MAG4-13",
+  "variable": "Plasmablasts",
+  "rho": 0.251948051948052,
+  "qWithinReference": 0.2705631402262357,
+  "qAcrossAllCells": 0.3246757682714828
+ },
+ {
+  "reference": "MAG4-13",
+  "variable": "TFH",
+  "rho": 0.40711462450592883,
+  "qWithinReference": 0.13211173396211154,
+  "qAcrossAllCells": 0.12008733141082222
+ },
+ {
+  "reference": "CER215+234",
+  "variable": "sIgG4",
+  "rho": 0.8013833992094862,
+  "qWithinReference": 2.588251110766889e-05,
+  "qAcrossAllCells": 0.00018117757775368225
+ },
+ {
+  "reference": "CER215+234",
+  "variable": "IgG4-RD RI",
+  "rho": 0.6067193675889329,
+  "qWithinReference": 0.006432606641582718,
+  "qAcrossAllCells": 0.012865213283165436
+ },
+ {
+  "reference": "CER215+234",
+  "variable": "IgG4+/HPF",
+  "rho": 0.30138339920948615,
+  "qWithinReference": 0.16225571581325898,
+  "qAcrossAllCells": 0.22715800213856258
+ },
+ {
+  "reference": "CER215+234",
+  "variable": "Eosinophils",
+  "rho": 0.556390977443609,
+  "qWithinReference": 0.02168350649011375,
+  "qAcrossAllCells": 0.03502720279172221
+ },
+ {
+  "reference": "CER215+234",
+  "variable": "Plasmablasts",
+  "rho": 0.4454545454545455,
+  "qWithinReference": 0.05159991449117144,
+  "qAcrossAllCells": 0.09548953008588748
+ },
+ {
+  "reference": "CER215+234",
+  "variable": "TFH",
+  "rho": 0.4884246188594016,
+  "qWithinReference": 0.03163387212894038,
+  "qAcrossAllCells": 0.05535927622564567
+ },
+ {
+  "reference": "CER229",
+  "variable": "sIgG4",
+  "rho": 0.633399209486166,
+  "qWithinReference": 0.00387114248544423,
+  "qAcrossAllCells": 0.00903266579936987
+ },
+ {
+  "reference": "CER229",
+  "variable": "IgG4-RD RI",
+  "rho": 0.6294466403162056,
+  "qWithinReference": 0.00387114248544423,
+  "qAcrossAllCells": 0.00903266579936987
+ },
+ {
+  "reference": "CER229",
+  "variable": "IgG4+/HPF",
+  "rho": 0.366600790513834,
+  "qWithinReference": 0.1706465259281645,
+  "qAcrossAllCells": 0.15413035628913013
+ },
+ {
+  "reference": "CER229",
+  "variable": "Eosinophils",
+  "rho": 0.3443609022556391,
+  "qWithinReference": 0.20560887225651575,
+  "qAcrossAllCells": 0.1985189111442221
+ },
+ {
+  "reference": "CER229",
+  "variable": "Plasmablasts",
+  "rho": 0.251948051948052,
+  "qWithinReference": 0.3246757682714828,
+  "qAcrossAllCells": 0.3246757682714828
+ },
+ {
+  "reference": "CER229",
+  "variable": "TFH",
+  "rho": 0.09655561829474874,
+  "qWithinReference": 0.6690506468846462,
+  "qAcrossAllCells": 0.6690506468846462
+ },
+ {
+  "reference": "ENT059",
+  "variable": "sIgG4",
+  "rho": 0.7806281150892812,
+  "qWithinReference": 6.658412220715134e-05,
+  "qAcrossAllCells": 0.00023304442772502967
+ },
+ {
+  "reference": "ENT059",
+  "variable": "IgG4-RD RI",
+  "rho": 0.5327937392190338,
+  "qWithinReference": 0.01811117334559808,
+  "qAcrossAllCells": 0.03438339930673882
+ },
+ {
+  "reference": "ENT059",
+  "variable": "IgG4+/HPF",
+  "rho": 0.3396434665266346,
+  "qWithinReference": 0.11283239534677371,
+  "qAcrossAllCells": 0.18955842418257984
+ },
+ {
+  "reference": "ENT059",
+  "variable": "Eosinophils",
+  "rho": 0.5495503513640534,
+  "qWithinReference": 0.01811117334559808,
+  "qAcrossAllCells": 0.03622234669119616
+ },
+ {
+  "reference": "ENT059",
+  "variable": "Plasmablasts",
+  "rho": 0.5539953271561254,
+  "qWithinReference": 0.01811117334559808,
+  "qAcrossAllCells": 0.03438339930673882
+ },
+ {
+  "reference": "ENT059",
+  "variable": "TFH",
+  "rho": 0.4312103110453142,
+  "qWithinReference": 0.054126428095911575,
+  "qAcrossAllCells": 0.09548953008588748
+ }
+]
