@@ -138,7 +138,7 @@
         "population": "Patients with IgG4-related disease in the MAG4 cohort",
         "variable": "IgG4 anti-microbiota references and clinical variables",
         "intercurrentEvents": "None anticipated (cross-sectional measurement)",
-        "populationSummary": "Spearman correlation coefficient per reference-variable pair, Benjamini-Hochberg adjusted across all cells",
+        "populationSummary": "Spearman correlation coefficient per reference-variable pair, Benjamini-Hochberg adjusted within each reference",
         "treatmentComparison": "Not a group comparison: correlation across patients"
       },
       "bindings": [
@@ -156,7 +156,7 @@
         { "slot": "y", "field": "plasmablasts_cd19_cd38_cd27_mm3" },
         { "slot": "y", "field": "tfh_cxcr5_pd1_cd4" }
       ],
-      "parameters": { "alpha": 0.05, "sidedness": "two_sided" },
+      "parameters": { "alpha": 0.05, "sidedness": "two_sided", "familyScope": "per_reference" },
       "decisionCriterion": { "kind": "p_at_or_below_alpha" },
       "expectedChart": "heatmap_annotated_v1"
     }
