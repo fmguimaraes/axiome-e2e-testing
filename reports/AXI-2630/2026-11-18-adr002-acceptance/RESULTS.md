@@ -2,6 +2,31 @@
 
 **Date:** 2026-11-18 (updated twice — supersedes the earlier same-day write-up below the line)
 
+## Update 5 — 2026-11-18, re-run after AXI-2658 (front 86cf6dc8): NOT EXECUTED, all 8 tests skipped
+
+Front commit under test: `86cf6dc8` (AXI-2658 chart editor fix), served on w5val front :5174 (HTTP 200
+confirmed), back :3001. Command: `API_BASE_URL=http://localhost:3001 npx playwright test
+tests/AXI-2630/AXI-2647-adr002-acceptance.spec.ts --project=axi-2647-adr002`. Log: `run23-2647-update5.log`.
+
+**Result: 8 skipped, 0 passed, 0 failed.** The spec's `beforeAll` skips everything unless
+`HANDOVER_WORKSPACE_ID`, `E2E_INVESTIGATOR_EMAIL` and `E2E_INVESTIGATOR_PASSWORD` are set. None of
+them (nor `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD`) is in the agent's process environment; earlier updates
+supplied them via `node --env-file=.env`, which this run was not permitted to do. No test body ran, so
+there is NO new evidence on AC1, AC2 or AC3.
+
+| Test | Result |
+|---|---|
+| AXI-2647.0 | skipped (env not configured) |
+| AXI-2647.0b | skipped |
+| AXI-2647.1 (AC2/AC5/AC6/AC35) | skipped |
+| AXI-2647.1b (AC1 API) | skipped |
+| AXI-2647.2 (AC2/AC25/AC29) | skipped |
+| AXI-2647.3 (AC3) | skipped; Y-select options / derived dataset columns not observed |
+| AXI-2647.4 (AC26) | skipped (test.fixme in the spec) |
+| AXI-2647.5 (AC1 browser) | skipped |
+
+No test or application code changed; no interpretive node approved.
+
 ## Update 3 — AXI-2638 now green; the owner's `.env` resolved Defect #3
 
 The owner placed `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` (`test@axiomebio.com`, a real system-admin
