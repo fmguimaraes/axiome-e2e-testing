@@ -18,6 +18,15 @@ export const STUB_DATASET_ID = 'ds-e2e-2569';
 export const STUB_INGESTION_ID = 'ing-e2e-2569';
 export const STUB_COLUMNS = ['subject_id', 'arm', 'crp_mg_l'];
 
+/** AXI-2587 (FR54): the project profile's standard-field catalog (`GET <p>/sap-standard-fields`). */
+export const STUB_STANDARD_FIELDS = {
+  profile: { profileId: 'profile-e2e-2587', displayName: 'E2E demo profile', configVersion: 'v1' },
+  fields: [
+    { canonicalField: 'age_years', label: 'Age (years)', expectedKind: 'measurement', levels: null },
+    { canonicalField: 'sex', label: 'Sex', expectedKind: 'group', levels: ['Female', 'Male'] },
+  ],
+};
+
 export interface StubWrite { method: string; path: string; body: any }
 
 const T1 = {
@@ -93,6 +102,7 @@ export class PlanBeforeDataStub {
     if (key === 'GET <p>/saps') return [200, { data: this.versions.slice(-1), meta: { total: this.versions.length ? 1 : 0 } }];
     if (key === 'GET <p>/sap-draft') return this.draft ? [200, this.draft] : [404, { message: 'No open draft', code: 'SAP_DRAFT_NOT_FOUND' }];
     if (key === 'GET <p>/sap-templates') return [200, [T1]];
+    if (key === 'GET <p>/sap-standard-fields') return [200, STUB_STANDARD_FIELDS];
     if (key === 'POST <p>/saps/draft') return [201, this.startDraft(body?.planSchemaVersion)];
     if (key === 'GET <sap>/versions') return [200, this.versions];
     if (key === 'GET <sap>/draft') return [200, this.draft];
