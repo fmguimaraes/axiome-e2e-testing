@@ -43,8 +43,16 @@ const RIGHT_SETS: Record<string, string[]> = {
 };
 
 async function newProject(label: string): Promise<string> {
+  // AXI-2647 fix (2026-11-18, running this spec for the first time per the coordinator's
+  // ask): `PrivateProjectsWorld.create()`'s throwaway workspace has no `defaultProfileId`
+  // policy set, so a project created with no explicit `semanticProfileId` gets `null` and
+  // `addProfileExtension` 400s "Project has no semantic profile to extend" — the header
+  // comment's "a project with its workspace's default semantic profile" contract needs an
+  // explicit id until the fixture workspace itself carries a default. `immune_mediated` is a
+  // real, stable platform profile id (`config/profiles/immune_mediated.json`); any valid
+  // profile works here since this workspace sets no `allowedProfileIds` restriction.
   const res = await editor.api.post(apiUrl('/api/v1/projects'), {
-    data: { name: `E2E AXI-2638 ${label} ${Date.now()}`, workspaceId: world.workspaceId },
+    data: { name: `E2E AXI-2638 ${label} ${Date.now()}`, workspaceId: world.workspaceId, semanticProfileId: 'immune_mediated' },
   });
   expect(res.status(), await res.text()).toBe(201);
   return (res.json() as Promise<{ id: string }>).then((b) => b.id);

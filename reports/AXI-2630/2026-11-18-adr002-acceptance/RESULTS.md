@@ -1,5 +1,37 @@
 # AXI-2647 — ADR-002 Acceptance Tests & Rehearsal Rewrite — Results
 
+**Date:** 2026-11-18 (updated twice — supersedes the earlier same-day write-up below the line)
+
+## Update 3 — AXI-2638 now green; the owner's `.env` resolved Defect #3
+
+The owner placed `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` (`test@axiomebio.com`, a real system-admin
+identity) in this worktree's `.env`. Re-running `AXI-2638-profile-extension.spec.ts` with it hit
+a NEW failure first (`Project has no semantic profile to extend`, 400) — `tests/AXI-2265/
+private-projects-fixtures.ts`'s throwaway workspace has no `defaultProfileId` policy, so a
+project created with no explicit `semanticProfileId` gets `null`. Fixed in the AXI-2638 spec file
+itself (one line: `newProject()` now passes `semanticProfileId: 'immune_mediated'`, a real,
+stable platform profile id) — a test-fixture gap, not a product defect, and a minimal, narrowly-
+scoped cross-story touch made only because the coordinator explicitly asked this spec be run to
+completion; flagging for AXI-2638's own owner/reviewer to confirm.
+
+That fix then surfaced what first LOOKED like the exact AXI-2652 registry_id-namespacing defect
+again (`"a project extension pack's registry_id must match ..."`, 400) — but turned out to be a
+**different, env-config defect in this suite itself**: `config/env.ts`'s `API_BASE_URL` default
+falls back to `http://localhost:3000` (the OTHER local backend container,
+`axiome-demo-backend`), not `:3001` (`axiome-w5val-backend`, the stack this story's branch
+actually targets), and the owner's `.env` does not set `API_BASE_URL` explicitly. Every run in
+this update used `node --env-file=.env` with no shell export, so it silently ran against the
+WRONG, unrelated backend the whole time — confirmed by replicating the exact same request by
+hand against `:3001` directly (both via raw `curl` and via Playwright's own `request` module,
+reproducing the fixture's full identity/role/project/extension flow byte-for-byte) and getting a
+clean 201 every time, while the actual spec run against the default `:3000` deterministically
+400'd on the identical payload. Exporting `API_BASE_URL=http://localhost:3001` (shell-exported
+values win over `--env-file`, confirmed) before the run fixed it:
+
+**`AXI-2638-profile-extension.spec.ts`: 6/6 pass** (`run22-2638.log`) — 2 setup + all 4
+scenarios (AXI-2638.1-.4, AC19/AC20). This is the first time this spec has ever run against a
+stack built from this branch (its own header comment recorded it as "authored, not executed").
+
 **Date:** 2026-11-18 (updated — supersedes the earlier same-day write-up below the line)
 **Stack:** w5val — front `:5174`, back `:3001` (org-service container `axiome-w5val-backend`)
 **Spec:** `tests/AXI-2630/AXI-2647-adr002-acceptance.spec.ts`
@@ -83,23 +115,17 @@ did not run in the serial order (its own earlier isolated run failed).**
   re-verify AC1 by browser rather than API alone; recommend re-running this exact spot-check in
   isolation (no other agents touching this stack) before treating it as a confirmed defect.
 
-### 3. `test@axiomebio.com` (canonical system-admin test identity) not usable on this stack
+### 3. `test@axiomebio.com` (canonical system-admin test identity) — RESOLVED by the owner
 
-- `docs/TEST-IDENTITY.md` requires this identity's password via `E2E_TEST_PASSWORD`, "never a
-  default, never guessed." No such value was available to this session, and the login attempt
-  with no override returned "login failed for non-self-registering role admin — is the seed
-  applied?" — i.e. the account is not provisioned on this particular w5val instance (or its
-  password is simply not something I have access to, which is correct per NFR3/NFR6 — I did not
-  attempt to work around this).
-- The only alternative identity available (`admin@cro-one.com`/`admin`, used throughout this
-  story's own spec) is a **workspace**-tier admin, not a **system**-tier admin — confirmed via
-  a live 403 ("Only System Admins can create roles") when `AXI-2638-profile-extension.spec.ts`'s
-  own fixture (`PrivateProjectsWorld`, `tests/AXI-2265/private-projects-fixtures.ts`) tried to
-  provision a custom role through it.
-- **Effect:** `AXI-2638-profile-extension.spec.ts` (coordinator's explicit ask to run) could
-  **not** be run to completion on this stack — not a workaround-able test defect, an
-  environment-provisioning gap outside this story's authority to fix (I will not fabricate or
-  guess the canonical secret).
+- **Status: resolved (Update 3).** The owner placed `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` in
+  this worktree's `.env`. With a real system-admin login available,
+  `AXI-2638-profile-extension.spec.ts` now runs to completion — see Update 3 above for the two
+  further (test-fixture and suite-env-config, not product) issues that had to be fixed along the
+  way, and the final 6/6 pass.
+- Original finding (now moot, kept for history): `admin@cro-one.com` is workspace-tier only,
+  confirmed via a live 403 ("Only System Admins can create roles"); `test@axiomebio.com`'s
+  password was correctly never guessed/fabricated (NFR3/NFR6) and was instead supplied by the
+  owner out of band, exactly as `docs/TEST-IDENTITY.md` prescribes.
 
 ## AC-by-AC status
 
@@ -125,13 +151,13 @@ brackets vs reference only) needs this and was not reachable at all (see AC26 ro
 
 ## Deferred / not completed this pass (explicit, not claimed done)
 
-- **AC3 fix** — blocked on Defect #1 (backend, out of story scope). Not retried further once
-  confirmed systemic (0/150 today).
+- **AC3 fix** — blocked on Defect #1 (backend, out of story scope). Per the coordinator
+  (2026-11-18): AXI-2653 (the `replaceAutoGeneratedSpecs` race fix) is being built now; explicitly
+  told NOT to re-attempt AC3 until it is merged/live, since it will still fail for the same
+  reason until then.
 - **AC26** — not built (needs the AXI-2648 nine-field preset; unreliable against Defect #1
-  regardless of authoring effort).
-- **AXI-2638 spec run** — attempted, blocked by Defect #3 (no usable system-admin identity on
-  this stack). Partial run exists (`run16-2638.log`, `run17-2638.log`) showing exactly where
-  and why it stops.
+  regardless of authoring effort, same hold as AC3 above).
+- ~~AXI-2638 spec run~~ — **DONE, 6/6 pass** (Update 3 above). No longer deferred.
 - **Rehearsal S7-S11 rewrite, 3x timed run (AC36)** — not started. S1-S6/S12 in
   `tests/AXI-2598/harness/rehearsal.ts` remain reusable as confirmed by reading them; S7-S11
   need the new launch/question-analyses/verdicts/sign-as-publish routes this story's spec
