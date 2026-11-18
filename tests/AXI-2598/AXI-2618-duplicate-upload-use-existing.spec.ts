@@ -263,9 +263,20 @@ test.describe('AXI-2618 Duplicate upload — real 409 label + "use the existing 
 
     await gotoSettled(page, `/investigator/projects/${projectD}/sap`);
     await expect(page.getByTestId('project-sap-page')).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId('sap-header-create-plan').click();
-    await page.getByTestId('sap-create-timing-declared').check();
-    await page.getByTestId('sap-create-plan-submit').click();
+
+    // AXI-2657 (owner rulings 2026-11-18, superseding AXI-2564's "Create plan" form and
+    // AXI-2589's post-AXI-2602 note this block carried about the Plan tab's own "Add question"):
+    // the protocol leads straight to the questions — the first question starts the plan, and the
+    // timing choice (so the data specification) follows it rather than preceding it.
+    await page.getByTestId('sap-plan-add-primary-question').click();
+    await expect(page.getByTestId('sap-add-question-modal')).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId('sap-add-question-text').fill('Does arm change the score?');
+    await page.getByTestId('sap-add-question-role-primary').click();
+    await page.getByTestId('sap-add-question-submit').click();
+    await expect(page.getByTestId('sap-add-question-modal')).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByTestId('sap-plan-questions-row-Q1')).toBeVisible({ timeout: 15_000 });
+
+    await page.getByTestId('sap-plan-timing-declared').check();
     await expect(page.getByTestId('sap-spec-editor')).toBeVisible({ timeout: 15_000 });
     await page.getByTestId('sap-spec-add-field').click();
     await page.getByTestId('sap-spec-field-0-name').fill('arm');
@@ -277,17 +288,6 @@ test.describe('AXI-2618 Duplicate upload — real 409 label + "use the existing 
     await page.getByTestId('sap-spec-field-1-label').fill('Score');
     await page.getByTestId('sap-spec-save').click();
     await expect(page.getByTestId('sap-spec-field-1-name')).toHaveValue('score');
-
-    // AXI-2589 (epic AXI-2567, post-dates AXI-2602): "Add a question" is now a modal
-    // (`AddQuestionModal.tsx`), not the separate "question mode" page AXI-2602's own spec
-    // still reads — this story does not touch SAP authoring, so it follows what the app
-    // actually renders today rather than the stale page-based flow.
-    await page.getByTestId('sap-plan-add-question').click();
-    await expect(page.getByTestId('sap-add-question-modal')).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId('sap-add-question-text').fill('Does arm change the score?');
-    await page.getByTestId('sap-add-question-role-primary').click();
-    await page.getByTestId('sap-add-question-submit').click();
-    await expect(page.getByTestId('sap-add-question-modal')).toHaveCount(0, { timeout: 15_000 });
 
     await page.locator('[data-testid^="sap-plan-questions-row-"]').first().click();
     await expect(page.getByTestId('sap-spec-question-form')).toBeVisible({ timeout: 15_000 });
