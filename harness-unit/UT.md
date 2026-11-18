@@ -662,6 +662,20 @@ for every question). Tests 026-037 replace the old profilePin-era 026-030.
 | UT-PRESET-2648-036 | questionBody resolves field names to server ids and throws on an unknown one | Pass |
 | UT-PRESET-2648-037 | csvFacts/sha256Hex are reused, not re-implemented, from the AXI-2598 harness | Pass |
 
+## AXI-2665/declared-field-aliases.spec.ts
+
+AXI-2665 (epic AXI-2630, FR76, AC57). Covers `tests/AXI-2630/harness/declared-field-aliases.ts`,
+the semantic declaration body that states which file column carries each extension field.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-PRESET-2665-001 | the wide file declares one alias for each of the nine extension fields | Pass |
+| UT-PRESET-2665-002 | every declared column is a column of the reference file, spelled exactly | Pass |
+| UT-PRESET-2665-003 | every term is the namespaced field the plan binds | Pass |
+| UT-PRESET-2665-004 | the long file carries no extension field, so it declares nothing | Pass |
+| UT-PRESET-2665-005 | a dataset with no declaration gets a minimal admissible body | Pass |
+| UT-PRESET-2665-006 | an existing declaration keeps its members and another project's aliases | Pass |
+
 ## AXI-2663/reproduction.spec.ts
 
 AXI-2663 (epic AXI-2630, FR73, FR74, AC54, AC55). Stack-free proof of the MAG4 API reproduction
@@ -696,6 +710,24 @@ recomputation of the 42 cells from the two reference files, used by these tests 
 | UT-REPRO-2663-024 | The variables step stops as blocked by AXI-2587 when its route is not served | Pass |
 | UT-REPRO-2663-025 | Question planning stops as blocked by AXI-2590 when no workflow is served | Pass |
 | UT-REPRO-2663-026 | The golden table holds 42 cells, 15 stars and one residual | Pass |
+
+## AXI-2665/reproduction-declaration.spec.ts
+
+AXI-2665 (epic AXI-2630, FR76, AC57). The step of the MAG4 API reproduction that declares which file
+column carries each extension field (`tests/AXI-2630/reproduction/procedure.ts`). No network.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-REPRO-2665-001 | The provisioning identity reads the declaration, then sends the nine aliases | Pass |
+| UT-REPRO-2665-002 | An existing declaration keeps its other members and other terms | Pass |
+| UT-REPRO-2665-003 | A term already declared is replaced, never duplicated | Pass |
+| UT-REPRO-2665-004 | A file with no extension field sends nothing | Pass |
+| UT-REPRO-2665-005 | A 403 on the PUT stops the run as blocked and names the permission | Pass |
+| UT-REPRO-2665-006 | A 403 on the read stops the run before anything is sent | Pass |
+| UT-REPRO-2665-007 | A 400 on the PUT stops the run and carries the server's refusal | Pass |
+| UT-REPRO-2665-008 | A response that does not hold the aliases stops the run | Pass |
+| UT-REPRO-2665-009 | Step 7 declares after the wide file is ready and before reading question data | Pass |
+| UT-REPRO-2665-010 | A question still without data after the declaration is a mismatch, not a blocked step | Pass |
 
 ## AXI-2667/preset-chart-display.spec.ts
 
