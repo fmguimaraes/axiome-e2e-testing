@@ -696,3 +696,11 @@ recomputation of the 42 cells from the two reference files, used by these tests 
 | UT-REPRO-2663-024 | The variables step stops as blocked by AXI-2587 when its route is not served | Pass |
 | UT-REPRO-2663-025 | Question planning stops as blocked by AXI-2590 when no workflow is served | Pass |
 | UT-REPRO-2663-026 | The golden table holds 42 cells, 15 stars and one residual | Pass |
+
+### AXI-2664 — image-4 declared correction family (`harness-unit/AXI-2664/image-4-correction-scope.spec.ts`, FR75, AC56)
+
+| ID | Behaviour | Status |
+|----|-----------|--------|
+| UT-PRESET-2664-001 | the image-4 question declares `familyScope: per_reference` | Pass |
+| UT-PRESET-2664-002 | the image-4 estimand states the within-reference family, never "across all cells" | Pass |
+| UT-PRESET-2664-003 | no other preset question declares a correction family | Pass |
