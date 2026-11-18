@@ -7,8 +7,8 @@ import { PlanBeforeDataStub } from './harness/plan-before-data-stub';
 
 /**
  * AXI-2587 (epic AXI-2567 — Plan Before Data): the Variables card (declared + extracted modes),
- * "Add from standard fields", removal, the deferred-FR55 manual-editor fallback, and the
- * completeness sidebar's dedicated spec-checks section.
+ * "Add from standard fields", removal (including a question-bound field, which is refused), and
+ * the completeness sidebar's dedicated spec-checks section.
  *
  * Scenarios: `axiome-docs/manual-e2e/AXI-2567-Plan-Before-Data.md` § AXI-2587 (2.1 … 2.6).
  *
@@ -18,16 +18,29 @@ import { PlanBeforeDataStub } from './harness/plan-before-data-stub';
  * because no running stack serves the AXI-2568 v2-plan backend over a migrated DB. Owed at W5:
  * re-run against a migrated stack with the double removed.
  *
- * AUTHORED, NOT RUN this pass: the backend named conditionally in the story brief (`:3001`)
- * resolved to the `axiome-w5val-backend` container — off-limits per the coordinator's
- * instruction and standing policy; `wt-up.sh` (the usual route to an isolated stack) is blocked
- * for story-developer agents. No `e2e-pass` is claimed for this spec.
+ * REVIEW BOUNCE #2 (2026-11-18) — every test in this file drives `ProjectSapVariablesCard`
+ * against a draft the STUB seeds directly (`seedDeclaredDraftWithField` /
+ * `seedDeclaredDraftWithBoundField` / `seedExtractedDraft`), never through a UI "create plan"
+ * form: AXI-2657 (merged on this branch's own base) removed that form. The investigator's real
+ * order since then is protocol → first added question starts the draft → timing and the data
+ * specification are designed from the questions (`firstPlanStartOf`, `planTimingOf`) — none of
+ * which this story's Variables-card scope owns or re-implements; seeding the draft reproduces
+ * that flow's end state without re-walking UI this spec does not own. This ALSO means the four
+ * OTHER merged specs that still call `sap-header-create-plan`/`sap-create-*` (AXI-2569, AXI-2596,
+ * AXI-2602, AXI-2618) are themselves stale against the current front end — reported to the
+ * coordinator, not fixed here (outside this file's ownership).
  *
- * CROSS-STORY RISK (reported, not fixed here — not this spec's file ownership): AXI-2569's own
- * spec asserts `sap-spec-editor` is VISIBLE immediately after creating a declared plan. This
- * story nests that same editor inside a closed `<details data-testid="sap-variables-manual-editor">`
- * disclosure (FR55 deferred), so once both stories' front-end changes are combined, that
- * AXI-2569 assertion will fail until it is updated to open the disclosure first.
+ * Because every test below drives the FRONT END only, against this in-memory double, NONE of
+ * them is evidence that the front end and the REAL organization-service backend agree on the
+ * Variables/completeness contract (the double is written by hand from the contract types, not
+ * generated from them) — that agreement is exactly what the AXI-2568 migrated-stack re-run (W5,
+ * noted above) is for.
+ *
+ * AUTHORED, NOT RUN against a live stack this pass: the backend named conditionally in the story
+ * brief (`:3001`) resolved to the `axiome-w5val-backend` container — off-limits per the
+ * coordinator's instruction and standing policy; `wt-up.sh` (the usual route to an isolated
+ * stack) is blocked for story-developer agents. No `e2e-pass` is claimed for this spec from MCP
+ * exploration alone; see the story report for the headless run this pass DID execute.
  */
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -35,7 +48,6 @@ test.describe.configure({ mode: 'serial', timeout: 180_000 });
 
 const INVESTIGATOR_ROLE_ID = '00000000-0000-0000-0000-000000000105';
 const PASSWORD = 'AXI2587-e2e-pw!';
-const POPULATION = 'Adults with rheumatoid arthritis, 18-75 years';
 
 interface Person extends Actor { email: string; accessToken: string }
 
@@ -66,6 +78,7 @@ async function newProject(label: string): Promise<string> {
   return id;
 }
 
+/** Signs in and lands on the (already-seeded, via the stub) Statistical plan page. */
 async function openSap(page: Page, stub: PlanBeforeDataStub, projectId: string): Promise<void> {
   await stub.install(page);
   await page.addInitScript(([org, ws, p]) => {
@@ -85,25 +98,15 @@ async function openSap(page: Page, stub: PlanBeforeDataStub, projectId: string):
 const writesTo = (stub: PlanBeforeDataStub, method: string, suffix: string) =>
   stub.writes.filter((w) => w.method === method && w.path.endsWith(suffix));
 
-/** Creates a declared (v2) plan with one continuous field `crp_mg_l`, through the UI. */
-async function createDeclaredPlanWithField(page: Page, stub: PlanBeforeDataStub, projectId: string): Promise<void> {
-  await openSap(page, stub, projectId);
-  await page.getByTestId('sap-header-create-plan').click();
-  await page.getByTestId('sap-create-title').fill('AXI-2587 variables plan');
-  await page.getByTestId('sap-create-objective').fill('Does CRP differ between arms?');
-  await page.getByTestId('sap-create-timing-declared').check();
-  await page.getByTestId('sap-create-study-population').fill(POPULATION);
-  await page.getByTestId('sap-create-plan-submit').click();
-  await expect(page.getByTestId('sap-variables-card')).toBeVisible();
-  // FR55 deferred: the only way left to add a wholly custom field is the manual editor,
-  // behind the "Add a custom variable, or edit a field by hand" disclosure.
-  await page.getByTestId('sap-variables-manual-editor').locator('summary').click();
-  await page.getByTestId('sap-spec-add-field').click();
-  await page.getByTestId('sap-spec-field-0-name').fill('crp_mg_l');
-  await page.getByTestId('sap-spec-field-0-label').fill('CRP (mg/L)');
-  await page.getByTestId('sap-spec-field-0-required').check();
-  await page.getByTestId('sap-spec-save').click();
-  await expect.poll(() => writesTo(stub, 'PUT', '/draft').length).toBeGreaterThan(0);
+/**
+ * AXI-2587 (B1 fix, review bounce #2): an EMPTY declared spec's manual editor auto-opens
+ * (`ProjectSapVariablesCard`'s `manualOpen` default); a non-empty one does not. Open it only
+ * when it is not already open, so this helper works at either starting state.
+ */
+async function openManualEditor(page: Page): Promise<void> {
+  const details = page.getByTestId('sap-variables-manual-editor');
+  const isOpen = await details.evaluate((el) => (el as HTMLDetailsElement).open);
+  if (!isOpen) await details.locator('summary').click();
 }
 
 test.beforeAll(async () => {
@@ -128,10 +131,11 @@ test.describe('AXI-2587 Variables card: table, standard fields, removal @SI-031 
   test.beforeAll(async () => {
     projectId = await newProject('variables');
     stub = new PlanBeforeDataStub(projectId, investigator.userId);
+    stub.seedDeclaredDraftWithField();
   });
 
   test('FR52, FR53, FR54 — AXI-2587.1: the declared card shows the table and "+ Add from standard fields"', async ({ page }) => {
-    await createDeclaredPlanWithField(page, stub, projectId);
+    await openSap(page, stub, projectId);
     await expect(page.getByTestId('sap-variables-chip')).toHaveText('Declared before data');
     await expect(page.getByTestId('sap-variables-table')).toBeVisible();
     await expect(page.getByTestId(/sap-variable-.*-status/).first()).toHaveText('Not used by a question');
@@ -162,7 +166,8 @@ test.describe('AXI-2587 Variables card: table, standard fields, removal @SI-031 
 
   test('FR52 — AXI-2587.3: the manual editor still adds a wholly custom field (FR55 deferred)', async ({ page }) => {
     await openSap(page, stub, projectId);
-    await page.getByTestId('sap-variables-manual-editor').locator('summary').click();
+    // Non-empty spec by now (crp_mg_l survives test .1/.2) — the manual editor starts closed.
+    await openManualEditor(page);
     await page.getByTestId('sap-spec-add-field').click();
     const index = (await page.getByTestId(/^sap-spec-field-\d+$/).count()) - 1;
     await page.getByTestId(`sap-spec-field-${index}-name`).fill('custom_marker');
@@ -181,15 +186,63 @@ test.describe('AXI-2587 Variables card: table, standard fields, removal @SI-031 
   });
 });
 
+test.describe('AXI-2587 Variables card: question-bound removal + extracted modes (manual-e2e 2.2, 2.4) @SI-031 @SI-066', () => {
+  test('FR53 — AXI-2587.6: a variable bound to a question cannot be removed from the table', async ({ page }) => {
+    const projectId = await newProject('bound');
+    const stub = new PlanBeforeDataStub(projectId, investigator.userId);
+    const field = stub.seedDeclaredDraftWithBoundField();
+    await openSap(page, stub, projectId);
+    await expect(page.getByTestId(`sap-variable-${field.fieldId}-status`)).toHaveText('Used');
+    await page.getByTestId(`sap-variable-${field.fieldId}-remove`).click();
+    await expect(page.getByTestId('sap-variables-remove-error')).toBeVisible();
+    await expect(page.getByTestId('sap-variables-remove-error')).toContainText('Q1');
+    // Never confirms, never saves: the block is checked BEFORE the confirm dialog (component
+    // contract) — a stray `window.confirm` here would hang the test, which is itself a check.
+    await expect(page.getByTestId(`sap-variable-${field.fieldId}`)).toBeVisible();
+    expect(writesTo(stub, 'PUT', '/draft')).toHaveLength(0);
+  });
+
+  test('FR52, FR53 — AXI-2587.7: extracted mode shows only the empty state until variables exist, then the read-only table', async ({ page }) => {
+    const emptyProjectId = await newProject('extracted-empty');
+    const emptyStub = new PlanBeforeDataStub(emptyProjectId, investigator.userId);
+    emptyStub.seedExtractedDraft(false);
+    await openSap(page, emptyStub, emptyProjectId);
+    await expect(page.getByTestId('sap-variables-chip')).toHaveText('From your data · read only');
+    await expect(page.getByTestId('sap-variables-empty')).toBeVisible();
+    await expect(page.getByTestId('sap-variables-table')).toHaveCount(0);
+
+    const filledProjectId = await newProject('extracted-filled');
+    const filledStub = new PlanBeforeDataStub(filledProjectId, investigator.userId);
+    filledStub.seedExtractedDraft(true);
+    await openSap(page, filledStub, filledProjectId);
+    await expect(page.getByTestId('sap-variables-chip')).toHaveText('From your data · read only');
+    await expect(page.getByTestId('sap-variables-table')).toBeVisible();
+    await expect(page.getByTestId('sap-variables-extraction-line')).toBeVisible();
+    // Read only: no remove button on any row, and no "Add from standard fields"/manual editor.
+    await expect(page.getByTestId(/sap-variable-.*-remove/)).toHaveCount(0);
+    await expect(page.getByTestId('sap-variables-add-standard')).toHaveCount(0);
+    await expect(page.getByTestId('sap-variables-manual-editor')).toHaveCount(0);
+  });
+});
+
 test.describe('AXI-2587 completeness sidebar: dedicated spec-checks section @SI-031', () => {
-  test('FR56 — AXI-2587.5: CC15-CC18 render once, separate from the generic rows; CC17 is advisory', async ({ page }) => {
+  test('FR56 — AXI-2587.5: CC15-CC18 render once, separate from the generic rows; CC17 is advisory and never blocks Finalise', async ({ page }) => {
     const projectId = await newProject('checks');
     const stub = new PlanBeforeDataStub(projectId, investigator.userId);
-    await createDeclaredPlanWithField(page, stub, projectId);
+    // A primary question (manual-e2e 2.6's precondition): CC1 passes, so the ONLY thing left to
+    // demonstrate is that CC17's warn does not also block Finalise.
+    stub.seedDeclaredDraftWithBoundField();
+    await openSap(page, stub, projectId);
     await expect(page.getByTestId('sap-spec-checks')).toBeVisible();
     await expect(page.getByTestId('sap-spec-check-CC17')).toContainText('advisory');
     await expect(page.getByTestId('sap-plan-check-CC15')).toHaveCount(0);
-    const finalise = page.getByTestId('sap-finalise');
+    // AXI-2587 (B3 fix, review bounce #2): the real control is `sap-finalise-open`
+    // (`ProjectSapInvestigatorPage.tsx`) — `ProjectSapDraftPanel`'s own `sap-finalise` is never
+    // rendered on the investigator surface (it is mounted with `canFinalise: false`, see
+    // `PlanBody`). The original assertion used the wrong testid AND asserted "enabled" over a
+    // seed with no primary question (CC1 would have failed); fixed on both counts here.
+    const finalise = page.getByTestId('sap-finalise-open');
     await expect(finalise).toBeEnabled();
+    await expect(page.getByTestId('sap-finalise-hint')).toHaveCount(0);
   });
 });

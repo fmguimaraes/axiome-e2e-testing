@@ -132,8 +132,58 @@ export class PlanBeforeDataStub {
       draftId: this.id('draft'), sapId: this.sapId, projectId: this.projectId, revision: 1, basedOnVersion: latest?.version ?? null,
       title: latest?.title ?? '', questionText: latest?.questionText ?? '', planText: latest?.planText ?? '', plan,
       updatedBy: this.userId, createdAt: this.now(), updatedAt: this.now(),
+      // AXI-2587 (FR58) — present (not undefined) on every draft, like `SapDraftRecord`; only an
+      // extraction/conversion draft fills it in (`seedExtractedDraft`).
+      extractionSource: null,
     };
     return this.draft;
+  }
+
+  /**
+   * AXI-2587 (review bounce #2, B1/B3): there is no UI "create plan" form any more — AXI-2657
+   * made the first ADDED QUESTION start the schemaVersion 2 draft, and timing/data spec are
+   * designed from the questions after that (`firstPlanStartOf`, `planTimingOf`). Seeding the
+   * draft here is the server-side effect that flow would have produced, without re-walking a
+   * UI this story does not own. `planTimingOf` resolves `'declared'` the moment
+   * `dataSpecification.fields.length > 0` — no separate timing click is needed once a field
+   * exists, which is why the Variables card mounts straight from this seed.
+   */
+  seedDeclaredDraftWithField(name = 'crp_mg_l', label = 'CRP (mg/L)'): { fieldId: string; name: string } {
+    this.startDraft(2);
+    Object.assign(this.draft, { title: 'AXI-2587 variables plan', questionText: 'Does CRP differ between arms?' });
+    this.draft.plan.studyPopulation = 'Adults with rheumatoid arthritis, 18-75 years';
+    const field = { fieldId: this.id('field'), name, label, semanticRole: 'continuous', required: true };
+    this.draft.plan.dataSpecification = { fields: [field] };
+    return field;
+  }
+
+  /** AXI-2587 (B2, manual-e2e 2.2): the same declared draft, plus one primary question bound
+   *  to the field — `variableRemovalBlock` must refuse removing a field a question binds. */
+  seedDeclaredDraftWithBoundField(): { fieldId: string; name: string } {
+    const field = this.seedDeclaredDraftWithField();
+    this.draft.plan.questions = [{
+      questionId: this.id('q'), position: 1, role: 'primary', text: 'Does CRP differ between arms?',
+      estimand: { population: 'p', variable: 'v', intercurrentEvents: 'i', populationSummary: 's', treatmentComparison: 't' },
+      template: { templateId: 'T1', templateVersion: '1.0.0' },
+      bindings: [{ slot: 'outcome', field: field.fieldId }],
+      parameters: { alpha: 0.05, sidedness: 'two_sided' }, decisionCriterion: { kind: 'p_at_or_below_alpha' }, sensitivityAnalyses: [],
+    }];
+    return field;
+  }
+
+  /** AXI-2587 (B2, manual-e2e 2.4): an `extracted` v2 draft — the empty state (no variable yet,
+   *  `extracted_empty`) or with one extracted field (`extracted`, read only) — plus the draft's
+   *  own `extractionSource` summary (FR58's "Extracted {date}" line). */
+  seedExtractedDraft(withField: boolean): void {
+    this.startDraft(2);
+    this.draft.plan.specificationSource = 'extracted';
+    this.draft.plan.analysisDatasetId = STUB_DATASET_ID;
+    this.draft.plan.dataSpecification = {
+      fields: withField ? [{ fieldId: this.id('field'), name: 'crp_mg_l', label: 'CRP (mg/L)', semanticRole: 'continuous', required: true }] : [],
+    };
+    this.draft.extractionSource = {
+      kind: 'extraction', datasetId: STUB_DATASET_ID, ingestionId: STUB_INGESTION_ID, convertedFromVersion: null, extractedAt: this.now(),
+    };
   }
 
   private bump() { this.draft.revision += 1; this.draft.updatedAt = this.now(); return this.draft; }
