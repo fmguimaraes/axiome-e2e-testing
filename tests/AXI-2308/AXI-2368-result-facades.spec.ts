@@ -118,7 +118,7 @@ test.describe.serial('AXI-2368 result facades: one analysis row, two entry point
     await expect(page).toHaveURL(new RegExp(`${explorerPath(plainAnalysisId)}$`), { timeout: 30_000 });
   });
 
-  test('owner goal 2026-10-31 — AXI-2368.3 the result page links to the explorer (team only); the explorer links back to the result page @SI-066 @SI-035 @SI-033', async ({ page, browser }) => {
+  test('owner goal 2026-10-31 — AXI-2368.3 the result page links to the explorer on both surfaces; the explorer links back to the result page @SI-066 @SI-035 @SI-033', async ({ page, browser }) => {
     // Arrange
     await seedScope(page, t);
     await gotoSettled(page, resultPath(t1RunId));
@@ -142,12 +142,12 @@ test.describe.serial('AXI-2368 result facades: one analysis row, two entry point
     await expect(page.getByTestId('question-title')).toBeVisible();
     await expect(page.getByTestId('object-line-result-view')).toHaveCount(0);
 
-    // Assert — the Investigator's result page never offers "Open in explorer"
-    // (the explorer route sits behind the team SurfaceGate)
+    // Assert — AXI-2668 (FR78): the Investigator's result page opens the explorer on his surface
     const hisPage = await browser.newPage();
     await signIn(hisPage, investigator, t, `/investigator/projects/${t.projectId}/runs/${hisRunId}`);
     await expect(hisPage.getByTestId('rp-answer')).toBeVisible({ timeout: 120_000 });
-    await expect(hisPage.getByTestId('rp-open-explorer')).toHaveCount(0);
+    await hisPage.getByTestId('rp-open-explorer').click();
+    await expect(hisPage).toHaveURL(new RegExp(`/investigator/projects/${t.projectId}/view-analyses/[^/?]+`), { timeout: 30_000 });
     await hisPage.close();
   });
 });
