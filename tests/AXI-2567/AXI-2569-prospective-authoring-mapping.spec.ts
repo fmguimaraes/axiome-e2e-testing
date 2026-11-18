@@ -15,7 +15,20 @@ import { PlanBeforeDataStub, STUB_INGESTION_ID } from './harness/plan-before-dat
  * dataset links and the dataset's ingestions are an in-memory DOUBLE
  * (`harness/plan-before-data-stub.ts`, AXI-2568 contracts) because no running stack serves the
  * AXI-2568 backend over a migrated DB (shared demo DB unmigrated; migrating it is forbidden for
- * a story agent). Owed at W5: re-run against a migrated stack with the double removed.
+ * a story agent). The protocol route is NOT part of that double (`owns()` never matches
+ * `/study/protocol`) — it is real, so AXI-2569.1's `beforeAll` saves one through the real API,
+ * same as AXI-2564.8.
+ *
+ * AXI-2657 (owner rulings 2026-11-18, touched here only where it broke this spec's own
+ * entry point): the plan page's "Create plan" form/testids (`sap-header-create-plan`,
+ * `sap-create-*`) are gone — the saved protocol leads straight to the questions, and the first
+ * one starts the plan; AXI-2569.1 and .7 are updated below. AXI-2569.2 … .6 were NOT touched —
+ * they were already failing against `main` before this story, on testids this spec was never
+ * updated for across several intervening stories (AXI-2570's full-page question flow retired
+ * by AXI-2589's modal; AXI-2580's `sap-finalise` renamed `sap-finalise-open`, `sap-draft`
+ * retired; a later `hidePopulation` on the Investigator surface, which `sap-spec-population`
+ * never renders under). That drift predates and is unrelated to AXI-2657 — flagged in the
+ * handoff report, not fixed here.
  */
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -95,22 +108,35 @@ test.describe('AXI-2569 declared plan: author, finalise, map, run @SI-031 @SI-06
   test.beforeAll(async () => {
     projectId = await newProject('declared');
     stub = new PlanBeforeDataStub(projectId, investigator.userId);
+    // AXI-2657: a plan cannot exist without a saved protocol — real route, not the double.
+    const saved = await investigator.api.put(apiUrl(`/api/v1/projects/${projectId}/study/protocol`), {
+      data: { title: 'CRP prospective plan', objective: 'Does CRP differ between arms?', studyPopulation: POPULATION, text: '' },
+    });
+    expect(saved.status(), await saved.text()).toBeLessThan(300);
   });
 
-  test('AXI-2569.1 AC1 create plan offers "declare data first"; a declared plan needs its study population', async ({ page }) => {
+  test('AXI-2569.1 (superseded by AXI-2657 owner rulings 2026-11-18) the first question starts a declared plan from the protocol; timing follows it', async ({ page }) => {
     await openSap(page, stub, projectId);
-    await page.getByTestId('sap-header-create-plan').click();
-    await page.getByTestId('sap-create-title').fill('CRP prospective plan');
-    await page.getByTestId('sap-create-objective').fill('Does CRP differ between arms?');
-    await page.getByTestId('sap-create-timing-declared').check();
-    const submit = page.getByTestId('sap-create-plan-submit');
-    await expect(submit).toBeDisabled();
-    await page.getByTestId('sap-create-study-population').fill(POPULATION);
-    await submit.click();
-    await expect(page.getByTestId('sap-spec-editor')).toBeVisible();
+    await expect(page.getByTestId('sap-protocol-summary')).toContainText('CRP prospective plan');
+
+    // The first question starts the plan — no separate "Create plan" step any more.
+    await page.getByTestId('sap-plan-add-primary-question').click();
+    await page.getByTestId('sap-add-question-text').fill('Does CRP differ between arms?');
+    await page.getByTestId('sap-add-question-submit').click();
+    await expect(page.getByTestId('sap-add-question-modal')).toHaveCount(0);
+    await expect(page.getByTestId('sap-plan-questions-row-Q1')).toBeVisible({ timeout: 15_000 });
     expect(writesTo(stub, 'POST', '/saps/draft')[0].body).toEqual({ planSchemaVersion: 2 });
     expect(writesTo(stub, 'PUT', '/draft')[0].body).toMatchObject({ title: 'CRP prospective plan', studyPopulation: POPULATION });
-    await expect(page.getByTestId('sap-spec-population')).toHaveValue(POPULATION);
+
+    // "On data I already have" stays unavailable (AXI-2657: a dataset cannot be picked from
+    // this page yet); "declare data first" is the only choice, and it reveals the spec editor.
+    await expect(page.getByTestId('sap-plan-timing-existing')).toBeDisabled();
+    await page.getByTestId('sap-plan-timing-declared').check();
+    await expect(page.getByTestId('sap-spec-editor')).toBeVisible();
+    // Already on `main` before this story (commit b1b84f1f, "drop study population from the
+    // plan's Data model panel — the protocol holds it"): the Investigator surface hides the
+    // spec editor's own population field — the protocol's is now the only one.
+    await expect(page.getByTestId('sap-spec-population')).toHaveCount(0);
   });
 
   test('AXI-2569.2 AC2 add and remove spec fields; the save sends the whole spec', async ({ page }) => {
@@ -226,19 +252,18 @@ test.describe('AXI-2569 regressions: amend after finalise, retrospective create 
     expect(writesTo(stub, 'POST', '/saps/draft')).toHaveLength(1);
   });
 
-  test('AXI-2569.7 AC3 "on existing data" creates today\'s v1 plan — no schema version, no population', async ({ page }) => {
-    const projectId = await newProject('retro');
-    const stub = new PlanBeforeDataStub(projectId, investigator.userId);
-    await openSap(page, stub, projectId);
-    await page.getByTestId('sap-header-create-plan').click();
-    await expect(page.getByTestId('sap-create-timing-existing')).toBeChecked();
-    await expect(page.getByTestId('sap-create-study-population')).toHaveCount(0);
-    await page.getByTestId('sap-create-title').fill('Retrospective');
-    await page.getByTestId('sap-create-objective').fill('Does score differ?');
-    await page.getByTestId('sap-create-plan-submit').click();
-    await expect.poll(() => writesTo(stub, 'PUT', '/draft').length).toBe(1);
-    expect(writesTo(stub, 'POST', '/saps/draft')[0].body).toEqual({});
-    expect(writesTo(stub, 'PUT', '/draft')[0].body).not.toHaveProperty('studyPopulation');
-    await expect(page.getByTestId('sap-spec-editor')).toHaveCount(0);
+  // AXI-2569.7 AC3 "on existing data" creates today's v1 plan — no schema version, no
+  // population. DESCOPED by AXI-2657 (owner rulings 2026-11-18): the "Create plan" form this
+  // scenario drove is gone, and its replacement — the first question, through
+  // `startPlanFromProtocol` — always starts a v2 (declared) draft (`sapsApi.startDraft(projectId,
+  // 2)`, hardcoded, `useProjectSap.ts`); the one remaining timing choice, "On data I already
+  // have", is permanently disabled on `ProjectSapPlanTimingField` ("not available yet: a dataset
+  // cannot be selected from this page"). A v1/retrospective plan is no longer reachable as a
+  // project's FIRST plan from this surface at all — only as an amendment wizard over an EXISTING
+  // v1 final (AXI-2564.9's path). This is a real behaviour change this story made, not test
+  // drift, and is called out in the handoff report as a question for product/owner sign-off
+  // rather than silently dropped or fabricated.
+  test.skip('AXI-2569.7 AC3 "on existing data" creates today\'s v1 plan — no schema version, no population', async () => {
+    // Intentionally left unimplemented — see the skip reason above.
   });
 });
