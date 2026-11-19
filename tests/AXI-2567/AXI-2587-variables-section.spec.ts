@@ -225,6 +225,56 @@ test.describe('AXI-2587 Variables card: question-bound removal + extracted modes
   });
 });
 
+test.describe('AXI-2587 extraction review: Extract from dataset… → review → Confirm (manual-e2e 2.7, 2.8) @SI-031 @SI-065', () => {
+  test('FR52, FR57, FR58 — AXI-2587.8: "On data I already have" → Extract from dataset… → keep exactly one of two columns on one standard field → Confirm writes the variables only', async ({ page }) => {
+    const projectId = await newProject('extract');
+    const stub = new PlanBeforeDataStub(projectId, investigator.userId);
+    stub.seedDeclaredDraftWithQuestionOnly();
+    await openSap(page, stub, projectId);
+    await page.getByTestId('sap-plan-timing-existing').check();
+    await expect(page.getByTestId('sap-variables-empty')).toBeVisible();
+    await page.getByTestId('sap-variables-extract').click();
+    await expect(page.getByTestId('sap-extraction-drawer')).toBeVisible();
+
+    // Both columns on age_years are To review; Confirm is held.
+    await expect(page.getByTestId('sap-extraction-chip-review')).toHaveText('2 to review');
+    await expect(page.getByTestId('sap-extraction-confirm')).toBeDisabled();
+    await expect(page.getByTestId('sap-extraction-row-age_a-conflict')).toContainText('keep exactly one');
+
+    // Keep age_a (the profile's matched column): its chip now reads Standard field and is counted.
+    await page.getByTestId('sap-extraction-tab-all').click();
+    await page.getByTestId('sap-extraction-row-age_b-include').uncheck();
+    await expect(page.getByTestId('sap-extraction-row-age_a-source')).toHaveText('Standard field');
+    await expect(page.getByTestId('sap-extraction-chip-standard')).toHaveText('1 standard fields');
+    await expect(page.getByTestId('sap-extraction-row-age_a-label')).toHaveText('Age (years)');
+    await expect(page.getByTestId('sap-extraction-row-age_a-unit')).toHaveText('years');
+    await page.getByTestId('sap-extraction-confirm').click();
+
+    await expect(page.getByTestId('sap-extraction-drawer')).toHaveCount(0);
+    const write = writesTo(stub, 'POST', '/draft/extraction').at(-1)!;
+    expect(write.body).toEqual({ basedOnRevision: 1, datasetVersionId: 'ing-e2e-2569', columns: ['age_a'] });
+    // The card shows exactly what the panel showed for the kept column.
+    await expect(page.getByTestId('sap-variables-chip')).toHaveText('From your data · read only');
+    await expect(page.getByTestId('sap-variables-extraction-line')).toContainText('e2e-2587.csv (version 1)');
+    const card = page.getByTestId('sap-variables-table');
+    await expect(card).toContainText('Age (years)');
+    await expect(card).toContainText('years');
+    await expect(page.getByTestId('sap-variables-change-version')).toBeVisible();
+  });
+
+  test('FR57 — AXI-2587.9: Cancel closes the review panel and writes nothing', async ({ page }) => {
+    const projectId = await newProject('extract-refused');
+    const stub = new PlanBeforeDataStub(projectId, investigator.userId);
+    stub.seedDeclaredDraftWithQuestionOnly();
+    await openSap(page, stub, projectId);
+    await page.getByTestId('sap-plan-timing-existing').check();
+    await page.getByTestId('sap-variables-extract').click();
+    await page.getByTestId('sap-extraction-cancel').click();
+    await expect(page.getByTestId('sap-extraction-drawer')).toHaveCount(0);
+    expect(writesTo(stub, 'POST', '/draft/extraction')).toHaveLength(0);
+  });
+});
+
 test.describe('AXI-2587 completeness sidebar: dedicated spec-checks section @SI-031', () => {
   test('FR56 — AXI-2587.5: CC15-CC18 render once, separate from the generic rows; CC17 is advisory and never blocks Finalise', async ({ page }) => {
     const projectId = await newProject('checks');
