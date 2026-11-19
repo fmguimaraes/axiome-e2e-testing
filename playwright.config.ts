@@ -83,6 +83,11 @@ const HANDOVER_SPEC = /(AXI-2598\/AXI-26(01|12)|AXI-2630\/AXI-2663)-[^/]+\.spec\
 // for nothing this spec uses (the AXI-1831 failure mode once more).
 const AXI_2647_SPEC = /AXI-2630\/AXI-2647-adr002-acceptance\.spec\.ts$/;
 
+// AXI-2659 (epic AXI-2630) — plan-to-four-images rehearsal: real browser `page`
+// throughout, own investigator/provisioner login via `signInBrowser`/API tokens,
+// never the fixture-org `setup` project's storageState (same shape as AXI_2647_SPEC).
+const AXI_2659_SPEC = /AXI-2630\/AXI-2659-plan-to-four-images\.spec\.ts$/;
+
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
  *
@@ -153,7 +158,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC, AXI_2659_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -219,6 +224,13 @@ export default defineConfig({
     {
       name: 'axi-2647-adr002',
       testMatch: AXI_2647_SPEC,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // AXI-2659 (epic AXI-2630) — plan-to-four-images rehearsal (see AXI_2659_SPEC above).
+    // No `setup` dependency, no inherited storageState — the spec signs itself in.
+    {
+      name: 'axi-2659-plan-to-four-images',
+      testMatch: AXI_2659_SPEC,
       use: { ...devices['Desktop Chrome'] },
     },
   ],
