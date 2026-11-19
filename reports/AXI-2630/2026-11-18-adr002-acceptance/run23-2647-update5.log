@@ -1,0 +1,13 @@
+
+Running 8 tests using 1 worker
+
+  -  1 [axi-2647-adr002] › tests/AXI-2630/AXI-2647-adr002-acceptance.spec.ts:155:3 › AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065 › AXI-2647.0 provision a minimal declared plan over platform-only fields and finalise it @SI-065
+  -  2 [axi-2647-adr002] › tests/AXI-2630/AXI-2647-adr002-acceptance.spec.ts:222:3 › AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065 › AXI-2647.0b upload + link the dataset, confirm per-question readiness resolves (FR13, FR65) @SI-065
+  -  3 [axi-2647-adr002] › tests/AXI-2630/AXI-2647-adr002-acceptance.spec.ts:291:3 › AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065 › AXI-2647.1 AC2/AC5/AC6/AC35 — launching the question makes it an ordinary, unique analysis; relaunch is a no-op @SI-065
+  -  4 [axi-2647-adr002] › tests/AXI-2630/AXI-2647-adr002-acceptance.spec.ts:343:3 › AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065 › AXI-2647.1b AC1 — a finished, validated explorer analysis (never through a plan) displays on the Investigator with its evidence and no plan-run object @SI-065
+  -  5 [axi-2647-adr002] › tests/AXI-2630/AXI-2647-adr002-acceptance.spec.ts:421:3 › AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065 › AXI-2647.2 AC2/AC25/AC29 — the launched analysis is a same-shape explorer analysis; its chart evidence is the declared shape @SI-042
+  -  6 [axi-2647-adr002] › tests/AXI-2630/AXI-2647-adr002-acceptance.spec.ts:463:3 › AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065 › AXI-2647.3 AC3 — custom chart over the question snapshot, saved as evidence, visible in the explorer, published on sign @SI-042
+  -  7 [axi-2647-adr002] › tests/AXI-2630/AXI-2647-adr002-acceptance.spec.ts:544:8 › AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065 › AXI-2647.4 AC26 — a stratified Dunn run (3 strata) has 3 panels, shared axis, brackets vs reference only
+  -  8 [axi-2647-adr002] › tests/AXI-2630/AXI-2647-adr002-acceptance.spec.ts:565:3 › AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065 › AXI-2647.5 spot-check — the AC1 explorer analysis renders in the Investigator browser UI, not just over the API
+
+  8 skipped
