@@ -135,12 +135,28 @@ export interface RestrictToParam {
   levels: string[];
 }
 
+/** AXI-2667 (FR77): the closed list the server reads (`readRecommendedChartDisplay`). */
+export interface ChartDisplayParam {
+  show_points?: boolean;
+  show_box?: boolean;
+  show_median?: boolean;
+  log_y?: boolean;
+  y_range?: [number, number];
+  group_order?: string[];
+  group_labels?: Record<string, string>;
+  facet_order?: string[];
+  facet_labels?: Record<string, string>;
+  pairwise?: { reference_group: string };
+}
+
 export interface QuestionParameters {
   alpha: number;
   sidedness: 'two_sided' | 'greater' | 'less';
   groups?: string[];
   restrictTo?: RestrictToParam;
   stratifyBy?: StratifyByParam;
+  /** AXI-2667 (FR77): how this question's recommended chart is drawn. Never reaches the analysis. */
+  chartDisplay?: ChartDisplayParam;
 }
 
 export interface PresetQuestion {

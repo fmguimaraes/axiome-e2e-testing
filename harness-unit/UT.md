@@ -711,6 +711,14 @@ recomputation of the 42 cells from the two reference files, used by these tests 
 | UT-REPRO-2663-025 | Question planning stops as blocked by AXI-2590 when no workflow is served | Pass |
 | UT-REPRO-2663-026 | The golden table holds 42 cells, 15 stars and one residual | Pass |
 
+### AXI-2664 — image-4 declared correction family (`harness-unit/AXI-2664/image-4-correction-scope.spec.ts`, FR75, AC56)
+
+| ID | Behaviour | Status |
+|----|-----------|--------|
+| UT-PRESET-2664-001 | the image-4 question declares `familyScope: per_reference` | Pass |
+| UT-PRESET-2664-002 | the image-4 estimand states the within-reference family, never "across all cells" | Pass |
+| UT-PRESET-2664-003 | no other preset question declares a correction family | Pass |
+
 ## AXI-2665/reproduction-declaration.spec.ts
 
 AXI-2665 (epic AXI-2630, FR76, AC57). The step of the MAG4 API reproduction that declares which file
@@ -728,3 +736,16 @@ column carries each extension field (`tests/AXI-2630/reproduction/procedure.ts`)
 | UT-REPRO-2665-008 | A response that does not hold the aliases stops the run | Pass |
 | UT-REPRO-2665-009 | Step 7 declares after the wide file is ready and before reading question data | Pass |
 | UT-REPRO-2665-010 | A question still without data after the declaration is a mismatch, not a blocked step | Pass |
+
+## AXI-2667/preset-chart-display.spec.ts
+
+AXI-2667 (epic AXI-2630, FR77, AC58): the preset's chart declarations name levels the data files hold.
+
+| ID | Description | Status |
+|---|---|---|
+| UT-PRESET-2667-001 | Image 1 declares median bars, no box and brackets against IgG4-RD only | Pass |
+| UT-PRESET-2667-002 | Image 1 orders exactly the groups and the panels the question compares | Pass |
+| UT-PRESET-2667-003 | Image 1 axis limits contain every drawn value | Pass |
+| UT-PRESET-2667-004 | Image 2 declares a log axis and labels every cluster of the file, in order | Pass |
+| UT-PRESET-2667-005 | Image 3 declares a log axis and labels the raw levels 0 and 1 | Pass |
+| UT-PRESET-2667-006 | Image 4 declares no chart display | Pass |
