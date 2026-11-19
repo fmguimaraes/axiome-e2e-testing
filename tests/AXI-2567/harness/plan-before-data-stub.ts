@@ -18,6 +18,41 @@ export const STUB_DATASET_ID = 'ds-e2e-2569';
 export const STUB_INGESTION_ID = 'ing-e2e-2569';
 export const STUB_COLUMNS = ['subject_id', 'arm', 'crp_mg_l'];
 
+/** AXI-2587 (FR54): the project profile's standard-field catalog (`GET <p>/sap-standard-fields`). */
+export const STUB_STANDARD_FIELDS = {
+  profile: { profileId: 'profile-e2e-2587', displayName: 'E2E demo profile', configVersion: 'v1' },
+  fields: [
+    { canonicalField: 'age_years', label: 'Age (years)', expectedKind: 'measurement', levels: null },
+    { canonicalField: 'sex', label: 'Sex', expectedKind: 'group', levels: ['Female', 'Male'] },
+  ],
+};
+
+/** AXI-2587 (FR57): the one ready dataset version an extraction may read. */
+export const STUB_EXTRACTION_SOURCE = {
+  datasetId: STUB_DATASET_ID, ingestionId: STUB_INGESTION_ID, displayName: 'e2e-2587.csv', ingestionVersion: 1,
+  rowCount: 40, columnCount: 4, createdAt: '2026-11-19T00:00:00.000Z',
+};
+
+const row = (column: string, extra: Record<string, unknown>) => ({
+  column, status: 'available', source: 'custom', label: column, canonicalField: null, profilePin: null,
+  measuredRole: 'continuous', levels: null, unit: null, expectedKind: null, usedBy: [], bound: false,
+  reviewReasons: [], conflictGroup: null, qualifier: null, exclusion: null, ...extra,
+});
+
+/**
+ * AXI-2587 (FR57): the server's deterministic proposal, shaped as `proposeExtraction` answers
+ * it: each row states what Confirm writes for its column. Two columns on one standard field —
+ * `age_a` the profile's matched column (pins `age_years`), `age_b` the conflict one (its own
+ * column) — and an identifier excluded by default.
+ */
+export const STUB_EXTRACTION_ROWS = [
+  row('subject_id', { status: 'excluded', source: 'excluded', measuredRole: null, exclusion: 'identifier' }),
+  row('age_a', { status: 'to_review', source: 'standard_field', label: 'Age (years)', canonicalField: 'age_years', profilePin: 'v1',
+    expectedKind: 'measurement', unit: 'years', reviewReasons: ['standard_field_conflict'], conflictGroup: 'age_years' }),
+  row('age_b', { status: 'to_review', reviewReasons: ['standard_field_conflict'], conflictGroup: 'age_years' }),
+  row('crp_mg_l', { status: 'available', unit: 'mg/L' }),
+];
+
 export interface StubWrite { method: string; path: string; body: any }
 
 const T1 = {
@@ -93,6 +128,10 @@ export class PlanBeforeDataStub {
     if (key === 'GET <p>/saps') return [200, { data: this.versions.slice(-1), meta: { total: this.versions.length ? 1 : 0 } }];
     if (key === 'GET <p>/sap-draft') return this.draft ? [200, this.draft] : [404, { message: 'No open draft', code: 'SAP_DRAFT_NOT_FOUND' }];
     if (key === 'GET <p>/sap-templates') return [200, [T1]];
+    if (key === 'GET <p>/sap-standard-fields') return [200, STUB_STANDARD_FIELDS];
+    if (key === 'GET <sap>/extraction-sources') return [200, [STUB_EXTRACTION_SOURCE]];
+    if (key === 'GET <sap>/extraction-proposal') return [200, { kind: 'extraction', source: STUB_EXTRACTION_SOURCE, rows: STUB_EXTRACTION_ROWS }];
+    if (key === 'POST <sap>/draft/extraction') return this.extract(body);
     if (key === 'POST <p>/saps/draft') return [201, this.startDraft(body?.planSchemaVersion)];
     if (key === 'GET <sap>/versions') return [200, this.versions];
     if (key === 'GET <sap>/draft') return [200, this.draft];
@@ -122,8 +161,84 @@ export class PlanBeforeDataStub {
       draftId: this.id('draft'), sapId: this.sapId, projectId: this.projectId, revision: 1, basedOnVersion: latest?.version ?? null,
       title: latest?.title ?? '', questionText: latest?.questionText ?? '', planText: latest?.planText ?? '', plan,
       updatedBy: this.userId, createdAt: this.now(), updatedAt: this.now(),
+      // AXI-2587 (FR58) — present (not undefined) on every draft, like `SapDraftRecord`; only an
+      // extraction/conversion draft fills it in (`seedExtractedDraft`).
+      extractionSource: null,
     };
     return this.draft;
+  }
+
+  /**
+   * AXI-2587 (review bounce #2, B1/B3): there is no UI "create plan" form any more — AXI-2657
+   * made the first ADDED QUESTION start the schemaVersion 2 draft, and timing/data spec are
+   * designed from the questions after that (`firstPlanStartOf`, `planTimingOf`). Seeding the
+   * draft here is the server-side effect that flow would have produced, without re-walking a
+   * UI this story does not own. `planTimingOf` resolves `'declared'` the moment
+   * `dataSpecification.fields.length > 0` — no separate timing click is needed once a field
+   * exists, which is why the Variables card mounts straight from this seed.
+   */
+  seedDeclaredDraftWithField(name = 'crp_mg_l', label = 'CRP (mg/L)'): { fieldId: string; name: string } {
+    this.startDraft(2);
+    Object.assign(this.draft, { title: 'AXI-2587 variables plan', questionText: 'Does CRP differ between arms?' });
+    this.draft.plan.studyPopulation = 'Adults with rheumatoid arthritis, 18-75 years';
+    const field = { fieldId: this.id('field'), name, label, semanticRole: 'continuous', required: true };
+    this.draft.plan.dataSpecification = { fields: [field] };
+    return field;
+  }
+
+  /** AXI-2587 (B2, manual-e2e 2.2): the same declared draft, plus one primary question bound
+   *  to the field — `variableRemovalBlock` must refuse removing a field a question binds. */
+  seedDeclaredDraftWithBoundField(): { fieldId: string; name: string } {
+    const field = this.seedDeclaredDraftWithField();
+    this.draft.plan.questions = [{
+      questionId: this.id('q'), position: 1, role: 'primary', text: 'Does CRP differ between arms?',
+      estimand: { population: 'p', variable: 'v', intercurrentEvents: 'i', populationSummary: 's', treatmentComparison: 't' },
+      template: { templateId: 'T1', templateVersion: '1.0.0' },
+      bindings: [{ slot: 'outcome', field: field.fieldId }],
+      parameters: { alpha: 0.05, sidedness: 'two_sided' }, decisionCriterion: { kind: 'p_at_or_below_alpha' }, sensitivityAnalyses: [],
+    }];
+    return field;
+  }
+
+  /** AXI-2587 (B2, manual-e2e 2.4): an `extracted` v2 draft — the empty state (no variable yet,
+   *  `extracted_empty`) or with one extracted field (`extracted`, read only) — plus the draft's
+   *  own `extractionSource` summary (FR58's "Extracted {date}" line). */
+  seedExtractedDraft(withField: boolean): void {
+    this.startDraft(2);
+    this.draft.plan.specificationSource = 'extracted';
+    this.draft.plan.analysisDatasetId = STUB_DATASET_ID;
+    this.draft.plan.dataSpecification = {
+      fields: withField ? [{ fieldId: this.id('field'), name: 'crp_mg_l', label: 'CRP (mg/L)', semanticRole: 'continuous', required: true }] : [],
+    };
+    this.draft.extractionSource = {
+      kind: 'extraction', datasetId: STUB_DATASET_ID, ingestionId: STUB_INGESTION_ID, convertedFromVersion: null, extractedAt: this.now(),
+    };
+  }
+
+  /** AXI-2587 (FR57): a declared v2 draft with one question and no variable — the plan's timing is still to choose. */
+  seedDeclaredDraftWithQuestionOnly(): void {
+    this.startDraft(2);
+    Object.assign(this.draft, { title: 'AXI-2587 extraction plan', questionText: 'Does CRP differ by age?' });
+    this.draft.plan.questions = [{ questionId: this.id('q'), position: 1, role: 'primary', text: 'Does CRP differ by age?' }];
+  }
+
+  /** `POST …/draft/extraction` — the variables from the proposal rows, nothing else (FR58). */
+  private extract(body: any): [number, unknown] {
+    if (body?.basedOnRevision !== this.draft.revision) return [409, { message: 'stale', code: 'SAP_DRAFT_CONFLICT' }];
+    const kept = STUB_EXTRACTION_ROWS.filter((r) => body.columns.includes(r.column));
+    const conflicted = kept.filter((r) => r.conflictGroup !== null);
+    if (conflicted.length > 1) return [422, { message: 'Validation failed', errors: [{ field: 'columns', message: 'age_a, age_b match one standard field (age_years): keep exactly one' }] }];
+    this.draft.plan.specificationSource = 'extracted';
+    this.draft.plan.analysisDatasetId = STUB_DATASET_ID;
+    this.draft.plan.dataSpecification = { fields: kept.map((r) => ({
+      fieldId: this.id('field'), name: r.column, label: r.label, semanticRole: r.measuredRole, required: false,
+      ...(r.canonicalField ? { canonicalField: r.canonicalField, profilePin: r.profilePin } : {}),
+      ...(r.unit ? { unit: r.unit } : {}),
+    })) };
+    this.draft.extractionSource = {
+      kind: 'extraction', datasetId: STUB_DATASET_ID, ingestionId: STUB_INGESTION_ID, convertedFromVersion: null, extractedAt: this.now(),
+    };
+    return [201, this.bump()];
   }
 
   private bump() { this.draft.revision += 1; this.draft.updatedAt = this.now(); return this.draft; }

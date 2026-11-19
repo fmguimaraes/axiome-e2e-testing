@@ -126,9 +126,21 @@ async function buildAndFinaliseDeclaredPlan(page: Page, projectId: string, title
 
   await gotoSettled(page, `/investigator/projects/${projectId}/sap`);
   await expect(page.getByTestId('project-sap-page')).toBeVisible({ timeout: 30_000 });
-  await page.getByTestId('sap-header-create-plan').click();
-  await page.getByTestId('sap-create-timing-declared').check();
-  await page.getByTestId('sap-create-plan-submit').click();
+
+  // AXI-2657 (owner rulings 2026-11-18): the protocol leads straight to the questions — the
+  // first question starts the plan (no separate "Create plan" step any more, superseding this
+  // block's own AXI-2564 form and AXI-2589's note below about the Plan tab's own "Add question":
+  // with no plan yet the ONLY add-question entry is this one, `sap-plan-add-primary-question`,
+  // inside `QuestionsPanel`'s own empty state). The timing choice (and so the data
+  // specification) follows the question rather than preceding it.
+  await page.getByTestId('sap-plan-add-primary-question').click();
+  await expect(page.getByTestId('sap-add-question-modal')).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('sap-add-question-text').fill('Does arm change the score?');
+  await page.getByTestId('sap-add-question-submit').click();
+  await expect(page.getByTestId('sap-add-question-modal')).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByTestId('sap-plan-questions-row-Q1')).toBeVisible({ timeout: 15_000 });
+
+  await page.getByTestId('sap-plan-timing-declared').check();
   await expect(page.getByTestId('sap-spec-editor')).toBeVisible({ timeout: 15_000 });
 
   await page.getByTestId('sap-spec-add-field').click();
@@ -142,20 +154,8 @@ async function buildAndFinaliseDeclaredPlan(page: Page, projectId: string, title
   await page.getByTestId('sap-spec-save').click();
   await expect(page.getByTestId('sap-spec-field-1-name')).toHaveValue('score');
 
-  // The Plan tab's own "Add question" (`sap-plan-add-question`, same `useAddQuestionToPlan` act
-  // as the sidebar pill) reads THIS page's own just-refreshed `useProjectSap` snapshot, so it is
-  // enabled the moment the plan exists — no reload/remount needed, unlike the sidebar's own
-  // long-lived instance (AXI-2555's `investigator-add-question`, fetched once per session).
-  // Pre-existing drift noted while running AXI-2622: for a DECLARED (v2) plan `addQuestionEntry`
-  // resolves to `modal` (AXI-2589), not the retired wizard this block used to drive — fixed here
-  // to match the modal (`AddQuestionModal.tsx`) so the shared arrange helper runs against main.
-  await page.getByTestId('sap-plan-add-question').click();
-  await expect(page.getByTestId('sap-add-question-modal')).toBeVisible({ timeout: 15_000 });
-  await page.getByTestId('sap-add-question-text').fill('Does arm change the score?');
-  await page.getByTestId('sap-add-question-submit').click();
-  await expect(page.getByTestId('sap-add-question-modal')).toHaveCount(0, { timeout: 15_000 });
-
-  // The wizard only stores a stub ("awaiting plan") — its row opens the full spec/estimand form.
+  // The first question (added above, before the fields existed) is still a stub ("awaiting
+  // plan") — its row opens the full spec/estimand form, now that its fields are declared.
   await page.locator('[data-testid^="sap-plan-questions-row-"]').first().click();
   await expect(page.getByTestId('sap-spec-question-form')).toBeVisible({ timeout: 15_000 });
   await page.getByTestId('sap-spec-q-template').selectOption('T1');

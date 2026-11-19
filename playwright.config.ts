@@ -70,7 +70,8 @@ const PROD_SUITE_SPEC = /AXI-2309\/(AXI-2318-prod-(daily-suite|suite-infra)|AXI-
 // their own, unrelated harnesses and are correctly left on `chromium`. Keep this pattern in sync
 // with which specs actually `import ... from './harness/rehearsal'` (or `./harness/world`), not
 // with the epic folder alone.
-const HANDOVER_SPEC = /AXI-2598\/AXI-26(01|12)-[^/]+\.spec\.ts$/;
+// AXI-2663: the MAG4 API reproduction is built on the same harness and must never record a trace.
+const HANDOVER_SPEC = /(AXI-2598\/AXI-26(01|12)|AXI-2630\/AXI-2663)-[^/]+\.spec\.ts$/;
 
 // AXI-2647 (epic AXI-2630) — same AXI-1831 shape, widened: its own two API logins
 // (admin + investigator, via `apiRequest.newContext()`) for every API-only test, PLUS

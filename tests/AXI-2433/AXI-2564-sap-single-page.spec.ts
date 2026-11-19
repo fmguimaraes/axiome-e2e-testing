@@ -304,32 +304,47 @@ test.describe('AXI-2564 Investigator SAP page: single page, no tabs, dedicated v
     await expect(page.getByTestId('sap-read-denied')).toHaveCount(0);
   });
 
-  test('AXI-2564.8 (owner ask 2026-11-15, FR96) no plan yet — only Create plan is offered; saving title + objective creates it', async ({ page }) => {
-    // Arrange — a fresh project with no SAP at all
+  test('AXI-2564.8 (owner ask 2026-11-15, FR96; superseded by AXI-2657 owner rulings 2026-11-18) no protocol — no plan; saving the protocol, then the first question, starts it', async ({ page }) => {
+    // Arrange — a fresh project with no SAP and no protocol at all
     const { project, stub } = await newProject('create-plan-first');
 
     // Act
     await openInvestigatorSap(page, stub, project.id);
 
-    // Assert — no plan yet: only "Create plan", no Add question/Run plan/suggested questions
-    await expect(page.getByTestId('sap-header-create-plan')).toBeVisible();
-    await expect(page.getByTestId('sap-header-add-question')).toHaveCount(0);
-    await expect(page.getByTestId('sap-run')).toHaveCount(0);
-    await expect(page.getByTestId('sap-suggested-questions-slot')).toHaveCount(0);
+    // Assert — no protocol saved yet: no add-question entry, no plan, no run
     await expect(page.getByTestId('sap-empty-state')).toBeVisible();
+    await expect(page.getByTestId('sap-plan-add-question')).toHaveCount(0);
+    await expect(page.getByTestId('sap-plan-add-primary-question')).toHaveCount(0);
+    await expect(page.getByTestId('sap-run')).toHaveCount(0);
+    await expect(page.getByTestId('sap-plan-questions-table')).toHaveCount(0);
 
-    // Act — create the plan
-    await page.getByTestId('sap-header-create-plan').click();
-    await page.getByTestId('sap-create-title').fill('AXI-2564.8 plan');
-    await page.getByTestId('sap-create-objective').fill('Does marker 1 differ between arms?');
-    await page.getByTestId('sap-create-plan-submit').click();
+    // Act — save the protocol (the real route the dedicated protocol page writes to; AXI-2657
+    // removed the plan page's own "Create plan" form, which used to collect this content itself)
+    const saved = await call('PUT', `/projects/${project.id}/study/protocol`, {
+      title: 'AXI-2564.8 plan', objective: 'Does marker 1 differ between arms?',
+      studyPopulation: 'All randomised subjects', text: '',
+    });
+    expect(saved.status, JSON.stringify(saved.body)).toBeLessThan(300);
+    await page.reload();
+    await expect(page.getByTestId('project-sap-page')).toBeVisible({ timeout: 30_000 });
 
-    // Assert — the plan now exists: Add question is offered, the create form is gone, and the
-    // title/objective just saved are readable in the draft's own text editor.
-    await expect(page.getByTestId('sap-header-add-question')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId('sap-create-plan-form')).toHaveCount(0);
-    await expect(page.getByTestId('sap-draft-title')).toHaveValue('AXI-2564.8 plan');
-    await expect(page.getByTestId('sap-draft-questionText')).toHaveValue('Does marker 1 differ between arms?');
+    // Assert — protocol saved, still no plan: the empty state is gone, the protocol card reads
+    // it back, and "Add question" is now live (AXI-2657: the first question starts the plan).
+    await expect(page.getByTestId('sap-empty-state')).toHaveCount(0);
+    await expect(page.getByTestId('sap-protocol-summary')).toContainText('AXI-2564.8 plan');
+    const addQuestion = page.getByTestId('sap-plan-add-primary-question');
+    await expect(addQuestion).toBeVisible();
+
+    // Act — the first question starts the plan (no separate "Create plan" step any more)
+    await addQuestion.click();
+    await expect(page.getByTestId('sap-add-question-modal')).toBeVisible();
+    await page.getByTestId('sap-add-question-text').fill('Does marker 1 differ between arms?');
+    await page.getByTestId('sap-add-question-submit').click();
+
+    // Assert — the plan now exists: the question is on the table, the modal is gone.
+    await expect(page.getByTestId('sap-add-question-modal')).toHaveCount(0);
+    await expect(page.getByTestId('sap-plan-questions-row-Q1')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('sap-plan-questions-row-Q1')).toContainText('Does marker 1 differ between arms?');
   });
 
   // AXI-2564.9 (FR96) originally also covered the "sap:read, no sap:create" reader on
@@ -351,10 +366,16 @@ test.describe('AXI-2564 Investigator SAP page: single page, no tabs, dedicated v
     // Arrange/Act — on a project where the plan already exists (finalised), Add question
     // starts the next-version draft (an amendment, FR85) — exactly one draft-create write,
     // never a second "first plan" create.
+    //
+    // Note: the investigator page's own header never carried an "Add question" action
+    // (`sap-header-add-question` does not exist on this surface — it belongs to the team's
+    // `ProjectSapPlanTab`); for a finalised v1 plan the entry point is the rail's own
+    // "Add question" pill (`investigator-add-question`, AXI-2555 §5, `SidebarAddQuestionButton`),
+    // which drives the SAME `useAddQuestionToPlan` act this assertion is really about.
     const { project: existingProject, stub: existingStub } = await newProject('investigator-existing-plan');
     await existingStub.seedFinal(call, 'Plan existing', [questionInput(1, 'primary')]);
     await openInvestigatorSap(page, existingStub, existingProject.id);
-    await page.getByTestId('sap-header-add-question').click();
+    await page.getByTestId('investigator-add-question').click();
     await expect(page).toHaveURL(new RegExp(`/investigator/projects/${existingProject.id}/sap/questions/new`));
     const draftCreateWrites = existingStub.pageWrites.filter((w) => w.method === 'POST' && /\/draft$/.test(w.path));
     expect(draftCreateWrites.length).toBe(1);

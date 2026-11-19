@@ -661,3 +661,91 @@ for every question). Tests 026-037 replace the old profilePin-era 026-030.
 | UT-PRESET-2648-035 | specificationBody refuses a configVersion with no +sha256 suffix, and namespaces extension fields when it is well-formed | Pass |
 | UT-PRESET-2648-036 | questionBody resolves field names to server ids and throws on an unknown one | Pass |
 | UT-PRESET-2648-037 | csvFacts/sha256Hex are reused, not re-implemented, from the AXI-2598 harness | Pass |
+
+## AXI-2665/declared-field-aliases.spec.ts
+
+AXI-2665 (epic AXI-2630, FR76, AC57). Covers `tests/AXI-2630/harness/declared-field-aliases.ts`,
+the semantic declaration body that states which file column carries each extension field.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-PRESET-2665-001 | the wide file declares one alias for each of the nine extension fields | Pass |
+| UT-PRESET-2665-002 | every declared column is a column of the reference file, spelled exactly | Pass |
+| UT-PRESET-2665-003 | every term is the namespaced field the plan binds | Pass |
+| UT-PRESET-2665-004 | the long file carries no extension field, so it declares nothing | Pass |
+| UT-PRESET-2665-005 | a dataset with no declaration gets a minimal admissible body | Pass |
+| UT-PRESET-2665-006 | an existing declaration keeps its members and another project's aliases | Pass |
+
+## AXI-2663/reproduction.spec.ts
+
+AXI-2663 (epic AXI-2630, FR73, FR74, AC54, AC55). Stack-free proof of the MAG4 API reproduction
+script (`tests/AXI-2630/reproduction/`). `recomputed-heatmap.json` is an independent scipy
+recomputation of the 42 cells from the two reference files, used by these tests only.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-REPRO-2663-001 | Matching values pass and the run ends with exit 0 | Pass |
+| UT-REPRO-2663-002 | One altered value stops the run and names the value, expected and actual | Pass |
+| UT-REPRO-2663-003 | Nothing after the first mismatch is reported as compared | Pass |
+| UT-REPRO-2663-004 | Mann-Whitney p 0.37051 passes: the Reference check reads the unrounded result | Pass |
+| UT-REPRO-2663-005 | p 0.37049 equals 0.3705 at 4 decimals but rounds to 0.370, so it stops | Pass |
+| UT-REPRO-2663-006 | H is compared at the 3 decimals section 20 gives, with no Reference check | Pass |
+| UT-REPRO-2663-007 | The known residual is reported as such, not as a match | Pass |
+| UT-REPRO-2663-008 | The residual cell at any other value stops the run | Pass |
+| UT-REPRO-2663-009 | The residual allowance is not granted to any other cell | Pass |
+| UT-REPRO-2663-010 | A run adjusted across all 42 cells stops at the family scope it recorded | Pass |
+| UT-REPRO-2663-011 | With no recorded scope, q-values adjusted across all cells stop at the lost star | Pass |
+| UT-REPRO-2663-012 | A value the result does not carry stops the run as absent | Pass |
+| UT-REPRO-2663-013 | Result pages are read into the compared values, numeric strings included | Pass |
+| UT-REPRO-2663-014 | A test result with several rows is not read as a single value | Pass |
+| UT-REPRO-2663-015 | A complete environment starts, with reports under reports/AXI-2630 | Pass |
+| UT-REPRO-2663-016 | Each credential has no default: without it the run does not start (3 cases) | Pass |
+| UT-REPRO-2663-017 | A target on the shared demo ports :3000 or :5173 is refused (2 cases) | Pass |
+| UT-REPRO-2663-018 | A transport other than recorded is refused | Pass |
+| UT-REPRO-2663-019 | An empty environment exits 2 with a clear message and writes no report | Pass |
+| UT-REPRO-2663-020 | The script calls no approval, sign-off, signing or publication route | Pass |
+| UT-REPRO-2663-021 | The script loads no env file, salts no upload and writes no database | Pass |
+| UT-REPRO-2663-022 | The trace is written under its slug, as text, and never as trace.zip | Pass |
+| UT-REPRO-2663-023 | A trace holding a bearer token is refused before anything is written | Pass |
+| UT-REPRO-2663-024 | The variables step stops as blocked by AXI-2587 when its route is not served | Pass |
+| UT-REPRO-2663-025 | Question planning stops as blocked by AXI-2590 when no workflow is served | Pass |
+| UT-REPRO-2663-026 | The golden table holds 42 cells, 15 stars and one residual | Pass |
+
+### AXI-2664 — image-4 declared correction family (`harness-unit/AXI-2664/image-4-correction-scope.spec.ts`, FR75, AC56)
+
+| ID | Behaviour | Status |
+|----|-----------|--------|
+| UT-PRESET-2664-001 | the image-4 question declares `familyScope: per_reference` | Pass |
+| UT-PRESET-2664-002 | the image-4 estimand states the within-reference family, never "across all cells" | Pass |
+| UT-PRESET-2664-003 | no other preset question declares a correction family | Pass |
+
+## AXI-2665/reproduction-declaration.spec.ts
+
+AXI-2665 (epic AXI-2630, FR76, AC57). The step of the MAG4 API reproduction that declares which file
+column carries each extension field (`tests/AXI-2630/reproduction/procedure.ts`). No network.
+
+| ID | Description | Status |
+|----|-------------|--------|
+| UT-REPRO-2665-001 | The provisioning identity reads the declaration, then sends the nine aliases | Pass |
+| UT-REPRO-2665-002 | An existing declaration keeps its other members and other terms | Pass |
+| UT-REPRO-2665-003 | A term already declared is replaced, never duplicated | Pass |
+| UT-REPRO-2665-004 | A file with no extension field sends nothing | Pass |
+| UT-REPRO-2665-005 | A 403 on the PUT stops the run as blocked and names the permission | Pass |
+| UT-REPRO-2665-006 | A 403 on the read stops the run before anything is sent | Pass |
+| UT-REPRO-2665-007 | A 400 on the PUT stops the run and carries the server's refusal | Pass |
+| UT-REPRO-2665-008 | A response that does not hold the aliases stops the run | Pass |
+| UT-REPRO-2665-009 | Step 7 declares after the wide file is ready and before reading question data | Pass |
+| UT-REPRO-2665-010 | A question still without data after the declaration is a mismatch, not a blocked step | Pass |
+
+## AXI-2667/preset-chart-display.spec.ts
+
+AXI-2667 (epic AXI-2630, FR77, AC58): the preset's chart declarations name levels the data files hold.
+
+| ID | Description | Status |
+|---|---|---|
+| UT-PRESET-2667-001 | Image 1 declares median bars, no box and brackets against IgG4-RD only | Pass |
+| UT-PRESET-2667-002 | Image 1 orders exactly the groups and the panels the question compares | Pass |
+| UT-PRESET-2667-003 | Image 1 axis limits contain every drawn value | Pass |
+| UT-PRESET-2667-004 | Image 2 declares a log axis and labels every cluster of the file, in order | Pass |
+| UT-PRESET-2667-005 | Image 3 declares a log axis and labels the raw levels 0 and 1 | Pass |
+| UT-PRESET-2667-006 | Image 4 declares no chart display | Pass |
