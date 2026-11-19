@@ -485,15 +485,43 @@ test.describe('AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065', () => {
 
     // 2. Lands on the analysis workspace's Editor sub-tab (?addChart=1) — build a chart over the
     // SAME snapshot and save it through the editor's own Save button.
+    //
+    // Which dataset "the same snapshot" resolves to is FR36/AXI-1422's `effectiveDatasetId`
+    // (`ProjectViewAnalysisDetail.tsx` — "whichever dataset the analysis is CURRENTLY showing —
+    // the base referent, or a rule-derived result... when one is selected"), confirmed live by
+    // instrumenting this test: `viewAnalysis.datasetId` IS the raw uploaded T1_LONG dataset, but
+    // this question's template (T2, Kruskal-Wallis+Dunn over 3 groups) means the result page
+    // can be showing the derived Dunn PAIRWISE-COMPARISON table (not the raw group/pct/reference
+    // fields) when "Add a chart" is clicked — confirmed by observation to vary run-to-run (which
+    // referent is "current" on first paint is itself a race, not pinned by this story's scope).
+    // Never hard-code a column name that only exists on ONE of the two possible datasets (a
+    // prior version of this test asserted `col_pct`/`col_group` — raw-only — then `col_pValue`/
+    // `col_groupA` — Dunn-result-only — and each hung 300s on the other dataset): read whichever
+    // columns the editor actually offers and bind to those, by position (each select is already
+    // filtered to the right column kind — numeric for Y, categorical for Group — so the first
+    // real option in each is always a legal binding, regardless of which dataset is current).
     const template = page.locator('xpath=//label[normalize-space()="Template"]/following-sibling::div[1]//select');
     await expect(template).toBeVisible({ timeout: 30_000 });
     await template.selectOption({ label: 'Strip / Jitter Plot' });
     const slot = (label: string) => page.locator(`xpath=//label[normalize-space()="${label}"]/following-sibling::div[1]//select`);
     await expect(slot('Y')).toBeVisible({ timeout: 15_000 });
-    // The option label is the semantic/display name, not the raw column name — select by the
-    // raw `col_<column>` VALUE instead (same `column_id` convention `candidatesApi` itself uses).
-    await slot('Y').selectOption({ value: 'col_pct' });
-    await slot('Group').selectOption({ value: 'col_group' });
+    // Wait for BOTH selects' options to actually land in the DOM before picking — the editor's
+    // dataset profiles asynchronously on its own schedule, independent of the raw-dataset poll
+    // above.
+    await expect
+      .poll(async () => (await slot('Y').locator('option').allTextContents()).length, {
+        timeout: 30_000,
+        message: 'Y column select never populated with any columns',
+      })
+      .toBeGreaterThan(1);
+    await expect
+      .poll(async () => (await slot('Group').locator('option').allTextContents()).length, {
+        timeout: 30_000,
+        message: 'Group column select never populated with any columns',
+      })
+      .toBeGreaterThan(1);
+    await slot('Y').selectOption({ index: 1 });
+    await slot('Group').selectOption({ index: 1 });
     await page.getByPlaceholder('Chart title (optional)').fill(chartTitle);
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByText('Visualization created successfully')).toBeVisible({ timeout: 20_000 });
@@ -501,9 +529,20 @@ test.describe('AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065', () => {
     // 3. Switch to the gallery (Explore), find the new chart's card, "Add to evidence" -> "Create
     // New" -> save-as-evidence (sap_custom_chart_saved fires here, front-side, per the coordinator).
     await page.getByRole('tab', { name: 'Explore' }).click();
-    const card = page.locator('div', { hasText: chartTitle }).last();
+    // A bare `div` + `hasText` filter's `.last()` resolves to the MOST DEEPLY NESTED matching
+    // div — here, the title heading's own wrapper, not the card (`VisualizationCard.tsx`) that
+    // actually holds the "More actions" trigger as a sibling, not a descendant of that div. Also
+    // require the trigger itself as a descendant so the match is the card container.
+    const card = page.locator('div').filter({ hasText: chartTitle }).filter({ has: page.getByTitle('More actions') }).last();
     await expect(card).toBeVisible({ timeout: 30_000 });
-    await card.getByTitle('More actions').click();
+    // The save-success toast (bottom-right) and this 32-chart gallery's own lazy-loading card
+    // thumbnails (skeleton <-> rendered-image swaps as cards scroll into view) transiently
+    // overlap the trigger's screen position while nothing is actually broken — the trigger
+    // itself resolves as visible/enabled/stable on every retry, only the pointer-event target
+    // differs. Wait the toast out, then force the click past the gallery's own paint churn.
+    await expect(page.getByText('Visualization created successfully')).toBeHidden({ timeout: 15_000 }).catch(() => {});
+    await card.scrollIntoViewIfNeeded();
+    await card.getByTitle('More actions').click({ force: true });
     await page.getByRole('menuitem', { name: 'Add to evidence' }).click();
     await page.getByText('Create New', { exact: true }).click();
     const evidenceTitle = `${chartTitle} evidence`;
@@ -521,6 +560,39 @@ test.describe('AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065', () => {
       evidenceId = found?.id ?? null;
       return !!found;
     }, { timeout: 20_000, message: 'custom chart evidence never appeared in the explorer read path' }).toBeTruthy();
+
+    // 4b. The app's own publish gate (seen live: "Every evidence version being published must
+    // carry at least one APPROVED interpretation (decision draft)...") — `signPublishData`
+    // (AC21) submits EVERY evidence of the analysis, not just this one, so the approved
+    // interpretation must cite ALL of them (`assertApprovedInterpretationsExist` matches per
+    // `evidenceVersionId`, auto-stamped server-side from `evidenceId` at create time —
+    // `decision-drafts.service.ts#applyEvidenceVersionStamps`, AXI-2303) — here, this custom
+    // chart's evidence AND the template/recommended chart's own auto-created evidence (AC25/
+    // AC29). draft (admin) -> reviewed (admin) -> approved (the SEPARATE `approver` identity;
+    // decision-draft approval enforces the same SELF_APPROVAL_NOT_PERMITTED rule as evidence
+    // approval above, per `decision-draft-approval-policy.ts`).
+    const allEvidences = await (await admin.api.get(apiUrl(`/api/v1/view-analyses/${launchedViewAnalysisId}/evidences?limit=50`))).json();
+    const allEvidenceRows: any[] = allEvidences.data ?? allEvidences;
+    const decisionCreate = await admin.api.post(apiUrl(`/api/v1/workspaces/${WS}/decisions`), {
+      data: {
+        label: `${chartTitle} interpretation`,
+        type: 'phenotype_classification',
+        confidence: 'medium',
+        context: { intendedUse: 'RUO' },
+        evidenceLinks: allEvidenceRows.map((e) => ({ evidenceId: e.id })),
+        evidenceValues: [],
+      },
+    });
+    expect(decisionCreate.ok(), await decisionCreate.text()).toBeTruthy();
+    const decisionId = (await decisionCreate.json()).id;
+    const toReviewed = await admin.api.post(apiUrl(`/api/v1/workspaces/${WS}/decisions/${decisionId}/transition`), {
+      data: { targetStatus: 'reviewed' },
+    });
+    expect(toReviewed.ok(), await toReviewed.text()).toBeTruthy();
+    const toApproved = await approver.api.post(apiUrl(`/api/v1/workspaces/${WS}/decisions/${decisionId}/transition`), {
+      data: { targetStatus: 'approved' },
+    });
+    expect(toApproved.ok(), await toApproved.text()).toBeTruthy();
 
     // 5. Sign (publish) — SignQuestionControl, gated on view_analysis:publish.
     await page.goto(`/projects/${projectId}/runs/${launchedRunId}?sapId=${sapId}&questionId=${questionId}`);
@@ -565,7 +637,16 @@ test.describe('AXI-2647 ADR-002 acceptance @SI-042 @SI-010 @SI-065', () => {
   test('AXI-2647.5 spot-check — the AC1 explorer analysis renders in the Investigator browser UI, not just over the API', async ({ page }) => {
     test.skip(!ac1ExplorerAnalysisId, 'AC1 did not reach a provisioned analysis to check');
     await signInBrowser(page, investigator);
-    await page.goto(`/projects/${projectId}/view-analyses/${ac1ExplorerAnalysisId}`);
+    // AXI-2322/FR4 (`App.tsx`): the Investigator role lives behind its OWN `/investigator/*`
+    // route prefix, outside the team `Layout` — the bare team-surface path (correct for `admin`
+    // above) 403s/redirects an investigator-rank session to their home Study page instead of
+    // this analysis (root-caused live: no `/view-analyses/:id` or `/projects` network call for
+    // this id was ever made — the app never got past the surface mismatch). AXI-2668/FR78 is the
+    // explorer's investigator-surface mirror of this same route.
+    await page.goto(`/investigator/projects/${projectId}/view-analyses/${ac1ExplorerAnalysisId}`);
+    // The evidence citation's own title renders on the Evidence tab, not the Explore gallery
+    // (which only shows the underlying chart's title) — the page landed on Explore by default.
+    await page.getByRole('tab', { name: /^Evidence/ }).click();
     await expect(page.getByText(ac1EvidenceTitle)).toBeVisible({ timeout: 30_000 });
   });
 });
