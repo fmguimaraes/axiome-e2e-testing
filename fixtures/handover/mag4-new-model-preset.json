@@ -78,7 +78,7 @@
         "sidedness": "two_sided",
         "groups": ["HD", "IgG4-RD", "SD"],
         "stratifyBy": { "column": "reference", "strata": ["ENT 059", "CER 229", "CER 215 et 234"] },
-        "chartDisplay": {"show_box": false, "show_median": true, "y_range": [-0.06, 1.48], "group_order": ["HD", "IgG4-RD", "SD"], "facet_order": ["ENT 059", "CER 229", "CER 215 et 234"], "facet_labels": {"ENT 059": "ENT059", "CER 229": "CER229", "CER 215 et 234": "CER215 + CER234"}, "pairwise": {"reference_group": "IgG4-RD"}}
+        "chartDisplay": {"show_box": false, "show_median": true, "y_range": [-0.06, 1.48], "group_order": ["HD", "IgG4-RD", "SD"], "facet_order": ["ENT 059", "CER 229", "CER 215 et 234"], "facet_labels": {"ENT 059": "ENT059", "CER 229": "CER229", "CER 215 et 234": "CER215 + CER234"}, "pairwise": {"reference_group": "IgG4-RD"}, "group_colors": {"HD": "#1f77b4", "IgG4-RD": "#ff7f0e", "SD": "#2ca02c"}, "x_title": "Reference microbiota", "y_title": "% microbiota opsonized"}
       },
       "decisionCriterion": { "kind": "p_at_or_below_alpha" },
       "expectedChart": "stratified_posthoc_v1"
@@ -101,7 +101,7 @@
         { "slot": "groupingColumn", "field": "cluster_selon_acr_eular_2019" },
         { "slot": "outcome", "field": "microbiote_igg4_ent_059" }
       ],
-      "parameters": { "alpha": 0.05, "sidedness": "two_sided", "chartDisplay": {"log_y": true, "group_order": ["C1", "C2", "C3", "C4"], "group_labels": {"C1": "Cluster 1", "C2": "Cluster 2", "C3": "Cluster 3", "C4": "Cluster 4"}} },
+      "parameters": { "alpha": 0.05, "sidedness": "two_sided", "chartDisplay": {"log_y": true, "group_order": ["C1", "C2", "C3", "C4"], "group_colors": {"C1": "#1f77b4", "C2": "#ff7f0e", "C3": "#2ca02c", "C4": "#d62728"}, "y_title": "IgG4-reactive gut microbiota (%)", "group_labels": {"C1": "Cluster 1", "C2": "Cluster 2", "C3": "Cluster 3", "C4": "Cluster 4"}} },
       "decisionCriterion": { "kind": "p_at_or_below_alpha" },
       "expectedChart": "group_comparison_v1"
     },
@@ -123,7 +123,7 @@
         { "slot": "groupingColumn", "field": "atteinte_pancreatique" },
         { "slot": "outcome", "field": "microbiote_igg4_ent_059" }
       ],
-      "parameters": { "alpha": 0.05, "sidedness": "two_sided", "chartDisplay": {"log_y": true, "group_order": ["0", "1"], "group_labels": {"0": "Absent", "1": "Present"}} },
+      "parameters": { "alpha": 0.05, "sidedness": "two_sided", "chartDisplay": {"log_y": true, "group_order": ["0", "1"], "group_colors": {"0": "#1f77b4", "1": "#ff7f0e"}, "y_title": "IgG4-reactive gut microbiota (%)", "group_labels": {"0": "Absent", "1": "Present"}} },
       "decisionCriterion": { "kind": "p_at_or_below_alpha" },
       "expectedChart": "group_comparison_v1"
     },
@@ -156,7 +156,31 @@
         { "slot": "y", "field": "plasmablasts_cd19_cd38_cd27_mm3" },
         { "slot": "y", "field": "tfh_cxcr5_pd1_cd4" }
       ],
-      "parameters": { "alpha": 0.05, "sidedness": "two_sided", "familyScope": "per_reference" },
+      "parameters": {
+        "alpha": 0.05,
+        "sidedness": "two_sided",
+        "familyScope": "per_reference",
+        "chartDisplay": {
+          "colorscale": "Viridis",
+          "column_labels": {
+            "CER 228": "CER228",
+            "MAG4 27": "MAG4-27",
+            "MAG4 22": "MAG4-22",
+            "MAG4 13": "MAG4-13",
+            "CER 215 et 234": "CER215/234",
+            "CER 229": "CER229",
+            "ENT 059": "ENT059"
+          },
+          "row_labels": {
+            "Serum IgG4": "sIgG4",
+            "IgG4-RD responder index": "IgG4-RD RI",
+            "IgG4+ plasma cells per high-power field": "IgG4+/HPF",
+            "Eosinophils": "Eosinophils",
+            "Plasmablasts (CD19+ CD38+ CD27+)": "Plasmablasts",
+            "Tfh cells (CXCR5+ PD1+ CD4+)": "TFH"
+          }
+        }
+      },
       "decisionCriterion": { "kind": "p_at_or_below_alpha" },
       "expectedChart": "heatmap_annotated_v1"
     }
