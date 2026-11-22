@@ -99,6 +99,11 @@ const AXI_2680_SPEC = /AXI-2679\/AXI-2680-save-as-workflow\.spec\.ts$/;
 // AXI-2680 reference workflow and its pinned SAP-question run.
 const AXI_2704_SPEC = /AXI-2679\/AXI-2704-result-page-workflow\.spec\.ts$/;
 
+// AXI-2705 (epic AXI-2679, bug fix) — a stratified Dunn run's per-reference summary/evidence:
+// real browser `page` plus an API login for the API-level assertions, same shape as
+// AXI_2704_SPEC. Runs against an isolated stack carrying the AXI-2712-fixed Dunn-only replay run.
+const AXI_2705_SPEC = /AXI-2679\/AXI-2705-stratified-result\.spec\.ts$/;
+
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
  *
@@ -169,7 +174,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC, AXI_2659_SPEC, AXI_2680_SPEC, AXI_2704_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC, AXI_2659_SPEC, AXI_2680_SPEC, AXI_2704_SPEC, AXI_2705_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -255,6 +260,13 @@ export default defineConfig({
     {
       name: 'axi-2704-result-page-workflow',
       testMatch: AXI_2704_SPEC,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // AXI-2705 (epic AXI-2679, bug fix) — per-stratum answer/evidence (see AXI_2705_SPEC
+    // above). Signs itself in.
+    {
+      name: 'axi-2705-stratified-result',
+      testMatch: AXI_2705_SPEC,
       use: { ...devices['Desktop Chrome'] },
     },
   ],
