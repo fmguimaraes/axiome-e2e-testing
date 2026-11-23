@@ -361,7 +361,10 @@ test.describe('AXI-2659 plan to four images @SI-042', () => {
 
       await page.getByTestId('pq-estimand-edit').click();
       await expect(page.getByTestId('pq-estimand-editor')).toBeVisible({ timeout: 10_000 });
-      await page.getByTestId('pq-intercurrent-apply').click();
+      // The editor no longer has an Apply step: each change is written as it is made, and Done
+      // closes the editor (`pq-intercurrent-done`, EstimandSection.tsx). Default = "not applicable".
+      await page.getByTestId('pq-intercurrent-done').click();
+      await expect(page.getByTestId('pq-estimand-editor')).toBeHidden({ timeout: 10_000 });
 
       // Reviewer-required coverage (AXI-2674): Save reaches ENABLED for a T2 question while
       // planning — the exact scenario the empty-options "groups" choice used to block forever.
