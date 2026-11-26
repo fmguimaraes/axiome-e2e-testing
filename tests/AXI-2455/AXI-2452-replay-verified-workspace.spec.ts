@@ -110,7 +110,7 @@ test.describe.serial('AXI-2452 — Replay row carries the caller verified worksp
       workspaceId: t.workspaceId,
       replayOfRuleRunId: originalId,
       sapVersionId: null,
-      sapRun: null,
+      // W5 2026-11-26: `sapRun` was removed from the rule-run read with the SAP run model (AXI-2650).
     });
   });
 

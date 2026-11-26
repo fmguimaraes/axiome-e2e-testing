@@ -143,7 +143,7 @@ async function forwardToReady(page: Page, from: 'parameters' | 'sensitivity' = '
 
 async function saveAndReturn(page: Page, projectId: string): Promise<void> {
   await choose(page, 'na-plan-save');
-  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap$`));
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sap(\\?.*)?$`));
 }
 
 test.beforeAll(async () => {
