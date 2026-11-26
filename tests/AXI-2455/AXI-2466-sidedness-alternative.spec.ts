@@ -6,9 +6,6 @@ import {
   newProject,
   readyIngestion,
   runsPath,
-  startSapRun,
-  evaluatedSapRun,
-  settledChild,
   uploadTokenDataset,
   waitUntil,
   type SapRunChildWorld,
@@ -103,40 +100,6 @@ async function completenessReport(sapId: string): Promise<any> {
   return res.json();
 }
 
-/** Finalises a draft already holding ONE clean T1 question, and starts + evaluates its SAP run. */
-async function finaliseAndRun(sapId: string, revision: number): Promise<any> {
-  const finalised = await editor.api.post(`${base(project)}/saps/${sapId}/draft/finalise`, {
-    data: { basedOnRevision: revision, basedOnVersion: null },
-  });
-  expect(finalised.status(), await finalised.text()).toBe(201);
-  const sap = await finalised.json();
-  const p = { project, dataset, ingestion, sap, t1Version };
-  const started = await startSapRun(w, p, `axi2466-${Date.now()}-${Math.floor(Math.random() * 1e6)}`);
-  const sapRun = await evaluatedSapRun(w, p, started.sapRunId);
-  expect(sapRun.status, JSON.stringify(sapRun)).toBe('completed');
-  const [question] = sapRun.questions;
-  const child = await settledChild(w, project, question.childRunId);
-  return child.ruleRunId as string;
-}
-
-/** The compiled rule run's `operationParams`, read as the workspace admin. */
-async function compiledOperationParams(ruleRunId: string): Promise<Record<string, unknown>> {
-  let params: Record<string, unknown> = {};
-  await waitUntil(
-    async () => {
-      const res = await w.world.admin.get(apiUrl(`/api/v1/rule-runs/${ruleRunId}`), { headers: adminHeaders() });
-      if (!res.ok()) return false;
-      const body = await res.json();
-      if (body.status !== 'SUCCEEDED' && body.status !== 'DEDUPED') return false;
-      params = body.operationParams ?? {};
-      return true;
-    },
-    60_000,
-    'compiled rule run read',
-  );
-  return params;
-}
-
 test.beforeAll(async () => {
   test.setTimeout(SETUP_TIMEOUT_MS);
   const world = await PrivateProjectsWorld.create();
@@ -152,33 +115,40 @@ test.beforeAll(async () => {
   ingestion = await readyIngestion(w, dataset);
 });
 
+/** W5 2026-11-26: one SAP per project allows ONE open draft, so every test discards the draft it leaves behind. */
+test.afterEach(async () => {
+  const cur = await editor.api.get(`${base(project)}/sap-draft`);
+  if (!cur.ok()) return;
+  const body: any = await cur.json().catch(() => null);
+  const sapId = body?.sapId ?? body?.draft?.sapId;
+  const revision = body?.revision ?? body?.draft?.revision;
+  if (sapId) await editor.api.delete(`${base(project)}/saps/${sapId}/draft?basedOnRevision=${revision}`);
+});
+
 test.afterAll(async () => {
   await w.world?.dispose();
 });
 
 test.describe('AXI-2466 — sidedness drives the template alternative', TAGS, () => {
-  test('AC38 — AXI-2466.1: a one-sided T1 question passes CC5 and compiles `alternative` into the Mann-Whitney node', async () => {
+  test('AC38 — AXI-2466.1: a one-sided T1 question passes CC5 (compile leg: AXI-2461.1; run leg retired, AXI-2650)', async () => {
     // Arrange / Act
     const { sapId, revision } = await draftWithQuestion(t1Question({ parameters: { alpha: 0.05, sidedness: 'greater' } }));
     const report = await completenessReport(sapId);
     // Assert — CC5 passes
     expect(report.results.filter((r: any) => r.checkId === 'CC5')).toEqual([expect.objectContaining({ status: 'pass' })]);
-    // Act — run it and read the compiled node
-    const ruleRunId = await finaliseAndRun(sapId, revision);
-    const params = await compiledOperationParams(ruleRunId);
-    // Assert
-    expect(params.alternative).toBe('greater');
+    // W5 2026-11-26: the run leg (finalise -> Run SAP -> compiled node) is retired with the SAP run model
+    // (AXI-2650). The compile of `alternative` into the node is pinned by AXI-2461.1 (template compile).
+    expect(revision).toBeGreaterThan(0);
   });
 
-  test('FR75 — AXI-2466.2: a two-sided T1 question still forwards `alternative` explicitly', async () => {
+  test('FR75 — AXI-2466.2: a two-sided T1 question passes CC5 (explicit forwarding: AXI-2461.1; run leg retired, AXI-2650)', async () => {
     // Arrange / Act
     const { sapId, revision } = await draftWithQuestion(t1Question({ parameters: { alpha: 0.05, sidedness: 'two_sided' } }));
     const report = await completenessReport(sapId);
     expect(report.results.filter((r: any) => r.checkId === 'CC5')).toEqual([expect.objectContaining({ status: 'pass' })]);
-    const ruleRunId = await finaliseAndRun(sapId, revision);
-    const params = await compiledOperationParams(ruleRunId);
-    // Assert — explicit, not absent (FR75: sidedness is forwarded whenever the version declares `alternative`)
-    expect(params.alternative).toBe('two_sided');
+    // W5 2026-11-26: run leg retired with the SAP run model (AXI-2650); explicit `two_sided` forwarding is
+    // pinned at compile level by AXI-2461.1.
+    expect(revision).toBeGreaterThan(0);
   });
 
   test('FR21 — AXI-2466.3 (EC38): a one-sided T2 question fails CC5; T2 declares no `alternative`', async () => {

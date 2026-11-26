@@ -1,0 +1,498 @@
+
+Running 48 tests using 1 worker
+
+  ✓   1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (11.6s)
+  ✓   2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (11.5s)
+  ✓   3 [chromium] › tests/AXI-2455/AXI-2448-output-conformance.spec.ts:113:3 › AXI-2448 - output conformance wired into the run completion › AXI-2448.A1: a fresh Mann-Whitney run SUCCEEDS (not OUTPUT_NONCONFORMING) and its table carries the declared columns @SI-017 @SI-052 (6.2s)
+  ✓   4 [chromium] › tests/AXI-2455/AXI-2448-output-conformance.spec.ts:119:3 › AXI-2448 - output conformance wired into the run completion › AXI-2448.A3: a fresh ROC-Youden run (nested rocCoordinates) SUCCEEDS - a nested column is one column, not its children @SI-017 @SI-052 (5.3s)
+  ✓   5 [chromium] › tests/AXI-2455/AXI-2452-replay-verified-workspace.spec.ts:101:3 › AXI-2452 — Replay row carries the caller verified workspace › FR55, FR57 — AXI-2452.1: the replay is readable on GET /rule-runs/:id and carries the run data workspace @SI-017 @SI-042 @SI-002 (1.2s)
+  ✓   6 [chromium] › tests/AXI-2455/AXI-2452-replay-verified-workspace.spec.ts:117:3 › AXI-2452 — Replay row carries the caller verified workspace › FR57 — AXI-2452.2: a caller outside the run workspace is answered 404 "RuleRun … not found" and nothing is written @SI-017 @SI-042 @SI-002 (116ms)
+  ✓   7 [chromium] › tests/AXI-2455/AXI-2452-replay-verified-workspace.spec.ts:132:3 › AXI-2452 — Replay row carries the caller verified workspace › FR55 — AXI-2452.3: a replay cannot be filed into a project of another workspace @SI-017 @SI-042 @SI-002 (76ms)
+  ✓   8 [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:103:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC1 a viewer with access to the source project reads the reused result (200, ready, the SOURCE run) (411ms)
+  ✘   9 [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:115:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC2 a viewer WITHOUT access to the source project gets the typed no-access state: no result, no source identity (143ms)
+  -  10 [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:126:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC3 the source project itself stays closed to that viewer (the 404 is unchanged)
+  -  11 [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:132:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC4 the page shows the no-access message, not "not available"
+  ✓  12 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:141:5 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.1 a T2-shaped composition validates PASS on all six checks (AC22; the sixth is the AXI-2459 main-result check) @SI-069 @SI-070 @SI-010 @SI-002 (27ms)
+  ✓  13 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:185:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.2 a runsAfter target that is no step BLOCKs steps_form_dag with runs_after_unknown (EC22, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (20ms)
+  ✓  14 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:185:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.2 running after a later step BLOCKs steps_form_dag with runs_after_forward_reference (EC22, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (19ms)
+  ✓  15 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:185:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.2 two steps running after each other BLOCKs steps_form_dag with step_order_cycle (EC22, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (19ms)
+  ✓  16 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:185:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.2 a step running after itself BLOCKs steps_form_dag with step_order_cycle (EC22, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (18ms)
+  ✓  17 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:185:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.2 a post-hoc that does not run after the step it follows BLOCKs steps_form_dag with posthoc_of_not_after (EC22, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (18ms)
+  ✓  18 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:200:5 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.3 the post-hoc choice always / if_significant / never shapes the plan (EC23, AC22) @SI-069 @SI-070 @SI-010 @SI-002 (55ms)
+  ✓  19 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:221:5 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.3 a post-hoc value outside the choices is refused bindings_invalid (EC23, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (15ms)
+  ✓  20 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:232:5 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 a strict comparison subset narrows every step reading the slot, in DECLARED order (FR53, AC22) @SI-069 @SI-070 @SI-010 @SI-002 (14ms)
+  ✓  21 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:242:5 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 the full declared set over a fully-observed column narrows nothing and keeps the plan identity (FR53, EC24) @SI-069 @SI-070 @SI-010 @SI-002 (40ms)
+  ✓  22 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:258:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 declared ⊋ observed, default set: declared ∩ observed narrows as T2's recipe does (EC15, FR53) @SI-069 @SI-070 @SI-010 @SI-002 (13ms)
+  ✓  23 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:258:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 declared ⊋ observed, explicit observed subset narrows as T2's recipe does (EC15, FR53) @SI-069 @SI-070 @SI-010 @SI-002 (16ms)
+  ✓  24 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:258:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 observed ⊄ declared, default set: the undeclared level is narrowed away narrows as T2's recipe does (EC15, FR53) @SI-069 @SI-070 @SI-010 @SI-002 (13ms)
+  ✓  25 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:272:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 fewer than two levels is refused bindings_invalid / comparison_set_too_small (EC24, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (17ms)
+  ✓  26 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:272:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 a level not declared is refused bindings_invalid / comparison_set_level_undeclared (EC24, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (13ms)
+  ✓  27 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:272:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 a declared level not observed is refused bindings_invalid / comparison_set_level_unobserved (EC24, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (13ms)
+  ✓  28 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:272:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 no level binding for a declared comparison set is refused bindings_invalid / comparison_set_binding_missing (EC24, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (12ms)
+  ✓  29 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:281:5 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.5 an AXI-2428 composition compiles with none of the new keys (backward compatibility, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (14ms)
+  ✓  30 [chromium] › tests/AXI-2455/AXI-2464-seed-approvals.spec.ts:138:3 › AXI-2464 — audited approval of the boot-seeded template versions (TPL FR59, AC27, EC27) › AXI-2464.A1 (AC27, FR59, FR40): each seeded 0.3 shows the owner as approver, with one audit row @SI-069 @SI-041 (686ms)
+  ✓  31 [chromium] › tests/AXI-2455/AXI-2464-seed-approvals.spec.ts:156:3 › AXI-2464 — audited approval of the boot-seeded template versions (TPL FR59, AC27, EC27) › AXI-2464.A2 (EC27): a re-run writes nothing @SI-069 @SI-041 (454ms)
+  ✓  32 [chromium] › tests/AXI-2455/AXI-2464-seed-approvals.spec.ts:166:3 › AXI-2464 — audited approval of the boot-seeded template versions (TPL FR59, AC27, EC27) › AXI-2464.A3 (FR40): a missing, unknown or non-admin owner is refused and nothing is written @SI-069 @SI-041 (868ms)
+  ✓  33 [chromium] › tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:193:3 › AXI-2466 — sidedness drives the template alternative › FR21 — AXI-2466.3 (EC38): a one-sided T2 question fails CC5; T2 declares no `alternative` @SI-071 @SI-065 @SI-002 (393ms)
+  ✘  34 [chromium] › tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:225:3 › AXI-2466 — sidedness drives the template alternative › FR75 — AXI-2466.4 (EC39): a question that sets `parameters.alternative` directly fails CC5 @SI-071 @SI-065 @SI-002 (85ms)
+  -  35 [chromium] › tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:236:3 › AXI-2466 — sidedness drives the template alternative › FR75 — AXI-2466.5 (EC39): a sensitivity analysis that sets `alternative` directly fails CC10 the same way @SI-071 @SI-065 @SI-002
+  ✓  36 [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:147:3 › AXI-2467 — SAP main result from the template declaration › FR25 — AXI-2467.1 (EC35): a confirmatory multi-cell T3 question on the whole-matrix version passes CC9 @SI-071 @SI-065 @SI-002 (247ms)
+  ✘  37 [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:152:3 › AXI-2467 — SAP main result from the template declaration › AC40 — AXI-2467.2 (EC36, FR74): the same question on the one-cell pin fails CC9 and names the whole-matrix version @SI-071 @SI-065 @SI-002 (78ms)
+  -  38 [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:159:3 › AXI-2467 — SAP main result from the template declaration › FR73 — AXI-2467.3 (EC37): a direction on the whole-matrix main result fails CC6 @SI-071 @SI-065 @SI-002
+  ✓  39 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:177:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › AC38 FR75 AXI-2468.1 a T1 question on a version without an alternative is offered the one that has one; one-sided is then recorded as sidedness @SI-066 (16.2s)
+  ✓  40 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:206:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › FR7 EC38 AXI-2468.2 a T2 question offers its post-hoc choice under its wording and no one-sided alternative; the choice is recorded @SI-066 (16.5s)
+  ✓  41 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:233:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › AC39 FR73 EC35 AXI-2468.3 a confirmatory T3 question with 3 y is stopped on the one-cell version and recorded on the global-test version @SI-066 (16.1s)
+  ✘  42 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:266:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › AC40 FR74 EC36 AXI-2468.4 a confirmatory T5 question on the one-cell version is stopped on both axes and recorded on the global-test version @SI-066 (1.3m)
+  -  43 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:294:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › FR9 FR75 AXI-2468.5 a sensitivity analysis is judged on its own pin — offered the version with an alternative, then recorded one-sided @SI-066
+  ✓  44 [chromium] › tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:129:3 › AXI-2471 — first structured finalise over a legacy free-text SAP › EC34 AC37 — AXI-2471.2: an author-supplied reason on the first structured final is 422 SAP_CONTENT_INVALID; nothing is written @SI-065 @SI-002 @SI-031 (442ms)
+  ✓  45 [chromium] › tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:154:3 › AXI-2471 — first structured finalise over a legacy free-text SAP › FR70 AC37 — AXI-2471.1: without a reason the draft finalises into version 3, final, carrying the system reason @SI-065 @SI-002 @SI-031 (66ms)
+  ✓  46 [chromium] › tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:167:3 › AXI-2471 — first structured finalise over a legacy free-text SAP › FR16 FR70 — AXI-2471.4: the next amendment after that final needs the author's reason again @SI-065 @SI-002 @SI-031 (91ms)
+  ✘  47 [chromium] › tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:191:3 › AXI-2471 — first structured finalise over a legacy free-text SAP › AC37 — AXI-2471.3: on the Plan tab the finalise dialog asks for no reason, names the system reason, and the history shows it @SI-065 @SI-002 @SI-031 (2.1m)
+  ✓  48 [chromium] › tests/AXI-2455/AXI-2482-reused-source-sibling-reads.spec.ts:118:3 › AXI-2482 reused-step sibling reads withhold the source @SI-017 @SI-065 @SI-010 › AXI-2482.2 AC2 a reader of BOTH projects still reads the reused source on B's status (39ms)
+
+
+  1) [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:115:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC2 a viewer WITHOUT access to the source project gets the typed no-access state: no result, no source identity 
+
+    Error: expect(received).toMatchObject(expected)
+
+    - Expected  -   4
+    + Received  + 260
+
+      Object {
+    -   "answer": Array [],
+    -   "results": Array [],
+    -   "state": "source_no_access",
+    -   "verdicts": Array [],
+    +   "answer": Array [
+    +     "igg4_g_l: F (n = 12) vs M (n = 12); Mann–Whitney U = 115, p = 0.0141.",
+    +   ],
+    +   "results": Array [
+    +     Object {
+    +       "chart": Object {
+    +         "annotation": Array [
+    +           "pValue",
+    +           "effectSize",
+    +         ],
+    +         "params": Object {
+    +           "log_y": false,
+    +           "show_box": true,
+    +           "show_median": false,
+    +           "show_points": true,
+    +           "test_name": "Mann–Whitney",
+    +         },
+    +         "roles": Object {
+    +           "facet": "measurement",
+    +           "panel": "feature",
+    +         },
+    +         "type": "group_comparison",
+    +       },
+    +       "chartWithheld": null,
+    +       "checks": Array [
+    +         Object {
+    +           "id": "method.no_multiple_testing_correction",
+    +           "outcome": "raised",
+    +           "owner": "method",
+    +           "sentence": "This method declares no multiple-testing correction.",
+    +           "severity": "warn",
+    +           "source": "method_definition",
+    +         },
+    +         Object {
+    +           "id": "data.group_n_floor",
+    +           "outcome": "passed",
+    +           "owner": "data",
+    +           "sentence": "Every group has at least 8 subjects.",
+    +           "severity": "warn",
+    +           "source": "REMARK",
+    +         },
+    +         Object {
+    +           "id": "data.below_lod_rate",
+    +           "outcome": "not_applicable",
+    +           "owner": "data",
+    +           "sentence": "No below-detection-limit rate is captured by this dataset's semantic profile.",
+    +           "severity": "info",
+    +           "source": "STARD",
+    +         },
+    +         Object {
+    +           "id": "data.batch_plate_present",
+    +           "outcome": "passed",
+    +           "owner": "data",
+    +           "sentence": "No batch or plate column is bound in this run.",
+    +           "severity": "info",
+    +           "source": "method_definition",
+    +         },
+    +         Object {
+    +           "id": "design.adjustment_choice",
+    +           "outcome": "not_applicable",
+    +           "owner": "design",
+    +           "sentence": "No signed design decision is recorded for this run.",
+    +           "severity": "info",
+    +           "source": "method_definition",
+    +         },
+    +       ],
+    +       "checksHeader": "1 of 5 checks raised something",
+    +       "evidence": Object {
+    +         "dataHash": "sha256:1272b87869bbd2fec50702ea3e7909f863512f65768ee2e8fde8e7c381e42d53",
+    +         "datasetVersion": "2",
+    +         "familySize": "not applicable — this test declares no multiple-testing correction",
+    +         "groupNs": Array [
+    +           Object {
+    +             "group": "F",
+    +             "n": 12,
+    +           },
+    +           Object {
+    +             "group": "M",
+    +             "n": 12,
+    +           },
+    +         ],
+    +         "method": "Mann-Whitney U test",
+    +         "mode": "guided (template T1)",
+    +         "parameters": Array [
+    +           Object {
+    +             "name": "alternative",
+    +             "value": "two_sided",
+    +           },
+    +           Object {
+    +             "name": "groupFrom",
+    +             "value": "F",
+    +           },
+    +           Object {
+    +             "name": "groupTo",
+    +             "value": "M",
+    +           },
+    +         ],
+    +         "ruleVersion": "STAT-MANN-WHITNEY-U v3",
+    +         "whyChosen": Array [
+    +           "A grouping column, with exactly two of its levels selected",
+    +           "One continuous outcome",
+    +         ],
+    +       },
+    +       "label": "Mann-Whitney U test",
+    +       "nodeId": "GR-d73a2fa8__n2",
+    +       "numbersInWords": "12 subjects in F and 12 in M. U = 115 (uStatistic, the Mann–Whitney statistic) gives p = 0.0141; a rank test like this one has no degrees of freedom. reason is empty because the statistic was computed for every row.",
+    +       "operationId": "stats.mann_whitney_u",
+    +       "preset": Object {
+    +         "annotations": Object {
+    +           "linked": true,
+    +           "mismatch": false,
+    +           "pairwise": Array [],
+    +           "testAnnotation": Object {
+    +             "operationId": "stats.mann_whitney_u",
+    +             "pValue": 0.014137969455911484,
+    +             "testName": "Mann–Whitney",
+    +           },
+    +         },
+    +         "contentHash": "5c9915ef1366edd707c60f9789e3acf1c26ef000748767e872c5a2ca6b29fd87",
+    +         "facetColumn": null,
+    +         "panels": Array [
+    +           Object {
+    +             "chartRuleRunId": "9e6c710f-0b76-4d1b-b77b-e9dac414f802",
+    +             "citedRuleRunIds": Array [
+    +               "9e6c710f-0b76-4d1b-b77b-e9dac414f802",
+    +             ],
+    +             "facet": null,
+    +             "refusal": null,
+    +           },
+    +         ],
+    +         "presetId": "fe2807c2-b778-4282-98c1-7da0ac54fd86",
+    +         "presetKey": "primary",
+    +         "variants": Object {
+    +           "facts": Object {
+    +             "minGroupN": 12,
+    +             "outcomeAllPositive": true,
+    +             "outcomeOrdersOfMagnitude": 0.6904422089565541,
+    +             "postHocPresent": false,
+    +           },
+    +           "mismatch": null,
+    +           "offered": Array [
+    +             Object {
+    +               "label": "Strip, median + IQR, all points, log y",
+    +               "layout": "strip",
+    +               "pairwiseBrackets": false,
+    +               "rank": 1,
+    +               "testBadge": true,
+    +               "variantKey": "strip_log",
+    +               "yScale": "log",
+    +             },
+    +             Object {
+    +               "label": "Strip, median + IQR, all points, linear y",
+    +               "layout": "strip",
+    +               "pairwiseBrackets": false,
+    +               "rank": 2,
+    +               "testBadge": true,
+    +               "variantKey": "strip_linear",
+    +               "yScale": "linear",
+    +             },
+    +             Object {
+    +               "label": "Box + all points, log y",
+    +               "layout": "box",
+    +               "pairwiseBrackets": false,
+    +               "rank": 3,
+    +               "testBadge": true,
+    +               "variantKey": "box_log",
+    +               "yScale": "log",
+    +             },
+    +             Object {
+    +               "label": "Box + all points, linear y",
+    +               "layout": "box",
+    +               "pairwiseBrackets": false,
+    +               "rank": 4,
+    +               "testBadge": true,
+    +               "variantKey": "box_linear",
+    +               "yScale": "linear",
+    +             },
+    +           ],
+    +           "provenance": Object {
+    +             "kind": "deterministic",
+    +             "rank": 4,
+    +           },
+    +           "selectedKey": "box_linear",
+    +         },
+    +       },
+    +       "rows": Array [
+    +         Object {
+    +           "auc": 0.7986111111111112,
+    +           "aucCiHigh": 0.9722222222222222,
+    +           "aucCiLevel": 0.95,
+    +           "aucCiLow": 0.5803535353535354,
+    +           "aucCiMethod": "bootstrap",
+    +           "effectSize": 0.5972222222222222,
+    +           "feature": "__all__",
+    +           "measurement": "igg4_g_l",
+    +           "nGroupFrom": 12,
+    +           "nGroupTo": 12,
+    +           "pValue": 0.014137969455911484,
+    +           "reason": null,
+    +           "uStatistic": 115,
+    +         },
+    +       ],
+    +       "ruleRunId": "9e6c710f-0b76-4d1b-b77b-e9dac414f802",
+    +       "run": Object {
+    +         "operandRoles": Object {
+    +           "groupColumn": "sexe",
+    +           "valueColumns": Array [
+    +             "igg4_g_l",
+    +           ],
+    +         },
+    +         "operationParams": Object {
+    +           "alternative": "two_sided",
+    +           "groupFrom": "F",
+    +           "groupTo": "M",
+    +         },
+    +         "snapshotId": "628fff8e-0399-408b-8e1a-c91d7929ab27",
+    +         "workspaceId": "a73a5f52-c0b6-4aa2-a631-64ed46799096",
+    +       },
+    +       "style": Object {
+    +         "accentColor": "#C0392B",
+    +         "controlLabelPatterns": Array [
+    +           "control",
+    +           "healthy",
+    +           "hc",
+    +           "ctrl",
+    +           "placebo",
+    +         ],
+    +         "mutedColor": "#B0B0B0",
+    +       },
+    +       "summary": Object {
+    +         "arm_exclusions": Array [],
+    +         "computed_rows": 1,
+    +         "features": 1,
+    +         "group_from": "F",
+    +         "group_ns": Array [
+    +           Object {
+    +             "groupKey": "F",
+    +             "n": 12,
+    +           },
+    +           Object {
+    +             "groupKey": "M",
+    +             "n": 12,
+    +           },
+    +         ],
+    +         "group_to": "M",
+    +         "max_group_size": 12,
+    +         "measurements": 1,
+    +         "min_group_size": 12,
+    +         "small_sample": false,
+    +         "undefined_rows": 0,
+    +       },
+    +     },
+    +   ],
+    +   "state": "ready",
+    +   "verdicts": Array [
+    +     Object {
+    +       "reason": "This result's template declares no interpretation, so no reading is proposed.",
+    +       "state": "unbound",
+    +     },
+    +   ],
+      }
+
+      119 |     expect(res.status(), text).toBe(200);
+      120 |     const body = JSON.parse(text);
+    > 121 |     expect(body).toMatchObject({ state: 'source_no_access', results: [], answer: [], verdicts: [] });
+          |                  ^
+      122 |     expect(text).not.toContain(tA.projectId);
+      123 |     expect(text).not.toContain(sourceRuleRunId);
+      124 |   });
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:121:18
+
+    Error Context: test-results/AXI-2455-AXI-2454-reused-s-27827-o-result-no-source-identity-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2454-reused-s-27827-o-result-no-source-identity-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2454-reused-s-27827-o-result-no-source-identity-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:225:3 › AXI-2466 — sidedness drives the template alternative › FR75 — AXI-2466.4 (EC39): a question that sets `parameters.alternative` directly fails CC5 @SI-071 @SI-065 @SI-002 
+
+    Error: {"success":false,"statusCode":409,"message":"This SAP already has an open draft; open it instead","error":"Conflict","path":"/api/v1/projects/abd5d080-807b-47af-846d-6ae82fe44554/saps/draft","timestamp":"2026-11-26T21:16:07.171Z","errorCode":"SAP_DRAFT_EXISTS"}
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 409
+
+      84 | async function draftWithQuestion(question: unknown): Promise<{ sapId: string; revision: number }> {
+      85 |   const started = await editor.api.post(`${base(project)}/saps/draft`);
+    > 86 |   expect(started.status(), await started.text()).toBe(201);
+         |                                                  ^
+      87 |   const draft = await started.json();
+      88 |   const titled = await editor.api.put(`${base(project)}/saps/${draft.sapId}/draft`, {
+      89 |     data: { basedOnRevision: draft.revision, title: `AXI-2466 ${Date.now()}` },
+        at draftWithQuestion (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:86:50)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:227:23
+
+    Error Context: test-results/AXI-2455-AXI-2466-sidednes-a59ff-ernative-directly-fails-CC5-chromium/error-context.md
+
+    Error Context: test-results/AXI-2455-AXI-2466-sidednes-a59ff-ernative-directly-fails-CC5-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2466-sidednes-a59ff-ernative-directly-fails-CC5-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2466-sidednes-a59ff-ernative-directly-fails-CC5-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:152:3 › AXI-2467 — SAP main result from the template declaration › AC40 — AXI-2467.2 (EC36, FR74): the same question on the one-cell pin fails CC9 and names the whole-matrix version @SI-071 @SI-065 @SI-002 
+
+    Error: {"success":false,"statusCode":409,"message":"This SAP already has an open draft; open it instead","error":"Conflict","path":"/api/v1/projects/9a88a9d6-1f63-4082-931b-9e283d1f529c/saps/draft","timestamp":"2026-11-26T21:16:10.426Z","errorCode":"SAP_DRAFT_EXISTS"}
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 409
+
+       99 | async function draftWithQuestion(question: unknown): Promise<{ sapId: string; revision: number }> {
+      100 |   const started = await editor.api.post(`${base(project)}/saps/draft`);
+    > 101 |   expect(started.status(), await started.text()).toBe(201);
+          |                                                  ^
+      102 |   const draft = await started.json();
+      103 |   const titled = await editor.api.put(`${base(project)}/saps/${draft.sapId}/draft`, {
+      104 |     data: { basedOnRevision: draft.revision, title: `AXI-2467 ${Date.now()}` },
+        at draftWithQuestion (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:101:50)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:153:23
+
+    Error Context: test-results/AXI-2455-AXI-2467-sap-main-9fe04-es-the-whole-matrix-version-chromium/error-context.md
+
+    Error Context: test-results/AXI-2455-AXI-2467-sap-main-9fe04-es-the-whole-matrix-version-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2467-sap-main-9fe04-es-the-whole-matrix-version-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2467-sap-main-9fe04-es-the-whole-matrix-version-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:266:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › AC40 FR74 EC36 AXI-2468.4 a confirmatory T5 question on the one-cell version is stopped on both axes and recorded on the global-test version @SI-066 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByTestId('na-step-ready')
+    Expected: visible
+    Timeout: 60000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 60000ms
+      - waiting for getByTestId('na-step-ready')
+
+
+      122 | async function editQuestion(page: Page, projectId: string, questionId: string): Promise<void> {
+      123 |   await gotoSettled(page, `/projects/${projectId}/sap/questions/${questionId}`);
+    > 124 |   await expect(page.getByTestId('na-step-ready')).toBeVisible({ timeout: 60_000 });
+          |                                                   ^
+      125 |   await expect(page.getByTestId('na-plan-save')).toHaveText('Save question');
+      126 | }
+      127 |
+        at editQuestion (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:124:51)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:276:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2468-plan-mod-691ba--global-test-version-SI-066-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2468-plan-mod-691ba--global-test-version-SI-066-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/AXI-2455-AXI-2468-plan-mod-691ba--global-test-version-SI-066-chromium/error-context.md
+
+    Error Context: test-results/AXI-2455-AXI-2468-plan-mod-691ba--global-test-version-SI-066-chromium/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2468-plan-mod-691ba--global-test-version-SI-066-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2468-plan-mod-691ba--global-test-version-SI-066-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [chromium] › tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:191:3 › AXI-2471 — first structured finalise over a legacy free-text SAP › AC37 — AXI-2471.3: on the Plan tab the finalise dialog asks for no reason, names the system reason, and the history shows it @SI-065 @SI-002 @SI-031 
+
+    Test timeout of 120000ms exceeded.
+
+    Error: locator.click: Test timeout of 120000ms exceeded.
+    Call log:
+      - waiting for getByTestId('sap-finalise')
+
+
+      195 |
+      196 |     // Act
+    > 197 |     await page.getByTestId('sap-finalise').click();
+          |                                            ^
+      198 |     const dialog = page.getByTestId('sap-finalise-dialog');
+      199 |
+      200 |     // Assert — the dialog
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:197:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2471-legacy-s-e0458-on-and-the-history-shows-it-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2471-legacy-s-e0458-on-and-the-history-shows-it-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/AXI-2455-AXI-2471-legacy-s-e0458-on-and-the-history-shows-it-chromium/error-context.md
+
+    Error Context: test-results/AXI-2455-AXI-2471-legacy-s-e0458-on-and-the-history-shows-it-chromium/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2471-legacy-s-e0458-on-and-the-history-shows-it-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2471-legacy-s-e0458-on-and-the-history-shows-it-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5 failed
+    [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:115:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC2 a viewer WITHOUT access to the source project gets the typed no-access state: no result, no source identity 
+    [chromium] › tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:225:3 › AXI-2466 — sidedness drives the template alternative › FR75 — AXI-2466.4 (EC39): a question that sets `parameters.alternative` directly fails CC5 @SI-071 @SI-065 @SI-002 
+    [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:152:3 › AXI-2467 — SAP main result from the template declaration › AC40 — AXI-2467.2 (EC36, FR74): the same question on the one-cell pin fails CC9 and names the whole-matrix version @SI-071 @SI-065 @SI-002 
+    [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:266:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › AC40 FR74 EC36 AXI-2468.4 a confirmatory T5 question on the one-cell version is stopped on both axes and recorded on the global-test version @SI-066 
+    [chromium] › tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:191:3 › AXI-2471 — first structured finalise over a legacy free-text SAP › AC37 — AXI-2471.3: on the Plan tab the finalise dialog asks for no reason, names the system reason, and the history shows it @SI-065 @SI-002 @SI-031 
+  5 did not run
+  38 passed (5.5m)

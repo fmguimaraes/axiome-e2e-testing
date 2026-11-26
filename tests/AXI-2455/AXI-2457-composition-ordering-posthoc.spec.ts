@@ -138,14 +138,14 @@ test.describe(
   'AXI-2457 — composition ordering edge, post-hoc choice and comparison set',
   { tag: ['@SI-069', '@SI-070', '@SI-010', '@SI-002'] },
   () => {
-    test('AXI-2457.1 a T2-shaped composition validates PASS on all five checks (AC22)', async () => {
+    test('AXI-2457.1 a T2-shaped composition validates PASS on all six checks (AC22; the sixth is the AXI-2459 main-result check)', async () => {
       // Act
       const res = await user.validate({ composition: t2() });
       // Assert
       expect(res.status, res.text).toBe(200);
       expect(res.body.verdict, res.text).toBe('PASS');
       expect(res.body.validatorVersion).toMatch(SEMVER);
-      expect(res.body.checks.map((c: any) => c.verdict)).toEqual(['PASS', 'PASS', 'PASS', 'PASS', 'PASS']);
+      expect(res.body.checks.map((c: any) => c.verdict)).toEqual(['PASS', 'PASS', 'PASS', 'PASS', 'PASS', 'PASS']);
     });
 
     const BAD_EDGES: { name: string; mutate: () => any; code: string; location?: string; count?: number }[] = [

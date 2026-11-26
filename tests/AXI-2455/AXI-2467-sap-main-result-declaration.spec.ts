@@ -130,6 +130,16 @@ test.beforeAll(async () => {
   ingestion = await readyIngestion(w, dataset);
 });
 
+/** W5 2026-11-26: one SAP per project allows ONE open draft, so every test discards the draft it leaves behind. */
+test.afterEach(async () => {
+  const cur = await editor.api.get(`${base(project)}/sap-draft`);
+  if (!cur.ok()) return;
+  const body: any = await cur.json().catch(() => null);
+  const sapId = body?.sapId ?? body?.draft?.sapId;
+  const revision = body?.revision ?? body?.draft?.revision;
+  if (sapId) await editor.api.delete(`${base(project)}/saps/${sapId}/draft?basedOnRevision=${revision}`);
+});
+
 test.afterAll(async () => {
   await w.world?.dispose();
 });

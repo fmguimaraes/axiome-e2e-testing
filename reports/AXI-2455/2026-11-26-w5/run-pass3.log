@@ -1,0 +1,17 @@
+
+Running 12 tests using 1 worker
+
+  ✓   1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (7.7s)
+  ✓   2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (10.6s)
+  ✓   3 [chromium] › tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:194:3 › AXI-2466 — sidedness drives the template alternative › FR21 — AXI-2466.3 (EC38): a one-sided T2 question fails CC5; T2 declares no `alternative` @SI-071 @SI-065 @SI-002 (374ms)
+  ✓   4 [chromium] › tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:226:3 › AXI-2466 — sidedness drives the template alternative › FR75 — AXI-2466.4 (EC39): a question that sets `parameters.alternative` directly fails CC5 @SI-071 @SI-065 @SI-002 (212ms)
+  ✓   5 [chromium] › tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:237:3 › AXI-2466 — sidedness drives the template alternative › FR75 — AXI-2466.5 (EC39): a sensitivity analysis that sets `alternative` directly fails CC10 the same way @SI-071 @SI-065 @SI-002 (193ms)
+  ✓   6 [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:148:3 › AXI-2467 — SAP main result from the template declaration › FR25 — AXI-2467.1 (EC35): a confirmatory multi-cell T3 question on the whole-matrix version passes CC9 @SI-071 @SI-065 @SI-002 (176ms)
+  ✓   7 [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:153:3 › AXI-2467 — SAP main result from the template declaration › AC40 — AXI-2467.2 (EC36, FR74): the same question on the one-cell pin fails CC9 and names the whole-matrix version @SI-071 @SI-065 @SI-002 (164ms)
+  ✓   8 [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:160:3 › AXI-2467 — SAP main result from the template declaration › FR73 — AXI-2467.3 (EC37): a direction on the whole-matrix main result fails CC6 @SI-071 @SI-065 @SI-002 (160ms)
+  ✓   9 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:177:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › AC38 FR75 AXI-2468.1 a T1 question on a version without an alternative is offered the one that has one; one-sided is then recorded as sidedness @SI-066 (14.5s)
+  ✓  10 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:206:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › FR7 EC38 AXI-2468.2 a T2 question offers its post-hoc choice under its wording and no one-sided alternative; the choice is recorded @SI-066 (12.4s)
+  ✓  11 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:233:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › AC39 FR73 EC35 AXI-2468.3 a confirmatory T3 question with 3 y is stopped on the one-cell version and recorded on the global-test version @SI-066 (12.3s)
+  ✓  12 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:294:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › FR9 FR75 AXI-2468.5 a sensitivity analysis is judged on its own pin — offered the version with an alternative, then recorded one-sided @SI-066 (13.0s)
+
+  12 passed (1.3m)

@@ -122,7 +122,8 @@ test.describe('AXI-2448 - output conformance wired into the run completion', () 
       { positiveGroup: 'A', bootstrapSeed: 777, bootstrapIterations: 200 },
       { groupColumn: 'group', valueColumns: ['value'] },
     );
-    const { runId, run } = await freshRun(fixture);
+    // AXI-2451 (W5 2026-11-26): a grouped comparison run needs its pivot, as A2 does.
+    const { runId, run } = await freshRun(fixture, { pivot: { valueColumns: ['value'] } });
     const table = await assertSucceededWithColumns(runId, run, ['rocCoordinates']);
     for (const child of ['list', 'element', 'fpr', 'tpr']) {
       expect(table.columns, `nested child ${child} leaked as a column`).not.toContain(child);
