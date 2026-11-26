@@ -1,0 +1,175 @@
+
+Running 29 tests using 1 worker
+
+  ✓   1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (6.9s)
+  ✓   2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (6.5s)
+  -   3 [axi-2549-api] › tests/AXI-2540/AXI-2549-ingestion-watchdog-retry.spec.ts:141:1 › AC72 — §4.1 a stuck ingestion past the governed window is failed by the watchdog, with its reason @SI-014
+  -   4 [axi-2549-api] › tests/AXI-2540/AXI-2549-ingestion-watchdog-retry.spec.ts:190:1 › AC72 — §4.2 Retry re-dispatches a failed ingestion as a new attempt that reaches ready, and never overwrites the old failed row (D42) @SI-014 @SI-010
+  ✓   5 [axi-2549-api] › tests/AXI-2540/AXI-2549-ingestion-watchdog-retry.spec.ts:257:1 › AC72 — §5.2 retry refuses a non-failed ingestion (409) @SI-014 (1.7s)
+  ✓   6 [axi-2549-api] › tests/AXI-2540/AXI-2549-ingestion-watchdog-retry.spec.ts:336:3 › §5.3 — retry authorization @SI-014 @SI-010 › AC72 — no dataset:upload permission and below Editor tier is refused 403 (1.9s)
+  ✓   7 [axi-2549-api] › tests/AXI-2540/AXI-2549-ingestion-watchdog-retry.spec.ts:359:3 › §5.3 — retry authorization @SI-014 @SI-010 › AC72 — a cross-tenant ingestion id (another workspace) is NotFound, never 403 (1.6s)
+  ✓   8 [axi-2549-api] › tests/AXI-2540/AXI-2549-ingestion-watchdog-retry.spec.ts:406:3 › §5.3 — retry authorization @SI-014 @SI-010 › AC72 — an ingestion under a co-worker's dataset is NotFound even though the caller owns the dataset named in the URL (IDOR, B2) (3.0s)
+  ✓   9 [chromium] › tests/AXI-2540/AXI-2548-screenshots.spec.ts:117:1 › processing row — elapsed time + known stage (39.5s)
+  ✘  10 [chromium] › tests/AXI-2540/AXI-2548-screenshots.spec.ts:128:1 › failed row — plain-language reason + Retry (2.5m)
+  -  11 [chromium] › tests/AXI-2540/AXI-2548-screenshots.spec.ts:138:1 › ready row
+  ✓  12 [chromium] › tests/AXI-2540/AXI-2548-upload-status.spec.ts:165:3 › AXI-2548 Investigator uploads — clear processing status + single-flight Retry @SI-032 @SI-066 › AXI-2548.1 — a processing row shows elapsed time and its known stage @SI-032 @SI-066 (38.2s)
+  ✓  13 [chromium] › tests/AXI-2540/AXI-2548-upload-status.spec.ts:187:3 › AXI-2548 Investigator uploads — clear processing status + single-flight Retry @SI-032 @SI-066 › AXI-2548.2 — a failed row shows a plain-language reason and offers Retry exactly once @SI-032 @SI-066 @SI-014 (39.9s)
+  ✓  14 [chromium] › tests/AXI-2540/AXI-2548-upload-status.spec.ts:216:3 › AXI-2548 Investigator uploads — clear processing status + single-flight Retry @SI-032 @SI-066 › AXI-2548.2b — a 409 on Retry (already claimed) is swallowed, never shown as an error @SI-032 @SI-014 (40.5s)
+  ✘  15 [chromium] › tests/AXI-2540/AXI-2550-permission-revocation.spec.ts:59:3 › AXI-2550 — permission resolver fallback + cache invalidation › AC50/FR84 — a granted permission works, then unticking it in the role editor takes effect on the very next request (no 60s stale window) (0ms)
+  -  16 [chromium] › tests/AXI-2540/AXI-2550-permission-revocation.spec.ts:82:3 › AXI-2550 — permission resolver fallback + cache invalidation › AC50/FR84 — a role that still holds the permission keeps working (no over-revocation)
+  ✘  17 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:91:1 › FR82/FR78 — AXI-2551.1 the SAP management entry is visible only to a sap:read holder, on both surfaces @SI-010 @SI-031 @SI-066 (0ms)
+  -  18 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:101:1 › AC48/FR82/NFR1 — AXI-2551.2 the Plans tab lists SAPs across every readable project, right columns, never an unreadable project @SI-010 @SI-031
+  -  19 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:116:1 › FR82 — AXI-2551.3 the Plans tab project filter only narrows, never widens, the readable set (OQ7 ruled) @SI-010 @SI-031
+  -  20 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:132:1 › FR83 — AXI-2551.4 the Runs tab lists SAP runs across readable projects with classification @SI-010 @SI-031 @SI-066
+  -  21 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:144:1 › AC49/FR83 — AXI-2551.5 Templates is a tab shown only to a template:write holder; links into the existing Template Library @SI-010 @SI-066
+  -  22 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:157:1 › AC49/FR78 — AXI-2551.6 every hub route fails closed without sap:read @SI-010 @SI-031
+  ✓  23 [chromium] › tests/AXI-2540/AXI-2560-nul-byte-csv-reject.spec.ts:125:1 › AC72 — §4.1 a CSV with an embedded NUL byte fails cleanly with a readable reason naming NUL @SI-021 (1.7s)
+  ✓  24 [chromium] › tests/AXI-2540/AXI-2560-nul-byte-csv-reject.spec.ts:146:1 › AC72 — §4.2 a TSV with an embedded NUL byte fails cleanly with a readable reason naming NUL @SI-021 (1.6s)
+  ✓  25 [chromium] › tests/AXI-2540/AXI-2560-nul-byte-csv-reject.spec.ts:171:1 › AC72 — §5.1 a clean CSV with no NUL byte is unaffected and reaches ready (control) @SI-021 (1.6s)
+  ✘  26 [chromium] › tests/AXI-2540/AXI-2561-plan-suggestions-kill-switch.spec.ts:77:3 › AXI-2561 — per-workspace plan-suggestions runtime kill switch @SI-013 @SI-010 @SI-066 @SI-031 › AC25611 — AXI-2561.1 a never-configured workspace reads enabled by default (10ms)
+  -  27 [chromium] › tests/AXI-2540/AXI-2561-plan-suggestions-kill-switch.spec.ts:81:3 › AXI-2561 — per-workspace plan-suggestions runtime kill switch @SI-013 @SI-010 @SI-066 @SI-031 › AC25612 — AXI-2561.2 flipping the admin policy off is read back on the plan-suggestions endpoint
+  -  28 [chromium] › tests/AXI-2540/AXI-2561-plan-suggestions-kill-switch.spec.ts:91:3 › AXI-2561 — per-workspace plan-suggestions runtime kill switch @SI-013 @SI-010 @SI-066 @SI-031 › AC25613 — AXI-2561.3 flipping it back on restores the default read
+  -  29 [chromium] › tests/AXI-2540/AXI-2561-plan-suggestions-kill-switch.spec.ts:96:3 › AXI-2561 — per-workspace plan-suggestions runtime kill switch @SI-013 @SI-010 @SI-066 @SI-031 › AC25612 — AXI-2561.4 a sibling workspace never sees the first workspace's flag value (tenancy)
+
+
+  1) [chromium] › tests/AXI-2540/AXI-2548-screenshots.spec.ts:128:1 › failed row — plain-language reason + Retry 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-upload-name="axi2548-shot-failed-1795729193698-937959.csv"]')
+    Expected: visible
+    Timeout: 120000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 120000ms
+      - waiting for locator('[data-upload-name="axi2548-shot-failed-1795729193698-937959.csv"]')
+
+
+      82 |   await page.locator('[data-testid^="upload-input"]').first().setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(csv) });
+      83 |   const row = page.locator(`[data-upload-name="${name}"]`);
+    > 84 |   await expect(row).toBeVisible({ timeout: 120_000 });
+         |                     ^
+      85 |   const id = (await row.getAttribute('data-testid'))!.replace('upload-row-', '');
+      86 |   await expect(page.getByTestId(`upload-status-${id}`)).toHaveText('Ready', { timeout: 180_000 });
+      87 |   return id;
+        at uploadAndSettle (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2540-validation/tests/AXI-2540/AXI-2548-screenshots.spec.ts:84:21)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2540-validation/tests/AXI-2540/AXI-2548-screenshots.spec.ts:130:14
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/AXI-2540-AXI-2548-screensh-3c18c-plain-language-reason-Retry-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/AXI-2540-AXI-2548-screensh-3c18c-plain-language-reason-Retry-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/AXI-2540-AXI-2548-screensh-3c18c-plain-language-reason-Retry-chromium/error-context.md
+
+    Error Context: test-results/AXI-2540-AXI-2548-screensh-3c18c-plain-language-reason-Retry-chromium/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2540-AXI-2548-screensh-3c18c-plain-language-reason-Retry-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2540-AXI-2548-screensh-3c18c-plain-language-reason-Retry-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › tests/AXI-2540/AXI-2550-permission-revocation.spec.ts:59:3 › AXI-2550 — permission resolver fallback + cache invalidation › AC50/FR84 — a granted permission works, then unticking it in the role editor takes effect on the very next request (no 60s stale window) 
+
+    Error: AXI-2267 fixture create role -> 403: {"success":false,"statusCode":403,"message":"Only System Admins can create roles","error":"Forbidden","path":"/api/v1/roles","timestamp":"2026-11-26T21:44:00.214Z"}
+
+       at AXI-2265/private-projects-fixtures.ts:26
+
+      24 |
+      25 | async function json(res: APIResponse, what: string): Promise<any> {
+    > 26 |   if (!res.ok()) throw new Error(`AXI-2267 fixture ${what} -> ${res.status()}: ${await res.text()}`);
+         |                        ^
+      27 |   const text = await res.text();
+      28 |   return text ? JSON.parse(text) : {};
+      29 | }
+        at json (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2540-validation/tests/AXI-2265/private-projects-fixtures.ts:26:24)
+        at PrivateProjectsWorld.workspaceRole (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2540-validation/tests/AXI-2265/private-projects-fixtures.ts:63:18)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2540-validation/tests/AXI-2540/AXI-2550-permission-revocation.spec.ts:50:14
+
+    Error Context: test-results/AXI-2540-AXI-2550-permissi-23009-equest-no-60s-stale-window--chromium/error-context.md
+
+    Error Context: test-results/AXI-2540-AXI-2550-permissi-23009-equest-no-60s-stale-window--chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2540-AXI-2550-permissi-23009-equest-no-60s-stale-window--chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2540-AXI-2550-permissi-23009-equest-no-60s-stale-window--chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:91:1 › FR82/FR78 — AXI-2551.1 the SAP management entry is visible only to a sap:read holder, on both surfaces @SI-010 @SI-031 @SI-066 
+
+    Error: AXI-2267 fixture create role -> 403: {"success":false,"statusCode":403,"message":"Only System Admins can create roles","error":"Forbidden","path":"/api/v1/roles","timestamp":"2026-11-26T21:44:04.822Z"}
+
+       at AXI-2265/private-projects-fixtures.ts:26
+
+      24 |
+      25 | async function json(res: APIResponse, what: string): Promise<any> {
+    > 26 |   if (!res.ok()) throw new Error(`AXI-2267 fixture ${what} -> ${res.status()}: ${await res.text()}`);
+         |                        ^
+      27 |   const text = await res.text();
+      28 |   return text ? JSON.parse(text) : {};
+      29 | }
+        at json (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2540-validation/tests/AXI-2265/private-projects-fixtures.ts:26:24)
+        at PrivateProjectsWorld.workspaceRole (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2540-validation/tests/AXI-2265/private-projects-fixtures.ts:63:18)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2540-validation/tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:78:22
+
+    Error Context: test-results/AXI-2540-AXI-2551-sap-mana-fef00-rfaces-SI-010-SI-031-SI-066-chromium/error-context.md
+
+    Error Context: test-results/AXI-2540-AXI-2551-sap-mana-fef00-rfaces-SI-010-SI-031-SI-066-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2540-AXI-2551-sap-mana-fef00-rfaces-SI-010-SI-031-SI-066-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2540-AXI-2551-sap-mana-fef00-rfaces-SI-010-SI-031-SI-066-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [chromium] › tests/AXI-2540/AXI-2561-plan-suggestions-kill-switch.spec.ts:77:3 › AXI-2561 — per-workspace plan-suggestions runtime kill switch @SI-013 @SI-010 @SI-066 @SI-031 › AC25611 — AXI-2561.1 a never-configured workspace reads enabled by default 
+
+    Error: read plan-suggestions-enabled: 403 {"success":false,"statusCode":403,"message":"Permission 'sap:suggested_questions' required","error":"Forbidden","path":"/api/v1/guided-analysis/opening-templates/plan-suggestions-enabled","timestamp":"2026-11-26T21:44:11.317Z"}
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      42 | async function readEnabled(admin: APIRequestContext, workspaceId: string): Promise<boolean> {
+      43 |   const res = await admin.get(apiUrl(READ_PATH), { headers: { 'X-Workspace-Id': workspaceId } });
+    > 44 |   expect(res.ok(), `read plan-suggestions-enabled: ${res.status()} ${await res.text()}`).toBe(true);
+         |                                                                                          ^
+      45 |   return res.json();
+      46 | }
+      47 |
+        at readEnabled (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2540-validation/tests/AXI-2540/AXI-2561-plan-suggestions-kill-switch.spec.ts:44:90)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2540-validation/tests/AXI-2540/AXI-2561-plan-suggestions-kill-switch.spec.ts:78:12
+
+    Error Context: test-results/AXI-2540-AXI-2561-plan-sug-d860a-ce-reads-enabled-by-default-chromium/error-context.md
+
+    Error Context: test-results/AXI-2540-AXI-2561-plan-sug-d860a-ce-reads-enabled-by-default-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2540-AXI-2561-plan-sug-d860a-ce-reads-enabled-by-default-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2540-AXI-2561-plan-sug-d860a-ce-reads-enabled-by-default-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4 failed
+    [chromium] › tests/AXI-2540/AXI-2548-screenshots.spec.ts:128:1 › failed row — plain-language reason + Retry 
+    [chromium] › tests/AXI-2540/AXI-2550-permission-revocation.spec.ts:59:3 › AXI-2550 — permission resolver fallback + cache invalidation › AC50/FR84 — a granted permission works, then unticking it in the role editor takes effect on the very next request (no 60s stale window) 
+    [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:91:1 › FR82/FR78 — AXI-2551.1 the SAP management entry is visible only to a sap:read holder, on both surfaces @SI-010 @SI-031 @SI-066 
+    [chromium] › tests/AXI-2540/AXI-2561-plan-suggestions-kill-switch.spec.ts:77:3 › AXI-2561 — per-workspace plan-suggestions runtime kill switch @SI-013 @SI-010 @SI-066 @SI-031 › AC25611 — AXI-2561.1 a never-configured workspace reads enabled by default 
+  2 skipped
+  10 did not run
+  13 passed (8.9m)

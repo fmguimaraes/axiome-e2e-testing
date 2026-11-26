@@ -1,0 +1,39 @@
+
+User Stories for Epic AXI-2540:
+----------------------------------------------------------------------
+  [AXI-2541] Suggestions: generate from the stored semantic declaration + group guards + investigator semantic-fill
+          Status: Done | Points: 5.0 | Assignee: Felipe
+  [AXI-2542] Suggestions: fix structure-profiler type inference for continuous columns
+          Status: Done | Points: 3.0 | Assignee: Felipe
+  [AXI-2543] Suggestions: one hypothesis per card, exclude binary from correlation, drop pre-flight-refused candidates
+          Status: Done | Points: 5.0 | Assignee: Felipe
+  [AXI-2544] Suggestions: chip cards, explore card, cap and collapse
+          Status: To Do | Points: 5.0 | Assignee: Felipe
+  [AXI-2545] Questions page + Run to wizard handoff
+          Status: To Do | Points: 5.0 | Assignee: Felipe
+  [AXI-2546] Behavior tracking for suggestions and Questions page
+          Status: To Do | Points: 3.0 | Assignee: Felipe
+  [AXI-2547] Lift the sap:suggested_questions gate for the Investigator (last)
+          Status: To Do | Points: 3.0 | Assignee: Felipe
+  [AXI-2548] Investigator uploads: clear processing status
+          Status: Done | Points: 3.0 | Assignee: Felipe
+  [AXI-2549] Ingestion timeout watchdog + Retry
+          Status: Done | Points: 5.0 | Assignee: Felipe
+  [AXI-2550] Fix seeded-role permission revocation (resolver fallback + cache invalidation)
+          Status: Done | Points: 5.0 | Assignee: Felipe
+  [AXI-2551] SAP management hub (cross-project list, Plans/Runs/Templates)
+          Status: Done | Points: 8.0 | Assignee: Felipe
+  [AXI-2559] Backfill seeded AnalysisTemplate header labels after the T1/T2 rename (Template Library still shows 'Compare groups' twice)
+          Status: Done | Points: None | Assignee: Felipe
+  [AXI-2560] Bio-compute CSV parser accepts NUL bytes; organization-service then crashes persisting them (22P05)
+          Status: Done | Points: None | Assignee: Felipe
+  [AXI-2561] Runtime kill switch for 'Suggested from your data' on the plan page
+          Status: Done | Points: None | Assignee: Felipe
+  [AXI-2563] Statistical plan page tabs don't match the system tab component (PillTabs)
+          Status: Done | Points: None | Assignee: Felipe
+  [AXI-2565] Migrate remaining hand-rolled tab strips onto PillTabs
+          Status: Done | Points: None | Assignee: Felipe
+  [AXI-2593] Suggestions: add per-level min-n to grouping-column eligibility
+          Status: To Do | Points: None | Assignee: Felipe
+
+Total: 17 user story(ies)
