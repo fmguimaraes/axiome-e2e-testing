@@ -1,0 +1,60 @@
+
+Running 8 tests using 1 worker
+
+  ✓  1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (6.8s)
+  ✓  2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (6.8s)
+  ✓  3 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:113:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 FR78 AC45 AXI-2532.1 without sap:read every SAP GET is 403 naming sap:read; with it every GET answers @SI-010 (403ms)
+  ✓  4 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:142:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 AC44 EC42 AXI-2532.2 each SAP write is admitted by its own right only, and every write also needs sap:read @SI-010 @SI-065 (406ms)
+  ✓  5 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:189:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 FR64 AXI-2532.3 (retired by AXI-2650) the Run SAP routes no longer exist: POST and GET /saps/:id/runs answer 404 @SI-010 @SI-065 (212ms)
+  ✓  6 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:204:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR78 AC45 AXI-2532.4 without sap:read the SAP page renders no plan, only the sap:read notice, and reads no SAP route @SI-031 (6.7s)
+  ✘  7 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:227:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 AC44 AXI-2532.5 on the Plan tab each control shows only for its own right: an updater edits but cannot finalise, discard or start @SI-031 (11.7s)
+  -  8 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:245:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR79 AC46 AXI-2532.6 after the migration every seeded role and Super Admin hold the SAP rights they need and no role holds sap:write @SI-010
+
+
+  1) [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:227:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 AC44 AXI-2532.5 on the Plan tab each control shows only for its own right: an updater edits but cannot finalise, discard or start @SI-031 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByTestId('sap-plan-tab')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByTestId('sap-plan-tab')
+
+
+      235 |
+      236 |     // Assert
+    > 237 |     await expect(page.getByTestId('sap-plan-tab')).toBeVisible();
+          |                                                    ^
+      238 |     await expect(page.getByTestId('sap-add-question')).toBeVisible();
+      239 |     await expect(page.getByTestId('sap-draft-title')).toBeVisible();
+      240 |     for (const tid of ['sap-finalise', 'sap-discard-draft', 'sap-start-draft', 'sap-amend', 'sap-run', 'sap-read-only-note']) {
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:237:52
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2532-sap-crud-2cbb4-ise-discard-or-start-SI-031-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2532-sap-crud-2cbb4-ise-discard-or-start-SI-031-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/AXI-2455-AXI-2532-sap-crud-2cbb4-ise-discard-or-start-SI-031-chromium/error-context.md
+
+    Error Context: test-results/AXI-2455-AXI-2532-sap-crud-2cbb4-ise-discard-or-start-SI-031-chromium/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2532-sap-crud-2cbb4-ise-discard-or-start-SI-031-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2532-sap-crud-2cbb4-ise-discard-or-start-SI-031-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:227:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 AC44 AXI-2532.5 on the Plan tab each control shows only for its own right: an updater edits but cannot finalise, discard or start @SI-031 
+  1 did not run
+  6 passed (40.6s)

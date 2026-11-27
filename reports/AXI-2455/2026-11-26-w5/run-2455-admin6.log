@@ -1,0 +1,9 @@
+
+Running 4 tests using 1 worker
+
+  ✓  1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (6.9s)
+  ✓  2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (6.6s)
+  ✓  3 [chromium] › tests/AXI-2455/AXI-2478-header-lock-after-partial-save.spec.ts:72:3 › AXI-2478 — header lock after a partial save › FR35 FR37 AXI-2478.B1 a refused version write after the header was created locks the header fields and says why @SI-035 (7.5s)
+  ✓  4 [chromium] › tests/AXI-2455/AXI-2478-header-lock-after-partial-save.spec.ts:107:3 › AXI-2478 — header lock after a partial save › FR35 AXI-2478.B2 the retry writes only the version under the saved header — one template per key @SI-035 (354ms)
+
+  4 passed (24.3s)

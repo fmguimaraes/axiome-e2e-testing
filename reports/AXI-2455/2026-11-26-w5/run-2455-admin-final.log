@@ -1,0 +1,494 @@
+
+Running 116 tests using 1 worker
+
+  ✓    1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (6.8s)
+  ✓    2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (6.8s)
+  ✓    3 [chromium] › tests/AXI-2455/AXI-2448-output-conformance.spec.ts:113:3 › AXI-2448 - output conformance wired into the run completion › AXI-2448.A1: a fresh Mann-Whitney run SUCCEEDS (not OUTPUT_NONCONFORMING) and its table carries the declared columns @SI-017 @SI-052 (4.9s)
+  ✓    4 [chromium] › tests/AXI-2455/AXI-2448-output-conformance.spec.ts:119:3 › AXI-2448 - output conformance wired into the run completion › AXI-2448.A3: a fresh ROC-Youden run (nested rocCoordinates) SUCCEEDS - a nested column is one column, not its children @SI-017 @SI-052 (4.7s)
+  ✓    5 [chromium] › tests/AXI-2455/AXI-2451-replay-forwards-pivot.spec.ts:82:3 › AXI-2451 — Rule-run replay forwards the original pivot › FR55 — AXI-2451.1: a Mann–Whitney U run (pivot valueColumns) is replayed as a new SUCCEEDED run with the same roles @SI-017 @SI-002 (2.3s)
+  ✓    6 [chromium] › tests/AXI-2455/AXI-2452-replay-verified-workspace.spec.ts:101:3 › AXI-2452 — Replay row carries the caller verified workspace › FR55, FR57 — AXI-2452.1: the replay is readable on GET /rule-runs/:id and carries the run data workspace @SI-017 @SI-042 @SI-002 (1.1s)
+  ✓    7 [chromium] › tests/AXI-2455/AXI-2452-replay-verified-workspace.spec.ts:117:3 › AXI-2452 — Replay row carries the caller verified workspace › FR57 — AXI-2452.2: a caller outside the run workspace is answered 404 "RuleRun … not found" and nothing is written @SI-017 @SI-042 @SI-002 (79ms)
+  ✓    8 [chromium] › tests/AXI-2455/AXI-2452-replay-verified-workspace.spec.ts:132:3 › AXI-2452 — Replay row carries the caller verified workspace › FR55 — AXI-2452.3: a replay cannot be filed into a project of another workspace @SI-017 @SI-042 @SI-002 (35ms)
+  ✓    9 [chromium] › tests/AXI-2455/AXI-2453-t2-default-groups-observed.spec.ts:90:3 › AXI-2453 - T2 default groups agree with I05 (FR53, EC24) @SI-045 › AXI-2453.1 FR53 - T2 with no explicit groups compiles on a column with a declared but unobserved level, over the observed levels only (27ms)
+  ✓   10 [chromium] › tests/AXI-2455/AXI-2453-t2-default-groups-observed.spec.ts:99:3 › AXI-2453 - T2 default groups agree with I05 (FR53, EC24) @SI-045 › AXI-2453.2 EC24 - an explicit set naming the unobserved level is still refused under I05, naming the group (13ms)
+  ✓   11 [chromium] › tests/AXI-2455/AXI-2453-t2-default-groups-observed.spec.ts:108:3 › AXI-2453 - T2 default groups agree with I05 (FR53, EC24) @SI-045 › AXI-2453.3 FR53 - an explicit observed subset [C1,C2,C3] compiles, narrowed by an `in` filter (15ms)
+  ✓   12 [chromium] › tests/AXI-2455/AXI-2453-t2-default-groups-observed.spec.ts:117:3 › AXI-2453 - T2 default groups agree with I05 (FR53, EC24) @SI-045 › AXI-2453.4 FR53 - the wizard: candidates carry the observed levels, and T2 launched with the default "All groups" is not refused I05 (191ms)
+  ✓   13 [chromium] › tests/AXI-2455/AXI-2453-t2-default-groups-observed.spec.ts:142:3 › AXI-2453 - T2 default groups agree with I05 (FR53, EC24) @SI-045 › AXI-2453.5 FR53 - observed not a subset of declared (declared C1..C3, observed C1..C4): the default compiles over C1..C3 with an `in` filter (180ms)
+  ✓   14 [chromium] › tests/AXI-2455/AXI-2453-t2-default-groups-observed.spec.ts:153:3 › AXI-2453 - T2 default groups agree with I05 (FR53, EC24) @SI-045 › AXI-2453.6 FR53 - observed not a subset of declared: the explicit full declared set compiles to the same plan; naming C4 is refused by the guard (32ms)
+  ✘   15 [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:103:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC1 a viewer with access to the source project reads the reused result (200, ready, the SOURCE run) (0ms)
+  -   16 [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:115:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC2 a viewer WITHOUT access to the source project gets the typed no-access state: no result, no source identity
+  -   17 [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:126:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC3 the source project itself stays closed to that viewer (the 404 is unchanged)
+  -   18 [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:132:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC4 the page shows the no-access message, not "not available"
+  ✓   19 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:141:5 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.1 a T2-shaped composition validates PASS on all six checks (AC22; the sixth is the AXI-2459 main-result check) @SI-069 @SI-070 @SI-010 @SI-002 (19ms)
+  ✓   20 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:185:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.2 a runsAfter target that is no step BLOCKs steps_form_dag with runs_after_unknown (EC22, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (13ms)
+  ✓   21 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:185:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.2 running after a later step BLOCKs steps_form_dag with runs_after_forward_reference (EC22, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (11ms)
+  ✓   22 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:185:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.2 two steps running after each other BLOCKs steps_form_dag with step_order_cycle (EC22, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (13ms)
+  ✓   23 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:185:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.2 a step running after itself BLOCKs steps_form_dag with step_order_cycle (EC22, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (11ms)
+  ✓   24 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:185:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.2 a post-hoc that does not run after the step it follows BLOCKs steps_form_dag with posthoc_of_not_after (EC22, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (12ms)
+  ✓   25 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:200:5 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.3 the post-hoc choice always / if_significant / never shapes the plan (EC23, AC22) @SI-069 @SI-070 @SI-010 @SI-002 (40ms)
+  ✓   26 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:221:5 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.3 a post-hoc value outside the choices is refused bindings_invalid (EC23, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (13ms)
+  ✓   27 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:232:5 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 a strict comparison subset narrows every step reading the slot, in DECLARED order (FR53, AC22) @SI-069 @SI-070 @SI-010 @SI-002 (11ms)
+  ✓   28 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:242:5 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 the full declared set over a fully-observed column narrows nothing and keeps the plan identity (FR53, EC24) @SI-069 @SI-070 @SI-010 @SI-002 (29ms)
+  ✓   29 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:258:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 declared ⊋ observed, default set: declared ∩ observed narrows as T2's recipe does (EC15, FR53) @SI-069 @SI-070 @SI-010 @SI-002 (8ms)
+  ✓   30 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:258:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 declared ⊋ observed, explicit observed subset narrows as T2's recipe does (EC15, FR53) @SI-069 @SI-070 @SI-010 @SI-002 (7ms)
+  ✓   31 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:258:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 observed ⊄ declared, default set: the undeclared level is narrowed away narrows as T2's recipe does (EC15, FR53) @SI-069 @SI-070 @SI-010 @SI-002 (7ms)
+  ✓   32 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:272:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 fewer than two levels is refused bindings_invalid / comparison_set_too_small (EC24, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (8ms)
+  ✓   33 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:272:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 a level not declared is refused bindings_invalid / comparison_set_level_undeclared (EC24, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (7ms)
+  ✓   34 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:272:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 a declared level not observed is refused bindings_invalid / comparison_set_level_unobserved (EC24, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (9ms)
+  ✓   35 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:272:7 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.4 no level binding for a declared comparison set is refused bindings_invalid / comparison_set_binding_missing (EC24, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (7ms)
+  ✓   36 [chromium] › tests/AXI-2455/AXI-2457-composition-ordering-posthoc.spec.ts:281:5 › AXI-2457 — composition ordering edge, post-hoc choice and comparison set › AXI-2457.5 an AXI-2428 composition compiles with none of the new keys (backward compatibility, AC29) @SI-069 @SI-070 @SI-010 @SI-002 (10ms)
+  ✓   37 [chromium] › tests/AXI-2455/AXI-2458-draft-keeps-library-pin.spec.ts:50:3 › draft keeps its node-library pin › FR7 FR28 NFR8 AXI-2458.A1 editing and saving a draft keeps its nodeLibraryVersion @SI-035 (7.1s)
+  ✓   38 [chromium] › tests/AXI-2455/AXI-2459-main-result-declaration.spec.ts:41:3 › AXI-2459 — template versions declare their main result › AXI-2459.1 (AC26, FR58): a valid declaration validates PASS on the sixth check, under validator 1.2.0 or later @SI-069 @SI-070 @SI-002 (10ms)
+  ✓   39 [chromium] › tests/AXI-2455/AXI-2459-main-result-declaration.spec.ts:52:3 › AXI-2459 — template versions declare their main result › AXI-2459.2 (EC26, AC29): an undeclared output, or a field its step lacks, BLOCKs the report @SI-069 @SI-070 @SI-002 (14ms)
+  ✓   40 [chromium] › tests/AXI-2455/AXI-2459-main-result-declaration.spec.ts:63:3 › AXI-2459 — template versions declare their main result › AXI-2459.3 (FR58): a malformed declaration is refused 400 naming the field @SI-069 @SI-070 @SI-002 (6ms)
+  ✓   41 [chromium] › tests/AXI-2455/AXI-2459-main-result-declaration.spec.ts:71:3 › AXI-2459 — template versions declare their main result › AXI-2459.4 (FR58): the immutable T1 0.2 and 0.3 resolve with NO main-result declaration @SI-069 @SI-070 @SI-002 (21ms)
+  ✓   42 [chromium] › tests/AXI-2455/AXI-2461-t1-t4-alternative.spec.ts:46:3 › AXI-2461 - T1/T4 alternative (TPL FR55, AC23) @SI-069 @SI-045 › AXI-2461.1 FR55 - T1 compiles a one-sided alternative into the Mann-Whitney node, forwarded alongside groupFrom/groupTo (30ms)
+  ✓   43 [chromium] › tests/AXI-2455/AXI-2461-t1-t4-alternative.spec.ts:68:3 › AXI-2461 - T1/T4 alternative (TPL FR55, AC23) @SI-069 @SI-045 › AXI-2461.2 FR55 - T4 compiles a one-sided alternative into the partial-correlation node, forwarded alongside method (18ms)
+  ✓   44 [chromium] › tests/AXI-2455/AXI-2461-t1-t4-alternative.spec.ts:83:3 › AXI-2461 - T1/T4 alternative (TPL FR55, AC23) @SI-069 @SI-045 › AXI-2461.3 EC28 - T2 refuses an alternative parameter it never declared, naming the slot (16ms)
+  ✓   45 [chromium] › tests/AXI-2455/AXI-2462-t3-t5-matrix-global-test.spec.ts:66:3 › AXI-2462 - T3/T5 alternative + matrix global test (TPL FR55, FR57, AC23, AC25) @SI-069 @SI-045 › AXI-2462.1 FR55 - T3 compiles a one-sided alternative into the correlation-matrix node, forwarded alongside method/familyScope (34ms)
+  ✓   46 [chromium] › tests/AXI-2455/AXI-2462-t3-t5-matrix-global-test.spec.ts:88:3 › AXI-2462 - T3/T5 alternative + matrix global test (TPL FR55, FR57, AC23, AC25) @SI-069 @SI-045 › AXI-2462.2 FR55 - T5 compiles a one-sided alternative into the correlation-matrix node, forwarded alongside method/familyScope (19ms)
+  ✓   47 [chromium] › tests/AXI-2455/AXI-2462-t3-t5-matrix-global-test.spec.ts:103:3 › AXI-2462 - T3/T5 alternative + matrix global test (TPL FR55, FR57, AC23, AC25) @SI-069 @SI-045 › AXI-2462.3 FR57, FR59, AC25 - T3 @0.4 resolves with a global_p main result over the whole matrix, never one cell (15ms)
+  ✓   48 [chromium] › tests/AXI-2455/AXI-2462-t3-t5-matrix-global-test.spec.ts:117:3 › AXI-2462 - T3/T5 alternative + matrix global test (TPL FR55, FR57, AC23, AC25) @SI-069 @SI-045 › AXI-2462.4 FR57, FR59, AC25 - T5 @0.4 resolves with the same global_p main-result shape as T3 (14ms)
+  ✓   49 [chromium] › tests/AXI-2455/AXI-2462-t3-t5-matrix-global-test.spec.ts:131:3 › AXI-2462 - T3/T5 alternative + matrix global test (TPL FR55, FR57, AC23, AC25) @SI-069 @SI-045 › AXI-2462.5 FR58 - the immutable T3 0.2/0.3 resolve with NO main-result declaration (regression) (19ms)
+  ✓   50 [chromium] › tests/AXI-2455/AXI-2462-t3-t5-matrix-global-test.spec.ts:142:3 › AXI-2462 - T3/T5 alternative + matrix global test (TPL FR55, FR57, AC23, AC25) @SI-069 @SI-045 › AXI-2462.6 EC28 - T2 still refuses an alternative parameter it never declared, naming the slot (regression) (13ms)
+  ✓   51 [chromium] › tests/AXI-2455/AXI-2463-t2-composition-version.spec.ts:80:3 › AXI-2463 - T2 composition-backed version 0.3 (TPL FR54, FR58, FR31, AC22) @SI-069 @SI-045 › FR54, FR52, FR53 - AXI-2463.1 T2 @0.3 resolves with the omnibus -> post-hoc composition and the comparison set (10ms)
+  ✓   52 [chromium] › tests/AXI-2455/AXI-2463-t2-composition-version.spec.ts:96:3 › AXI-2463 - T2 composition-backed version 0.3 (TPL FR54, FR58, FR31, AC22) @SI-069 @SI-045 › FR58, FR59 - AXI-2463.2 T2 @0.3 declares the omnibus p-value as its main result; the immutable 0.2 declares none (17ms)
+  ✓   53 [chromium] › tests/AXI-2455/AXI-2463-t2-composition-version.spec.ts:109:3 › AXI-2463 - T2 composition-backed version 0.3 (TPL FR54, FR58, FR31, AC22) @SI-069 @SI-045 › FR54, EC28 - AXI-2463.3 the registry lists T2 0.2 + 0.3 and T2 has no 0.4 (21ms)
+  ✓   54 [chromium] › tests/AXI-2455/AXI-2463-t2-composition-version.spec.ts:120:3 › AXI-2463 - T2 composition-backed version 0.3 (TPL FR54, FR58, FR31, AC22) @SI-069 @SI-045 › AC22, EC23 - AXI-2463.4 the resolved T2 @0.3 composition validates PASS and compiles the post-hoc choice (32ms)
+  ✓   55 [chromium] › tests/AXI-2455/AXI-2463-t2-composition-version.spec.ts:135:3 › AXI-2463 - T2 composition-backed version 0.3 (TPL FR54, FR58, FR31, AC22) @SI-069 @SI-045 › FR53, EC24 - AXI-2463.5 a one-level comparison set is refused, never compiled (15ms)
+  ✓   56 [chromium] › tests/AXI-2455/AXI-2463-t2-composition-version.spec.ts:146:3 › AXI-2463 - T2 composition-backed version 0.3 (TPL FR54, FR58, FR31, AC22) @SI-069 @SI-045 › FR31 - AXI-2463.6 the wizard compile of T2 (if_significant, explicit groups) still compiles omnibus then Dunn (regression) (15ms)
+  ✓   57 [chromium] › tests/AXI-2455/AXI-2464-seed-approvals.spec.ts:138:3 › AXI-2464 — audited approval of the boot-seeded template versions (TPL FR59, AC27, EC27) › AXI-2464.A1 (AC27, FR59, FR40): each seeded 0.3 shows the owner as approver, with one audit row @SI-069 @SI-041 (657ms)
+  ✓   58 [chromium] › tests/AXI-2455/AXI-2464-seed-approvals.spec.ts:156:3 › AXI-2464 — audited approval of the boot-seeded template versions (TPL FR59, AC27, EC27) › AXI-2464.A2 (EC27): a re-run writes nothing @SI-069 @SI-041 (421ms)
+  ✓   59 [chromium] › tests/AXI-2455/AXI-2464-seed-approvals.spec.ts:166:3 › AXI-2464 — audited approval of the boot-seeded template versions (TPL FR59, AC27, EC27) › AXI-2464.A3 (FR40): a missing, unknown or non-admin owner is refused and nothing is written @SI-069 @SI-041 (961ms)
+  ✓   60 [chromium] › tests/AXI-2455/AXI-2465-template-write-grants.spec.ts:35:3 › AXI-2465 — seed step 16 template:write grants › AC12 AC27 AXI-2465.A1 the seeded Admin role record holds template:write, no other seeded role does @SI-011 @SI-041 (113ms)
+  ✓   61 [chromium] › tests/AXI-2455/AXI-2465-template-write-grants.spec.ts:69:3 › AXI-2465 — seed step 16 template:write grants › AC12 AXI-2465.A2 guard regression check: an Admin member can author a template, a Viewer is refused @SI-011 @SI-041 (1.8s)
+  ✓   62 [chromium] › tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:133:3 › AXI-2466 — sidedness drives the template alternative › AC38 — AXI-2466.1: a one-sided T1 question passes CC5 (compile leg: AXI-2461.1; run leg retired, AXI-2650) @SI-071 @SI-065 @SI-002 (214ms)
+  ✓   63 [chromium] › tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:144:3 › AXI-2466 — sidedness drives the template alternative › FR75 — AXI-2466.2: a two-sided T1 question passes CC5 (explicit forwarding: AXI-2461.1; run leg retired, AXI-2650) @SI-071 @SI-065 @SI-002 (156ms)
+  ✓   64 [chromium] › tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:154:3 › AXI-2466 — sidedness drives the template alternative › FR21 — AXI-2466.3 (EC38): a one-sided T2 question fails CC5; T2 declares no `alternative` @SI-071 @SI-065 @SI-002 (257ms)
+  ✓   65 [chromium] › tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:186:3 › AXI-2466 — sidedness drives the template alternative › FR75 — AXI-2466.4 (EC39): a question that sets `parameters.alternative` directly fails CC5 @SI-071 @SI-065 @SI-002 (168ms)
+  ✓   66 [chromium] › tests/AXI-2455/AXI-2466-sidedness-alternative.spec.ts:197:3 › AXI-2466 — sidedness drives the template alternative › FR75 — AXI-2466.5 (EC39): a sensitivity analysis that sets `alternative` directly fails CC10 the same way @SI-071 @SI-065 @SI-002 (161ms)
+  ✓   67 [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:148:3 › AXI-2467 — SAP main result from the template declaration › FR25 — AXI-2467.1 (EC35): a confirmatory multi-cell T3 question on the whole-matrix version passes CC9 @SI-071 @SI-065 @SI-002 (188ms)
+  ✓   68 [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:153:3 › AXI-2467 — SAP main result from the template declaration › AC40 — AXI-2467.2 (EC36, FR74): the same question on the one-cell pin fails CC9 and names the whole-matrix version @SI-071 @SI-065 @SI-002 (190ms)
+  ✓   69 [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:160:3 › AXI-2467 — SAP main result from the template declaration › FR73 — AXI-2467.3 (EC37): a direction on the whole-matrix main result fails CC6 @SI-071 @SI-065 @SI-002 (200ms)
+  ✘   70 [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:166:3 › AXI-2467 — SAP main result from the template declaration › FR73 — AXI-2467.4 (FR35): until the global-test step runs, a whole-matrix SAP run is refused before any child starts @SI-071 @SI-065 @SI-002 (189ms)
+  -   71 [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:185:8 › AXI-2467 — SAP main result from the template declaration › AC39 — AXI-2467.5 (FR73, EC40): the question's main p-value is the global test's global_p, judged at its alpha @SI-071 @SI-065 @SI-002
+  ✓   72 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:177:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › AC38 FR75 AXI-2468.1 a T1 question on a version without an alternative is offered the one that has one; one-sided is then recorded as sidedness @SI-066 (13.8s)
+  ✓   73 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:206:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › FR7 EC38 AXI-2468.2 a T2 question offers its post-hoc choice under its wording and no one-sided alternative; the choice is recorded @SI-066 (14.4s)
+  ✓   74 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:233:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › AC39 FR73 EC35 AXI-2468.3 a confirmatory T3 question with 3 y is stopped on the one-cell version and recorded on the global-test version @SI-066 (16.9s)
+  ✘   75 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:266:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › AC40 FR74 EC36 AXI-2468.4 a confirmatory T5 question on the one-cell version is stopped on both axes and recorded on the global-test version @SI-066 (1.2m)
+  -   76 [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:294:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › FR9 FR75 AXI-2468.5 a sensitivity analysis is judged on its own pin — offered the version with an alternative, then recorded one-sided @SI-066
+  ✓   77 [chromium] › tests/AXI-2455/AXI-2469-wizard-newest-version.spec.ts:92:3 › AXI-2469 wizard compiles at the newest registry version @SI-045 @SI-069 › AC28 FR60 AXI-2469.1 — the wizard catalog names each template at its newest published version, never the hard-coded 0.2 (57ms)
+  ✓   78 [chromium] › tests/AXI-2455/AXI-2469-wizard-newest-version.spec.ts:105:3 › AXI-2469 wizard compiles at the newest registry version @SI-045 @SI-069 › AC28 FR60 AXI-2469.2 — a wizard Run compiles at that newest version and records it on the wizard record (201ms)
+  ✓   79 [chromium] › tests/AXI-2455/AXI-2469-wizard-newest-version.spec.ts:116:3 › AXI-2469 wizard compiles at the newest registry version @SI-045 @SI-069 › AC28 FR7 AXI-2469.3 — a stored pin at 0.2 still resolves exactly 0.2 while a newer version is published (30ms)
+  ✓   80 [chromium] › tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:129:3 › AXI-2471 — first structured finalise over a legacy free-text SAP › EC34 AC37 — AXI-2471.2: an author-supplied reason on the first structured final is 422 SAP_CONTENT_INVALID; nothing is written @SI-065 @SI-002 @SI-031 (585ms)
+  ✓   81 [chromium] › tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:154:3 › AXI-2471 — first structured finalise over a legacy free-text SAP › FR70 AC37 — AXI-2471.1: without a reason the draft finalises into version 3, final, carrying the system reason @SI-065 @SI-002 @SI-031 (84ms)
+  ✓   82 [chromium] › tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:167:3 › AXI-2471 — first structured finalise over a legacy free-text SAP › FR16 FR70 — AXI-2471.4: the next amendment after that final needs the author's reason again @SI-065 @SI-002 @SI-031 (139ms)
+  ✘   83 [chromium] › tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:191:3 › AXI-2471 — first structured finalise over a legacy free-text SAP › AC37 — AXI-2471.3: on the Plan tab the finalise dialog asks for no reason, names the system reason, and the history shows it @SI-065 @SI-002 @SI-031 (2.1m)
+  ✘   84 [chromium] › tests/AXI-2455/AXI-2472-run-classification-preview.spec.ts:156:3 › AXI-2472 Run SAP classification preview @SI-065 @SI-010 @SI-002 @SI-031 @SI-030 › FR71, FR43 - AXI-2472.1: with no SAP run the preview is a planned final look and writes nothing @SI-065 @SI-010 (13ms)
+  -   85 [chromium] › tests/AXI-2455/AXI-2472-run-classification-preview.spec.ts:167:3 › AXI-2472 Run SAP classification preview @SI-065 @SI-010 @SI-002 @SI-031 @SI-030 › FR71, NFR1 - AXI-2472.2: the preview refuses as Run SAP does - 400 / 422 / 404 - and is never captured by runs/:sapRunId @SI-065 @SI-010
+  -   86 [chromium] › tests/AXI-2455/AXI-2472-run-classification-preview.spec.ts:186:3 › AXI-2472 Run SAP classification preview @SI-065 @SI-010 @SI-002 @SI-031 @SI-030 › FR71, AC36, EC33 - AXI-2472.3: after a completed run on D1 the preview of D1 is a reproduction naming it; another version D2 of the same dataset previews unplanned; no run is written by a preview @SI-031 @SI-030 @SI-065
+  -   87 [chromium] › tests/AXI-2455/AXI-2472-run-classification-preview.spec.ts:219:3 › AXI-2472 Run SAP classification preview @SI-065 @SI-010 @SI-002 @SI-031 @SI-030 › FR71, AC36, EC33 - AXI-2472.4: the dialog opens on the current version D2 showing "Unplanned"; picking D1 shows "Reproduction" naming the run; the real start on D2 agrees with the preview @SI-031 @SI-030 @SI-065
+  ✘   88 [chromium] › tests/AXI-2455/AXI-2474-sap-run-reference.spec.ts:267:3 › AXI-2474 — one SAP-run reference reader › FR57, FR50 — AXI-2474.1: a SAP-run child's rule-run read and client report name the SAME SAP run and question @SI-047 @SI-016 @SI-013 (0ms)
+  -   89 [chromium] › tests/AXI-2455/AXI-2474-sap-run-reference.spec.ts:292:3 › AXI-2474 — one SAP-run reference reader › FR57, FR50, FR51 — AXI-2474.2: an ordinary run inside the ◆ SAP analysis is no SAP-run child in its rule-run read AND its client report @SI-047 @SI-016 @SI-013
+  ✓   90 [chromium] › tests/AXI-2455/AXI-2475-rule-runs-payload-whitelist.spec.ts:99:3 › AXI-2475 — rule-run payloads are built field by field › NFR1 NFR4 — AXI-2475.1: POST /rule-runs refuses a body asserting the caller or a server-only field; no run is created @SI-010 (381ms)
+  ✓   91 [chromium] › tests/AXI-2455/AXI-2475-rule-runs-payload-whitelist.spec.ts:112:3 › AXI-2475 — rule-run payloads are built field by field › NFR1 NFR4 — AXI-2475.2: /rule-runs/preflight and /rule-runs/referent-pairing refuse a forged caller @SI-010 (51ms)
+  ✓   92 [chromium] › tests/AXI-2455/AXI-2475-rule-runs-payload-whitelist.spec.ts:128:3 › AXI-2475 — rule-run payloads are built field by field › NFR4 EC11 — AXI-2475.3: a non-admin naming another tenant's workspace is refused 404 and creates no run there @SI-010 (107ms)
+  ✓   93 [chromium] › tests/AXI-2455/AXI-2475-rule-runs-payload-whitelist.spec.ts:147:3 › AXI-2475 — rule-run payloads are built field by field › NFR1 — AXI-2475.4: an ordinary whitelisted run still submits, preflights and is stamped with the verified caller @SI-010 (403ms)
+  ✘   94 [chromium] › tests/AXI-2455/AXI-2477-sap-run-last-good-on-poll-error.spec.ts:178:3 › AXI-2477 SAP-run detail keeps the last good run on a poll error @SI-031 › FR65 AC21 AXI-2477.1 a transient poll failure keeps the verdict table with a notice; the next read clears it @SI-031 (0ms)
+  -   95 [chromium] › tests/AXI-2455/AXI-2477-sap-run-last-good-on-poll-error.spec.ts:199:3 › AXI-2477 SAP-run detail keeps the last good run on a poll error @SI-031 › FR65 AXI-2477.2 a refused poll (403) replaces the run with the access message and stops polling @SI-031
+  ✓   96 [chromium] › tests/AXI-2455/AXI-2478-header-lock-after-partial-save.spec.ts:72:3 › AXI-2478 — header lock after a partial save › FR35 FR37 AXI-2478.B1 a refused version write after the header was created locks the header fields and says why @SI-035 (13.6s)
+  ✓   97 [chromium] › tests/AXI-2455/AXI-2478-header-lock-after-partial-save.spec.ts:107:3 › AXI-2478 — header lock after a partial save › FR35 AXI-2478.B2 the retry writes only the version under the saved header — one template per key @SI-035 (537ms)
+  ✓   98 [chromium] › tests/AXI-2455/AXI-2479-palette-labels-recipe-versioning.spec.ts:54:1 › AXI-2479.C1 @SI-035 TPL FR35 — the compose palette shows each operation as "Label (id)" (12.0s)
+  ✓   99 [chromium] › tests/AXI-2455/AXI-2479-palette-labels-recipe-versioning.spec.ts:71:1 › AXI-2479.C2 @SI-035 TPL FR12 FR33 — the T1 recipe-kind row carries its composition-holding version forward (10.9s)
+  -  100 [chromium] › tests/AXI-2455/AXI-2479-palette-labels-recipe-versioning.spec.ts:94:1 › AXI-2479.C3 @SI-035 TPL FR33 — a recipe-only system row keeps the version icon disabled with its reason
+  ✘  101 [chromium] › tests/AXI-2455/AXI-2482-reused-source-sibling-reads.spec.ts:108:3 › AXI-2482 reused-step sibling reads withhold the source @SI-017 @SI-065 @SI-010 › AXI-2482.1 AC1 a reader of B who cannot open A gets ruleRunId null + source_no_access; A's rule run id and project id appear nowhere (0ms)
+  -  102 [chromium] › tests/AXI-2455/AXI-2482-reused-source-sibling-reads.spec.ts:118:3 › AXI-2482 reused-step sibling reads withhold the source @SI-017 @SI-065 @SI-010 › AXI-2482.2 AC2 a reader of BOTH projects still reads the reused source on B's status
+  ✓  103 [chromium] › tests/AXI-2455/AXI-2483-glossary-term-update-idor.spec.ts:110:3 › AXI-2483 — glossary term update: the route params win over the body › AXI-2483.1: a body id/workspaceId naming another workspace's term is refused 400 and that term is unchanged @SI-010 @SI-019 (57ms)
+  ✓  104 [chromium] › tests/AXI-2455/AXI-2483-glossary-term-update-idor.spec.ts:132:3 › AXI-2483 — glossary term update: the route params win over the body › AXI-2483.2: an honest term update on its own route is unchanged @SI-010 @SI-019 (28ms)
+  ✓  105 [chromium] › tests/AXI-2455/AXI-2483-glossary-term-update-idor.spec.ts:149:3 › AXI-2483 — glossary term update: the route params win over the body › AXI-2483.3: a forged performedBy is refused 400 and the term is unchanged @SI-010 @SI-019 (31ms)
+  ✓  106 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:113:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 FR78 AC45 AXI-2532.1 without sap:read every SAP GET is 403 naming sap:read; with it every GET answers @SI-010 (449ms)
+  ✓  107 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:142:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 AC44 EC42 AXI-2532.2 each SAP write is admitted by its own right only, and every write also needs sap:read @SI-010 @SI-065 (362ms)
+  ✓  108 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:189:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 FR64 AXI-2532.3 (retired by AXI-2650) the Run SAP routes no longer exist: POST and GET /saps/:id/runs answer 404 @SI-010 @SI-065 (251ms)
+  ✓  109 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:204:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR78 AC45 AXI-2532.4 without sap:read the SAP page renders no plan, only the sap:read notice, and reads no SAP route @SI-031 (10.0s)
+  ✘  110 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:227:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 AC44 AXI-2532.5 on the Plan tab each control shows only for its own right: an updater edits but cannot finalise, discard or start @SI-031 (14.2s)
+  -  111 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:245:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR79 AC46 AXI-2532.6 after the migration every seeded role and Super Admin hold the SAP rights they need and no role holds sap:write @SI-010
+  ✘  112 [chromium] › tests/AXI-2455/epic-role-editor-sap-rows.spec.ts:24:3 › AXI-2455 epic — role editor SAP rows (AXI-2532.7 converted) @SI-031 › epic-5 AXI-2532.7 Super Admin and Investigator show the six SAP rows ticked; no sap:write row (34.8s)
+  ✓  113 [chromium] › tests/AXI-2455/epic-template-sap-wizard-seam.spec.ts:55:3 › AXI-2455 epic — registry, wizard and SAP catalog agree on the newest template versions › FR60 AC28 FR58 AC26 — epic-1: the wizard version, the registry newest and the SAP catalog `isNewest` are one version per template, and it declares a main result @SI-069 @SI-045 @SI-065 @SI-071 (180ms)
+  ✓  114 [chromium] › tests/AXI-2455/epic-template-sap-wizard-seam.spec.ts:74:3 › AXI-2455 epic — registry, wizard and SAP catalog agree on the newest template versions › FR58 FR59 EC28 — epic-2: the immutable older versions still resolve and declare no main result, while T2 has no one-sided newest @SI-069 @SI-045 @SI-065 @SI-071 (57ms)
+  ✓  115 [chromium] › tests/AXI-2455/epic-template-sap-wizard-seam.spec.ts:84:3 › AXI-2455 epic — registry, wizard and SAP catalog agree on the newest template versions › AC25 AC40 FR73 — epic-3: T3 and T5 newest declare a whole-matrix global_p main result and the SAP catalog points the one-cell pins at it @SI-069 @SI-045 @SI-065 @SI-071 (121ms)
+  ✓  116 [chromium] › tests/AXI-2455/epic-template-sap-wizard-seam.spec.ts:99:3 › AXI-2455 epic — registry, wizard and SAP catalog agree on the newest template versions › AXI-2484.2 NFR1 — epic-4: a forged body key is refused at the wire (400 on an unlisted property, 403 on a foreign workspaceId) @SI-069 @SI-045 @SI-065 @SI-071 (23ms)
+
+
+  1) [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:103:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC1 a viewer with access to the source project reads the reused result (200, ready, the SOURCE run) 
+
+    Error: {"success":false,"statusCode":400,"message":"The user does not belong to any organization; add them to their organization before inviting them","error":"Bad Request","path":"/api/v1/workspaces/46792be7-409a-4872-8b16-44000699ad25/members","timestamp":"2026-11-27T07:51:52.302Z"}
+
+    expect(received).toBeLessThan(expected)
+
+    Expected: < 300
+    Received:   400
+
+       at AXI-2308/harness/result-page.ts:53
+
+      51 | export async function addMember(admin: Api, t: Tenant, p: Person, roleId: string): Promise<void> {
+      52 |   const res = await admin.post(`/api/v1/workspaces/${t.workspaceId}/members`, { userId: p.userId, organizationId: t.orgId, roleId }, t.headers);
+    > 53 |   expect(res.status, JSON.stringify(res.body)).toBeLessThan(300);
+         |                                                ^
+      54 | }
+      55 |
+      56 | export interface Slot {
+        at addMember (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2308/harness/result-page.ts:53:48)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:88:5
+
+    Error Context: test-results/AXI-2455-AXI-2454-reused-s-2a91a-t-200-ready-the-SOURCE-run--chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2454-reused-s-2a91a-t-200-ready-the-SOURCE-run--chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2454-reused-s-2a91a-t-200-ready-the-SOURCE-run--chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:166:3 › AXI-2467 — SAP main result from the template declaration › FR73 — AXI-2467.4 (FR35): until the global-test step runs, a whole-matrix SAP run is refused before any child starts @SI-071 @SI-065 @SI-002 
+
+    Error: {"success":false,"statusCode":404,"message":"Cannot POST /api/v1/projects/4ca87870-7950-4eab-9664-a198a0d39a68/saps/fbe168cc-ee73-4fc1-a38c-d039c739a04f/runs","error":"Not Found","path":"/api/v1/projects/4ca87870-7950-4eab-9664-a198a0d39a68/saps/fbe168cc-ee73-4fc1-a38c-d039c739a04f/runs","timestamp":"2026-11-27T07:52:12.250Z"}
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 422
+    Received: 404
+
+      174 |       data: { datasetVersionId: ingestion, clientRequestId: `axi2467-${Date.now()}` },
+      175 |     });
+    > 176 |     expect(started.status(), await started.text()).toBe(422);
+          |                                                    ^
+      177 |     const body = await started.json();
+      178 |     expect(body.code).toBe('SAP_RUN_PREFLIGHT_FAILED');
+      179 |     expect(body.errors).toEqual([expect.objectContaining({ reason: 'template_main_result_not_run' })]);
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:176:52
+
+    Error Context: test-results/AXI-2455-AXI-2467-sap-main-8ddeb-sed-before-any-child-starts-chromium/error-context.md
+
+    Error Context: test-results/AXI-2455-AXI-2467-sap-main-8ddeb-sed-before-any-child-starts-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2467-sap-main-8ddeb-sed-before-any-child-starts-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2467-sap-main-8ddeb-sed-before-any-child-starts-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:266:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › AC40 FR74 EC36 AXI-2468.4 a confirmatory T5 question on the one-cell version is stopped on both axes and recorded on the global-test version @SI-066 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByTestId('na-step-ready')
+    Expected: visible
+    Timeout: 60000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 60000ms
+      - waiting for getByTestId('na-step-ready')
+
+
+      122 | async function editQuestion(page: Page, projectId: string, questionId: string): Promise<void> {
+      123 |   await gotoSettled(page, `/projects/${projectId}/sap/questions/${questionId}`);
+    > 124 |   await expect(page.getByTestId('na-step-ready')).toBeVisible({ timeout: 60_000 });
+          |                                                   ^
+      125 |   await expect(page.getByTestId('na-plan-save')).toHaveText('Save question');
+      126 | }
+      127 |
+        at editQuestion (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:124:51)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:276:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2468-plan-mod-691ba--global-test-version-SI-066-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2468-plan-mod-691ba--global-test-version-SI-066-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/AXI-2455-AXI-2468-plan-mod-691ba--global-test-version-SI-066-chromium/error-context.md
+
+    Error Context: test-results/AXI-2455-AXI-2468-plan-mod-691ba--global-test-version-SI-066-chromium/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2468-plan-mod-691ba--global-test-version-SI-066-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2468-plan-mod-691ba--global-test-version-SI-066-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [chromium] › tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:191:3 › AXI-2471 — first structured finalise over a legacy free-text SAP › AC37 — AXI-2471.3: on the Plan tab the finalise dialog asks for no reason, names the system reason, and the history shows it @SI-065 @SI-002 @SI-031 
+
+    Test timeout of 120000ms exceeded.
+
+    Error: locator.click: Test timeout of 120000ms exceeded.
+    Call log:
+      - waiting for getByTestId('sap-finalise')
+
+
+      195 |
+      196 |     // Act
+    > 197 |     await page.getByTestId('sap-finalise').click();
+          |                                            ^
+      198 |     const dialog = page.getByTestId('sap-finalise-dialog');
+      199 |
+      200 |     // Assert — the dialog
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:197:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2471-legacy-s-e0458-on-and-the-history-shows-it-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2471-legacy-s-e0458-on-and-the-history-shows-it-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/AXI-2455-AXI-2471-legacy-s-e0458-on-and-the-history-shows-it-chromium/error-context.md
+
+    Error Context: test-results/AXI-2455-AXI-2471-legacy-s-e0458-on-and-the-history-shows-it-chromium/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2471-legacy-s-e0458-on-and-the-history-shows-it-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2471-legacy-s-e0458-on-and-the-history-shows-it-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [chromium] › tests/AXI-2455/AXI-2472-run-classification-preview.spec.ts:156:3 › AXI-2472 Run SAP classification preview @SI-065 @SI-010 @SI-002 @SI-031 @SI-030 › FR71, FR43 - AXI-2472.1: with no SAP run the preview is a planned final look and writes nothing @SI-065 @SI-010 
+
+    Error: preview: {"success":false,"statusCode":404,"message":"Cannot GET /api/v1/projects/c5bf7453-48c5-4824-95c4-9ca52b291ede/saps/91f0072a-9d93-44fd-9d95-42a939dbf753/run-classification-preview?version=1&datasetVersionId=3304da52-896b-4bd5-a8f6-f8ce11a4db7c","error":"Not Found","path":"/api/v1/projects/c5bf7453-48c5-4824-95c4-9ca52b291ede/saps/91f0072a-9d93-44fd-9d95-42a939dbf753/run-classification-preview?version=1&datasetVersionId=3304da52-896b-4bd5-a8f6-f8ce11a4db7c","timestamp":"2026-11-27T07:56:33.094Z"}
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 404
+
+      47 | const runsPath = (rest = '') => `/api/v1/projects/${t.projectId}/saps/${sapId}/runs${rest}`;
+      48 | const ok = (res: { status: number; body: any }, what: string, status = 201) => {
+    > 49 |   expect(res.status, `${what}: ${JSON.stringify(res.body)}`).toBe(status);
+         |                                                              ^
+      50 |   return res.body;
+      51 | };
+      52 |
+        at ok (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2472-run-classification-preview.spec.ts:49:62)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2472-run-classification-preview.spec.ts:158:18
+
+    Error Context: test-results/AXI-2455-AXI-2472-run-clas-971f0-rites-nothing-SI-065-SI-010-chromium/error-context.md
+
+    Error Context: test-results/AXI-2455-AXI-2472-run-clas-971f0-rites-nothing-SI-065-SI-010-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2472-run-clas-971f0-rites-nothing-SI-065-SI-010-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2472-run-clas-971f0-rites-nothing-SI-065-SI-010-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [chromium] › tests/AXI-2455/AXI-2474-sap-run-reference.spec.ts:267:3 › AXI-2474 — one SAP-run reference reader › FR57, FR50 — AXI-2474.1: a SAP-run child's rule-run read and client report name the SAME SAP run and question @SI-047 @SI-016 @SI-013 
+
+    Error: {"success":false,"statusCode":404,"message":"Cannot POST /api/v1/projects/a1c38a42-9a3f-440b-abaf-0a03c6d2da28/saps/02a263a8-0c9b-4770-9b4a-d165a4d09a92/runs","error":"Not Found","path":"/api/v1/projects/a1c38a42-9a3f-440b-abaf-0a03c6d2da28/saps/02a263a8-0c9b-4770-9b4a-d165a4d09a92/runs","timestamp":"2026-11-27T07:56:36.909Z"}
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 404
+
+      255 |     data: { datasetVersionId: ingestion, clientRequestId: requestId('run') },
+      256 |   });
+    > 257 |   expect(started.status(), await started.text()).toBe(201);
+          |                                                  ^
+      258 |   run = await evaluatedRun((await started.json()).sapRunId);
+      259 |   expect(run.status, JSON.stringify(run)).toBe('completed');
+      260 | });
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2474-sap-run-reference.spec.ts:257:50
+
+    Error Context: test-results/AXI-2455-AXI-2474-sap-run--cb811-e-SAME-SAP-run-and-question-chromium/error-context.md
+
+    Error Context: test-results/AXI-2455-AXI-2474-sap-run--cb811-e-SAME-SAP-run-and-question-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2474-sap-run--cb811-e-SAME-SAP-run-and-question-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2474-sap-run--cb811-e-SAME-SAP-run-and-question-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [chromium] › tests/AXI-2455/AXI-2477-sap-run-last-good-on-poll-error.spec.ts:178:3 › AXI-2477 SAP-run detail keeps the last good run on a poll error @SI-031 › FR65 AC21 AXI-2477.1 a transient poll failure keeps the verdict table with a notice; the next read clears it @SI-031 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "CC14: Title is blank.",
+    + ]
+
+    Call Log:
+    - Timeout 120000ms exceeded while waiting on the predicate
+
+      117 |   const failing = async () => ok(await api.get(`${base}/saps/${draft.sapId}/draft/completeness`, t.headers), 'completeness', 200)
+      118 |     .results.filter((r: any) => r.status === 'fail').map((r: any) => `${r.checkId}: ${r.message}`);
+    > 119 |   await expect.poll(failing, { timeout: PROFILE_WAIT_MS, intervals: [2_000, 5_000] }).toEqual([]);
+          |                                                                                       ^
+      120 |   return ok(await api.post(`${base}/saps/${draft.sapId}/draft/finalise`, { basedOnRevision: draft.revision, basedOnVersion: null }, t.headers), 'finalise');
+      121 | }
+      122 |
+        at finaliseRealSap (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2477-sap-run-last-good-on-poll-error.spec.ts:119:87)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2477-sap-run-last-good-on-poll-error.spec.ts:169:12
+
+    Error Context: test-results/AXI-2455-AXI-2477-sap-run--4e616--next-read-clears-it-SI-031-chromium/error-context.md
+
+    Error Context: test-results/AXI-2455-AXI-2477-sap-run--4e616--next-read-clears-it-SI-031-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2477-sap-run--4e616--next-read-clears-it-SI-031-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2477-sap-run--4e616--next-read-clears-it-SI-031-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) [chromium] › tests/AXI-2455/AXI-2482-reused-source-sibling-reads.spec.ts:108:3 › AXI-2482 reused-step sibling reads withhold the source @SI-017 @SI-065 @SI-010 › AXI-2482.1 AC1 a reader of B who cannot open A gets ruleRunId null + source_no_access; A's rule run id and project id appear nowhere 
+
+    Error: {"success":false,"statusCode":400,"message":"The user does not belong to any organization; add them to their organization before inviting them","error":"Bad Request","path":"/api/v1/workspaces/46792be7-409a-4872-8b16-44000699ad25/members","timestamp":"2026-11-27T07:59:35.690Z"}
+
+    expect(received).toBeLessThan(expected)
+
+    Expected: < 300
+    Received:   400
+
+       at AXI-2308/harness/result-page.ts:53
+
+      51 | export async function addMember(admin: Api, t: Tenant, p: Person, roleId: string): Promise<void> {
+      52 |   const res = await admin.post(`/api/v1/workspaces/${t.workspaceId}/members`, { userId: p.userId, organizationId: t.orgId, roleId }, t.headers);
+    > 53 |   expect(res.status, JSON.stringify(res.body)).toBeLessThan(300);
+         |                                                ^
+      54 | }
+      55 |
+      56 | export interface Slot {
+        at addMember (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2308/harness/result-page.ts:53:48)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2482-reused-source-sibling-reads.spec.ts:90:5
+
+    Error Context: test-results/AXI-2455-AXI-2482-reused-s-f0014-d-project-id-appear-nowhere-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2482-reused-s-f0014-d-project-id-appear-nowhere-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2482-reused-s-f0014-d-project-id-appear-nowhere-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  9) [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:227:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 AC44 AXI-2532.5 on the Plan tab each control shows only for its own right: an updater edits but cannot finalise, discard or start @SI-031 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByTestId('sap-plan-tab')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByTestId('sap-plan-tab')
+
+
+      235 |
+      236 |     // Assert
+    > 237 |     await expect(page.getByTestId('sap-plan-tab')).toBeVisible();
+          |                                                    ^
+      238 |     await expect(page.getByTestId('sap-add-question')).toBeVisible();
+      239 |     await expect(page.getByTestId('sap-draft-title')).toBeVisible();
+      240 |     for (const tid of ['sap-finalise', 'sap-discard-draft', 'sap-start-draft', 'sap-amend', 'sap-run', 'sap-read-only-note']) {
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:237:52
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2532-sap-crud-2cbb4-ise-discard-or-start-SI-031-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2532-sap-crud-2cbb4-ise-discard-or-start-SI-031-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/AXI-2455-AXI-2532-sap-crud-2cbb4-ise-discard-or-start-SI-031-chromium/error-context.md
+
+    Error Context: test-results/AXI-2455-AXI-2532-sap-crud-2cbb4-ise-discard-or-start-SI-031-chromium/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2532-sap-crud-2cbb4-ise-discard-or-start-SI-031-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2532-sap-crud-2cbb4-ise-discard-or-start-SI-031-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10) [chromium] › tests/AXI-2455/epic-role-editor-sap-rows.spec.ts:24:3 › AXI-2455 epic — role editor SAP rows (AXI-2532.7 converted) @SI-031 › epic-5 AXI-2532.7 Super Admin and Investigator show the six SAP rows ticked; no sap:write row 
+
+    Error: role Investigator listed
+
+    expect(locator).toBeVisible() failed
+
+    Locator: locator('tr').filter({ has: getByText('Investigator', { exact: true }) }).first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - role Investigator listed with timeout 5000ms
+      - waiting for locator('tr').filter({ has: getByText('Investigator', { exact: true }) }).first()
+
+
+      13 |   await page.goto('/roles');
+      14 |   const row = page.locator('tr', { has: page.getByText(roleName, { exact: true }) }).first();
+    > 15 |   await expect(row, `role ${roleName} listed`).toBeVisible();
+         |                                                ^
+      16 |   await row.getByRole('button').last().click();
+      17 |   await page.getByRole('button', { name: 'Edit Role' }).click();
+      18 | }
+        at openRoleEditor (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/epic-role-editor-sap-rows.spec.ts:15:48)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/epic-role-editor-sap-rows.spec.ts:33:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/AXI-2455-epic-role-editor--e602b-ows-ticked-no-sap-write-row-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/AXI-2455-epic-role-editor--e602b-ows-ticked-no-sap-write-row-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/AXI-2455-epic-role-editor--e602b-ows-ticked-no-sap-write-row-chromium/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-epic-role-editor--e602b-ows-ticked-no-sap-write-row-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-epic-role-editor--e602b-ows-ticked-no-sap-write-row-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10 failed
+    [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:103:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC1 a viewer with access to the source project reads the reused result (200, ready, the SOURCE run) 
+    [chromium] › tests/AXI-2455/AXI-2467-sap-main-result-declaration.spec.ts:166:3 › AXI-2467 — SAP main result from the template declaration › FR73 — AXI-2467.4 (FR35): until the global-test step runs, a whole-matrix SAP run is refused before any child starts @SI-071 @SI-065 @SI-002 
+    [chromium] › tests/AXI-2455/AXI-2468-plan-mode-options.spec.ts:266:3 › AXI-2468 plan mode: one-sided, matrix global test and T2 post-hoc options @SI-066 @SI-030 › AC40 FR74 EC36 AXI-2468.4 a confirmatory T5 question on the one-cell version is stopped on both axes and recorded on the global-test version @SI-066 
+    [chromium] › tests/AXI-2455/AXI-2471-legacy-sap-first-structured-finalise.spec.ts:191:3 › AXI-2471 — first structured finalise over a legacy free-text SAP › AC37 — AXI-2471.3: on the Plan tab the finalise dialog asks for no reason, names the system reason, and the history shows it @SI-065 @SI-002 @SI-031 
+    [chromium] › tests/AXI-2455/AXI-2472-run-classification-preview.spec.ts:156:3 › AXI-2472 Run SAP classification preview @SI-065 @SI-010 @SI-002 @SI-031 @SI-030 › FR71, FR43 - AXI-2472.1: with no SAP run the preview is a planned final look and writes nothing @SI-065 @SI-010 
+    [chromium] › tests/AXI-2455/AXI-2474-sap-run-reference.spec.ts:267:3 › AXI-2474 — one SAP-run reference reader › FR57, FR50 — AXI-2474.1: a SAP-run child's rule-run read and client report name the SAME SAP run and question @SI-047 @SI-016 @SI-013 
+    [chromium] › tests/AXI-2455/AXI-2477-sap-run-last-good-on-poll-error.spec.ts:178:3 › AXI-2477 SAP-run detail keeps the last good run on a poll error @SI-031 › FR65 AC21 AXI-2477.1 a transient poll failure keeps the verdict table with a notice; the next read clears it @SI-031 
+    [chromium] › tests/AXI-2455/AXI-2482-reused-source-sibling-reads.spec.ts:108:3 › AXI-2482 reused-step sibling reads withhold the source @SI-017 @SI-065 @SI-010 › AXI-2482.1 AC1 a reader of B who cannot open A gets ruleRunId null + source_no_access; A's rule run id and project id appear nowhere 
+    [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:227:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 AC44 AXI-2532.5 on the Plan tab each control shows only for its own right: an updater edits but cannot finalise, discard or start @SI-031 
+    [chromium] › tests/AXI-2455/epic-role-editor-sap-rows.spec.ts:24:3 › AXI-2455 epic — role editor SAP rows (AXI-2532.7 converted) @SI-031 › epic-5 AXI-2532.7 Super Admin and Investigator show the six SAP rows ticked; no sap:write row 
+  2 skipped
+  11 did not run
+  93 passed (9.5m)

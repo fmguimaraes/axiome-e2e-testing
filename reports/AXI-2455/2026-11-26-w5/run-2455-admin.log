@@ -1,0 +1,91 @@
+
+Running 13 tests using 1 worker
+
+  ✓   1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (3.5s)
+  ✓   2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (10.6s)
+  ✓   3 [chromium] › tests/AXI-2455/AXI-2465-template-write-grants.spec.ts:35:3 › AXI-2465 — seed step 16 template:write grants › AC12 AC27 AXI-2465.A1 the seeded Admin role record holds template:write, no other seeded role does @SI-011 @SI-041 (737ms)
+  ✓   4 [chromium] › tests/AXI-2455/AXI-2465-template-write-grants.spec.ts:69:3 › AXI-2465 — seed step 16 template:write grants › AC12 AXI-2465.A2 guard regression check: an Admin member can author a template, a Viewer is refused @SI-011 @SI-041 (1.9s)
+  ✓   5 [chromium] › tests/AXI-2455/AXI-2479-palette-labels-recipe-versioning.spec.ts:52:1 › AXI-2479.C1 @SI-035 TPL FR35 — the compose palette shows each operation as "Label (id)" (11.1s)
+  ✘   6 [chromium] › tests/AXI-2455/AXI-2479-palette-labels-recipe-versioning.spec.ts:69:1 › AXI-2479.C2 @SI-035 TPL FR12 FR33 — the T1 recipe-kind row carries its composition-holding version forward (9.5s)
+  -   7 [chromium] › tests/AXI-2455/AXI-2479-palette-labels-recipe-versioning.spec.ts:92:1 › AXI-2479.C3 @SI-035 TPL FR33 — a recipe-only system row keeps the version icon disabled with its reason
+  ✘   8 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:113:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 FR78 AC45 AXI-2532.1 without sap:read every SAP GET is 403 naming sap:read; with it every GET answers @SI-010 (377ms)
+  -   9 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:144:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 AC44 EC42 AXI-2532.2 each SAP write is admitted by its own right only, and every write also needs sap:read @SI-010 @SI-065
+  -  10 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:191:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 FR64 NFR1 AC44 AXI-2532.3 Run SAP needs sap:run AND governed_execution:submit; a finaliser cannot run @SI-010 @SI-065
+  -  11 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:209:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR78 AC45 AXI-2532.4 without sap:read the SAP page renders no plan, only the sap:read notice, and reads no SAP route @SI-031
+  -  12 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:232:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 AC44 AXI-2532.5 on the Plan tab each control shows only for its own right: an updater edits but cannot finalise, discard or start @SI-031
+  -  13 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:250:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR79 AC46 AXI-2532.6 after the migration every seeded role and Super Admin hold the SAP rights they need and no role holds sap:write @SI-010
+
+
+  1) [chromium] › tests/AXI-2455/AXI-2479-palette-labels-recipe-versioning.spec.ts:69:1 › AXI-2479.C2 @SI-035 TPL FR12 FR33 — the T1 recipe-kind row carries its composition-holding version forward 
+
+    Error: the admin role must be a platform administrator
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "admin"
+    Received: undefined
+
+      36 |   const list = page.waitForResponse(isGet(/\/analysis-templates\/?$/));
+      37 |   await page.goto('/analysis-templates');
+    > 38 |   expect((await (await me).json()).userType, 'the admin role must be a platform administrator').toBe('admin');
+         |                                                                                                 ^
+      39 |   return ((await (await list).json()).data as CatalogEntry[]).filter((e) => e.scope === 'system');
+      40 | }
+      41 |
+        at openCatalog (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2479-palette-labels-recipe-versioning.spec.ts:38:97)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2479-palette-labels-recipe-versioning.spec.ts:71:15
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2479-palette--3428a-ion-holding-version-forward-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2479-palette--3428a-ion-holding-version-forward-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/AXI-2455-AXI-2479-palette--3428a-ion-holding-version-forward-chromium/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2479-palette--3428a-ion-holding-version-forward-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2479-palette--3428a-ion-holding-version-forward-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:113:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 FR78 AC45 AXI-2532.1 without sap:read every SAP GET is 403 naming sap:read; with it every GET answers @SI-010 
+
+    Error: /api/v1/projects/6119fddb-2edd-46a1-9eb6-46f2e0f25f48/saps/5eb1aeb0-cabd-4c43-8f45-7a4e0c94e95b/runs: {"success":false,"statusCode":404,"message":"Cannot GET /api/v1/projects/6119fddb-2edd-46a1-9eb6-46f2e0f25f48/saps/5eb1aeb0-cabd-4c43-8f45-7a4e0c94e95b/runs","error":"Not Found","path":"/api/v1/projects/6119fddb-2edd-46a1-9eb6-46f2e0f25f48/saps/5eb1aeb0-cabd-4c43-8f45-7a4e0c94e95b/runs","timestamp":"2026-11-27T07:20:21.291Z"}
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 403
+    Received: 404
+
+      81 | async function expectRefusedFor(res: APIResponse, permission: string, what: string): Promise<void> {
+      82 |   const text = await res.text();
+    > 83 |   expect(res.status(), `${what}: ${text}`).toBe(403);
+         |                                            ^
+      84 |   expect(text, what).toContain(permission);
+      85 | }
+      86 |
+        at expectRefusedFor (/home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:83:44)
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:138:51
+
+    Error Context: test-results/AXI-2455-AXI-2532-sap-crud-7d173-it-every-GET-answers-SI-010-chromium/error-context.md
+
+    Error Context: test-results/AXI-2455-AXI-2532-sap-crud-7d173-it-every-GET-answers-SI-010-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2532-sap-crud-7d173-it-every-GET-answers-SI-010-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2532-sap-crud-7d173-it-every-GET-answers-SI-010-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [chromium] › tests/AXI-2455/AXI-2479-palette-labels-recipe-versioning.spec.ts:69:1 › AXI-2479.C2 @SI-035 TPL FR12 FR33 — the T1 recipe-kind row carries its composition-holding version forward 
+    [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:113:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR77 FR78 AC45 AXI-2532.1 without sap:read every SAP GET is 403 naming sap:read; with it every GET answers @SI-010 
+  6 did not run
+  5 passed (46.7s)

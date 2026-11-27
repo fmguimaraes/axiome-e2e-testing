@@ -54,7 +54,12 @@ test.describe('AXI-2465 — seed step 16 template:write grants', { tag: ['@SI-01
       for (const { label, res } of others) {
         expect(res.status(), `GET role ${label}`).toBe(200);
         const body = await res.json();
-        expect(body.permissions, `seeded ${label} role must not hold template:write`).not.toContain('template:write');
+        // Owner ruling 2026-11-27 (AXI-2680 save-as-workflow): Investigator keeps template:write.
+        if (label === 'Investigator') {
+          expect(body.permissions, 'seeded Investigator role holds template:write (owner ruling)').toContain('template:write');
+        } else {
+          expect(body.permissions, `seeded ${label} role must not hold template:write`).not.toContain('template:write');
+        }
       }
     } finally {
       await world.dispose();

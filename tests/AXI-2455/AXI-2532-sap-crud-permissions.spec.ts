@@ -125,9 +125,7 @@ test.describe('AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065', () => {
       `${base(id)}/saps/${sapId}/draft`,
       `${base(id)}/saps/${sapId}/draft/completeness`,
       `${base(id)}/sap-templates`,
-      `${base(id)}/saps/${sapId}/runs`,
-      `${base(id)}/saps/${sapId}/run-classification-preview`,
-    ];
+    ]; // run routes were removed by AXI-2650 (epic AXI-2631); they are no longer SAP reads
 
     // Act
     const withoutRead = await Promise.all(reads.map((path) => actors.none.api.get(apiUrl(path))));
@@ -176,7 +174,7 @@ test.describe('AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065', () => {
     await expectRefusedFor(startByReader, 'sap:create', 'POST saps/draft by a reader');
     await expectRefusedFor(saveByCreator, 'sap:update', 'PUT draft by sap:create only');
     await expectRefusedFor(saveByDeleter, 'sap:update', 'PUT draft by sap:delete only');
-    await expectRefusedFor(removeQuestionByFinaliser, 'sap:update', 'DELETE question by sap:finalise only');
+    await expectRefusedFor(removeQuestionByFinaliser, 'sap:question_delete', 'DELETE question by sap:finalise only') /* question deletion is now its own right */;
     await expectRefusedFor(discardByUpdater, 'sap:delete', 'DELETE draft by sap:update only');
     await expectRefusedFor(finaliseByUpdater, 'sap:finalise', 'finalise by sap:update only');
     await expectRefusedFor(finaliseByDeleter, 'sap:finalise', 'finalise by sap:delete only');
@@ -188,22 +186,19 @@ test.describe('AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065', () => {
     expect(startByCreator.status(), await startByCreator.text()).toBe(201);
   });
 
-  test('FR77 FR64 NFR1 AC44 AXI-2532.3 Run SAP needs sap:run AND governed_execution:submit; a finaliser cannot run @SI-010 @SI-065', async () => {
+  test('FR77 FR64 AXI-2532.3 (retired by AXI-2650) the Run SAP routes no longer exist: POST and GET /saps/:id/runs answer 404 @SI-010 @SI-065', async () => {
     // Arrange
     const { id, stub } = await newProject('run');
     const final = await stub.seedFinal(call, 'Plan run', [questionInput(1, 'primary')]);
     const sapId = final.sapId ?? final.id;
 
     // Act
-    const byRunnerWithoutSubmit = await actors.runnerWithoutSubmit.api.post(apiUrl(`${base(id)}/saps/${sapId}/runs`), { data: {} });
-    const byFinaliser = await actors.finaliser.api.post(apiUrl(`${base(id)}/saps/${sapId}/runs`), { data: {} });
-    const runs = await call('GET', `/projects/${id}/saps/${sapId}/runs`);
+    const post = await actors.runnerWithoutSubmit.api.post(apiUrl(`${base(id)}/saps/${sapId}/runs`), { data: {} });
+    const get = await call('GET', `/projects/${id}/saps/${sapId}/runs`);
 
     // Assert
-    await expectRefusedFor(byRunnerWithoutSubmit, 'governed_execution:submit', 'POST runs with sap:run only');
-    await expectRefusedFor(byFinaliser, 'sap:run', 'POST runs by sap:finalise only');
-    expect(runs.status).toBe(200);
-    expect(JSON.stringify(runs.body)).not.toContain('"sapRunId"');
+    expect(post.status(), await post.text()).toBe(404);
+    expect(get.status).toBe(404);
   });
 
   test('FR78 AC45 AXI-2532.4 without sap:read the SAP page renders no plan, only the sap:read notice, and reads no SAP route @SI-031', async ({ page }) => {

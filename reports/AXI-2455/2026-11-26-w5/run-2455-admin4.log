@@ -1,0 +1,8 @@
+
+Running 3 tests using 1 worker
+
+  ✓  1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (6.9s)
+  ✓  2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (7.6s)
+  ✓  3 [chromium] › tests/AXI-2455/AXI-2532-sap-crud-permissions.spec.ts:245:3 › AXI-2532 SAP CRUD permissions @SI-010 @SI-031 @SI-065 › FR79 AC46 AXI-2532.6 after the migration every seeded role and Super Admin hold the SAP rights they need and no role holds sap:write @SI-010 (60ms)
+
+  3 passed (21.7s)
