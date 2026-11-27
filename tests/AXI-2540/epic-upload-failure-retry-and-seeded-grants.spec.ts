@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, APIRequestContext, request } from '@playwright/test';
 import { apiUrl } from '../../config/env';
+import { PrivateProjectsWorld } from '../AXI-2265/private-projects-fixtures';
 
 /**
  * AXI-2540 W5 step 3 (2026-11-26) — cross-story flows no single story owns. API-only, own login (the
@@ -15,8 +16,11 @@ import { apiUrl } from '../../config/env';
  *   Investigator roles hold `chart_style:write` as a REAL role row (the migration survived the fallback-merge removal).
  */
 
-const WORKSPACE_ID = '8946e06a-4fe6-45ee-8d9a-58f7142e803a';
-const ORGANIZATION_ID = 'e2f053a6-7d65-4dd1-81e1-f40b5d3709a3';
+// Demo workspace/organisation of the default login admin@cro-one.com; replaced by a fresh fixture
+// workspace in beforeAll when the platform-admin identity (which is not a member of it) runs the suite.
+let WORKSPACE_ID = '8946e06a-4fe6-45ee-8d9a-58f7142e803a';
+let ORGANIZATION_ID = 'e2f053a6-7d65-4dd1-81e1-f40b5d3709a3';
+let world: PrivateProjectsWorld | undefined;
 const LOGIN = { email: 'admin@cro-one.com', password: 'admin' };
 const TERMINAL = { attempts: 40, intervalMs: 1500 };
 
@@ -53,6 +57,12 @@ test.beforeAll(async () => {
   });
   expect(login.ok()).toBeTruthy();
   token = (await login.json()).accessToken;
+  const probe = await api.get(apiUrl(`/api/v1/workspaces/${WORKSPACE_ID}/datasets`), { headers: headers(), params: { page: 1, limit: 1 } });
+  if (!probe.ok()) {
+    world = await PrivateProjectsWorld.create();
+    WORKSPACE_ID = world.workspaceId;
+    ORGANIZATION_ID = world.orgId;
+  }
 });
 
 test.afterEach(async () => {
@@ -63,6 +73,7 @@ test.afterEach(async () => {
 });
 
 test.afterAll(async () => {
+  await world?.dispose();
   await api?.dispose();
 });
 
@@ -102,15 +113,18 @@ test('FR77 FR78 AC71 AC72 EC41 — epic-1: a genuinely failed upload (NUL byte) 
 });
 
 test('FR84 AC50 — epic-2 (converted from manual AXI-2550 scenario 3): seeded Editor, Approver, Admin and Investigator hold chart_style:write as a real role row', async () => {
-  const res = await api.get(apiUrl('/api/v1/roles'), { headers: headers(), params: { limit: 100 } });
-  test.skip(res.status() === 403, `roles list refused (${res.status()}): needs a System Admin identity (owner-provided E2E_TEST_PASSWORD)`);
-  expect(res.ok(), `roles ${res.status()}`).toBeTruthy();
-  const body = await res.json();
-  const roles: Array<{ name: string; permissions: string[] }> = body.data ?? body;
-  test.skip(!roles.some((r) => r.name === 'Editor'), 'seeded workspace roles are not listed for this identity: needs a System Admin (owner-provided E2E_TEST_PASSWORD)');
-  for (const name of ['Editor', 'Approver', 'Admin', 'Investigator']) {
-    const role = roles.find((r) => r.name === name);
-    expect(role, `${name} role exists`).toBeTruthy();
-    expect(role!.permissions, `${name} holds chart_style:write`).toContain('chart_style:write');
+  // Seeded fixed workspace roles (seed_workspace_roles.sql) are not in the /roles list; read them by id.
+  const ids: Record<string, string> = {
+    Editor: '00000000-0000-0000-0000-000000000102',
+    Approver: '00000000-0000-0000-0000-000000000103',
+    Admin: '00000000-0000-0000-0000-000000000104',
+    Investigator: '00000000-0000-0000-0000-000000000105',
+  };
+  for (const [name, id] of Object.entries(ids)) {
+    const res = await api.get(apiUrl(`/api/v1/roles/${id}`), { headers: headers() });
+    test.skip(res.status() === 403, `role read refused (403): needs a System Admin identity`);
+    expect(res.ok(), `${name} role ${res.status()}`).toBeTruthy();
+    const role = (await res.json()) as { name: string; permissions: string[] };
+    expect(role.permissions, `${name} holds chart_style:write`).toContain('chart_style:write');
   }
 });

@@ -1,0 +1,8 @@
+
+Running 3 tests using 1 worker
+
+  ✓  1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (7.1s)
+  ✓  2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (7.0s)
+  ✓  3 [chromium] › tests/AXI-2540/AXI-2550-resolver-fallback-on-miss.spec.ts:36:3 › AXI-2550 — resolver falls back to legacy grants only when the role row cannot be fetched › AC50/FR84 — epic-3 §2 an unresolvable roleId on an admin membership falls back to the legacy tier grants; a real empty role gets none (1.2s)
+
+  3 passed (17.5s)

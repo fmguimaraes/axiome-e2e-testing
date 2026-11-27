@@ -1,0 +1,16 @@
+
+Running 10 tests using 1 worker
+
+  ✓   1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (9.5s)
+  ✓   2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (9.8s)
+  ✓   3 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:91:1 › FR82/FR78 — AXI-2551.1 the SAP management entry is visible only to a sap:read holder, on both surfaces @SI-010 @SI-031 @SI-066 (18.8s)
+  ✓   4 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:101:1 › AC48/FR82/NFR1 — AXI-2551.2 the Plans tab lists SAPs across every readable project, right columns, never an unreadable project @SI-010 @SI-031 (9.4s)
+  ✓   5 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:116:1 › FR82 — AXI-2551.3 the Plans tab project filter only narrows, never widens, the readable set (OQ7 ruled) @SI-010 @SI-031 (10.3s)
+  ✓   6 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:132:1 › FR83 — AXI-2551.4 (retired by AXI-2650) the Runs tab and GET /sap-management/runs no longer exist @SI-010 @SI-031 @SI-066 (10.1s)
+  ✓   7 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:141:1 › AC49/FR83 — AXI-2551.5 Templates is a tab shown only to a template:write holder; links into the existing Template Library @SI-010 @SI-066 (16.6s)
+  ✓   8 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:154:1 › AC49/FR78 — AXI-2551.6 every hub route fails closed without sap:read @SI-010 @SI-031 (22ms)
+  ✓   9 [chromium] › tests/AXI-2540/epic-upload-failure-retry-and-seeded-grants.spec.ts:80:1 › FR77 FR78 AC71 AC72 EC41 — epic-1: a genuinely failed upload (NUL byte) names its reason and Retry opens a new attempt, keeping the failed row (1.8s)
+  -  10 [chromium] › tests/AXI-2540/epic-upload-failure-retry-and-seeded-grants.spec.ts:115:1 › FR84 AC50 — epic-2 (converted from manual AXI-2550 scenario 3): seeded Editor, Approver, Admin and Investigator hold chart_style:write as a real role row
+
+  1 skipped
+  9 passed (1.6m)

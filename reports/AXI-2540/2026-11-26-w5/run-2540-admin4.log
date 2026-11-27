@@ -1,0 +1,17 @@
+
+Running 11 tests using 1 worker
+
+  ✓   1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (11.4s)
+  ✓   2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (10.1s)
+  ✓   3 [chromium] › tests/AXI-2540/AXI-2550-permission-revocation.spec.ts:59:3 › AXI-2550 — permission resolver fallback + cache invalidation › AC50/FR84 — a granted permission works, then unticking it in the role editor takes effect on the very next request (no 60s stale window) (77ms)
+  ✓   4 [chromium] › tests/AXI-2540/AXI-2550-permission-revocation.spec.ts:82:3 › AXI-2550 — permission resolver fallback + cache invalidation › AC50/FR84 — a role that still holds the permission keeps working (no over-revocation) (799ms)
+  -   5 [chromium] › tests/AXI-2540/AXI-2550-resolver-fallback-on-miss.spec.ts:36:3 › AXI-2550 — resolver falls back to legacy grants only when the role row cannot be fetched › AC50/FR84 — epic-3 §2 an unresolvable roleId on an admin membership falls back to the legacy tier grants; a real empty role gets none
+  ✓   6 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:91:1 › FR82/FR78 — AXI-2551.1 the SAP management entry is visible only to a sap:read holder, on both surfaces @SI-010 @SI-031 @SI-066 (18.5s)
+  ✓   7 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:101:1 › AC48/FR82/NFR1 — AXI-2551.2 the Plans tab lists SAPs across every readable project, right columns, never an unreadable project @SI-010 @SI-031 (9.8s)
+  ✓   8 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:116:1 › FR82 — AXI-2551.3 the Plans tab project filter only narrows, never widens, the readable set (OQ7 ruled) @SI-010 @SI-031 (8.0s)
+  ✓   9 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:132:1 › FR83 — AXI-2551.4 (retired by AXI-2650) the Runs tab and GET /sap-management/runs no longer exist @SI-010 @SI-031 @SI-066 (12.5s)
+  ✓  10 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:141:1 › AC49/FR83 — AXI-2551.5 Templates is a tab shown only to a template:write holder; links into the existing Template Library @SI-010 @SI-066 (16.8s)
+  ✓  11 [chromium] › tests/AXI-2540/AXI-2551-sap-management-hub.spec.ts:154:1 › AC49/FR78 — AXI-2551.6 every hub route fails closed without sap:read @SI-010 @SI-031 (26ms)
+
+  1 skipped
+  10 passed (1.6m)

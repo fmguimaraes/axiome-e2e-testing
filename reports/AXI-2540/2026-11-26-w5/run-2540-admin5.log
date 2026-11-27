@@ -1,0 +1,11 @@
+
+Running 6 tests using 1 worker
+
+  ✓  1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (6.9s)
+  ✓  2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (6.7s)
+  ✓  3 [chromium] › tests/AXI-2540/AXI-2561-plan-suggestions-kill-switch.spec.ts:81:3 › AXI-2561 — per-workspace plan-suggestions runtime kill switch @SI-013 @SI-010 @SI-066 @SI-031 › AC25611 — AXI-2561.1 a never-configured workspace reads enabled by default (18ms)
+  ✓  4 [chromium] › tests/AXI-2540/AXI-2561-plan-suggestions-kill-switch.spec.ts:85:3 › AXI-2561 — per-workspace plan-suggestions runtime kill switch @SI-013 @SI-010 @SI-066 @SI-031 › AC25612 — AXI-2561.2 flipping the admin policy off is read back on the plan-suggestions endpoint (38ms)
+  ✓  5 [chromium] › tests/AXI-2540/AXI-2561-plan-suggestions-kill-switch.spec.ts:95:3 › AXI-2561 — per-workspace plan-suggestions runtime kill switch @SI-013 @SI-010 @SI-066 @SI-031 › AC25613 — AXI-2561.3 flipping it back on restores the default read (22ms)
+  ✓  6 [chromium] › tests/AXI-2540/AXI-2561-plan-suggestions-kill-switch.spec.ts:100:3 › AXI-2561 — per-workspace plan-suggestions runtime kill switch @SI-013 @SI-010 @SI-066 @SI-031 › AC25612 — AXI-2561.4 a sibling workspace never sees the first workspace's flag value (tenancy) (47ms)
+
+  6 passed (17.2s)
