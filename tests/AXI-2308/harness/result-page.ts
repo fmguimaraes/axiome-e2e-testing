@@ -49,6 +49,8 @@ export async function person(label: string, workspaceId: string): Promise<Person
 
 /** Add `p` to the tenant's workspace by membership role id (as the platform admin). */
 export async function addMember(admin: Api, t: Tenant, p: Person, roleId: string): Promise<void> {
+  // AXI-2735 (FR9): the invitee organization is derived from the user's own organization membership.
+  await admin.post(`/api/v1/organizations/${t.orgId}/department-users`, { userId: p.userId }, t.headers);
   const res = await admin.post(`/api/v1/workspaces/${t.workspaceId}/members`, { userId: p.userId, organizationId: t.orgId, roleId }, t.headers);
   expect(res.status, JSON.stringify(res.body)).toBeLessThan(300);
 }

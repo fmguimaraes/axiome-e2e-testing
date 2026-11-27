@@ -1,0 +1,11 @@
+
+Running 5 tests using 1 worker
+
+  ✓  1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (6.9s)
+  ✓  2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (7.0s)
+  ✓  3 [chromium] › tests/AXI-2455/AXI-2479-palette-labels-recipe-versioning.spec.ts:54:1 › AXI-2479.C1 @SI-035 TPL FR35 — the compose palette shows each operation as "Label (id)" (7.7s)
+  ✓  4 [chromium] › tests/AXI-2455/AXI-2479-palette-labels-recipe-versioning.spec.ts:71:1 › AXI-2479.C2 @SI-035 TPL FR12 FR33 — the T1 recipe-kind row carries its composition-holding version forward (9.3s)
+  -  5 [chromium] › tests/AXI-2455/AXI-2479-palette-labels-recipe-versioning.spec.ts:94:1 › AXI-2479.C3 @SI-035 TPL FR33 — a recipe-only system row keeps the version icon disabled with its reason
+
+  1 skipped
+  4 passed (41.4s)

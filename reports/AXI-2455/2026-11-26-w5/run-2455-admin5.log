@@ -1,0 +1,8 @@
+
+Running 3 tests using 1 worker
+
+  ✓  1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (6.8s)
+  ✓  2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (6.5s)
+  ✓  3 [chromium] › tests/AXI-2455/epic-role-editor-sap-rows.spec.ts:24:3 › AXI-2455 epic — role editor SAP rows (AXI-2532.7 converted) @SI-031 › epic-5 AXI-2532.7 Super Admin and Investigator show the six SAP rows ticked; no sap:write row (30.0s)
+
+  3 passed (45.3s)

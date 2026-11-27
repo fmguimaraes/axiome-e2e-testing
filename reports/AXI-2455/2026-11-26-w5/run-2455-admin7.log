@@ -1,0 +1,345 @@
+
+Running 9 tests using 1 worker
+
+  ✓  1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (9.0s)
+  ✓  2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (9.0s)
+  ✓  3 [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:103:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC1 a viewer with access to the source project reads the reused result (200, ready, the SOURCE run) (194ms)
+  ✘  4 [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:115:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC2 a viewer WITHOUT access to the source project gets the typed no-access state: no result, no source identity (78ms)
+  -  5 [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:126:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC3 the source project itself stays closed to that viewer (the 404 is unchanged)
+  -  6 [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:132:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC4 the page shows the no-access message, not "not available"
+  ✘  7 [chromium] › tests/AXI-2455/AXI-2482-reused-source-sibling-reads.spec.ts:108:3 › AXI-2482 reused-step sibling reads withhold the source @SI-017 @SI-065 @SI-010 › AXI-2482.1 AC1 a reader of B who cannot open A gets ruleRunId null + source_no_access; A's rule run id and project id appear nowhere (52ms)
+  -  8 [chromium] › tests/AXI-2455/AXI-2482-reused-source-sibling-reads.spec.ts:118:3 › AXI-2482 reused-step sibling reads withhold the source @SI-017 @SI-065 @SI-010 › AXI-2482.2 AC2 a reader of BOTH projects still reads the reused source on B's status
+  ✓  9 [chromium] › tests/AXI-2455/epic-role-editor-sap-rows.spec.ts:25:3 › AXI-2455 epic — role editor SAP rows (AXI-2532.7 converted) @SI-031 › epic-5 AXI-2532.7 Super Admin and Investigator show the six SAP rows ticked; no sap:write row (1.0m)
+
+
+  1) [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:115:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC2 a viewer WITHOUT access to the source project gets the typed no-access state: no result, no source identity 
+
+    Error: expect(received).toMatchObject(expected)
+
+    - Expected  -   4
+    + Received  + 260
+
+      Object {
+    -   "answer": Array [],
+    -   "results": Array [],
+    -   "state": "source_no_access",
+    -   "verdicts": Array [],
+    +   "answer": Array [
+    +     "igg4_g_l: F (n = 12) vs M (n = 12); Mann–Whitney U = 115, p = 0.0141.",
+    +   ],
+    +   "results": Array [
+    +     Object {
+    +       "chart": Object {
+    +         "annotation": Array [
+    +           "pValue",
+    +           "effectSize",
+    +         ],
+    +         "params": Object {
+    +           "log_y": false,
+    +           "show_box": true,
+    +           "show_median": false,
+    +           "show_points": true,
+    +           "test_name": "Mann–Whitney",
+    +         },
+    +         "roles": Object {
+    +           "facet": "measurement",
+    +           "panel": "feature",
+    +         },
+    +         "type": "group_comparison",
+    +       },
+    +       "chartWithheld": null,
+    +       "checks": Array [
+    +         Object {
+    +           "id": "method.no_multiple_testing_correction",
+    +           "outcome": "raised",
+    +           "owner": "method",
+    +           "sentence": "This method declares no multiple-testing correction.",
+    +           "severity": "warn",
+    +           "source": "method_definition",
+    +         },
+    +         Object {
+    +           "id": "data.group_n_floor",
+    +           "outcome": "passed",
+    +           "owner": "data",
+    +           "sentence": "Every group has at least 8 subjects.",
+    +           "severity": "warn",
+    +           "source": "REMARK",
+    +         },
+    +         Object {
+    +           "id": "data.below_lod_rate",
+    +           "outcome": "not_applicable",
+    +           "owner": "data",
+    +           "sentence": "No below-detection-limit rate is captured by this dataset's semantic profile.",
+    +           "severity": "info",
+    +           "source": "STARD",
+    +         },
+    +         Object {
+    +           "id": "data.batch_plate_present",
+    +           "outcome": "passed",
+    +           "owner": "data",
+    +           "sentence": "No batch or plate column is bound in this run.",
+    +           "severity": "info",
+    +           "source": "method_definition",
+    +         },
+    +         Object {
+    +           "id": "design.adjustment_choice",
+    +           "outcome": "not_applicable",
+    +           "owner": "design",
+    +           "sentence": "No signed design decision is recorded for this run.",
+    +           "severity": "info",
+    +           "source": "method_definition",
+    +         },
+    +       ],
+    +       "checksHeader": "1 of 5 checks raised something",
+    +       "evidence": Object {
+    +         "dataHash": "sha256:be8d3c5ee509798eb6fb2558a51f534c80a85c1661de229f8e3bf389fd53356c",
+    +         "datasetVersion": "2",
+    +         "familySize": "not applicable — this test declares no multiple-testing correction",
+    +         "groupNs": Array [
+    +           Object {
+    +             "group": "F",
+    +             "n": 12,
+    +           },
+    +           Object {
+    +             "group": "M",
+    +             "n": 12,
+    +           },
+    +         ],
+    +         "method": "Mann-Whitney U test",
+    +         "mode": "guided (template T1)",
+    +         "parameters": Array [
+    +           Object {
+    +             "name": "alternative",
+    +             "value": "two_sided",
+    +           },
+    +           Object {
+    +             "name": "groupFrom",
+    +             "value": "F",
+    +           },
+    +           Object {
+    +             "name": "groupTo",
+    +             "value": "M",
+    +           },
+    +         ],
+    +         "ruleVersion": "STAT-MANN-WHITNEY-U v3",
+    +         "whyChosen": Array [
+    +           "A grouping column, with exactly two of its levels selected",
+    +           "One continuous outcome",
+    +         ],
+    +       },
+    +       "label": "Mann-Whitney U test",
+    +       "nodeId": "GR-643d0209__n2",
+    +       "numbersInWords": "12 subjects in F and 12 in M. U = 115 (uStatistic, the Mann–Whitney statistic) gives p = 0.0141; a rank test like this one has no degrees of freedom. reason is empty because the statistic was computed for every row.",
+    +       "operationId": "stats.mann_whitney_u",
+    +       "preset": Object {
+    +         "annotations": Object {
+    +           "linked": true,
+    +           "mismatch": false,
+    +           "pairwise": Array [],
+    +           "testAnnotation": Object {
+    +             "operationId": "stats.mann_whitney_u",
+    +             "pValue": 0.014137969455911484,
+    +             "testName": "Mann–Whitney",
+    +           },
+    +         },
+    +         "contentHash": "5c9915ef1366edd707c60f9789e3acf1c26ef000748767e872c5a2ca6b29fd87",
+    +         "facetColumn": null,
+    +         "panels": Array [
+    +           Object {
+    +             "chartRuleRunId": "2f5fea0c-a5b6-42fd-b50b-550698b01f59",
+    +             "citedRuleRunIds": Array [
+    +               "2f5fea0c-a5b6-42fd-b50b-550698b01f59",
+    +             ],
+    +             "facet": null,
+    +             "refusal": null,
+    +           },
+    +         ],
+    +         "presetId": "03944025-6696-4bfe-b6d7-9e3752a05548",
+    +         "presetKey": "primary",
+    +         "variants": Object {
+    +           "facts": Object {
+    +             "minGroupN": 12,
+    +             "outcomeAllPositive": true,
+    +             "outcomeOrdersOfMagnitude": 0.6904422089565541,
+    +             "postHocPresent": false,
+    +           },
+    +           "mismatch": null,
+    +           "offered": Array [
+    +             Object {
+    +               "label": "Strip, median + IQR, all points, log y",
+    +               "layout": "strip",
+    +               "pairwiseBrackets": false,
+    +               "rank": 1,
+    +               "testBadge": true,
+    +               "variantKey": "strip_log",
+    +               "yScale": "log",
+    +             },
+    +             Object {
+    +               "label": "Strip, median + IQR, all points, linear y",
+    +               "layout": "strip",
+    +               "pairwiseBrackets": false,
+    +               "rank": 2,
+    +               "testBadge": true,
+    +               "variantKey": "strip_linear",
+    +               "yScale": "linear",
+    +             },
+    +             Object {
+    +               "label": "Box + all points, log y",
+    +               "layout": "box",
+    +               "pairwiseBrackets": false,
+    +               "rank": 3,
+    +               "testBadge": true,
+    +               "variantKey": "box_log",
+    +               "yScale": "log",
+    +             },
+    +             Object {
+    +               "label": "Box + all points, linear y",
+    +               "layout": "box",
+    +               "pairwiseBrackets": false,
+    +               "rank": 4,
+    +               "testBadge": true,
+    +               "variantKey": "box_linear",
+    +               "yScale": "linear",
+    +             },
+    +           ],
+    +           "provenance": Object {
+    +             "kind": "deterministic",
+    +             "rank": 4,
+    +           },
+    +           "selectedKey": "box_linear",
+    +         },
+    +       },
+    +       "rows": Array [
+    +         Object {
+    +           "auc": 0.7986111111111112,
+    +           "aucCiHigh": 0.9722222222222222,
+    +           "aucCiLevel": 0.95,
+    +           "aucCiLow": 0.5803535353535354,
+    +           "aucCiMethod": "bootstrap",
+    +           "effectSize": 0.5972222222222222,
+    +           "feature": "__all__",
+    +           "measurement": "igg4_g_l",
+    +           "nGroupFrom": 12,
+    +           "nGroupTo": 12,
+    +           "pValue": 0.014137969455911484,
+    +           "reason": null,
+    +           "uStatistic": 115,
+    +         },
+    +       ],
+    +       "ruleRunId": "2f5fea0c-a5b6-42fd-b50b-550698b01f59",
+    +       "run": Object {
+    +         "operandRoles": Object {
+    +           "groupColumn": "sexe",
+    +           "valueColumns": Array [
+    +             "igg4_g_l",
+    +           ],
+    +         },
+    +         "operationParams": Object {
+    +           "alternative": "two_sided",
+    +           "groupFrom": "F",
+    +           "groupTo": "M",
+    +         },
+    +         "snapshotId": "e287841c-e198-42e2-8f0e-830247efd7ec",
+    +         "workspaceId": "46792be7-409a-4872-8b16-44000699ad25",
+    +       },
+    +       "style": Object {
+    +         "accentColor": "#C0392B",
+    +         "controlLabelPatterns": Array [
+    +           "control",
+    +           "healthy",
+    +           "hc",
+    +           "ctrl",
+    +           "placebo",
+    +         ],
+    +         "mutedColor": "#B0B0B0",
+    +       },
+    +       "summary": Object {
+    +         "arm_exclusions": Array [],
+    +         "computed_rows": 1,
+    +         "features": 1,
+    +         "group_from": "F",
+    +         "group_ns": Array [
+    +           Object {
+    +             "groupKey": "F",
+    +             "n": 12,
+    +           },
+    +           Object {
+    +             "groupKey": "M",
+    +             "n": 12,
+    +           },
+    +         ],
+    +         "group_to": "M",
+    +         "max_group_size": 12,
+    +         "measurements": 1,
+    +         "min_group_size": 12,
+    +         "small_sample": false,
+    +         "undefined_rows": 0,
+    +       },
+    +     },
+    +   ],
+    +   "state": "ready",
+    +   "verdicts": Array [
+    +     Object {
+    +       "reason": "This result's template declares no interpretation, so no reading is proposed.",
+    +       "state": "unbound",
+    +     },
+    +   ],
+      }
+
+      119 |     expect(res.status(), text).toBe(200);
+      120 |     const body = JSON.parse(text);
+    > 121 |     expect(body).toMatchObject({ state: 'source_no_access', results: [], answer: [], verdicts: [] });
+          |                  ^
+      122 |     expect(text).not.toContain(tA.projectId);
+      123 |     expect(text).not.toContain(sourceRuleRunId);
+      124 |   });
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:121:18
+
+    Error Context: test-results/AXI-2455-AXI-2454-reused-s-27827-o-result-no-source-identity-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2454-reused-s-27827-o-result-no-source-identity-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2454-reused-s-27827-o-result-no-source-identity-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › tests/AXI-2455/AXI-2482-reused-source-sibling-reads.spec.ts:108:3 › AXI-2482 reused-step sibling reads withhold the source @SI-017 @SI-065 @SI-010 › AXI-2482.1 AC1 a reader of B who cannot open A gets ruleRunId null + source_no_access; A's rule run id and project id appear nowhere 
+
+    Error: expect(received).toMatchObject(expected)
+
+    - Expected  - 2
+    + Received  + 2
+
+      Object {
+    -   "reusedSource": "source_no_access",
+    -   "ruleRunId": null,
+    +   "reusedSource": null,
+    +   "ruleRunId": "192cb258-c58e-414c-96e9-b221a513e3bd",
+      }
+
+      111 |
+      112 |     expect(res.status(), text).toBe(200);
+    > 113 |     expect(JSON.parse(text)).toMatchObject({ ruleRunId: null, reusedSource: 'source_no_access' });
+          |                              ^
+      114 |     expect(text).not.toContain(sourceRuleRunId);
+      115 |     expect(text).not.toContain(tA.projectId);
+      116 |   });
+        at /home/felipe/dev/axiome/_worktrees/axiome-e2e-testing-AXI-2455-validation/tests/AXI-2455/AXI-2482-reused-source-sibling-reads.spec.ts:113:30
+
+    Error Context: test-results/AXI-2455-AXI-2482-reused-s-f0014-d-project-id-appear-nowhere-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/AXI-2455-AXI-2482-reused-s-f0014-d-project-id-appear-nowhere-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/AXI-2455-AXI-2482-reused-s-f0014-d-project-id-appear-nowhere-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [chromium] › tests/AXI-2455/AXI-2454-reused-step-result-page.spec.ts:115:3 › AXI-2454 result page of a step reused across projects @SI-013 @SI-066 › AC2 a viewer WITHOUT access to the source project gets the typed no-access state: no result, no source identity 
+    [chromium] › tests/AXI-2455/AXI-2482-reused-source-sibling-reads.spec.ts:108:3 › AXI-2482 reused-step sibling reads withhold the source @SI-017 @SI-065 @SI-010 › AXI-2482.1 AC1 a reader of B who cannot open A gets ruleRunId null + source_no_access; A's rule run id and project id appear nowhere 
+  3 did not run
+  4 passed (1.8m)

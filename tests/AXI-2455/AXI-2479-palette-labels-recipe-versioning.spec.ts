@@ -33,9 +33,11 @@ const isGet = (pattern: RegExp) => (r: Response) => r.request().method() === 'GE
 /** Opens the catalog; resolves the system entries the page itself read, after checking the caller is a platform admin. */
 async function openCatalog(page: Page): Promise<CatalogEntry[]> {
   const me = page.waitForResponse(isGet(/\/auth\/me$/));
-  const list = page.waitForResponse(isGet(/\/analysis-templates\/?$/));
+  const list = page.waitForResponse(isGet(/\/api\/v1\/analysis-templates\/?$/));
   await page.goto('/analysis-templates');
-  expect((await (await me).json()).userType, 'the admin role must be a platform administrator').toBe('admin');
+  const meBody = await (await me).json();
+  // /auth/me now returns `role: 'ADMIN'` (the older `userType: 'admin'` field is gone).
+  expect(String(meBody.role ?? meBody.userType).toLowerCase(), 'the admin role must be a platform administrator').toBe('admin');
   return ((await (await list).json()).data as CatalogEntry[]).filter((e) => e.scope === 'system');
 }
 
@@ -71,7 +73,7 @@ test('AXI-2479.C2 @SI-035 TPL FR12 FR33 — the T1 recipe-kind row carries its c
   const t1 = (await openCatalog(page)).find((e) => e.templateId === 'T1');
   expect(t1, 'seeded system template T1').toBeTruthy();
   const icon = page.getByTestId(`analysis-template-version-${t1!.id}`);
-  const read = page.waitForResponse(isGet(new RegExp(`/analysis-templates/${t1!.id}$`))).then((r) => r.json());
+  const read = page.waitForResponse(isGet(new RegExp(`/api/v1/analysis-templates/${t1!.id}$`))).then((r) => r.json());
   let sent: unknown = null;
   await page.route(`**/api/v1/analysis-templates/${t1!.id}/versions`, async (route) => {
     if (route.request().method() !== 'POST') return route.continue();
