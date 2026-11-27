@@ -101,6 +101,9 @@ export class PrivateProjectsWorld {
   /** Add `actor` to the fixture workspace by legacy role name or by role id. */
   async addMember(actor: Actor, role: WorkspaceRoleName | { roleId: string }): Promise<void> {
     const membership = typeof role === 'string' ? { role } : role;
+    // AXI-2735 (FR9): addMember derives the invitee organization from the user's own organization
+    // membership, so a throwaway user must belong to the fixture organization first (idempotent).
+    await this.admin.post(apiUrl(`/api/v1/organizations/${this.orgId}/department-users`), { data: { userId: actor.userId } });
     await json(
       await this.admin.post(apiUrl(`/api/v1/workspaces/${this.workspaceId}/members`), {
         data: { userId: actor.userId, organizationId: this.orgId, ...membership },

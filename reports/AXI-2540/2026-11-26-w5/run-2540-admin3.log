@@ -1,0 +1,8 @@
+
+Running 3 tests using 1 worker
+
+  ✓  1 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate admin (9.9s)
+  ✓  2 [setup] › tests/setup/auth.setup.ts:16:3 › authenticate user (9.6s)
+  ✓  3 [chromium] › tests/AXI-2540/epic-upload-failure-retry-and-seeded-grants.spec.ts:115:1 › FR84 AC50 — epic-2 (converted from manual AXI-2550 scenario 3): seeded Editor, Approver, Admin and Investigator hold chart_style:write as a real role row (41ms)
+
+  3 passed (23.0s)

@@ -1,6 +1,7 @@
 import { APIRequestContext, expect, test } from '@playwright/test';
 import { apiUrl } from '../../config/env';
 import { adminApiContext } from '../AXI-1236/rules-fixtures';
+import { Actor, PrivateProjectsWorld } from '../AXI-2265/private-projects-fixtures';
 
 /**
  * AXI-2561 (epic AXI-2540 — advisory A1 on the AXI-2555 review, 2026-11-15):
@@ -26,21 +27,23 @@ import { adminApiContext } from '../AXI-1236/rules-fixtures';
 
 const READ_PATH = '/api/v1/guided-analysis/opening-templates/plan-suggestions-enabled';
 
-async function createWorkspace(admin: APIRequestContext, orgId: string, label: string): Promise<string> {
-  const res = await admin.post(apiUrl('/api/v1/workspaces'), {
-    data: {
-      name: `E2E AXI-2561 ${label} ${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
-      type: 'internal',
-      ownerOrganizationId: orgId,
-    },
-  });
-  expect(res.ok(), `create workspace ${label}: ${res.status()}`).toBe(true);
-  const body = await res.json();
-  return body.id;
+// sap:suggested_questions is seeded on NO role (AXI-2539 owner ruling) and a platform admin gets no
+// workspace-role shortcut, so the read is made by a member of a throwaway role holding exactly it.
+const readers = new Map<string, Actor>();
+const worlds: PrivateProjectsWorld[] = [];
+
+async function createWorkspace(_admin: APIRequestContext, _orgId: string, label: string): Promise<string> {
+  const world = await PrivateProjectsWorld.create();
+  worlds.push(world);
+  const roleId = await world.workspaceRole(`AXI-2561 ${label}`, ['sap:suggested_questions', 'guided_analysis:view']);
+  const reader = await world.actor(`reader-${label}`);
+  await world.addMember(reader, { roleId });
+  readers.set(world.workspaceId, reader);
+  return world.workspaceId;
 }
 
-async function readEnabled(admin: APIRequestContext, workspaceId: string): Promise<boolean> {
-  const res = await admin.get(apiUrl(READ_PATH), { headers: { 'X-Workspace-Id': workspaceId } });
+async function readEnabled(_admin: APIRequestContext, workspaceId: string): Promise<boolean> {
+  const res = await readers.get(workspaceId)!.api.get(apiUrl(READ_PATH), { headers: { 'X-Workspace-Id': workspaceId } });
   expect(res.ok(), `read plan-suggestions-enabled: ${res.status()} ${await res.text()}`).toBe(true);
   return res.json();
 }
@@ -70,6 +73,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  for (const w of worlds) await w.dispose();
   await admin?.dispose();
 });
 

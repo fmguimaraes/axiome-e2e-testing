@@ -129,16 +129,13 @@ test('FR82 — AXI-2551.3 the Plans tab project filter only narrows, never widen
   await expect(page.getByTestId('sap-management-empty')).toBeVisible();
 });
 
-test('FR83 — AXI-2551.4 the Runs tab lists SAP runs across readable projects with classification @SI-010 @SI-031 @SI-066', async ({ page }) => {
+test('FR83 — AXI-2551.4 (retired by AXI-2650) the Runs tab and GET /sap-management/runs no longer exist @SI-010 @SI-031 @SI-066', async ({ page }) => {
   const res = await reader.api.get(apiUrl('/api/v1/sap-management/runs?limit=50'));
-  expect(res.status(), await res.text()).toBe(200);
-  const body = await res.json();
-  const projectIds = (body.data as Array<{ projectId: string }>).map((r) => r.projectId);
-  expect(projectIds).not.toContain(projectC.id);
+  expect(res.status(), await res.text()).toBe(404);
 
   await signIn(page, reader);
-  await page.goto('/sap-management?tab=runs');
-  await expect(page.getByTestId('sap-management-runs-table').or(page.getByTestId('sap-management-empty'))).toBeVisible();
+  await page.goto('/sap-management');
+  await expect(page.getByTestId('sap-management-tab-runs')).toHaveCount(0);
 });
 
 test('AC49/FR83 — AXI-2551.5 Templates is a tab shown only to a template:write holder; links into the existing Template Library @SI-010 @SI-066', async ({ page }) => {
@@ -158,8 +155,4 @@ test('AC49/FR78 — AXI-2551.6 every hub route fails closed without sap:read @SI
   const saps = await noRead.api.get(apiUrl('/api/v1/sap-management/saps'));
   expect(saps.status()).toBe(403);
   expect(await saps.text()).toContain('sap:read');
-
-  const runs = await noRead.api.get(apiUrl('/api/v1/sap-management/runs'));
-  expect(runs.status()).toBe(403);
-  expect(await runs.text()).toContain('sap:read');
 });
