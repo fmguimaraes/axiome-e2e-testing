@@ -104,6 +104,9 @@ const AXI_2704_SPEC = /AXI-2679\/AXI-2704-result-page-workflow\.spec\.ts$/;
 // AXI_2704_SPEC. Runs against an isolated stack carrying the AXI-2712-fixed Dunn-only replay run.
 const AXI_2705_SPEC = /AXI-2679\/AXI-2705-stratified-result\.spec\.ts$/;
 
+// AXI-1051 (Workflow 5) — poster removal epic spec: API-only, signs itself in, no storageState.
+const AXI_1051_EPIC_SPEC = /AXI-1051\/epic-poster-removal\.spec\.ts$/;
+
 // AXI-2734 (epic AXI-2733, area S1) — user-creation / department-user authority: API-only,
 // its own logins (a seeded client admin, users it creates, a freshly self-registered stranger),
 // never the fixture-org `setup` storageState (the AXI-1831 shape).
@@ -179,7 +182,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC, AXI_2659_SPEC, AXI_2680_SPEC, AXI_2704_SPEC, AXI_2705_SPEC, AXI_2734_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC, AXI_2659_SPEC, AXI_2680_SPEC, AXI_2704_SPEC, AXI_2705_SPEC, AXI_1051_EPIC_SPEC, AXI_2734_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -273,6 +276,11 @@ export default defineConfig({
       name: 'axi-2705-stratified-result',
       testMatch: AXI_2705_SPEC,
       use: { ...devices['Desktop Chrome'] },
+    },
+    // AXI-1051 (Workflow 5) — poster removal epic spec (see AXI_1051_EPIC_SPEC above). API-only.
+    {
+      name: 'axi-1051-poster-removal',
+      testMatch: AXI_1051_EPIC_SPEC,
     },
     // AXI-2734 (epic AXI-2733) — API-only authority spec (see AXI_2734_SPEC above).
     {
