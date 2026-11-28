@@ -98,7 +98,9 @@ export function verifyInputs(repoRoot: string, preset: NewModelPreset, trace: Tr
 export async function createProject(p: Procedure): Promise<void> {
   const { provisioner, investigator, workspaceId } = p.actors;
   const name = `AXI-2663 MAG4 reproduction ${p.token}`;
-  const body = { name, workspaceId, semanticProfileId: p.preset.profile.profileId };
+  // AXI-2813 (owner ruling 9, FR45): create takes ONLY `semanticProfileIds`; the legacy
+  // `semanticProfileId` is refused on create.
+  const body = { name, workspaceId, semanticProfileIds: [p.preset.profile.profileId] };
   p.projectId = String(expectStatus(await provisioner.post('/api/v1/projects', body), '1 project', [201]).id);
   expectStatus(await investigator.get(projectPath(p)), '1 project read by the investigator', [200]);
   p.trace.record('1 project', { projectId: p.projectId, name });

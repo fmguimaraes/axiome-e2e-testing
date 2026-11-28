@@ -52,7 +52,7 @@ async function newProject(label: string): Promise<string> {
   // real, stable platform profile id (`config/profiles/immune_mediated.json`); any valid
   // profile works here since this workspace sets no `allowedProfileIds` restriction.
   const res = await editor.api.post(apiUrl('/api/v1/projects'), {
-    data: { name: `E2E AXI-2638 ${label} ${Date.now()}`, workspaceId: world.workspaceId, semanticProfileId: 'immune_mediated' },
+    data: { name: `E2E AXI-2638 ${label} ${Date.now()}`, workspaceId: world.workspaceId, semanticProfileIds: ['immune_mediated'] },
   });
   expect(res.status(), await res.text()).toBe(201);
   return (res.json() as Promise<{ id: string }>).then((b) => b.id);

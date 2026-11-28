@@ -113,7 +113,8 @@ const projectFields = (p: any) => ({ id: p.id, name: p.name, workspaceId: p.work
 
 /** The canonical fields one profile serves, read off a fresh one-profile project on the story stack. */
 async function fieldsOfSingle(key: string): Promise<string[]> {
-  const a = await createProject(WS_A, `single ${key}`, { semanticProfileId: key });
+  // AXI-2813 (owner ruling 9, FR45): create takes ONLY semanticProfileIds.
+  const a = await createProject(WS_A, `single ${key}`, { semanticProfileIds: [key] });
   expect(a.status, JSON.stringify(a.body)).toBe(201);
   return (await contractOf(story, a.body.id, WS_A)).canonicalFields;
 }
@@ -220,8 +221,13 @@ test.describe('AXI-2806 compose 1..N profiles per project @SI-014 @SI-013 @SI-01
     // AC34: the other order gives the same content and identity.
     const b = await createProject(WS_A, 'pair reversed', { semanticProfileIds: PAIR });
     expect(withoutMappings(await contractOf(story, b.body.id, WS_A))).toEqual(withoutMappings(contract));
-    // AC39: semanticProfileId only → one profile, both fields in the response.
-    const one = await createProject(WS_A, 'legacy create', { semanticProfileId: 'oncology' });
+    // AXI-2813 (owner ruling 9, FR45): supersedes AC39's "semanticProfileId only" reading —
+    // a create carrying the legacy field is refused (400), and creates no project at all.
+    const name = `${PROJECT_PREFIX} legacy create ${RUN}`;
+    const legacy = await call(story, 'POST', '/api/v1/projects', WS_A, { name, workspaceId: WS_A, semanticProfileId: 'oncology' });
+    expect(legacy.status).toBe(400);
+    expect(sql(`SELECT count(*) FROM projects WHERE name = ${lit(name)}`)).toEqual(['0']);
+    const one = await createProject(WS_A, 'one profile list', { semanticProfileIds: ['oncology'] });
     expect(one.body).toMatchObject({ semanticProfileId: 'oncology', semanticProfileIds: ['oncology'] });
     expect(relationOf(one.body.id)).toEqual(['oncology']);
   });
@@ -278,6 +284,8 @@ test.describe('AXI-2806 compose 1..N profiles per project @SI-014 @SI-013 @SI-01
       expect(a.status, `${JSON.stringify(body)} → ${JSON.stringify(a.body)}`).toBe(400);
     }
     expect(relationOf(pairProject)).toEqual(before);
+    // AXI-2813 (owner ruling 9, FR45): a create carrying `semanticProfileId` at all is
+    // refused — even agreeing with `semanticProfileIds` — superseding the old "disagree" check.
     const disagree = await call(story, 'POST', '/api/v1/projects', WS_A, { name: `${PROJECT_PREFIX} disagree ${RUN}`, workspaceId: WS_A, semanticProfileId: 'oncology', semanticProfileIds: ['immunology'] });
     expect(disagree.status).toBe(400);
     const six = await call(story, 'POST', '/api/v1/projects', WS_A, { name: `${PROJECT_PREFIX} six ${RUN}`, workspaceId: WS_A, semanticProfileIds: ['a', 'b', 'c', 'd', 'e', 'f'] });

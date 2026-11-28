@@ -149,7 +149,7 @@ const text = (v: unknown) => JSON.stringify(v);
 async function createProject(profileId: string, label: string): Promise<string> {
   const res = await story.api.post(`${story.base}/api/v1/projects`, {
     headers: { 'X-Workspace-Id': WS_IO },
-    data: { name: `${PROJECT_PREFIX} ${label} ${Date.now()}`, workspaceId: WS_IO, semanticProfileId: profileId },
+    data: { name: `${PROJECT_PREFIX} ${label} ${Date.now()}`, workspaceId: WS_IO, semanticProfileIds: [profileId] },
   });
   expect(res.status(), await res.text()).toBe(201);
   const id: string = (await res.json()).id;

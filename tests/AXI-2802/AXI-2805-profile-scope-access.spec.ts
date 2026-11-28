@@ -146,7 +146,7 @@ function dropCreatedRoles(): void {
   while (createdRoles.length) sql(`DELETE FROM user_svc.roles WHERE id = ${lit(createdRoles.pop()!)}`);
 }
 
-async function createProject(label: string, profile: { semanticProfileId?: string | null }): Promise<Answer> {
+async function createProject(label: string, profile: { semanticProfileIds?: string[] | null }): Promise<Answer> {
   const a = await call(story, 'POST', '/api/v1/projects', WS_B, { name: `${PROJECT_PREFIX} ${label} ${RUN}`, workspaceId: WS_B, ...profile });
   if (a.status === 201) createdProjects.push(a.body.id);
   return a;
@@ -263,7 +263,11 @@ test.describe('AXI-2805 profile scope, organization access and permissions @SI-0
     const omitted = await createProject('omitted', {});
     expect(omitted.status, JSON.stringify(omitted.body)).toBe(201);
     expect(omitted.body.semanticProfileId).toBe('immunology');
-    const none = await createProject('explicit-null', { semanticProfileId: null });
+    // AXI-2813 (owner ruling 9, FR45): "no profile" is `semanticProfileIds: []`, not the
+    // legacy `semanticProfileId: null` — that field is refused on create at all, any value.
+    const noneLegacy = await call(story, 'POST', '/api/v1/projects', WS_B, { name: `${PROJECT_PREFIX} explicit-null-legacy ${RUN}`, workspaceId: WS_B, semanticProfileId: null });
+    expect(noneLegacy.status).toBe(400);
+    const none = await createProject('explicit-none', { semanticProfileIds: [] });
     expect(none.status).toBe(201);
     expect(none.body.semanticProfileId ?? null).toBeNull();
 
@@ -285,7 +289,7 @@ test.describe('AXI-2805 profile scope, organization access and permissions @SI-0
     expect(revoked.grantable.map((g: any) => g.profileId)).toContain('oncology');
     expect(ids(await ok<any[]>(story, 'GET', P, WS_B))).not.toContain('oncology');
     expect((await call(story, 'GET', `${P}/oncology/resolved`, WS_B)).status).toBe(404);
-    const refused = await createProject('revoked', { semanticProfileId: 'oncology' });
+    const refused = await createProject('revoked', { semanticProfileIds: ['oncology'] });
     expect(refused.status).toBe(400);
     expect(JSON.stringify(refused.body)).toContain('Invalid semantic profile: oncology');
     // Org A still sees it (the revoke was org B's alone).
@@ -322,7 +326,7 @@ test.describe('AXI-2805 profile scope, organization access and permissions @SI-0
       revoke: await call(story, 'DELETE', `${P}/access/${key}`, WS_B),
       defaults: await call(story, 'PUT', `${P}/defaults`, WS_B, { profileIds: [key] }),
       patch: await call(story, 'PATCH', `/api/v1/projects/${project}/profile`, WS_B, { profileId: key }),
-      create: await createProject('foreign', { semanticProfileId: key }),
+      create: await createProject('foreign', { semanticProfileIds: [key] }),
     });
     const strip = (a: Answer) => ({ status: a.status, message: String(JSON.stringify(a.body?.message ?? a.body)).replace(new RegExp(`${FOREIGN_KEY}|${UNKNOWN_KEY}`, 'g'), '<key>') });
     const foreign = await probe(FOREIGN_KEY);

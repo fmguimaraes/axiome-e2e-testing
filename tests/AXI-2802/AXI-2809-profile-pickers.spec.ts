@@ -9,13 +9,16 @@ import { BASE_URL, apiUrl } from '../../config/env';
  * E2E CONTRACT — a real browser against a WORKTREE front-end (own Vite dev server, never the
  * shared :5173 demo front-end), signing itself in with injected tokens like
  * `AXI-2680-save-as-workflow.spec.ts`. The API is the DEMO gateway (`API_BASE_URL`, default
- * :3000), which already carries AXI-2806's composition on `main` — this story touches the
- * front end only, so no sidecar backend is needed.
+ * :3000). AXI-2809.1 runs against main's :3000, which still accepts the legacy
+ * `semanticProfileId` on create (AXI-2813 ships on the story stack, not main) — it pins the
+ * CURRENT front-end wire shape, which AXI-2813 (A4b) changed in the same epic: a 0/1 profile
+ * selection now sends `semanticProfileIds` too, never the legacy single field, on create.
  *
  * Run: `BASE_URL=http://localhost:5174 npx playwright test tests/AXI-2802/AXI-2809-profile-pickers.spec.ts --project=axi-2809-profile-pickers`
  *
- * CRITICAL INVARIANT: a 0/1 profile selection takes the exact pre-A7 request shape
- * (`semanticProfileId`, never `semanticProfileIds`) — AXI-2809.1 pins that at the network level.
+ * AXI-2813 (owner ruling 9, FR45) INVARIANT: create ALWAYS sends `semanticProfileIds`, never
+ * `semanticProfileId` — AXI-2809.1 pins that at the network level (supersedes the pre-A4b
+ * "legacy single field for 0/1" invariant this spec originally pinned).
  */
 
 const ADMIN_EMAIL = process.env.E2E_TEST_EMAIL ?? 'admin@cro-one.com';
@@ -73,7 +76,7 @@ test.afterAll(async () => {
 });
 
 test.describe('AXI-2809 Multi-select profile pickers and displays @SI-030 @SI-031 @SI-032 @SI-033', () => {
-  test('AXI-2809.1 — a single-profile project keeps the legacy request shape (invariant)', async ({ page }) => {
+  test('AXI-2809.1 — a single-profile project sends semanticProfileIds, never the legacy field (AXI-2813)', async ({ page }) => {
     await signInBrowser(page, admin, orgId);
     await page.goto(`${BASE_URL}/projects/new`);
     await expect(page.getByTestId('semantic-profile-picker-select')).toBeVisible({ timeout: 30_000 });
@@ -87,8 +90,9 @@ test.describe('AXI-2809 Multi-select profile pickers and displays @SI-030 @SI-03
       page.getByRole('button', { name: /Create Project/i }).click(),
     ]);
     const body = req.postDataJSON();
-    expect(body.semanticProfileId).toBe(COMPOSING_A);
-    expect(body.semanticProfileIds).toBeUndefined();
+    // AXI-2813 (owner ruling 9, FR45): create ALWAYS sends the list, never `semanticProfileId`.
+    expect(body.semanticProfileId).toBeUndefined();
+    expect(body.semanticProfileIds).toEqual([COMPOSING_A]);
 
     await page.waitForURL(/\/projects\/[0-9a-f-]+$/, { timeout: 30_000 });
     const id = page.url().split('/').pop()!;
@@ -144,7 +148,7 @@ test.describe('AXI-2809 Multi-select profile pickers and displays @SI-030 @SI-03
   test('AXI-2809.4 — Settings grows a single profile to a composed selection via PATCH', async ({ page }) => {
     // Seed a single-profile project through the API (restored in afterAll).
     const created = await admin.api.post(apiUrl('/api/v1/projects'), {
-      data: { name: `E2E AXI-2809 settings ${Date.now()}`, workspaceId: WS, createdBy: admin.userId, semanticProfileId: COMPOSING_A },
+      data: { name: `E2E AXI-2809 settings ${Date.now()}`, workspaceId: WS, createdBy: admin.userId, semanticProfileIds: [COMPOSING_A] },
     });
     expect(created.ok(), `seed project: ${created.status()}`).toBeTruthy();
     const id = (await created.json()).id as string;

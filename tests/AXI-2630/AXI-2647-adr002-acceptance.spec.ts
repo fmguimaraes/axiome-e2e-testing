@@ -144,7 +144,7 @@ test.afterAll(async () => {
 
 async function createProject(label: string): Promise<string> {
   const res = await admin.api.post(apiUrl('/api/v1/projects'), {
-    data: { name: `E2E AXI-2647 ${label} ${Date.now()}`, workspaceId: WS, semanticProfileId: PROFILE_ID },
+    data: { name: `E2E AXI-2647 ${label} ${Date.now()}`, workspaceId: WS, semanticProfileIds: [PROFILE_ID] },
     headers: { 'X-Workspace-Id': WS },
   });
   expect(res.status(), await res.text()).toBe(201);

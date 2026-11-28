@@ -173,7 +173,7 @@ test.afterAll(async () => {
 
 test.describe('AXI-2659 plan to four images @SI-042', () => {
   test('AXI-2659.0 provisioning: a new project, the project extension pack (admin-only, outside Investigator rights)', async () => {
-    const create = await provisioner.post('/api/v1/projects', { name: `E2E AXI-2659 ${Date.now()}`, workspaceId: WS, semanticProfileId: PROFILE_ID });
+    const create = await provisioner.post('/api/v1/projects', { name: `E2E AXI-2659 ${Date.now()}`, workspaceId: WS, semanticProfileIds: [PROFILE_ID] });
     expect(create.status, JSON.stringify(create.body)).toBe(201);
     projectId = String(create.body.id);
 

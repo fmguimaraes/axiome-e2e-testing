@@ -189,7 +189,7 @@ test.describe('AXI-2803 profile identity, baseline and legacy conversion @SI-014
   test('AC7 — 4.5: a converted profile can be extended (no "has no manifest" refusal)', { tag: ['@SI-014'] }, async () => {
     const res = await story.api.post(`${story.base}/api/v1/projects`, {
       headers: { 'X-Workspace-Id': WS_IO },
-      data: { name: `E2E AXI-2803 extension ${Date.now()}`, workspaceId: WS_IO, semanticProfileId: 'immunology' },
+      data: { name: `E2E AXI-2803 extension ${Date.now()}`, workspaceId: WS_IO, semanticProfileIds: ['immunology'] },
     });
     expect(res.status(), await res.text()).toBe(201);
     const projectId: string = (await res.json()).id;
@@ -210,7 +210,7 @@ test.describe('AXI-2803 profile identity, baseline and legacy conversion @SI-014
   test('AC13, AC5 — 4.6: link-time and normalise rows carry one identity format and match as before', { tag: ['@SI-014', '@SI-013'] }, async () => {
     const res = await story.api.post(`${story.base}/api/v1/projects`, {
       headers: { 'X-Workspace-Id': WS_IO },
-      data: { name: `E2E AXI-2803 link ${Date.now()}`, workspaceId: WS_IO, semanticProfileId: 'immuno_oncology' },
+      data: { name: `E2E AXI-2803 link ${Date.now()}`, workspaceId: WS_IO, semanticProfileIds: ['immuno_oncology'] },
     });
     expect(res.status(), await res.text()).toBe(201);
     const projectId: string = (await res.json()).id;
