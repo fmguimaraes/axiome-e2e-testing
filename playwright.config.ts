@@ -124,6 +124,11 @@ const AXI_2805_SPEC = /AXI-2802\/AXI-2805-profile-scope-access\.spec\.ts$/;
 // AXI-2806 (epic AXI-2802) — API-only A/B: the branch sidecar on a THROWAWAY organization + user
 // database (the migration under test is its cutover) against `main`; SQL on the throwaway DB only.
 const AXI_2806_SPEC = /AXI-2802\/AXI-2806-compose-profiles\.spec\.ts$/;
+// AXI-2809 (epic AXI-2802, A7) — real browser against a WORKTREE front-end (own Vite,
+// 5174+, never the shared :5173 demo), signs itself in as admin@cro-one.com; the demo
+// gateway (:3000, already carries AXI-2806 on main) is the API. Run with
+// `BASE_URL=http://localhost:5174 npx playwright test --project=axi-2809-profile-pickers`.
+const AXI_2809_SPEC = /AXI-2802\/AXI-2809-profile-pickers\.spec\.ts$/;
 
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
@@ -195,7 +200,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC, AXI_2659_SPEC, AXI_2680_SPEC, AXI_2704_SPEC, AXI_2705_SPEC, AXI_1051_EPIC_SPEC, AXI_2734_SPEC, AXI_2803_SPEC, AXI_2804_SPEC, AXI_2805_SPEC, AXI_2806_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC, AXI_2659_SPEC, AXI_2680_SPEC, AXI_2704_SPEC, AXI_2705_SPEC, AXI_1051_EPIC_SPEC, AXI_2734_SPEC, AXI_2803_SPEC, AXI_2804_SPEC, AXI_2805_SPEC, AXI_2806_SPEC, AXI_2809_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -319,6 +324,12 @@ export default defineConfig({
     {
       name: 'axi-2806-compose-profiles',
       testMatch: AXI_2806_SPEC,
+    },
+    // AXI-2809 (epic AXI-2802, A7) — multi-select profile pickers, real browser (see AXI_2809_SPEC above).
+    {
+      name: 'axi-2809-profile-pickers',
+      testMatch: AXI_2809_SPEC,
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
 });
