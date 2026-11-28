@@ -132,7 +132,7 @@ test.describe('AXI-2808.1 Add from standard fields through the extracted core @S
     const writes = stub.writes.filter((w) => w.method === 'PUT' && w.path.endsWith('/draft'));
     const saved = writes.at(-1)!.body.dataSpecification.fields;
     expect(saved.map((f: any) => f.name)).toContain('age_years');
-    await expect(page.getByTestId(/sap-variable-.*/).filter({ hasText: 'Age (years)' })).toBeVisible();
+    await expect(page.getByTestId(/^sap-variable-field-\d+$/).filter({ hasText: 'Age (years)' })).toBeVisible();
   });
 });
 
