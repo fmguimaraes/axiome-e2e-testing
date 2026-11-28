@@ -135,6 +135,11 @@ const AXI_2807_SPEC = /AXI-2802\/AXI-2807-profile-versions\.spec\.ts$/;
 // AXI-2813 (epic AXI-2802, A4b) — API-only A/B: the branch sidecar on a THROWAWAY organization +
 // user database against `main`; create refuses the legacy `semanticProfileId` field outright.
 const AXI_2813_SPEC = /AXI-2802\/AXI-2813-create-profile-list-only\.spec\.ts$/;
+// AXI-2810 (epic AXI-2802, A8) — the semantic profile CRUD page in a real browser: a WORKTREE
+// front-end (own Vite, 5174+) on the branch's backend sidecar (own RabbitMQ vhost) over a THROWAWAY
+// organization + user database; SQL on that database only. Run with
+// `BASE_URL=http://localhost:5176 API_BASE_URL=http://localhost:3016 npx playwright test --project=axi-2810-profile-crud-page`.
+const AXI_2810_SPEC = /AXI-2802\/AXI-2810-profile-crud-page\.spec\.ts$/;
 
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
@@ -206,7 +211,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC, AXI_2659_SPEC, AXI_2680_SPEC, AXI_2704_SPEC, AXI_2705_SPEC, AXI_1051_EPIC_SPEC, AXI_2734_SPEC, AXI_2803_SPEC, AXI_2804_SPEC, AXI_2805_SPEC, AXI_2806_SPEC, AXI_2809_SPEC, AXI_2807_SPEC, AXI_2813_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC, AXI_2659_SPEC, AXI_2680_SPEC, AXI_2704_SPEC, AXI_2705_SPEC, AXI_1051_EPIC_SPEC, AXI_2734_SPEC, AXI_2803_SPEC, AXI_2804_SPEC, AXI_2805_SPEC, AXI_2806_SPEC, AXI_2809_SPEC, AXI_2807_SPEC, AXI_2813_SPEC, AXI_2810_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -346,6 +351,12 @@ export default defineConfig({
     {
       name: 'axi-2807-profile-versions',
       testMatch: AXI_2807_SPEC,
+    },
+    // AXI-2810 (epic AXI-2802, A8) — semantic profile CRUD page, real browser (see AXI_2810_SPEC above).
+    {
+      name: 'axi-2810-profile-crud-page',
+      testMatch: AXI_2810_SPEC,
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
 });
