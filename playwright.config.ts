@@ -129,6 +129,9 @@ const AXI_2806_SPEC = /AXI-2802\/AXI-2806-compose-profiles\.spec\.ts$/;
 // gateway (:3000, already carries AXI-2806 on main) is the API. Run with
 // `BASE_URL=http://localhost:5174 npx playwright test --project=axi-2809-profile-pickers`.
 const AXI_2809_SPEC = /AXI-2802\/AXI-2809-profile-pickers\.spec\.ts$/;
+// AXI-2807 (epic AXI-2802) — API-only A/B: the branch sidecar on a THROWAWAY organization + user
+// database, with its own canonical-file directory (E2E_2807_SEED_DIR); SQL on the throwaway DB only.
+const AXI_2807_SPEC = /AXI-2802\/AXI-2807-profile-versions\.spec\.ts$/;
 
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
@@ -200,7 +203,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC, AXI_2659_SPEC, AXI_2680_SPEC, AXI_2704_SPEC, AXI_2705_SPEC, AXI_1051_EPIC_SPEC, AXI_2734_SPEC, AXI_2803_SPEC, AXI_2804_SPEC, AXI_2805_SPEC, AXI_2806_SPEC, AXI_2809_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC, AXI_2659_SPEC, AXI_2680_SPEC, AXI_2704_SPEC, AXI_2705_SPEC, AXI_1051_EPIC_SPEC, AXI_2734_SPEC, AXI_2803_SPEC, AXI_2804_SPEC, AXI_2805_SPEC, AXI_2806_SPEC, AXI_2809_SPEC, AXI_2807_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -330,6 +333,11 @@ export default defineConfig({
       name: 'axi-2809-profile-pickers',
       testMatch: AXI_2809_SPEC,
       use: { ...devices['Desktop Chrome'] },
+    },
+    // AXI-2807 (epic AXI-2802) — profile versions and re-match A/B (see AXI_2807_SPEC above).
+    {
+      name: 'axi-2807-profile-versions',
+      testMatch: AXI_2807_SPEC,
     },
   ],
 });
