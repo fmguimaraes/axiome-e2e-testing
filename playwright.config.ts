@@ -118,6 +118,9 @@ const AXI_2803_SPEC = /AXI-2802\/AXI-2803-profile-identity\.spec\.ts$/;
 // AXI-2804 (epic AXI-2802) — API-only A/B: the branch sidecar (profiles from a THROWAWAY database)
 // against `main` (profiles from the files); seed CLI + read-only SQL on the throwaway DB only.
 const AXI_2804_SPEC = /AXI-2802\/AXI-2804-profile-db-store\.spec\.ts$/;
+// AXI-2805 (epic AXI-2802) — API-only A/B: the branch sidecar on a THROWAWAY organization + user
+// database against `main`; SQL writes on the throwaway DB only (own admin login, no `setup` state).
+const AXI_2805_SPEC = /AXI-2802\/AXI-2805-profile-scope-access\.spec\.ts$/;
 
 /**
  * Root Playwright configuration (AXI-1261 scaffold).
@@ -189,7 +192,7 @@ export default defineConfig({
         storageState: storageStateFor('admin'),
       },
       dependencies: ['setup'],
-      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC, AXI_2659_SPEC, AXI_2680_SPEC, AXI_2704_SPEC, AXI_2705_SPEC, AXI_1051_EPIC_SPEC, AXI_2734_SPEC, AXI_2803_SPEC, AXI_2804_SPEC],
+      testIgnore: [/.*\.setup\.ts/, SHADOW_RUN_SPEC, EVIDENCE_API_SPEC, AUTH_SUITE_SPEC, PROD_SUITE_SPEC, AXI_2410_SPEC, AXI_2422_REGISTRY_SPEC, AXI_2549_SPEC, HANDOVER_SPEC, AXI_2647_SPEC, AXI_2659_SPEC, AXI_2680_SPEC, AXI_2704_SPEC, AXI_2705_SPEC, AXI_1051_EPIC_SPEC, AXI_2734_SPEC, AXI_2803_SPEC, AXI_2804_SPEC, AXI_2805_SPEC],
     },
     // AXI-1831 — the shadow-run spec is API-only (admin token via
     // `apiRequest.newContext()`, never a `page`/browser `context`): it has no
@@ -303,6 +306,11 @@ export default defineConfig({
     {
       name: 'axi-2804-profile-db-store',
       testMatch: AXI_2804_SPEC,
+    },
+    // AXI-2805 (epic AXI-2802) — profile scope, organization access and permissions A/B (see AXI_2805_SPEC above).
+    {
+      name: 'axi-2805-profile-scope-access',
+      testMatch: AXI_2805_SPEC,
     },
   ],
 });
