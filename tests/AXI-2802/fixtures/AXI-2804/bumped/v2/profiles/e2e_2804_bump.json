@@ -1,0 +1,6 @@
+{
+  "profile_id": "e2e_2804_bump",
+  "version": "1.1.0",
+  "display_name": "E2E 2804 bump 1.1",
+  "packs": ["oncology", "e2e_2804_bump"]
+}

@@ -1,0 +1,6 @@
+{
+  "profile_id": "e2e_2804_claim",
+  "version": "1.0.0",
+  "display_name": "E2E 2804 first claimant",
+  "packs": ["e2e_2804_claim"]
+}

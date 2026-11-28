@@ -1,0 +1,8 @@
+{
+  "registry_id": "aliases.e2e_2804_claim.default.v1",
+  "entries": {
+    "zeta_field": ["shared_token", "zeta"],
+    "alpha_field": ["shared_token", "alpha"],
+    "mid_field": ["mid"]
+  }
+}

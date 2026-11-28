@@ -1,0 +1,4 @@
+{
+  "registry_id": "canonical_fields.e2e_2804_claim.v1",
+  "fields": ["zeta_field", "alpha_field", "mid_field"]
+}
